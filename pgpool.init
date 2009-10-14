@@ -1,0 +1,185 @@
+#!/bin/sh
+# /etc/init.d/pgpool
+# chkconfig:    2345 90 14
+# description:  Starts and stops the pgpool daemon.
+# processname: pgpool
+# Do not load RH compatibility interface.
+WITHOUT_RC_COMPAT=1
+# Source function library.
+. /etc/init.d/functions
+
+PGUSER=postgres
+BINARY="/usr/bin/pgpool"
+#OPTIONS="-f /etc/pgpool.conf"
+STOP_OPTIONS="-m fast stop"
+#PIDFILE=/var/run/pgpool/pgpool.pid
+#LOCKFILE=/var/lock/subsys/pgpool
+RETVAL=0
+
+CFGS=$(/bin/ls -1 /etc/pgpool.d/*)
+CFGS="${CFGS//\/etc\/pgpool.d\//}"
+
+#echo $CFGS
+
+buildenv()
+{
+			CONFIG="/etc/pgpool.d/$1"
+			PIDFILE="${CONFIG%.conf}.pid"
+			PIDFILE="/var/run/pgpool/${PIDFILE#/etc/pgpool.d/}"
+			LOCKFILE="${CONFIG/.conf/}"
+			LOCKFILE="/var/lock/subsys/${LOCKFILE#/etc/pgpool.d/}"
+}
+
+
+noargs_start()
+{
+	for CONFIG in $CFGS ; do
+		buildenv $CONFIG
+
+
+			if [ -f "$PIDFILE" ]; then
+        			failure "$PIDFILE exists. Probably another instance of pgpool is running ?..."
+		    else
+        		if 
+				#echo $CONFIG
+       start_daemon --user "$PGUSER"  --expect-user root --displayname pgpool -- "$BINARY" "-f $CONFIG 2>&1|logger -t pgpool -p local0.info "
+
+
+#			action "Starting pgpool:" "su -s /bin/sh -c '/usr/bin/pgpool -n -f $CONFIG  2>&1|logger -t pgpool -p local0.info &' postgres"
+			   
+        			then
+	            	echo_success
+        		else
+            	echo_failure
+        		fi
+    		fi
+
+	done
+	RETVAL=$?
+    return $RETVAL
+
+}
+
+noargs_stop()
+{
+		for CONFIG in $CFGS ; do
+				buildenv $CONFIG
+			if [ -f "$PIDFILE" ]; then
+					stop_daemon --pidfile "$PIDFILE" --expect-user "$PGUSER" --displayname pgpool -- "$BINARY" "$STOP_OPTIONS"
+			fi
+		done
+}
+
+
+noargs_reload()
+{
+        for CONFIG in $CFGS ; do
+                buildenv $CONFIG
+            if [ -f "$PIDFILE" ]; then
+                    		if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" postgres 2> /dev/null > /dev/null; then
+                    	        echo_success
+                        	        else
+                            	echo_failure
+                        	fi
+            fi
+        done
+}
+
+
+
+
+
+start()
+{
+	if [ $# -eq 0 ]; then
+							
+							noargs_start		
+		else
+			buildenv $1
+			if [ -f "$PIDFILE" ]; then
+				failure "$PIDFILE exists. Probably another instance of pgool is running ?..."
+			else
+				if 
+					start_daemon --user "$PGUSER"  --expect-user root --displayname pgpool -- "$BINARY" " -f $CONFIG 2>&1|logger -t pgpool -p local0.info"; 
+				then
+					echo_success
+				else
+					echo_failure
+				fi
+			fi
+	fi
+
+	RETVAL=$?
+	return $RETVAL					 
+}
+
+
+stop()
+{
+	if [ $# -eq 0 ]; then
+					
+					noargs_stop
+						else
+	buildenv $1
+	stop_daemon --pidfile "$PIDFILE" --expect-user "$PGUSER" --displayname pgpool -- "$BINARY" "$STOP_OPTIONS"
+	fi
+	RETVAL=$?
+	return $RETVAL
+}
+
+restart()
+{
+   stop $1
+   start $1
+}
+
+reload()
+{
+	if [ $# -eq 0 ]; then
+        
+        noargs_reload
+		
+					else
+					buildenv $1
+						if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" postgres 2> /dev/null > /dev/null; then
+							echo_success
+								else
+							echo_failure
+						fi
+	fi
+	echo
+}
+
+case "$1" in
+   start)
+	shift
+   	start "$@"
+   ;;
+   stop)
+   	shift
+   	stop "$@"
+   ;;
+   restart)
+   	shift
+   	restart "$@"
+    ;;
+   reload)
+    shift
+   	reload "$@"
+   ;;
+   condrestart)
+   if [ -e "$LOCKFILE" ]; then
+		   restart
+   fi
+   ;;
+   condreload)
+   if [ -e "$LOCKFILE" ]; then
+		   reload
+   fi
+   ;;
+   *)
+    msg_usage "${0##*/} {start|stop|restart|reload|condrestart|condreload}"
+    RETVAL=1
+esac
+
+exit $RETVAL

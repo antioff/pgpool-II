@@ -1,0 +1,3 @@
+copy: *.conf
+copy: *.init
+tar.gz: pgpool-II

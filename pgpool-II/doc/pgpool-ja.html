@@ -1,0 +1,3119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html;charset=iso-2022-jp">
+<link rel="stylesheet" href="./pgpool.css" type="text/css">
+<title>pgpool-II ユーザマニュアル</title>
+</head>
+<body>
+
+<!-- hhmts start -->
+Last modified: Sun Oct  4 18:13:38 JST 2009
+<!-- hhmts end -->
+
+<body bgcolor="#ffffff">
+<a name="top"></a>
+<table border="0" cellpadding="2" cellspacing="1">
+  <tr>
+
+    <td colspan="2" valign="top"><div class="header_text">Welcome to pgpool -II page</div></td>
+  </tr>
+  <tr>
+    <td valign="top" style="border-right:1px dotted #cccccc;">
+	<br />
+
+	<div id="navcontainer">
+      <ul id="navlist">
+        <li id="active"><a href="#Whatis" id="current">pgpool-IIとは</a></li>
+        <li><a href="#platform">pgpool-IIの稼働環境</a></li>
+        <li><a href="#install">pgpool-IIのインストール</a></li>
+        <li><a href="#config">pgpool-IIの設定</a></li>
+        <li><a href="#start">pgpool-IIの起動と停止</a></li>
+        <li><a href="#reload">pgpool-IIの設定ファイルの再読み込み</a></li>
+	<li><a href="#online-recovery">オンラインリカバリ</a></li>
+        <li><a href="#restriction">制限事項</a></li>
+        <li><a href="#reference">リファレンス</a></li>
+        <li><a href="#internal">内部情報</a></li>
+        <li><a href="#release">リリースノート</a></li>
+      </ul>
+    </div>
+	<br />
+
+		<div class="header_small" align="center">
+
+			[<a href="pgpool-en.html">English page</a>]		</div>	</td>
+    <td valign="top" style="border-left:1px dotted #cccccc;">
+	
+
+
+<h1>pgpool-IIとは<a name="whatis"></a></h1>
+<p>
+pgpool-IIはPostgreSQL専用のミドルウェアで、PostgreSQLのデータベースクライアントとPostgreSQLサーバの間に割り込む形で動作し、PostgrSQLに以下のような機能を追加します。
+</p>
+
+<p>
+<ul>
+
+<li>コネクションプーリング
+<p>
+PostgreSQLへの接続を保存しておき、再利用することによってPostgreSQLへの接続オーバヘッドを低減でき、システム全体のスループットを向上させることができます。
+</p>
+
+<li>レプリケーション
+<p>
+pgpool-IIは複数のPostgreSQLサーバを管理することができます。レプリケーションを使用することにより、物理的に2台以上のディスクにリアルタイムでハードディスクのバックアップを取ることができ、万が一どれかのディスクに障害が発生しても運用を継続することができます。
+</p>
+
+<li>負荷分散
+<p>
+レプリケーションを運用している場合、すべてのPostgreSQLデータベースの内容が一致しているので、どのサーバに問い合わせても同じ結果が返ってきます。このことを利用して、多数のリクエストをそれぞれのサーバで分担して負荷を軽減させ、システム全体の性能を向上させることができます。最良の場合にはサーバ台数に比例した性能向上が見込めます。特に多数のユーザが大量の問い合わせを投げるような環境で威力を発揮します。
+</p>
+
+<li>接続数の制限
+<p>
+PostgreSQLに接続可能なセッション数には限界があり、それを超えて接続することはできません。かと言って、同時セッション数をむやみに多く設定すると、メモリーなどのリソースが多く消費されてパフォーマンスに影響があります。pgpool-IIでもクライアントからの接続数には上限がありますが、それを超えてもただちにエラーになることはなく、一定の間待たされるようになっています。したがって、pgpool-IIはPostgreSQLへの接続要求を実質的にキューイングし、PostgreSQLへの過大な接続数を制限することが可能です。
+</p>
+
+<li>パラレルクエリ
+<p>
+複数のサーバにデータを分割して受け持たせ、それぞれのサーバに同時に検索問い合わせを投げて、問い合わせの処理時間を短縮するパラレルクエリが利用できます。特に大規模なデータを検索するときに威力を発揮します。
+</p>
+
+</ul>
+</p>
+
+<p>
+pgpool-IIはPostgreSQLバックエンドとフロントエンドの通信プロトコルを理解してその間を中継します。すなわち、PostgreSQLのデータベースアプリケーションからはPostgreSQLサーバに、PostgreSQLからはデータベースアプリケーションに見えるように設計されています。そのため、PostgreSQLそのものはもちろん、アプリケーションの開発言語によらず、PostgreSQLのデータベースアプリケーションにほとんど手を加えることなく、pgpool-IIの機能が利用できます。
+</p>
+
+<h1>pgpool-IIの稼働環境<a name="platform"></a></h1>
+<p>
+pgpool-IIは、Linuxをはじめ、SolarisやFreeBSDなどのほとんどのUNIX環境で動作します。Windowsでは動きません。対応するPostgreSQLのバージョンは、PostgreSQLの6.4以降です。ただしパラレルクエリモードを使用するときはPostgreSQL 7.4以降をお使いください。
+</p>
+
+<h1>pgpool-IIのインストール<a name="install"></a></h1>
+
+<p>
+pgpool-II のソースコードは<a
+href="http://pgfoundry.org/projects/pgpool/">pgpool開発ページ</a>
+からダウンロードできます。
+</p>
+
+<p>
+pgpool-IIのインストールには、gcc 2.9以上、およびGNU makeが必要です。
+また、pgpool-IIはlibpq(PostgreSQL付属のクライアントライブラリ)を使用するので、ビルドを行うマシン上にlibpqがインストールされていることが必要です。
+</p>
+
+<dl>
+<dt>configureの実行
+<dd>
+<p>
+ソースコードのtar ballを展開したら、configureを実行します。
+<pre>
+./configure
+</pre>
+
+configureに指定できるオプションは以下です。
+
+<ul>
+<li>--prefix=path
+pgpool-II本体や関連ファイルをインストールするトップディレクトリを指定します。
+デフォルトは/usr/localです。
+<li>--with-pgsql=path
+PostgreSQLのクライアントライブラリなどがインストールされているトップディ
+レクトリを指定します。デフォルトはpg_config コマンドで取得できるパスです。
+</ul>
+</p>
+
+<dt>makeの実行
+<dd>
+<p>
+
+<pre>
+make
+make install
+</pre>
+でインストールが完了します(GNU makeが必要なので、FreeBSDなどでは
+makeをgmakeに読み替えてください)。
+</dl>
+
+<h1>pgpool-IIの設定<a name="config"></a></h1>
+<p>
+pgpool-IIの設定ファイルはデフォルトでは/usr/local/etc/pgpool.confおよび
+/usr/local/etc/pcp.confです。pgpool-IIは動作モードによって使用できる機能と、
+必要な設定項目が異なります。
+</p>
+<table border>
+
+<tr>
+<th>使用できる機能/モード</th>
+<th>rawモード</th>
+<th>コネクションプールモード</th>
+<th>レプリケーションモード</th>
+<th>マスタスレーブモード</th>
+<th>パラレルクエリモード</th>
+</tr>
+
+<tr>
+<td>コネクションプーリング</td>
+<td align="center">×</td>
+<td align="center">○</td>
+<td align="center">○</td>
+<td align="center">○</td>
+<td align="center">○</td>
+</tr>
+
+<tr>
+<td>レプリケーション</td>
+<td align="center">×</td>
+<td align="center">×</td>
+<td align="center">○</td>
+<td align="center">×</td>
+<td align="center">△(*)</td>
+</tr>
+
+<tr>
+<td>負荷分散</td>
+<td align="center">×</td>
+<td align="center">×</td>
+<td align="center">○</td>
+<td align="center">○</td>
+<td align="center">△(*)</td>
+</tr>
+
+<tr>
+<td>縮退運転</td>
+<td align="center">×</td>
+<td align="center">×</td>
+<td align="center">○</td>
+<td align="center">○</td>
+<td align="center">×</td>
+</tr>
+
+<tr>
+<td>フェイルオーバ</td>
+<td align="center">○</td>
+<td align="center">○</td>
+<td align="center">×</td>
+<td align="center">×</td>
+<td align="center">×</td>
+</tr>
+
+<tr>
+<td>パラレルクエリ</td>
+<td align="center">×</td>
+<td align="center">×</td>
+<td align="center">×</td>
+<td align="center">×</td>
+<td align="center">○</td>
+</tr>
+
+<tr>
+<td>サーバ台数</td>
+<td align="center">1以上</td>
+<td align="center">1以上</td>
+<td align="center">2以上</td>
+<td align="center">2以上</td>
+<td align="center">2以上</td>
+</tr>
+
+<tr>
+<td>システムDB</td>
+<td align="center">不要</td>
+<td align="center">不要</td>
+<td align="center">不要</td>
+<td align="center">不要</td>
+<td align="center">必要</td>
+</tr>
+
+</table>
+
+(*)パラレルクエリモードではデータを分割して保存しているテーブルに対しては、レプリケーションならびに負荷分散の機能は使えません。
+
+<h2>pcp.confの設定</h2>
+<p>
+どの動作モードでも、pcp.confの設定は必要です。pgpool-IIには管理者がpgpool-IIの
+停止や情報取得などの管理操作を行うためのインターフェイスが用意されていま
+す。そのインターフェイスを利用するためにはユーザ認証が必要になるので、そ
+のユーザ名とパスワードをpcp.confに登録します。
+pgpool-IIをインストールすると、$prefix/etc/pcp.conf.sampleができるので、それを
+$prefix/etc/pcp.confという名前でコピーします。
+</p>
+<pre>
+cp $prefix/etc/pcp.conf.sample $prefix/etc/pcp.conf
+</pre>
+<p>
+pcp.confでは空白行や#で始まる行はコメントと見なされます。
+ユーザとパスワードは、
+</p>
+<pre>
+ユーザ名:[md5暗号化したパスワード]
+</pre>
+<p>
+のように指定します。
+[md5暗号化したパスワード]は、$prefix/bin/pg_md5コマンドで作成できます。
+</p>
+<pre>
+./pg_md5 foo
+acbd18db4cc2f85cedef654fccc4a4d8
+</pre>
+パスワードを引数に渡したくない場合は pg_md5 -p を実行してください。
+<pre>
+./pg_md5 -p
+password: &lt;パスワードを入力&gt;
+</pre>
+<p>
+pcp.confは、pgpool-IIを動作させるユーザIDで読み取り可能になっていなければ
+なりません。
+</p>
+
+<h2>pgpool.confの設定</h2>
+<p>
+前述のように、動作モードによって、pgpool.confの設定項目が異なります。
+pgpool-IIをインストールすると、$prefix/etc/pgpool.conf.sampleができるので、それを
+$prefix/etc/pgpool.confという名前でコピーします。
+</p>
+<pre>
+cp $prefix/etc/pgpool.conf.sample $prefix/etc/pgpool.conf
+</pre>
+<p>
+pgpool.confでは空白行や#で始まる行はコメントと見なされます。
+</p>
+
+<h3>rawモード</h3>
+<p>
+単にpgpool-IIを経由して接続するだけのモードです。単にPostgreSQLサーバへの接
+続セッション数を制限したり、2台以上のPostgreSQLサーバを用意してフェイル
+オーバ動作をさせたいときに利用します。
+</p>
+
+<dl>
+<dt>listen_addresses
+<dd>
+<p>
+pgpool-IIがTCP/IPコネクションを受け付けるアドレスをホスト名またはIPアドレスで
+指定します。「*」を指定するとすべてのIPインタフェースからのコネクショ
+ンを受け付けます。「''」を指定するとTCP/IPコネクションを受け付けま
+せん。デフォルト値は「localhost」です。
+UNIXドメインソケット経由のコネクションは常に受け付けます。このパラメー
+タを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>port
+<dd>
+<p>
+pgpool-IIがコネクションを受け付けるポート番号です。デフォルト値は9999
+です。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>socket_dir
+<dd>
+<p>
+pgpool-IIがコネクションを受け付けるUNIXドメインソケットを置くディレクトリです。
+デフォルト値は'/tmp'です。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>pcp_port
+<dd>
+<p>
+pcpが使用するポート番号です。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>pcp_socket_dir
+<dd>
+<p>
+pcpがコネクションを受け付けるUNIXドメインソケットを置くディレクトリです。
+デフォルト値は'/tmp'です。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>backend_socket_dir
+<dd>
+<p>
+UNIXドメインソケット経由でpgpool-IIがPostgreSQLと接続する際に使用する
+PostgreSQLのUNIXドメインソケットが置かれているディレクトリ。デフォルト値
+は/tmpです。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>pcp_timeout
+<dd>
+<p>
+pcpがpgppoolと接続する際のタイムアウト値。0にするとタイムアウトしません。
+デフォルト値は10(秒)です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>num_init_children
+<dd>
+<p>
+preforkするpgpool-IIのサーバプロセスの数です。デフォルト値は32になって
+います。
+   なお、問い合わせのキャンセルを行うと通常のコネクションとは別に新た
+   なコネクションが張られます。したがって、すべてのコネクションが使用
+   中の場合は問い合わせのキャンセルができなくってしまうので、ご注意下
+   さい。問い合わせのキャンセルを必ず保証したい場合は、想定されるコネ
+   クション数の倍の値を設定することをおすすめします。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>child_life_time
+<dd>
+<p>
+   pgpool-IIの子プロセスの寿命です。アイドル状態になってから
+   child_life_time秒経過すると、一旦終了して新しいプロセスを起動します。
+   メモリーリークその他の障害に備えた予防措置です。child_life_timeのデ
+   フォルト値は300秒、すなわち5分です。0を指定するとこの機能は働きませ
+   ん（すなわち起動しっ放し）。なお、まだ一度もコネクションを
+   受け付けていないプロセスにはchild_life_timeは適用されません。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>child_max_connections
+<dd>
+<p>
+   各pgpool-II子プロセスへの接続回数がこの設定値を超えると、その子プロ
+   セスを終了します。child_life_timeやconnection_life_timeが効かないく
+   らい忙しいサーバで、PostgreSQLバックエンドが肥大化するのを防ぐのに
+   有効です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>client_idle_limit
+<dd>
+<p>
+  前回クライアントから来たクエリから、client_idle_limit 秒越えても次の
+  クエリが届かない場合は、クライアントへの接続を強制的に切断し、クライ
+  アントからの次のコネクションを待つようにします。デフォルト値は 0(無
+  効)です。このパラメータは、オンラインリカバリのセカンドステージでは
+  無視されます。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>authentication_timeout
+<dd>
+<p>
+   認証処理のタイムアウト時間を秒単位で指定します。0 を指定するとタイ
+   ムアウトを無効にします。authentication_timeout のデフォルト値は 60
+   です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>logdir
+<dd>
+<p>
+   pgpool-IIの各種ログファイルを格納するディレクトリですが、pgpool-II 2.2以降では使用されていません。
+   将来独自のログシステムを実装した際に使用されるかもしれないので、このエントリは残してあります。
+</p>
+
+<dt>pid_file_name
+<dd>
+<p>
+   pgpool-IIのpid file(プロセスIDを格納したファイル)のフルパス名です。
+   デフォルト値は'/var/run/pgpool/pgpool.pid'です。
+   このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>print_timestamp
+<dd>
+<p>
+   trueならばpgpool-IIのログにタイムスタンプを追加します。デフォルトは
+   trueです。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>connection_cache
+<dd>
+<p>
+   trueならコネクションをキャッシュします。デフォルトはtrueです。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>health_check_timeout
+<dd>
+<p>
+   pgpool-IIはサーバ障害やネットワーク障害を検知するために、定期的にバッ
+   クエンドに接続を試みます。これを「ヘルスチェック」と言います。障害
+   が検知されると、フェイルオーバや縮退運転を試みます。
+
+   この パラメータは、ネットワークケーブルが抜けた際などにヘルスチェッ
+   クが長時間待たされるのを防ぐためのタイムアウト値を秒単位で指定しま
+   す。デフォルトは20秒です。0を指定するとタイムアウト処理をしません。
+
+   なお、ヘルスチェックを有効にすると、ヘルスチェックのための余分の接
+   続が1つ必要になりますので、PostgreSQLのpostgresql.confの設定項目の
+   max_connectionsを少くとも1増やすようにしてください。
+
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>health_check_period
+<dd>
+<p>
+   ヘルスチェックを行う間隔を秒単位で指定します。0を指定するとヘルス
+   チェックを行いません。デフォルトは0です(つまりヘルスチェックを行い
+   ません)。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>health_check_user
+<dd>
+<p>
+   ヘルスチェックを行うためのPostgreSQLユーザ名です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>failover_command
+<dd>
+<p>
+ノードが切り離された時に実行するコマンドを指定します。特殊文字を指定す
+ると、pgpool が必要な情報に置き換えてコマンドを実行します。
+
+<center>
+<table border>
+<tr><td>文字</td><td>意味</td></tr>
+<tr><td>%d</td><td>切り離されたノード番号</td></tr>
+<tr><td>%h</td><td>切り離されたノードのホスト名</td></tr>
+<tr><td>%p</td><td>切り離されたノードのポート番号</td></tr>
+<tr><td>%D</td><td>切り離されたノードのデータベースクラスタパス
+</td></tr>
+<tr><td>%M</td><td>古いマスターのノード番号</td></tr>
+<tr><td>%m</td><td>新しいマスターのノード番号</td></tr>
+<tr><td>%%</td><td>'%'文字</td></tr>
+</table>
+</center>
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+<p>
+フェイルオーバー時には、pgpoolはまず子プロセスを切断します(結果として、すべてのセッションが切断されます)。次に、pgpoolはフェイルオーバコマンドを実行し、その完了を待ちます。
+そのあとで新しいpgpoolの子プロセスが起動され、クライアントからの接続を受け付けられる状態になります。
+</p>
+
+<dt>failback_command
+<dd>
+<p>
+ノードが復帰した時に実行するコマンドを指定します。特殊文字を指定すると、
+pgpool が必要な情報に置き換えてコマンドを実行します。
+
+<center>
+<table border>
+<tr><td>文字</td><td>意味</td></tr>
+<tr><td>%d</td><td>復帰したノード番号</td></tr>
+<tr><td>%h</td><td>復帰したノードのホスト名</td></tr>
+<tr><td>%p</td><td>復帰したノードのポート番号</td></tr>
+<tr><td>%D</td><td>復帰したノードのデータベースクラスタパス
+</td></tr>
+<tr><td>%M</td><td>古いマスターのノード番号</td></tr>
+<tr><td>%m</td><td>新しいマスターのノード番号</td></tr>
+<tr><td>%%</td><td>'%'文字</td></tr>
+</table>
+</center>
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>ignore_leading_white_space
+<dd>
+<p>
+   trueならば、load balanceの際にSQL文行頭の空白を無視します(全角ス
+   ペースは無視されません)。これは、DBI/DBD:Pgのように、勝手に行頭にホ
+   ワイトスペースを追加するようなAPIを使い、ロードバランスしたいときに
+   有効です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>log_statement
+<dd>
+<p>
+   trueならばSQL文をログ出力します。この役目はPostgreSQLの
+   log_statementオプションと似ていて、デバッグオプションがないときでも
+   問い合わせをログ出力して調べることができるので便利です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>log_hostname
+<dd>
+<p>
+   trueならば、psコマンドでの状態表示時にIPアドレスではなく、ホスト名
+   を表示します。また、log_connectionsが有効な場合にはログにホスト名を
+   出力します。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>log_connections
+<dd>
+<p>
+   trueならば、全てのクライアント接続をログへ出力します。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>enable_pool_hba
+<dd>
+<p>
+   trueならば、pool_hba.confに従ってクライアント認証を行います。
+   詳細は<a href="#hba">クライアント認証(HBA)のためのpool_hba.conf設定
+   方法</a>を参照してください。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>backend_hostname
+<dd>
+<p>
+使用するPostgreSQLサーバのホスト名を指定します。空文字を指定するとUNIXド
+メインソケットで接続します。
+実際には、"backend_hostname"の後に0, 1, 2...と数字を付加して使用する複数
+のPostgreSQLを区別します。この数字のことを「DBノードID」と呼びます。
+DBノードID == 0のPostgreSQLは、特別に「マスターDB」と呼ばれます。
+なお、複数のDBノードを運用している場合、条件によってはマスターDBがダウンしても
+運用を続けることができます。この場合は、稼働中かつDBノードIDがもっとも
+若いものが新しいマスターDBになります。
+</p>
+<p>
+1台しかPostgreSQLを使用しない場合は、"backend_hostname0"としてください。
+</p>
+<p>
+backend_hostname は新しく追加した行を設定ファイル再読み込みで追加する
+ことができます。すでにある情報を途中で変更することはできません。変更す
+る場合には pgpool-II を再起動してください。
+</p>
+
+<dt>backend_port
+<dd>
+<p>
+使用するPostgreSQLサーバのポート番号を指定します。
+実際には、"backend_port"の後に0, 1, 2...とDBノードIDを付加して使用する複数
+のPostgreSQLを区別します。1台しかPostgreSQLを使用しない場合は、
+"backend_port0"としてください。
+</p>
+
+<p>
+backend_port は新しく追加した行を設定ファイル再読み込みで追加する
+ことができます。すでにある情報を途中で変更することはできません。変更す
+る場合には pgpool-II を再起動してください。
+</p>
+
+
+<dt>backend_weight
+<dd>
+<p>
+使用するPostgreSQLサーバに対する負荷分散の比率を指定します。
+実際には、"backend_weight"の後にDBノードIDを付加して使用する複数
+のPostgreSQLを区別します。1台しかPostgreSQLを使用しない場合は、
+"backend_weight0"としてください。
+負荷分散を使用しない場合は、「1」を設定してください。
+</p>
+
+<p>
+backend_weight は新しく追加した行を設定ファイル再読み込みで追加する
+ことができます。すでにある情報を途中で変更することはできません。変更す
+る場合には pgpool-II を再起動してください。
+</p>
+
+<dt>backend_data_directory
+<dd>
+<p>
+使用する PostgreSQL サーバのデータベースクラスタのパスを指定します。
+実際には、"backend_data_directory"の後にDBノードIDを付加して使用する複
+数のPostgreSQLを区別します。
+このパラメータはオンラインリカバリの際に使用します。オンラインリカバリ
+を使用しない場合には設定する必要はありません。
+</p>
+
+<p>
+backend_data_directory は新しく追加した行を設定ファイル再読み込みで追加する
+ことができます。すでにある情報を途中で変更することはできません。変更す
+る場合には pgpool-II を再起動してください。
+</p>
+
+</dl>
+
+<h4><p>rawモードにおけるフェイルオーバ動作について</p></h4>
+<p>
+rawモードにおいて、2台以上のPostgreSQLサーバを指定すると、フェイルオーバ
+が可能です。フェイルオーバでは、正常時にはbackend_hostname0で指定した
+PostgreSQLのみを使用し、ほかのサーバにはアクセスしません。
+backend_hostname0のサーバがダウンすると、次にbackend_hostname1で指定した
+サーバにアクセスをこころみ、成功すればそれを使用します。以下、
+backend_hostname2...でも同様になります。
+
+</p>
+
+<h3>コネクションプールモード</h3>
+<p>
+rawモードに加え、コネクションプーリングが利用できるようになります。
+設定項目は、rawモードでの設定項目の他に以下を設定します。
+</p>
+
+<dl>
+<dt>max_pool
+<dd>
+<p>
+   pgpool-IIの各サーバプロセスがキープするPostgreSQLへの最大コネクション
+   数です。pgpool-IIは、ユーザ名、データベースが同じならばコネクションを
+   再利用しますが、そうでなければ新たにPostgreSQLへのコネクションを確
+   立しようとします。したがって、ここでは想定される[ユーザ名:データベー
+   ス名]のペアの種類の数だけをmax_poolに指定しておく必要があります。も
+   しmax_poolを使いきってしまった場合は一番古いコネクションを切断し、
+   そのスロットが再利用されます。
+
+   max_poolのデフォルト値は4です。
+
+   なお、pgpool-II全体としては、num_init_children*max_pool 分だけ
+   PostgreSQLへのコネクションが張られる点に注意してください。
+
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>connection_life_time
+<dd>
+<p>
+   コネクションプール中のコネクションの有効期間を秒単位で指定します。0
+   を指定すると有効期間は無限になります。connection_life_timeのデフォ
+   ルト値は0です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>reset_query_list
+<dd>
+<p>
+   セッションが終了するときにコネクションを初期化するためのSQLコマンド
+   を「;」で区切って列挙します。デフォルトは以下のようになっていますが、
+   任意のSQL文を追加しても構いません。
+<pre>
+   reset_query_list = 'ABORT; RESET ALL; SET SESSION AUTHORIZATION DEFAULT'
+</pre>
+
+<p>
+   PostgreSQLのバージョンによって使用できるSQLコマンドが違いますが、
+   各バージョンごとのお勧め設定は以下です。
+</p>
+<p>
+<table border>
+<tr><th>PostgreSQLバージョン</th><th>reset_query_listの設定値</th></tr>
+<tr><td>7.1以前</td><td>ABORT</td></tr>
+<tr><td>7.2から8.2</td><td>ABORT; RESET ALL; SET SESSION AUTHORIZATION DEFAULT</td></tr>
+<tr><td>8.3以降</td><td>ABORT; DISCARD ALL</td></tr>
+</table>
+</p>
+<p>
+
+<ul>
+<li>「ABORT」は、PostgreSQL 7.4以上ではトランザクションブロックの中にい
+	 ない場合には発行されません。
+<li>DISCARD ALLはシステムテーブルのpg_listenerに排他ロックをかけるため、
+	 同時実行セッションが多いときは性能低下を起します。
+	 同時実行セッションが多い場合は、面倒でもDISCARDコマンドで破棄したいオブジェクトをいちいち指定することをお勧めします。
+</ul>
+
+</p>
+
+<p>
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+</dd>
+
+</dl>
+
+<h4><p>コネクションプールモードにおけるフェイルオーバ動作について</p></h4>
+<p>
+rawモードと同様の動作をします。
+</p>
+
+<h3>レプリケーションモード</h3>
+<p>
+レプリケーションを有効にするモードです。
+rawモード、コネクションプールモードに加え、以下を設定します。
+</p>
+
+<dl>
+<dt>replication_mode
+<dd>
+<p>
+   レプリケーションモードで動作させる場合はtrueを指定してください。デ
+   フォルト値はfalseです。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>load_balance_mode
+<dd>
+<p>
+   trueを指定するとレプリケーションモードの際に、SELECT文をマスタとセ
+   カンダリの間でロードバランスします。デフォルト値はfalseです。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>replication_stop_on_mismatch
+<dd>
+<p>
+   trueを指定するとマスターDBと他のDBノードの間でデータの不一致があった場合
+   に強制的に縮退運転に入ります。このオプションがfalseの場合は、該当の
+   問い合わせを強制的に終了するだけに留めます。デフォルト値はfalseです。
+</p>
+
+<a name="replicate_select">
+<dt>replicate_select
+<dd>
+<p>
+   true を設定するとロードバランスされない SELECT 文をレプリケーション
+   させます。これは pgpool-II 1.0 までの挙動と同じになります。false を
+   設定すると SELECT 文をマスタのみに送信します。デフォルト値は false
+   です。
+</p>
+<p>
+replicate_select、load_balance_mode、SELECT問合わせが明示的なトランザクションブロックの内側にあるかどうかどうかで、レプリケーションモードの動作が変化します。詳細を表に示します。
+</p>
+
+<p>
+<table border>
+
+<tr>
+<td>SELECTが明示的なトランザクションブロックの内側にある</td>
+<td>Y</td>
+<td>Y</td>
+<td>Y</td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+<td>Y</td>
+<td>N</td>
+</tr>
+
+<tr>
+<td>replicate_selectがtrue</td>
+<td>Y</td>
+<td>Y</td>
+<td>N</td>
+<td>N</td>
+<td>Y</td>
+<td>Y</td>
+<td>N</td>
+<td>N</td>
+</tr>
+
+<tr>
+<td>load_balance_modeがtrue</td>
+<td>Y</td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+<td>Y</td>
+<td>N</td>
+<td>Y</td>
+<td>Y</td>
+</tr>
+
+<tr>
+<td>結果(R:レプリケーション, M: マスタのみに送信、L: ロードバランスされる</td>
+<td>R</td>
+<td>R</td>
+<td>M</td>
+<td>M</td>
+<td>L</td>
+<td>R</td>
+<td>M</td>
+<td>L</td>
+</tr>
+</table>
+</p>
+
+<dt>insert_lock
+<dd>
+<p>
+   SERIAL型を使っているテーブルをレプリケーションすると、SERIAL型の列
+   の値がDBノードの間で一致しなくなることがあります。この問題は、
+   該当テーブルを明示的にロックすることで回避できます(もちろんトランザ
+   クションの並列実行性は犠牲になりますが)。しかし、そのためには、
+</p>
+<pre>
+   INSERT INTO ...
+</pre>
+
+<p>
+   を
+</p>
+
+<pre>
+   BEGIN;
+   LOCK TABLE ...
+   INSERT INTO ...
+   COMMIT;
+</pre>
+
+<p>
+   に書き換えなければなりません。insert_lockをtrueにすると自動的にトラ
+   ンザクションの開始、テーブルロック、トランザクションの終了を行って
+   くれるので、こうした手間を省くことができます（すでにトランザクショ
+   ンが開始されている場合はLOCK TABLE...だけが実行されます）。
+   テーブルでSERIAL型が使われていない場合には、テーブルのロックは行なわれません。
+   なお、あまり必要ないかも知れませんが、コメントを利用して、この挙動を
+   細かく制御することもできます。
+</p>
+
+<ol>
+<li>insert_lockをtrueにして、INSERT文の先頭に/*NO INSERT LOCK*/コメ
+      ントを追加する。このコメントがあると、テーブルロックは行われませ
+      ん。
+
+<li>insert_lockをfalseにして、INSERT文の先頭に/*INSERT LOCK*/コメン
+      トを追加する。このコメントがあると、このINSERT文に対してのみテー
+      ブルロックが行われます。
+</ol>
+
+<p>
+   insert_lockのデフォルト値はtrueです。
+
+   なお、insert_lockを有効にしてregression testを実行すると、少くとも
+   PostgreSQL 8.0ではtransactions, privileges, rules, alter_tableが
+   failします。ruleでは、viewに対してLOCKをしようとしてしまうこと、
+   ほかのものは
+</p>
+<pre>
+   ! ERROR:  current transaction is aborted, commands ignored until end of transaction block
+</pre>
+
+<p>
+   というようなメッセージが出てしまうためです。たとえば、transactions 
+   では、存在しないテーブルに対してINSERTを行うテストが含まれており、
+   pgpoolが最初に存在しないテーブルに対してLOCKを行う結果、エラーになっ
+   てトランザクションがアボート状態になり、続くINSERTで上記エラーが出
+   てしまいます。
+</p>
+
+<p>
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+
+<dt>recovery_user
+<dd>
+<p>
+   オンラインリカバリを行うための PostgreSQL ユーザ名です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>recovery_password
+<dd>
+<p>
+   オンラインリカバリを行うための PostgreSQL ユーザパスワードです。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>recovery_1st_stage_command
+<dd>
+<p>
+  最初にオンラインリカバリ中に起動するコマンド名を指定します。コマンド
+  ファイルはセキュリティ上の観点からデータベースクラスタ以下にあるコマ
+  ンドやスクリプトのみを呼び出します。
+
+  例えば、recovery_1st_stage_command = 'sync-command' と設定してある場
+  合、$PGDATA/sync-command を起動しようとします。
+
+  recovery_1st_stage_command を実行している間は pgpool ではクライアン
+  トからの接続を<b>制限しません</b>。参照や更新を行うことができます。
+</p>
+<p>
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>recovery_2nd_stage_command
+<dd>
+<p>
+  2 回目のオンラインリカバリ中に起動するコマンド名を指定します。コマン
+  ドファイルはセキュリティ上の観点からデータベースクラスタ以下にあるコ
+  マンドやスクリプトのみを呼び出します。
+
+  例えば、recovery_2nd_stage_command = 'sync-command' と設定してある場
+  合、$PGDATA/sync-command を起動しようとします。
+
+  recovery_2nd_stage_command を実行している間は pgpool ではクライアン
+  トから接続、参照、更新処理を一切<b>受け付けません</b>。また、バッチ
+  処理などによって接続しているクライアントが長時間存在している場合には
+  コマンドを起動しません。接続を制限し、現在の接続数が 0 になった時点
+  でコマンドを起動します。
+</p>
+<p>
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>recovery_timeout
+<dd>
+<p>
+  pgpoolは、オンラインリカバリの際にすべてのクライアントが接続を終了するまで待ちます。
+  recovery_timeoutでその最大待ち時間を指定します。単位は秒です。
+  待ち時間がrecovery_timeoutを越えると、オンラインリカバリは中止され、通常の状態に戻ります。
+</p>
+<p>
+ アイドル状態のクライアントが自分から切断するのを待ちたくない場合は、client_idle_limit_in_recoveryを利用することもできます。
+</p>
+</p>
+<p>
+recovery_timeoutは、この他、オンラインリカバリの最後にリカバリ対象のDBノードでpostmasterを起動する際の待ち時間にも利用されます。
+</p>
+<p>
+recovery_timeoutのデフォルト値は90秒です。
+recovery_timeoutを0としてもタイムアウトが無効になるわけではなく、単に即座にタイムアウトするだけですので注意してください。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+<dt>client_idle_limit_in_recovery
+<dd>
+<p>
+  client_idle_limitと似ていますが、このパラメータはリカバリのセカンドス
+  テージでのみ効力があります。前回クライアントから来たクエリから、
+  client_idle_limit_in_recovery 秒越えても次のクエリが届かない場合は、ク
+  ライアントへの接続を強制的に切断し、
+  リカバリのセカンドステージの進行が妨害されるのを防ぎます。デフォルト値は 0(無効)です。
+このパラメータを変更した時には設定ファイルを再読み込みしてください。
+</p>
+
+</dl>
+
+<h4><p>ロードバランスの条件について</p></h4>
+<p>
+load_balance_mode = true を設定した場合、以下の条件のすべてを満たした時にSELECTなどの問い合わせがロードバランスされます。
+<ul>
+<li>PostgreSQLのバージョンが7.4以降である
+<li>問い合わせが明示的なトランクザションブロックの内側にない(つまり、BEGINを発行していない)
+<li>SELECT文(ただし、SELECT nextval と SELECT setval の場合は除く)またはCOPY TO STDOUT, DECLARE..SELECT, FETCH, CLOSEのいずれかである
+<li>SELECT INTO 文ではない
+<li>SELECT FOR UPDATE/SELECT FOR SHARE文ではない
+<li>クエリ文字列が SELECT で始まる(ignore_leading_white_space = trueの場合は空白は無視します)
+</ul>
+</p>
+<p>
+
+(<a href="#replicate_select">replicate_selectの項目</a>も参考にしてください)
+また、<a href="load_balance.png">詳細な判定条件をフローチャートにしたも</a>のもご覧下さい。
+
+なお、
+<pre>
+  /*REPLICATION*/ SELECT ...
+</pre>
+</p>
+<p>
+とすることによって、本来負荷分散されたり、マスタのみに送信されるべき問合わせがすべてのバックエンドに送信される（レプリケーションされる）ようになります。副作用がある関数を含む問合わせに対してはこのテクニックが利用できます。
+</p>
+
+<p>
+<font color="red">
+注意: JDBC ドライバなどのように、ドライバ内で autocommit の有効・無効のオプションがある場合、
+autocommit を無効にすると、pgpoolが内部で BEGIN コマンドを実行する関係上、正しくロードバランスされない可能性があります。
+クエリをロードバランスさせたい場合は autocommit を有効にしてください。
+たとえばJDBCであれば setAutoCommit(true) を実行してください。
+</font>
+</p>
+
+<h4><p>レプリケーションモードにおける縮退運転について</p></h4>
+<p>
+PostgreSQLサーバのうち、1台がダウンすると、そのサーバを切り離して縮退運
+転に入ります。1台でもサーバが生き残っていれば、システムとしての運用を継
+続できます。
+</p>
+
+<h4><p>レプリケーションモード固有のエラーについて</p></h4>
+<p>
+データの整合性を保つために、pgpoolはレプリケーション時に INSERT, UPDATE,
+DELETE の更新件数がすべてのノードが同じでない場合、意図的に構文エラーを起すSQLを送信することによって、トランザクションをアボートさせます(フェイルオーバは起きません)。以下のような感じになります。
+<pre>
+   =# UPDATE t SET a = a + 1;
+   ERROR: pgpool detected difference of the number of update tuples
+   HINT: check data consistency between master and other db node
+</pre>
+
+</p>
+
+<h3>マスタースレーブモード</h3>
+<p>
+  master/slaveモードは、Slony-Iのような、master/slave式のレプリケーショ
+  ンソフトにレプリケーションをまかせるモードです。このモードで使うために
+  は、レプリケーションモードと同じように、DBノードのホスト情報
+  をセットし、master_slave_modeとload_balance_modeをtrueにします。このと
+  き、問い合わせによってマスターDBだけに問い合わせが送られる場合と、DB
+  ノードの間でロードバランスされて問い合わせが送られる場合があります。
+  ロードバランスの条件はレプリケーションモードと同じです。
+</p>
+
+<p>
+マスタースレーブモードでは、pgpool.confのreplication_modeをfalseに、master_slave_mode
+をtrueにします。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<h3>パラレルモード</h3>
+<p>
+パラレルクエリ機能が利用できるモードです。テーブルを分割させ、各ノードにデータ
+を持たせることができます。またレプリケーションや負荷分散機能も同時に使うことが
+できます。
+
+パラレルモードでは、pgpool.confのreplication_modeまたはloadbalance_modeにtrue
+を設定し、master_slave をfalseにし、parallel_mode をtrueにします。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+<p>
+<b>システムDBの設定</b>
+</p>
+<p>
+パラレルモードを利用するためには、システムDBを設定する必要があります。
+システムDBはデータを各PostgreSQLサーバで分割するためのルールを
+PostgreSQLのテーブルの形で保持します。システムDBはpgpoolが動作するホスト
+と同じホストに置く必要はありません。システムDBの設定はpgpool.confで行い
+ます。
+</p>
+
+<dl>
+<dt>system_db_hostname
+<dd>
+<p>
+システムDBが動いているホスト名です。空文字を指定すると、UNIXドメインソケッ
+トで接続します。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>system_db_port
+<dd>
+<p>
+システムDBのポート番号です。このパラメータを変更した時には pgpool-II
+を再起動してください。
+</p>
+
+<dt>system_dbname
+<dd>
+<p>
+システムDBは専用のデータベースに設置します。そのデータベース名を指定します。
+このデータベースはあらかじめ存在しなければなりません。ここでは、
+"pgpool"というデータベース名にするものとします。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>system_db_schema
+<dd>
+<p>
+システムDBは専用のスキーマに設置します。そのスキーマ名を指定します。
+このスキーマはあらかじめ存在しなければなりません。ここでは、
+"pgpool_catalog"というスキーマにするものとします。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>system_db_user
+<dd>
+<p>
+システムDBに接続するときのユーザ名です。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+<dt>system_db_password
+<dd>
+<p>
+システムDBに接続するときのパスワードです。パスワードを設定していない場合
+は空文字にしておきます。
+このパラメータを変更した時には pgpool-II を再起動してください。
+</p>
+
+</dl>
+
+<h4><p>システムDBの初期設定</p></h4>
+<p>
+システムDBにスキーマとテーブルを作成します。初期設定用のスクリプトが
+$prefix/share/system_db.sqlにあるのでそれを利用します。ただし、このスク
+リプトではスキーマ名が"pgpool_catalog"となっているので、違うスキーマを使
+う場合は適当に書き換えてください。また、データベース名として"pgpool"以外
+を使う場合は以下を適当に読み替えてください。
+<p>
+psql -f $prefix/share/system_db.sql pgpool
+</p>
+
+<h4><p>dblinkのインストール</p></h4>
+<p>
+パラレルモードではdblinkを使います。dblinkはPostgreSQLソースファイル
+($POSTGRES_SRC)
+</p>
+<pre>
+$(POSTGRES_SRC)/contrib/dblink
+</pre>
+<p>
+にあります。$POSTGRES_SRC/contrib/dblink/README.dblinkを参考にシステム
+DBにdblinkをインストールしてください。
+また、pgpoolデータベースに関数の登録が必要です。
+</p>
+<pre>
+psql pgpool < $POSTGRES_SRC/contrib/dblink/dblink.sql
+</pre>
+
+<h4><p>コネクション数の設定</p></h4>
+<p>
+パラレルモードでは、クエリによりシステムDBからdblink経由でpgpoolに接続
+するので、想定される同時接続数以上のコネクションが必要になる場合があり
+ます。そのため、pgpool.confのnum_init_childrenには同時接続数より十分大
+きい値を設定して下さい。
+</p>
+<p>
+目安として以下の式でnum_init_childrenを設定してください。
+</p>
+<pre>
+num_init_children = 想定される同時接続数 * ( 1 + クエリの中で使われているテーブルの最大数)
+</pre>
+
+<h4><p>データ分割ルールの登録</p></h4>
+<p>
+データ分割を行うテーブルに対しては、テーブル情報をあらかじめ pgpool_catalog.dist_def 
+というテーブルに登録しておきます。
+</p>
+
+<pre>
+CREATE TABLE pgpool_catalog.dist_def(
+	dbname TEXT,	-- DB名
+	schema_name TEXT,	--schema名
+	table_name TEXT,	-- テーブル名
+	col_name TEXT NOT NULL CHECK (col_name = ANY (col_list)),	-- 分散キー列名
+	col_list TEXT[] NOT NULL,	-- tableの属性名
+	type_list TEXT[] NOT NULL,	-- 属性のタイプ名
+	dist_def_func TEXT NOT NULL,	-- 分散先のDBノードを決定する関数名
+	PRIMARY KEY (dbname,schema_name,table_name)
+);
+</pre>
+<h4><p>レプリケーションテーブルのルール登録</p></h4>
+<p>
+一つのSQL文にJOIN等でデータ分割ルールに登録したテーブルと共に
+レプリケーションを行うテーブルを指定する場合には、レプリケーション
+を行うテーブルの情報をあらかじめ、pgpool_catalog.replicate_def 
+というテーブルに登録しておきます。
+</p>
+
+<pre>
+CREATE TABLE pgpool_catalog.replicate_def(
+	dbname TEXT,	-- DB名
+	schema_name TEXT,	--schema名
+	table_name TEXT,	-- テーブル名
+	col_list TEXT[] NOT NULL,	-- tableの属性名
+	type_list TEXT[] NOT NULL,	-- 属性のタイプ名
+	PRIMARY KEY (dbname,schema_name,table_name)
+);
+</pre>
+
+</p>
+
+<p>
+pgbenchのテーブルを分割するルールの例を示します。
+</p>
+<p>
+この例では、accountsテーブルに対しては分割を行い、branchesテーブル
+とtellersテーブルに対してはレプリケーションを行うことにします。
+また、accountsテーブルとbanchesテーブルはbidで結合されることを想定し
+branchesテーブルはレプリケーションテーブルのルール登録を行います。
+
+もし、accountsテーブル、branchesテーブルとtellersテーブルの３つの
+テーブルの結合が行われる場合には、あらかじめtellersテーブルに対しても
+レプリケーションテーブルのルール登録を行う必要があります。　
+</p>
+
+
+<pre>
+INSERT INTO pgpool_catalog.dist_def VALUES (
+	'pgpool',
+	'public',
+	'accounts',
+	'aid',
+	ARRAY['aid','bid','abalance','filler'],
+	ARRAY['integer','integer','integer','character(84)'],
+	'pgpool_catalog.dist_def_accounts'
+);
+
+INSERT INTO pgpool_catalog.replicate_def VALUES (
+	'pgpool',
+	'public',
+	'branches',
+	ARRAY['bid','bbalance','filler'],
+	ARRAY['integer','integer','character(84)']
+);
+</pre>
+
+<p>
+ここで、pgpool_catalog.dist_def_accountsは、引数として分割キーの値を受け取り、
+どのPostgreSQLサーバ(「DBノード」と呼びます)を0からの番号で返す関数です。こ
+こでは、3台のDBノードにデータを分割する関数の例を示します。
+</p>
+<pre>
+CREATE OR REPLACE FUNCTION pgpool_catalog.dist_def_accounts (val ANYELEMENT) RETURNS INTEGER AS '
+  SELECT CASE WHEN $1 >= 1 and $1 <= 30000 THEN 0
+	      WHEN $1 > 30000 and $1 <= 60000 THEN 1
+	      ELSE 2
+  END' LANGUAGE SQL;
+</pre>
+
+<h2><a name="hba"></a>クライアント認証(HBA)のための pool_hba.conf 設定方法</h2>
+<p>
+   PostgreSQLのpg_hba.confと同じようにpgpoolでもpool_config.confファイ
+   ルを使ったクライアント認証がサポートされています。
+</p>
+<p>
+   pgpoolをインストールするとデフォルトインストール先の設定ファイルディ
+   レクトリ"/usr/local/etc"にpool_hba.conf.sampleが一緒にインストール
+   されます。このpool_hba.conf.sampleファイルをpool_hba.confとしてコピー
+   し、必要であれば編集してください。デフォルトではpool_hbaによる認証は有
+   効になっています。
+</p>
+<p>
+   pool_hba.confのフォーマットはpg_hba.confのものとほとんど同じです。
+</p>
+<pre>
+     local      DATABASE  USER  METHOD  [OPTION]
+     host       DATABASE  USER  CIDR-ADDRESS  METHOD  [OPTION]
+</pre>
+<p>
+   各フィールドで設定できる値の詳細は"pool_hba.conf.sample"を参照して
+   ください。
+</p>
+<p>
+   以下はpool_hbaの制限事項です。
+
+<ul>
+<li>"hostssl"接続タイプはサポートされません</li>
+<p>
+     現在pgpoolはSSL接続をサポートしていないので"hostssl"は指定するこ
+     とができません。
+</p>
+<li>DATABASEフィールド値として"samegroup"はサポートされません</li>
+<p>
+     pgpoolはバックエンドサーバにあるユーザ情報を事前に知る事ができな
+     いため、データベース名はpool_hba.confにある値のみと比較されます。
+     なのでグループに関する認証はpool_hbaで行うことができません。
+</p>
+<li>USERフィールド値として"+"を使ったグループ指定はサポートされません</li>
+<p>
+     上記の"samegroup"と同じ理由で、ユーザ名はpool_hba.confにある値の
+     みと比較されます。グループに関する認証はpool_hbaで行うことはでき
+     ません。
+</p>
+<li>IPv6アドレス/マスク表記法はサポートされません</li>
+<p>
+     現在pgpoolはIPv6をサポートしていません。
+</p>
+<li>"trust", "reject", "pam"以外のメソッドはサポートされません</li>
+<p>
+     これも上記の"samegroup"と同じ理由によるものです。pgpoolはバックエ
+     ンドのユーザ/パスワード情報を持っていないので、バックエンドに保存
+     されているパスワードを使った認証を行うことができません。
+</p>
+</ul>
+</p>
+<p>
+   ここで説明された機能、制限はクライアントとpgpool間で行われるクライ
+   アント認証についてだということに注意してください。クラインアントは
+   pgpoolのクライアント認証に成功したとしても、PostgreSQLによるクライ
+   アント認証に成功しないと接続状態となりません。pool_hbaにとってはク
+   ライアントに指定されたユーザ名やデータベース名
+   (例. psql -U testuser testdb)が実際にバックエンド上に存在するかどう
+   かは問題ではありません。それがpool_hba.confの値とマッチするかどうか
+   でチェックが行われます。
+</p>
+<p>
+   pgpoolが稼働するホスト上のユーザ情報を使ったPAM認証を利用することが
+   できます。pgpoolをPAMサポート付きでビルドするにはconfigureオプショ
+   ンに"--with-pam"を指定してください。
+</p>
+<pre>
+     ./configure --with-pam
+</pre>
+<p>
+   実際にPAM認証を有効にするには、pool_hba.confで"pam"メソッドを設定す
+   るのに加え、pgpoolのサービス設定ファイルをシステムのPAM設定ディレクト
+   リ（通常は /etc/pam.d に作成する必要があります。サービス設定ファイ
+   ルの例はインストールディレクトリの"share/pgpool.pam"を参考にしてく
+   ださい。
+</p>
+
+<h2>クエリキャッシュの設定方法</h2>
+
+<p>
+	pgpool-IIでは、すべてのモードでクエリキャッシュを利用することができます。
+  利用する場合には、pgpool.confの設定を以下のように設定します。
+<pre>
+enable_query_cache = true
+</pre>
+<p>
+また、システムDBに以下のテーブルを作成してください。
+</p>
+<pre>
+CREATE TABLE pgpool_catalog.query_cache (
+  hash TEXT,
+  query TEXT,
+  value bytea,
+  dbname TEXT,
+  create_time TIMESTAMP WITH TIME ZONE,
+  PRIMARY KEY(hash, dbname)
+);
+</pre>
+<p>
+ただし、この例ではスキーマ名が"pgpool_catalog"となっているので、違うスキーマを使う場合は適当に書き換えてください。
+</p>
+
+
+<h1>pgpool-IIの起動と停止<a name="start"></a></h1>
+<p>
+以上で設定が終わったので、各DBノードを起動し、必要ならばシステムDBも起動
+してからpgpool-IIを起動します。
+<pre>
+pgpool [-c][-f config_file][-a hba_file][-F pcp_config_file][-n][-d]
+</pre>
+</p>
+<p>
+<table>
+<tr><td>-c</td><td>クエリキャッシュを消去します</tr>
+<tr><td>-f config_file</td><td>pgpool-IIの設定ファイルを指定します</tr>
+<tr><td>-a hba_file</td><td>HBA認証設定ファイルを指定します</tr>
+<tr><td>-F pcp_config_file</td><td>pcpの設定ファイルを指定します</tr>
+<tr><td>-n</td><td>デーモンモードで起動しません(制御端末を切り離しません</tr>
+<tr><td>-d</td><td>デバッグモードで起動します</tr>
+</table>
+</p>
+<p>
+pgpool-IIの停止は後述のpcpコマンドでもできますが、pgpool-IIコマンドを使うこと
+もできます。
+</p>
+<pre>
+pgpool [-f config_file][-F pcp_config_file] [-m {s[mart]|f[ast]|i[mmediate]}] stop
+</pre>
+
+<p>
+<table>
+<tr><td>-m s[mart]</td><td>接続中のクライアントが接続を終わるのを待ってから停止します(デフォルト)</td></tr>
+<tr><td>-m f[ast]</td><td>接続中のクライアントが接続を終わるのを待たずに直ちに停止します</td></tr>
+<tr><td>-m i[mmediate]</td><td>-m fと同じ動作です</td></tr>
+</table>
+</p>
+
+<h1>pgpool-IIの設定ファイルの再読み込み<a name="reload"></a></h1>
+<p>
+pgpool-IIの設定ファイルは、pgpool-IIを再起動することなく読み直すことができます。
+<pre>
+pgpool [-f config_file][-a hba_file][-F pcp_config_file] reload
+</pre>
+</p>
+<p>
+<table>
+<tr><td>-f config_file</td><td>pgpool-IIの設定ファイルを指定します</tr>
+<tr><td>-a hba_file</td><td>HBA認証設定ファイルを指定します</tr>
+<tr><td>-F pcp_config_file</td><td>pcpの設定ファイルを指定します</tr>
+</table>
+</p>
+<p>
+設定項目によっては、再読み込みを行なっても反映されないものがあるので、ご注意下さい。
+また、設定の変更はすでに接続中のセッションには反映されません。次回、クライアントがpgpool-IIに接続したときから反映されます。
+</p>
+
+<h1><a name="online-recovery"></a>オンラインリカバリ</h1>
+<h2> オンラインリカバリ概要</h2>
+<p>
+   レプリケーションモードで pgpool が動作している場合、ダウンしたノー
+   ドのデータを再同期させた上で、ノードを復帰させることができます。こ
+   の機能を「オンラインリカバリ」と呼びます。
+</p>
+
+<p>
+   オンラインリカバリを実施するためには、ノードが切り離されていると
+   pgpool が検知している必要があります。ノードを動的に追加したい場合に
+   は pgpool.conf の backend_hostnameなどのパラメータを追加しておき、設定ファイル
+   を再読み込みさせると、ノードが切り離された状態で pgpool にノード情報が登録されます。
+</p>
+
+<p>
+   また、リカバリするノードの PostgreSQL がすでに動作中であれば、あら
+   かじめ PostgreSQL をシャットダウンさせておいてください。
+</p>
+
+<p>
+<font color="red">注意: オンラインリカバリを実行する前に、マスタノード
+(稼働中のノードのうち、一番番号が若いノード)上でのautovacuumを停止してください。
+オンラインリカバリ中にautovacuumが動くと、データベースの内容が変化する可能性があるため、
+ノード間の同期がきちんと取れなくなる可能性があります。</font>
+</p>
+
+<p>
+   pgpool ではオンラインリカバリを 2 段階に分けて実施します。pgpool の
+   クライアントからは完全なデータの同期を取るために若干の接続待ちが発
+   生します。リカバリ手順で以下の通りです。
+
+  <ol>
+    <li> CHECKPOINT 実行
+    <li> ファーストステージの実施
+    <li> 接続がすべて切断されるまで待機
+    <li> CHECKPOINT 実行
+    <li> セカンドステージの実施
+    <li> postmaster の起動(pgpool_remote_start の実行)
+    <li> ノードの復帰
+  </ol>
+</p>
+
+<p>
+   データ同期の第一段階を「ファーストステージ」と呼びます。ファースト
+   ステージ中に1 回目のデータ同期を行います。ファーストステージ中はデー
+   タの更新や参照を並行して行うことができます。
+</p>
+
+<p>
+   ファーストステージで処理する内容はユーザが定義することができます。
+   スクリプトでは 3 つの引数を受け取ることができます。
+
+  <ol>
+    <li> マスタのデータベースクラスタパス
+    <li> リカバリノードのホスト名
+    <li> リカバリノードのデータベースクラスタパス
+  </ol>
+</p>
+
+<p>
+   次に 2 回目のデータ同期を行います。これを「セカンドステージ」と呼び
+   ます。pgpool ではセカンドステージに入る前に接続中のクライアントがす
+   べて接続が終了されるまで待ちます。その間に接続リクエストが来た場合
+   には、その接続をすべてブロックします。
+</p>
+
+<p>
+   セカンドステージで処理する内容はユーザが定義することができます。
+   スクリプトでは 3 つの引数を受け取ることができます。
+</p>
+  <ol>
+    <li> マスタのデータベースクラスタパス
+    <li> リカバリノードのホスト名
+    <li> リカバリノードのデータベースクラスタパス
+  </ol>
+<p>
+   すべての接続が終了されると、ファーストステージ以降に更新されたデー
+   タを同期するためのセカンドステージが開始されます。そこで最終的なデー
+   タの同期を行います。この間はクライアントからは pgpool への接続が待
+   たされる状態になります。
+</p>
+
+<p>
+<font color="red">
+   なお、オンラインリカバリの制限事項として、複数のホストに pgpool を
+   配置してレプリケーションさせている場合には、オンラインリカバリは正
+   しく動作しません。どれかの pgpool にリカバリリクエストを出した時に、
+   他の pgpool から更新が伝搬すると、データを同期させることができなく
+   なります。
+</font>
+</p>
+
+<h2> pgpool の設定</h2>
+<p>
+   オンラインリカバリを設定するためには、pgpool.conf の以下の値を設定
+   してください。
+
+   <ul>
+    <li> backend_data_directory
+    <li> recovery_user
+    <li> recovery_password
+    <li> recovery_1st_stage_command
+    <li> recovery_2nd_stage_command
+   </ul>
+</p>
+
+
+<h2> C 言語関数のインストール</h2>
+<p>
+次に、リカバリを実施するための PostgreSQL の C 言語関数を各ノードの
+template1 データベースにインストールします。ソースコードは
+</p>
+
+<pre>
+  pgpool-II-x.x.x/sql/pgpool-recovery/
+</pre>
+
+<p>
+にあります。ディレクトリを移動し、make install してください。
+</p>
+
+<pre>
+  % cd pgpool-II-x.x.x/sql/pgpool-recovery/
+  % make install
+</pre>
+
+<p>
+C 言語関数のモジュールをインストールしたら、続いて C 言語関数を呼びだ
+すための SQL をインストールします。
+</p>
+
+<pre>
+  % cd pgpool-II-x.x.x/sql/pgpool-recovery/
+  % psql -f pgpool-recovery.sql template1
+</pre>
+
+
+<h2> リカバリスクリプトの配置</h2>
+<p>
+データを同期させるためのスクリプトと、リモートから postmaster を再起動
+させるためのスクリプトを各ノードの $PGDATA 以下に配置します。あらかじ
+めpgpool-II-x.x.x/sample 以下にサンプルスクリプトも用意してありますの
+で参考にしてください。ここではサンプルスクリプトを使って、PITR による
+リカバリ方法と、rsync によるリカバリ方法を説明します。
+</p>
+
+<h3>PITR によるリカバリ</h3>
+<p>
+ここでは PostgreSQL の PITR 機能を使ってリカバリをする設定例を説明しま
+す。PITR によるリカバリをする場合にはあらかじめ PostgreSQL の設定でロ
+グをアーカイブさせるようにしておいてください。
+</p>
+
+<p>
+まずファーストステージでベースバックアップを取得し、リカバリ先へコピー
+するスクリプト(ここではファイル名を copy-base-backup とします)を用意し
+ます。例えば以下のようなスクリプトで取得することができます。
+</p>
+
+<pre>
+  #! /bin/sh
+
+  DATA=$1
+  RECOVERY_TARGET=$2
+  RECOVERY_DATA=$3
+
+  psql -c "select pg_start_backup('pgpool-recovery')" postgres
+  echo "restore_command = 'scp $HOSTNAME:/data/archive_log/%f %p'" > /data/recovery.conf
+  tar -C /data -zcf pgsql.tar.gz pgsql
+  psql -c 'select pg_stop_backup()' postgres
+  scp pgsql.tar.gz $RECOVERY_TARGET:$RECOVERY_DATA
+</pre>
+
+<p>
+ベースバックアップ取得時に recovery.conf を生成しておきます。
+</p>
+<pre>
+restore_command = 'scp master:/data/archive_log/%f %p'
+</pre>
+
+</p>
+
+<p>
+セカンドステージでは最新の状態まで PITR によるリカバリを実施できるよう
+にするために、pgpool_recovery_pitr スクリプトを$PGDATA にコピーします。
+このスクリプトでは XLOG を強制的にスイッチさせるようにします。
+</p>
+
+<pre>
+  #! /bin/sh
+  psql -c 'select pg_switch_xlog()' postgres
+</pre>
+
+<p>
+スクリプトの配置が完了したら pgpool.conf に設定します。
+
+<pre>
+recovery_1st_stage_command = 'copy-base-backup'
+recovery_2nd_stage_command = 'pgpool_recovery_pitr'
+</pre>
+
+</p>
+
+<p>
+これで PITR によるオンラインリカバリの準備が完了です。
+</p>
+
+<h4><p>pgpool_remote_start</p></h4>
+<p>
+データ再同期後に postmaster を起動させるスクリプトです。
+pgpool からは以下の形式でスクリプトを実行します。
+</p>
+
+<pre>
+  % pgpool_remote_start remote_host remote_datadir
+  remote_host:    リカバリノードのホスト名
+  remote_datadir: リカバリノードのデータベースクラスタパス 
+</pre>
+
+<p>
+サンプルスクリプトでは ssh 経由で postmaster を起動しています。こちら
+もあらかじめパスフレーズ無しで ssh 経由でログインできるように設定して
+おく必要があります。
+</p>
+
+<p>
+PITR によるリカバリであれば、pgpool_remote_start 内でベースバックアッ
+プを展開し、recovery.conf の内容にしたがってリカバリした後に
+postmaster が接続可能状態になります。
+</p>
+
+<pre>
+#! /bin/sh
+DEST=$1
+DESTDIR=$2
+PGCTL=/usr/local/pgsql/bin/pg_ctl
+
+# Expand a base backup
+ssh -T $DEST 'cd /data/; tar zxf pgsql.tar.gz' 2>/dev/null 1>/dev/null < /dev/null
+# Startup PostgreSQL server
+ssh -T $DEST $PGCTL -w -D $DESTDIR start 2>/dev/null 1>/dev/null < /dev/null &
+</pre>
+
+<h3>rsync によるリカバリ </h3>
+<p>
+7.4 以前の場合は PITR 機能がありません。そこで PITR を使わずに rsync
+を使ったリカバリ方法を説明します。sample ディレクトリに
+pgpool_recovery というファイルがあります。マスタから復帰させるノードへ
+のデータの物理コピーを行うスクリプトです。pgpool からは以下の形式でス
+クリプトを実行します。
+</p>
+
+<pre>
+  % pgpool_recovery datadir remote_host remote_datadir
+  datadir:        マスタのデータベースクラスタパス
+  remote_host:    リカバリノードのホスト名
+  remote_datadir: リカバリノードのデータベースクラスタパス 
+</pre>
+
+<p>
+サンプルスクリプトでは rsync を使って物理コピーをしています。もし
+rsync を使う場合は、パスフレーズ無しで ssh 経由でログインできるように
+あらかじめ設定しておく必要があります。
+</p>
+
+<p>
+rsyncに関する注記:
+<ul>
+
+ <li>-z (or --compress)オプションは低速なネットワークでは効果がありますが、
+	  100M以上の高速なネットワークではかえってCPU負荷を増やし、結果的に遅くなることがあります。
+	  高速ネットワークでは、このオプションを使用しないことをお勧めします。
+
+ <li>rsync の新しいバージョン(3.0.5)では、50%も性能が良くなったという報告が
+	  pgpool-generalメーリングリストでありました。
+</ul>
+</p>
+
+<p>
+pgpool_recovery を使う場合は pgpool.conf に以下の行を追加してください。
+
+<pre>
+recovery_1st_stage_command = 'pgpool_recovery'
+recovery_2nd_stage_command = 'pgpool_recovery'
+</pre>
+</p>
+
+<h2>リカバリの実行</h2>
+<p>
+以上でオンラインリカバリの準備が整いました。
+オンラインリカバリを実行するには pcp_recovery_node コマンドを使うか、
+pgpool 管理ツールから実行してください。
+</p>
+
+<p>
+注意点として、pcp_recovery_node を実行する際に、タイムアウトを長くして
+ください。pgpoolAdmin から実行する場合は pgmgt.conf.php 内の
+_PGPOOL2_PCP_TIMEOUT を大きくしてください。
+</p>
+
+
+<h1>制限事項<a name="restriction"></a></h1>
+<p>
+<h2>認証・アクセス制御方式</h2>
+<p>
+<ul>
+<li>レプリケーションモードまたマスタ/スレーブモード時にはtrust, reject, clear
+     text password, pam, 認証方式だけが利用できます。md5認証、crypt認証などの認証方式は利用できません。
+<li>それ以外のモードでは、trust, reject, clear text password, pam, crypt, md5認証方式だけが利用できます。
+</ul>
+</p>
+
+<h2>レプリケーションモードで注意が必要な関数など</h2>
+<p>
+pgpool-IIでは同じ問い合わせを送っても異なる結
+   果を返すようなデータ、たとえば乱数やトランザクションID、OID、SERIAL、
+   シーケンス、CURRENT_TIMETSTAMPのようなものに関してはレプリケーショ
+   ンはしますが、2台のホストでまったく同じ値がコピーされる保証はありま
+   せん。
+</p>
+<p>
+CREATE TEMP TABLEで作成されたテーブルはフロントエンドがセッショ
+         ンを終了しても削除されません。これは、コネクションプールの効
+         果でバックエンドから見るとセッションが継続しているように見え
+         るからです。セッションの終了時に明示的にDROP TABLEするか、ト
+         ランザクションブロックの中でCREATE TEMP TABLE ... ON COMMIT
+         DROPをお使い下さい。
+</p>
+
+<h2>クエリについて</h2>
+<p>
+pgpool-II では扱うことができないクエリについて説明します。
+</p>
+
+<h3>マルチバイト文字について</h3>
+<p>
+制限対象:全モード
+</p>
+<p>
+現在の実装では、マルチバイト文字の変換処理を行いません。クライアントエ
+ンコーディング、バックエンドノードのサーバエンコーディング、システム
+DB のサーバエンコーディングを一致させるようにしてください。
+</p>
+
+<h3>マルチステートメント</h3>
+<p>
+制限対象:全モード
+</p>
+<p>
+マルチステートメント(';' で区切って複数の文をまとめた SQL)を pgpool が
+正しく処理することができません。必ず文を分けて送信してください。
+</p>
+<p>
+なお、psql を使って pgpool に接続した場合は、psql 内部でマルチステート
+メントを分解し、1 つずつ送信します。
+</p>
+
+<h3>拡張問い合わせプロトコル</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+JDBC ドライバなどのような拡張問い合わせプロトコルには対応していません。
+必ず簡易問い合わせプロトコルを使用してください。
+</p>
+
+<h3>SELECT</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+postgresql.conf の add_missing_from設定値を off (デフォルト値)に設定してください。
+add_missing_from 設定値が on の時に使えるクエリは正しくpgpoolで処理されない可能性
+があります。
+</p>
+<h3>INSERT</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+データ分割をしているテーブルに対してINSERT を行う際には、分割ルールとなる値を DEFAULT にはできません。例え
+ばテーブル t に x というカラムがあり、x が分割ルールの対象カラムだった
+場合には、
+</p>
+<pre>
+  INSERT INTO t(x) VALUES (DEFAULT);
+</pre>
+<p>
+はできません。また、分割ルールとなる値が関数呼び出しの場合も
+対応していません。
+</p>
+<pre>
+  INSERT INTO t(x) VALUES (func());
+</pre>
+<p>
+必ず明示的に値を与える必要があります。
+
+また、SELECT INTO や INSERT INTO ... SELECT という形式もサポートしてい
+ません。
+</p>
+
+<h3>UPDATE</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+分割ルールとなるカラムを更新すると分割ルールに従ったデータの整合性が崩
+れる可能性があります。pgpool-II では特にデータの再配置ということは行い
+ません。
+</p>
+<p>
+もし制約違反などにより一部のノードでエラーになった場合にロールバックす
+ることはできません。
+</p>
+<p>
+WHERE 句にデータ分割を行ったテーブルを参照するサブクエリや関数呼び出しがある場合には正しく動かない可能性が
+あります。
+</p>
+<pre>
+例：UPDATE branches set bid = 100 where bid = (select max(bid) from beances);
+</pre>
+
+<h3>SELECT ... FOR UPDATE</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+WHERE 句にデータ分割を行ったテーブルを参照するサブクエリや関数呼び出しがある場合には正しく動かない可能性が
+あります。
+<pre>
+例：SELECT * FROM  branches where bid = (select max(bid) from beances) FOR UPDATE;
+</pre>
+</p>
+
+<h3>COPY</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+COPY BINARY には対応していません。また、ファイルからのコピーにも対応し
+ていません。COPY FROM STDIN と COPY TO STDOUT のみ対応しています。
+</p>
+
+<h3>ALTER/CREATE TABLE について</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+pgpool に情報を更新させるためには、pgpool を再起動する必要があります。
+</p>
+
+<h3>トランザクション</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+トランザクション中に発行される SELECT は dblink を経由する場合には別ト
+ランザクションになります。以下に例を示します。
+</p>
+<pre>
+  BEGIN;
+  INSERT INTO t(a) VALUES (1);
+  SELECT * FROM t ORDER BY a; <-- 上の INSERT した値は見えない
+  END;
+</pre>
+<p>
+また制約違反などにより一部のノードでエラーになった場合にロールバックすることはできません。
+</p>
+<h3>View/Rule</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+View や Rule は各ノードに同じ内容が定義されます。
+</p>
+<pre>
+  CREATE VIEW sample AS SELECT * FROM a, b where a.i = b.i
+</pre>
+<p>
+上記のような テーブル結合を含んだVIEWは、a と b は同じノード内でのみ結合処理を行い、
+各ノードからの実行結果を統合します。ノードをまたがった JOIN を行う View を作成する
+ことはできません。Rule についても同様になります。ただし、データ分割したテーブルを同
+じノード内でのみ結合したい場合に、VIEWを作成することは可能です。この場合にはVIEWを
+pgpool_catalog.dist_defテーブルにVIEWを登録しておきます。
+また、pgpool_catalog.dist_defテーブルのcol_nameとdist_def_funcには、VIEWで定義した
+カラムとVIEWに対してINSERTが発行された場合に何処のノードにクエリを問い合わせるのかを決定
+する関数を登録してください。
+</p>
+
+<h3>関数/トリガについて</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+関数は各ノードに同じ内容が定義されます。関数内で JOIN や他のノードのデー
+タ操作を行うことはできません。
+</p>
+
+<h3>Natural Join について</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+Natural Joinは利用できません。ON 結合条件　または、USING(結合カラム)を明示的に
+指定する必要があります。
+</p>
+
+<h3>USING句 について</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+JOIN　構文の中で利用される USING 句はクエリの書き換え処理によってON 句に
+変換されます。そのため、ターゲットリストに"*"を利用する問い合わせを行う
+場合には、同じ列名が出力されます。
+</p>
+
+<h3>デッドロックについて</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+ノード間をまたがるデッドロックを検出することができません。
+</p>
+<pre>
+例：accountsテーブルは以下のルールで分割されている。
+    aid <= 100000 ノード 0
+    aid >= 100000 ノード 1
+
+  A) BEGIN;
+  B) BEGIN;
+  A) SELECT * FROM accounts WHERE aid = 100001 FOR UPDATE;
+  B) SELECT * FROM accounts WHERE aid = 100000 FOR UPDATE;
+  A) SELECT * FROM accounts WHERE aid = 100000 FOR UPDATE;
+  B) SELECT * FROM accounts WHERE aid = 100001 FOR UPDATE;
+</pre>
+<p>
+この場合、単一のノードではデッドロックを検知できないため、pgpool は待
+たされた状態になります。この現象は SELECT FOR UPDATE 以外にも行ロック
+を獲得するクエリで発生する可能性があります。
+</p>
+<p>
+また、あるノードでデッドロックが発生した場合は、各ノードのトランザクショ
+ンの状態が異なる状況になります。そのため、デッドロックを検知した時点で
+以下のログを出力して pgpool は該当のプロセスを終了させます。
+<pre>
+  pool_read_kind: kind does not match between master(84) slot[1] (69)
+</pre>
+
+<h3>スキーマについて</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+public 以外のスキーマに属すようなオブジェクトの参照は必ず
+</p>
+<pre>
+  スキーマ.オブジェクト
+</pre>
+<p>
+と指定するようにしてください。
+</p>
+<pre>
+  set search_path = xxx
+</pre>
+<p>
+を指定し、スキーマ名を省略すると、pgpool がどの分散ルールを適用するか
+判断できません。
+</p>
+<h3>テーブル名、カラム名について</h3>
+<p>
+制限対象:パラレルモード
+</p>
+<p>
+pool_で始まるテーブル、カラム名は使えません。クエリ書き換えの際に内部処理で使用します。
+</p>
+
+<h2>システム DB</h2>
+
+<h3>分割ルール</h3>
+<p>
+pgpool-II では分割ルールの対象のカラムは 1 つのみとします。x と y の
+OR 条件などといったものには対応していません。
+</p>
+
+<h2>ビルドに必要な環境</h2>
+
+<h3>libpq</h3>
+<p>
+pgpool-II では libpq をリンクします。libpq のバージョンは 2.0 の場合、
+configure に失敗します。必ず libpq 3.0 (PostgreSQL 7.4) をリンクするよ
+うにしてください。また、SystemDB のバージョンも PostgreSQL 7.4 以降が
+必須になります。
+</p>
+
+<h2>クエリキャッシュ</h2>
+<p>
+現在のクエリキャッシュの実装では、キャッシュの無効化を手動で行う必要が
+あります。
+</p>
+
+</p>
+
+<h1>リファレンス<a name="reference"></a></h1>
+<h2>PCPコマンドリファレンス</h2>
+
+<h3>PCPコマンド一覧</h3>
+<p>
+   pgpool-IIを操作するUNIXコマンドとして、以下のものがあります。
+<pre>
+   * pcp_node_count	- ノード数を取得する
+   * pcp_node_info	- ノード情報を取得する
+   * pcp_proc_count	- プロセス一覧を取得する
+   * pcp_proc_info	- プロセス情報を取得する
+   * pcp_systemdb_info	- システムDB情報を取得する
+   * pcp_detach_node	- ノードを切り離す
+   * pcp_attach_node	- ノードを復帰させる
+   * pcp_stop_pgpool	- pgpool-IIを停止させる
+   * pcp_recovery_node  - マスタノードを使ってノードのデータを再同期、ノード起動させる
+</pre>
+</p>
+
+
+<h2>共通引数</h2>
+<p>
+   全てのコマンドには共通する引数があります。これは接続するpgpool-IIの情報や認証
+   情報などです。
+<pre>
+   ex)
+   $ pcp_node_count [-d] 10 localhost 9898 postgres hogehoge
+
+    第一引数    - タイムアウト値
+		秒数でタイムアウト値を指定します。この時間内にpgpool-IIから応
+		答がない場合はコネクションを切断して終了します。なお、
+		このオプションは 2.1 からは無視するようになっています。
+    第二引数	- pgpool-IIが稼動しているホスト名
+    第三引数	- pgpool-IIが受け付けているポート番号
+    第四引数	- PCPユーザ名
+    第五引数	- PCPパスワード
+
+	オプション引数として、-dがあります。-dが指定されるとデバッグ情報を出力します。
+</pre>
+<p>
+    PCPユーザ名とパスワードは ./configure 時に --prefix で指定した
+    'インストールディレクトリ/etc' にある pcp.conf 内に記述されているものを指定
+    します。pcp.conf ファイルの場所がデフォルト以外の場所にある場合、pgpool の
+    -F オプションでその位置を指定することができます。
+    パスワードはコマンドに渡す時点でmd5化されている必要はありません。
+</p>
+
+
+<h2>コマンド群</h2>
+<p>
+   全てのコマンドは、実行した結果が標準出力に表示されます。
+</p>
+
+
+<h3>pcp_node_count</h3>
+<pre>
+   書式：
+	pcp_node_count  _timeout_  _host_  _port_  _userid_  _passwd_
+</pre>
+<p>
+   pgpool-IIの pgpool.conf で定義されたノードの総数を表示します。切り離されている
+   ノードの区別はしません。
+</p>
+
+
+<h3>pcp_node_info</h3>
+<pre>
+   書式：
+	pcp_node_info  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
+</pre>
+
+<p>
+   pgpool-IIの pgpool.conf で定義されたノードの情報を表示します。出力結果は以下の
+   例の通りです。
+</p>
+
+<pre>
+   ex)
+   $ pcp_node_info 10 localhost 9898 postgres hogehoge 0
+   host1 5432 1 1073741823.500000
+
+   結果は以下の順の通りです。
+   1. ノードのホスト名
+   2. ノードのポート番号
+   3. ステータス
+   4. ロードバランスウェイト
+
+   ステータスは[0..3]までの数字で表わされます。各数字の意味は：
+   0 - 初期化時のみに表われる。PCPコマンドで表示されることはない。
+   1 - ノード稼働中。接続無し
+   2 - ノード稼働中。接続有り
+   3 - ノードダウン
+</pre>
+
+<p>
+   ロードバランスウェイトはNormalizeされたフォーマットで出力されます。
+</p>
+<p>
+   定義されていないノードIDを指定するとBackendErrorと表示され、終了コード12で終
+   了します。
+</p>
+
+
+<h3>pcp_proc_count</h3>
+<p>
+<pre>
+   書式：
+	pcp_proc_count  _timeout_  _host_  _port_  _userid_  _passwd_
+</pre>
+<p>
+   pgpool-IIの子プロセスのプロセスIDを一覧表示します。複数ある場合は空白文字で区
+   切られます。
+</p>
+
+
+<h3>pcp_proc_info</h3>
+<p>
+<pre>
+   書式：
+	pcp_proc_info  _timeout_  _host_  _port_  _userid_  _passwd_  _processid_
+</pre>
+<p>
+   pgpool-IIの子プロセス情報を表示します。出力結果は以下の例の通りです。
+</p>
+<pre>
+   ex)
+   $ pcp_proc_info 10 localhost 9898 postgres hogehoge 3815
+   postgres_db postgres 1150769932 1150767351 3 0 1
+
+   結果は以下の順の通りです。
+   1. 接続しているデータベース名
+   2. 接続しているユーザ名
+   3. プロセススタート時刻
+   4. コネクション作成時刻
+   5. プロトコルメジャーバージョン
+   6. プロトコルマイナーバージョン
+   7. コネクション使用回数
+
+   コネクションがバックエンドに対して張られていない場合、データは表示されません。
+   コネクション情報が複数ある場合、複数行に1行1コネクション情報で表示されます。
+   時刻はEPOCHタイムからの秒数で表わされます。
+
+   定義されていないプロセスIDを指定するとBackendErrorと表示され、終了コード12で
+   終了します。
+</pre>
+</p>
+
+<h3>pcp_systemdb_info</h3>
+<p>
+<pre>
+   書式：
+	pcp_systemdb_info  _timeout_  _host_  _port_  _userid_  _passwd_
+
+   pgpool-IIのシステムDB情報を表示します。出力結果は以下の通りです。
+
+   $ pcp_systemdb_info 10 localhost 9898 postgres hogehoge
+   localhost 5432 yamaguti '' pgpool_catalog pgpool 3
+   yamaguti public accounts aid 4 aid bid abalance filler integer integer integer character(84) dist_def_accounts
+   yamaguti public branches bid 3 bid bbalance filler integer integer character(84) dist_def_branches
+   yamaguti public tellers bid 4 tid bid tbalance filler integer integer integer character(84) dist_def_tellers
+
+   まず一行目にシステムDBの情報が表示されます。結果は以下の順の通りです。
+
+   1. ホスト名
+   2. ポート番号
+   3. ユーザ名
+   4. パスワード。空の場合は''で表示されます。
+   5. スキーマ名
+   6. データベース名
+   7. 分散定義関数の数
+
+   二行目以降は分散定義が表示されます。複数の定義がある場合は、一つの定義につき
+   一行表示されます。結果は以下の順の通りです。
+
+   1. 分散対象のデータベース名
+   2. 分散対象のスキーマ名
+   3. 分散対象のテーブル名
+   4. 分散キーカラム名
+   5. 分散対象テーブル中のカラム数
+   6. カラム名リスト(5.のカラム数分表示されます)
+   7. カラム型リスト(5.のカラム数分表示されます)
+   8. 分散定義関数名
+
+   システムDBが定義されていない(pgpool-IIモードでない、かつクエリキャッシュがオ
+   フの)場合に実行すると、BackendErrorと表示され、終了コード12で終了します。
+</pre>
+</p>
+
+
+<h3>pcp_detach_node</h3>
+<p>
+<pre>
+   書式：
+	pcp_detach_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
+
+   pgpool-IIのノードを切り離します。
+</pre>
+</p>
+
+
+<h3>pcp_attach_node</h3>
+<p>
+<pre>
+   書式：
+	pcp_attach_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
+
+   pgpool-IIのノードを復帰させます。
+</pre>
+</p>
+
+<h3>pcp_stop_pgpool</h3>
+<p>
+<pre>
+   書式：
+	pcp_stop_pgpool  _timeout_  _host_  _port_  _userid_  _passwd_  _mode_
+
+   pgpool-IIを指定されたモードでシャットダウンします。指定できるモードは以下の通
+   りです。
+
+   s	- smart モード
+   f	- fast モード   
+   i	- immediate モード
+
+   pgpool-IIが起動していない場合はConnectionErrorと表示され、終了コード8で終了し
+   ます。
+
+   ※ 現在は fast モードと immediate シャットダウンの処理に区別はあり
+      ません。命令を送った時点でクライアントがいる・いないに関わらず
+      シャットダウン処理を即座に行います。
+</pre>
+</p>
+
+<h3>pcp_recovery_node</h3>
+<p>
+<pre>
+   書式：
+	pcp_recovery_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
+
+   pgpool-IIのノードをデータを再同期させた上で復帰させます。
+</pre>
+</p>
+
+
+<h2>終了ステータス</h2>
+<p>
+   PCPコマンドは正常に処理を終了した場合、ステータス'0'で終了します。エラーが起
+   きた場合は以下のステータスにより終了します。
+<pre>
+   UNKNOWNERR	1	不明なエラー
+   EOFERR	2	EOFエラー
+   NOMEMERR	3	メモリ不足
+   READERR	4	サーバからのデータ読み込みエラー
+   WRITEERR	5	サーバへのデータ書き込みエラー
+   TIMEOUTERR	6	タイムアウト
+   INVALERR	7	PCPコマンドへの不正なオプション
+   CONNERR	8	サーバ接続エラー
+   NOCONNERR	9	接続が存在しない
+   SOCKERR	10	ソケットエラー
+   HOSTERR	11	ホスト名解決エラー
+   BACKENDERR	12	サーバでのPCP処理エラー。存在しないプロセスIDの情報を取
+			得しようとした場合など
+   AUTHERR	13	認証エラー
+</pre>
+</p>
+
+<h1>内部情報<a name="internal"></a></h1>
+<p>
+  pgpool-IIバージョン 2.0 以降では、1.x バージョンと比べ大幅な改良が加えられています。
+  1.x バージョンの情報とは互換性がないので注意してください。	
+</p>
+
+<h2>パラレル実行エンジン</h2>
+
+<p>
+pgpool-IIにはパラレル実行エンジンが組み込まれています。
+</p>
+<p>
+このエンジンは、パラレルモードのときに、各ノードに同じクエリを問い合
+わせ、ノードの応答順に結果をフロントエンドに送信するエンジンのことを
+指します。
+</p>
+
+<h2>クエリ書き換え</h2>
+<p>
+パラレルモードでpgpool-IIが行うクエリ書き換えについて説明します。
+</p>
+<p>
+パラレルモードでは、クライアントが送信した検索系(SELECT処理)の問い合わせは、大きく分けて以下の 2 つの処理を行います。
+</p>
+<ol>
+  <li>クエリの解析
+  <li>クエリの書き換え
+</ol>
+
+<p>
+これら２つの処理について順に説明致します。
+</p>
+
+<h3>クエリの解析</h3>
+<h4>
+<p>
+はじめに
+</p>
+</h4>
+<p>
+クライアントが送信した検索系の問い合わせは、SQLパーサを通してからシステムDBに登録されている情報を
+もとにクエリ解析を行います。クエリの解析には実行ステータスの遷移で評価しています。
+ここで実行ステータスというのは、あるデータの集合が何処で取得または処理できるのか判断するものです。
+例えば、pgpool_catalog.dist_defテーブルに登録されているテーブルのデータ集合全体は、データが分割さ
+れているのですべてのノードから取得する必要があります。逆に、pgpool_catalog.replicate_defテーブル
+に登録されているテーブルのデータ集合全体は、すべてのノードから取得するのではなく、いずれかのノード
+から取得すれば十分です。
+ここですべてのノードで処理する必要がある状態を P 状態、一つのノードで処理する必要がある状態を L 状
+態として定義します。
+もう一つ、特別な状態として S 状態があります。これは、すべてのノードから取得した全データに対して処理
+を行ったときの状態のことを示します。
+例えば、ソート処理です。pgpool_catalog.dist_defテーブルに登録されているテーブルのデータに対するソー
+ト処理は、すべてのノードからデータを取得した後に実行する必要があります。
+
+</p>
+<p>
+検索系クエリは、以下の処理順に解析され、実行ステータスが遷移していきます。
+実行ステータスが遷移していく過程で S 状態となると、以降の処理は必ず S 状態となります。
+そして最後のSELECTの最終実行ステータスの状態により、何処のDBで処理されるかが
+決定します。
+
+<ol>
+  <li> UNION、EXTRACT、INTERCECTが利用されているかどうか
+  <li> FROM 句の実行ステータス
+  <li> TARGETLIST による実行ステータスの変化
+  <li> WHERE 句 にる実行ステータスの変化
+  <li> GROUP BY 句による実行ステータスの変化
+  <li> HAVING 句による実行ステータスの変化
+  <li> ORDER BY 句による実行ステータスの変化
+  <li> LIMIT OFFSET 述語に実行ステータスの変化
+  <li> SELECTの最終実行ステータスの取得
+</ol>
+<p>
+SELECTの最終実行ステータスと処理される場所との関係は、以下の通りです。
+</p>
+
+<p>
+<table border>
+<tr><td>実行ステータス</td><td>処理される場所</td></tr>
+<tr><td align = center>L</td><td>いずれかのノードに問い合わせを行う</td></tr>
+<tr><td align = center>P</td><td>すべてのノード同じ問い合わせを行い、パラレル実行エンジンを通してクライアントに返却</td></tr>
+<tr><td align = center>S</td><td>システムDBで処理を行った後にクライアントに返却</td></tr>
+</td></tr>
+</table>
+</p>
+
+<p>
+またサブクエリに対しても上記のルールが適応されます。
+以下の単純なクエリでは、p1-tableがシステムDBのpgpool_catalog.dist_defテーブルに登録されている場合、つまりデータの分割が
+行われている場合には、サブクエリの最終実行ステータスが P となり、その結果サブクエリの呼び出し元である SELECT の実行ステータスも P となります。
+<pre>
+	SELECT * FROM (SELECT * FROM P1-table) as P2-table;
+</pre>
+</p>
+<p>
+次に具体的に実行ステータスがどのように遷移するのか説明します。
+まず2. From句の実行ステータス から説明します。
+
+</p>
+<h4>
+<p>
+FROM 句の実行ステータス
+</p>
+</h4>
+<p>
+検索系クエリ(SELECT)は FROM 句によりデータの集合を定義します。FROM句から構成せれるデータ集合は P 状態, L 状
+態、または S 状態を取ります。FROM句に指定しているテーブルが一つの場合には、単純にテーブルの実行ステータスが
+FROM句から構成されるデータ集合全体の実行ステータスとなります。FROM句に複数のテーブル、又はサブクエリがある場合
+には、結合方法によって以下のように実行ステータスが決定します。
+</p>
+
+<p>
+<table border>
+<tr><td>結合方式</td><td align = center colspan = 3> LEFT OUTER JOIN </td><td align = center colspan = 3> RIGHT OUTER JOIN </td><td align = center colspan = 3>FULL OUTER JOIN</td><td align = center colspan = 3>　　　その他　　　</td></tr>
+<tr><td align = center>左＼右</td><td> P </td><td> L </td><td> S </td><td> P </td><td> L </td><td> S </td><td> P </td><td> L </td><td> S </td><td> P </td><td> L </td><td> S </td></tr>
+<tr><td align = center> P </td><td> S </td><td> P </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> P </td><td> S </td></tr>
+<tr><td align = center> L </td><td> S </td><td> L </td><td> S </td><td> P </td><td> L </td><td> S </td><td> S </td><td> L </td><td> S </td><td> P </td><td> L </td><td> S </td></tr>
+<tr><td align = center> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td><td> S </td></tr>
+</td></tr>
+</table>
+</p>
+
+<p>
+以下の例では、P1-tableが P 状態のテーブルでL1-table,L2-tableが L 状態のテーブルだとします。
+すると上記の表により、P1-table (左)とL1-table (右) が結合し P 状態となり、さらに P 状態と L 状態のL2-tableが結合してFROM句の実行ステータスは P 状態となります。 
+<pre>
+	SELECT * FROM P1-table,L1-table,L2-table;
+</pre>
+</p>
+
+<h4>
+<p>
+TARGETLIST と WHERE句の実行ステータス
+</p>
+</h4>
+
+<p>
+基本的なクエリでは、FROM 句と同じ実行ステータスを継承します。
+しかし、TARGETLIST と WHERE句の実行ステータスは、以下の場合に変化します。
+<ol>
+  <li> サブクエリがある場合
+  <li> FROM句が P 状態の場合、かつ、TARGETLISTに集約関数、DISTINCTがある場合 
+  <li> FROM句で定義したテーブル(データ集合)に存在しないカラムが使われている場合
+</ol>
+</p>
+<p>
+サブクエリの最終実行ステータスが P 状態、または、S 状態の場合には、TARGETLIST、WHERE句の実行ステータス
+は、S 状態となります。
+下記の例では、サブクエリで使われているテーブルが、P 状態の場合には、サブクエリの最終実行ステータスは
+P 状態となります。そのため L1-tableの実行ステータスに依存せずに、WHERE句の実行ステータスは S状態となり
+、このクエリの実行場所はシステムDBとなります。
+</p>
+<pre>
+	SELECT * FROM L1-table where L1-table.column IN (SELECT * FROM P1-table);
+</pre>
+
+<p>
+FROM 句が P 状態の場合、かつ、TARGETLISTに集約関数がある場合は、データを取得後に集計する必要があるため、S状態
+に遷移します。
+また、特定の条件の下では、集約関数による最適化が行われます。
+</p>
+
+<p>
+FROM句で定義したテーブル、サブクエリには存在しないカラムがWHERE句に使われている場合があります。これは以下のような相関サブクエリ内で発生します。
+</p>
+<pre>
+	SELECT * FROM L1-table FROM L1-table.col1 IN (SELECT * FROM P1-table WHERE P1-table.col = L1-table.col1);
+</pre>
+<p>上記のサブクエリに使われている L1-table.col1は、L1-tableを外部参照しています。この場合にサブクエリのWHERE句の実行ステータスは S 状態となります。
+
+
+<h4>
+<p>
+GROUP BY 句、HAVING 句、ORDER BY 句、LIMIT OFFSET 述語の実行ステータス
+</p>
+</h4>
+
+<p>
+WHERE句の実行ステータスが P 状態の場合に、GROUP BY , HAVING 句、ORDER BY 句、LIMIT OFFSET 述語があるとS状態に遷移します。
+GROUP BY句が存在しないクエリはWHERE句の実行ステータスを継承します。また、HAVING句が無い場合にはGROUP BY 句の実行ステータスを継承します。
+ORDER BY 句、LIMIT OFFSET 述語も同様です。
+</p>
+
+<p>
+UNION、EXTRACT、INTERSECTが使われている場合
+</p>
+
+<p>
+UNION、EXTRAT、INTERSECTが使っているクエリは左側のSELECT文と右側のSELECT文の最終実行ステータスに依存します。
+左側と右側のSELECT文の最終実行ステータスが共に L 状態の時には、L 状態となります。
+また、左側と右側のSELECT文の最終実行ステータスが共に P 状態、かつUNION ALLの場合には P 状態となります。
+その他の組み合わせの場合には、S状態となります。
+</p>
+
+<h4>
+<p>
+SELECTの最終実行ステータスの取得
+</p>
+</h4>
+
+<p>
+実行ステータスがすべて L 状態の場合にはL状態、すべて P 状態の場合には、P 状態となります。
+それ以外は、S 状態となります。
+L 状態の場合には、pgpool.confのloadbalance_modeがtrueの場合には負荷分散され、それ以外の場合にはMASTERに問い合わせを行います。また、P 状態の場合には、パラレル実行エンジンを使って並列処理が行われます。S 状態の場合には、次のフェーズであるクエリ書き換えを行います。
+</p>
+
+<h3>クエリ書き換え</h3>
+
+<p>
+クエリの解析フェーズで取得した実行ステータスを使ってクエリの書き換えを行います。
+例として P 状態の P1-table と L 状態の L1-table を使ったクエリで説明します
+</p>
+<pre>
+	SELECT P1-table.col, L1-table.col FROM P1-table,L1-table where P1-table.col = L1-table.col order by P1-table.col;
+</pre>
+<p>
+このクエリでは ORDER BY 句があるため S 状態となり、FROM句、WHERE句、TARGETLISTは P 状態となります。
+このようなクエリでは以下のように書き換えられます。
+</p>
+<pre>
+	SELECT P1-table.col, L1-table.col FROM
+	　　　dblink(select pool_parallel(SELECT P1-table.col, L1-table.col FROM P1-table,L1-table where P1-table.col = L1-table.col)) 
+  	order by P1-table.col;
+</pre>
+<p>
+ここでdblinkはpgpool-IIに問い合わせを送信します。また、pool_parallelは引数のクエリをパラレル実行エンジンをにわたす関数です。なお、上記はあくまでイメージであり実際に実行可能なクエリではありません。
+</p>
+<p>  
+上記の例のように、FROM句、WHERE句、TARGETLISTがすべて P 状態の場合には、FROM句、WHERE句、TARGETLISTをまとめて並列処理を行います。
+
+<p>
+次の例を見てみます。
+</p>
+<pre>
+	SELECT L1-table.col FROM L1-table WHERE L1-table.col % 2 = 0 AND L1-table.col IN (SELECT P1-table FROM P1-table) ;
+</pre>
+<p>
+この例では、FROM 句は L 状態、TARGETLISTも L 状態、WHERE句は P 状態のサブクエリを持っているため S 状態となります。
+これは以下のように書き換えが行われます。
+</p>
+<pre>
+	SELECT L1-table.col FROM dblink(SELECT loadbalance(SELECT L1-table.col FROM L1-table WHERE L1-table.col % 2 = 0 AND TRUE))
+		WHERE
+			L1-table.col %2 = 0 AND 
+		  L1-table.col IN 
+		  (
+		  	SELECT P1-Table FROM 
+		  	dblink(select pool_parallel(SELECT P1-table FROM P1-table))
+		  ) ;
+</pre>
+<p>
+ここで、pool_loadbalanceはクエリをいずれかのノードに送信する関数です。
+</p>
+
+<h4>
+<p>
+集約によるクエリ書き換え
+</p>
+</h4>
+
+<p>
+集計を行うクエリ(集約関数、GROUP BY )は各ノードに計算させ、システムDBで
+再集計を行うことにより、システムDBの負荷を減らしパフォーマンスも向上
+します。
+</p>
+<p>
+まず、最初にpgpool-IIが実際に行うクエリの書き換えを見てみます。
+</p>
+<p>
+FROM 句が P 状態で count(*) を使ったクエリは、以下のように書き換えが行われます。
+</p>
+
+<pre>
+    select count(*) from P1-table;
+
+    -> クエリ書き換え
+
+    SELECT 
+        sum(pool_c$1) as count 
+    FROM 
+        dblink(select pool_parallel('select count(*) from  P1-table'))
+					AS pool_$1g (pool_c$1 bigint); 
+</pre>
+
+<p>
+各ノードでcount(*) を計算した後に、システムDBで集計(sum)をすることによ
+り、目的が達成できます。
+</p>
+
+<p>
+上記のようなクエリ書き換えが行われる条件は以下の場合です。
+</p>
+<ol>
+  <li>FROM 句がP 状態
+  <li>ターゲットリストに集約関数(count, sum, min, max,avgのみ対応),GROUP BYに指定したカラムが使われている
+  <li>WHERE 句がP 状態
+  <li>HAVING 句 に使われている集約関数(count, sum, min, max,avgのみ対応),FROM句で定義されているカラム,GROUP BYに指定したカラムのみ使われている。
+</ol>
+<pre>
+  例)
+     select P1-table.col,L1-table.col,count(*),avg(P1-table.col) from P1-table,L1-table wehre P1-table.col %2 = 0 group by P1-table.col,L1-table.coli having count(*) < 100
+</pre>
+
+<h3>パラレルモードの注意事項</h3>
+<p>
+パラレルモードでは、クエリの解析の際にカラム名とタイプが必要になります。そのため、サブクエリのTARGETLISTに式、関数を使っている場合には別名と型名をキャストでつける必要があります。式、関数に型のキャストがない場合には、text型として処理されますので注意してください。
+なお、集約関数の場合でかつ集約によるクエリ書き換えが行われる場合には、countはbigint型、sumはnumeric型となります。min,maxの場合には、引数が日付型の場合には日付型として計算され、それ以外はnumericとして計算されます。avgはsum/countとして処理されます。
+</p>
+
+<h3>パラレルモードのパフォーマンスについて</h3>
+<p>
+<p>
+SELECTの最終実行ステータスとパフォーマンスのおおよその目安は以下のとおりです。
+<table border>
+<tr><td>実行ステータス</td><td>パフォーマンス</td></tr>
+<tr><td align = center>L</td><td>パラレルクエリを利用しないのでpgpool-IIのオーバーヘッドを除き、単体ノードとの性能劣化はない</td></tr>
+<tr><td align = center>P</td><td>並列処理を行うので高速、特にシーケンシャルスキャンの場合には効果がでる。また、データを分割することでテーブルサイズ(/1台)が小さくなることによりキャッシュに乗りやすくなる </td></tr>
+<tr><td align = center>S</td><td>集約によるクエリ書き換えが行われると高速</td></tr>
+</td></tr>
+</table>
+</p>
+
+</p>
+
+<h1>チュートリアル</h1>
+<p>
+pgpool-IIのチュートリアルは<a href="tutorial-ja.html">ここ<a/>にあります。是非ご覧下さい。
+</p>
+
+<h1>リリースノート<a name="release"></a></h1>
+
+<h2>2.2.5 (urukiboshi) 2009/10/4</h2>
+<h3>概要</h3>
+<p>
+このバージョンでは、2.2.4以前の色々なバグが修正されています。
+</p>
+<h3>バグ修正</h3>
+<ul>
+<li>コネクション数のカウントのミスにより、オンラインリカバリが終わらなくなるバグを修正しました(Tatsuo)
+<li>内部的にロックを発行する際にもフロントエンドが異常終了したことを検出してSQLコマンドをキャンセルするようにしました(Tatsuo)
+<li>接続の終了処理で無限ループに陥ることがあるバグを修正しました(Xavier Noguer, Tatsuo)
+<li>拡張プロトコルのパース処理でkind mismatch errorが起きた際に正しいSQL文を表示するようにしました(Tatsuo)
+<li>ドキュメントを改善しました(Tatsuo)
+</ul>
+</p>
+
+<h2>2.2.4 (urukiboshi) 2009/8/24</h2>
+<h3>概要</h3>
+<p>
+このバージョンでは、2.2.3以前の色々なバグが修正されています。
+</p>
+<h3>バグ修正</h3>
+<ul>
+ <li>pgpool-II 2.2.2で入ってしまったバグを修正しました。フロントエンドがアボートするタイミングによっては、以後内部状態がリセットされず、次のセッションでDMLやDDLがマスターノードのみ送られ、ノード間でデータの不一致が生じることがありました(Tatsuo)
+ <li>pgpool-II 2.2.3でバージョン2プロトコルのクライアントが動かなくなってしまっていたのを修正しました。
+	  また、時間のかかるクエリを待っている間にフロントエンドが異常終了したことを検知する間隔を1秒から30秒に変更しました。このチェックは、2.2.4ではプロトコルバージョンが3のときのみ有効です(Tatsuo)
+ <li>子プロセスを起動する前にシグナルのブロックやハンドラの設定を行なうようにしました。
+これは、pgpool-IIを起動した直後にファイルオーバなどの事象が発生して子プロセスから親プロセスにシグナルが送られると、pgpool-IIの親プロセスが死んでしまうことがあるからです(Tatsuo)
+</ul>
+</p>
+
+<h2>2.2.3 (urukiboshi) 2009/8/11</h2>
+<h3>概要</h3>
+<p>
+このバージョンでは、2.2.2以前の色々なバグが修正されています。
+</p>
+<h3>バグ修正</h3>
+<ul>
+ <li>バックエンドに新しいコネクションを張る際に、バックエンドの一つが障害を起しているケースで、後処理の中でpgpool-IIの子プロセスが落ちることがあるバグを修正しました(Tatsuo)
+ <li>パラレルクエリのバグを修正しました(Yoshiharu Mori)
+ <li>拡張プロトコルの場合にもエラーメッセージの中で最後に使用したクエリが表示できるようになりました(Akio Ishida)
+ <li>kind mismatch errorメッセージの作成で、メッセージ内容が壊れることがあるバグを修正しました(Tatsuo, Akio Ishida)
+ <li>バックエンドへの接続記述子の参照タイミングによってはpgpool-IIの子プロセスが落ちることがあるバグを修正しました(Tatsuo)。
+ <li>pool_errorやpool_logの引数が間違っていた個所を修正しました(Akio Ishida)。
+ <li>statement_timeoutのタイムアウトによるエラー処理を改良しました。実際にはタイムアウトまでにstatement_timeoutで設定した時間の倍かかっていたのを直しました。また、masterだけがstatement_timeoutを返した場合にも対応できるようにしました。以前はkind mismatchエラーになっていました(Tatsuo)。
+(master以外がstatement_timeoutを返さないケースではkind mismatchエラーになります)。
+
+ <li>health checkをより強化し、postmasterがSIGSTOPで止ってしまっている場合も障害検知できるようにしました。
+
+ <li>バックエンドにSQLを投げ、その応答を待っている間にクライアントがpgpoolに対するコネクションを切断したことが検出できるようになりました。
+たとえば、WebアプリケーションではDBに対してリクエストを投げて、応答がないとキャンセルするようなことが頻繁に起ります。
+この場合、今まではpgpoolやPostgreSQLのプロセスが残ってしまい、同時接続数が枯渇したり、ロックを取ったままのトランザクションが残るなどしてシステム全体に影響を与えることがありました。
+今回の修正により、こうした状況が検出できるようになっただけでなく、SQLの応答待ちの間にクライアントがコネクションを切断した際には、SQLコマンドのキャンセルをpgpoolが行なって、ロック待ちなどのバックエンドプロセスが残るのを防ぐことができるようになりました(Tatsuo)。
+
+<li>引数なしのCLUSTERコマンドはトランザクションの中では実行できないので、自動トランザクションをスタートしないようにしました(Tatsuo)。
+
+<li>複数のプリペアドステートメントを使っている際に、セッションの終りでその一部だけが解放されるバグを修正しました(Akio Ishida)
+。
+<li>sql/pgpool-recovery/pgpool-recovery.cがPostgreSQL 8.4でコンパイルできるようにしました(Tatsuo)。
+
+<li>拡張プロトコルを使っている場合に、クライアントとpgpoolの間でお互いに待ち状態になってしまうことがあるバグを修正しました(Gavin Sherry)。
+
+<li>COPY FROMを実行中にクライアントが処理を中断した場合に、バックエンドプロセスが残ってしまうバグを修正しました(Tatsuo)。
+
+</ul>
+
+<h2>2.2.2 (urukiboshi) 2009/5/5</h2>
+<h3>概要</h3>
+<p>
+このバージョンでは、2.2.1以前の色々なバグが修正されています。
+とりわけ、pgpoolがクライアントとの間でデータのやり取りをしている最中に、pgpoolのクライアントが終了(X)パケットをpgpoolに送信せずに終了した場合に起る可能性があります。
+このバグは過去のすべてのpgpoolに存在しています。
+</p>
+<h3>バグ修正</h3>
+<ul>
+  <li>フロントエンドにpgpoolがデータを送信する際のエラーを無視するようにしました。これによって、バックエンドとの間で必要な処理が中断されないようになり、バックエンドの間でデータの一貫性がなくなる問題が回避されるようになりました(Tatsuo)。
+
+  <li>マスタースレーブモードに関する2.2.1の修正の際に生じたバグを修正しました。プリペアドステートメントを使い回すとハングアップする可能性がありました(Toshihiro)。
+
+  <li>SQLコマンドのPREPAREとプロトコルレベルのEXECUTEが混在するとバックエンドがクラッシュするバグを修正しました。このバグが、2.2で持ち込まれたものです(Tatsuo)。
+
+  <li>コネクションのリセット用の問合わせを実行中にエラーが起きた場合に、PostgreSQLのログに"unexpected EOF on client connection"が記録される問題を修正しました(Tatsuo)。
+</ul>
+
+<h2>2.2.1 (urukiboshi) 2009/4/25</h2>
+<h3>概要</h3>
+<p>
+このバージョンでは、2.2の色々なバグが修正されています。
+</p>
+<h3>バグ修正</h3>
+<ul>
+  <li>master/slaveモードで、DEALLOCATEが失敗することがある問題を修正しました。
+	   これは、最初のPREPAREがslaveで実行されないことによるものです(Toshihiro)
+
+  <li>pgpool.specなどを2.2対応にしました(Devrim)
+
+  <li>Version 2プロトコルではinsert_lockが無視されるようにしました(Tatsuo)
+
+  <li>パラメータ変更メッセージがバックエンドから届く度にログが出力されるのを止めました(Tatsuo)
+
+  <li>ドキュメントで追加し忘れたファイルを登録しました(Tatsuo)
+</ul>
+
+<h2>2.2 (urukiboshi) 2009/2/28</h2>
+<h3>概要</h3>
+<p>
+このバージョンでは、SERIALデータの扱いとオンラインリカバリに改良が行なわれています。
+また、トランザクション分離レベルがシリアライザブルの場合に、DBノード間でデータの一貫性がなくなる可能性がある問題、クエリのキャンセルができない問題が修正されました。
+</p>
+
+<h3>新機能</h3>
+<p>
+<ul>
+<li>insert_lockが有効な場合、SERIAL型を持つテーブルだけがロックされるようになりました(Tatsuo)。
+<li>設定項目client_idle_limit_in_recoveryが追加されました。
+	 オンラインリカバリの第2ステージでクライアントがアイドルのまま居座ることによって、
+	 オンラインリカバリが進行しなくなることを防ぐことができます(Tatsuo)。
+<li>設定項目pid_file_nameが追加されました。これは、pgpool-IIのpidファイルを指定します。
+	 これにより、logdirは使用されなくなりました(Tatsuo)。
+<li>DECLARE, FETCH, CLOSEで負荷分散されるようになりました(Tatsuo)。
+<li>pcpコマンドにデバッグオプション(-d)が追加されました(Jun Kuriyama)。
+<li>"kind mismatch"エラーの際に、原因となったクエリを表示するようにしました(Tatsuo)。
+</ul>
+</p>
+
+<h3>互換性</h3>
+<ul>
+  <li>フェイルオーバ時に必ずpgpoolの子プロセスを再起動するようにしました。
+	   この結果、フェイルオーバ時には必ずpgpoolへのセッションが一端切れることになります。
+	   こうしないと、ネットワークケーブル抜けなどの際に、
+	   TCP/IPのレイヤで再送が行なわれ、長い時間そのままになってしまうことが
+	   あるからです(Tatsuo)。
+  <li>設定項目logdirは使われなくなりました。代りに、pid_file_nameを使ってください(Tatsuo)。
+
+  <li>insert_lockのデフォルト値がtrueになりました(Tatsuo)。
+</ul>
+
+<h3>バグ修正</h3>
+<ul>
+  <li> pgpoolがデーモンモードで起動される際に、すべてのファイルディスクリプタを
+	   閉じるようにしました。こうしないと、pgpoolAdminから起動された際に
+	   apacheのソケットファイルを引き継いでしまい、80番ポートが
+	   専有されてしまいます(Akio Ishida)。
+  <li> トランザクションをシリアライズできないエラーが発生したときに、
+	   すべてのDBノードのトランザクションをアボートするようにしました。
+	   こうしないと、DBノードの間でデータの不整合が起きることがあります(Tatsuo)。
+	   例を示します(Mはマスタ、Sはスレーブを示します)。
+	   <pre>
+	   M:S1:BEGIN;
+	   M:S2:BEGIN;
+	   S:S1:BEGIN;
+	   S:S2:BEGIN;
+	   M:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	   M:S2:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	   S:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	   S:S2:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	   M:S1:UPDATE t1 SET i = i + 1;
+	   S:S1:UPDATE t1 SET i = i + 1;
+	   M:S2:UPDATE t1 SET i = i + 1; <-- blocked
+	   S:S1:COMMIT;
+	   M:S1:COMMIT;
+	   M:S2:ERROR:  could not serialize access due to concurrent update
+	   S:S2:UPDATE t1 SET i = i + 1; <-- success in UPDATE and data becomes inconsistent!
+	   </pre>
+
+ <li> rawモードでMD5認証が使えるようにしました。ドキュメント上では使えるはずでした(Tatsuo)。
+
+ <li> "SET TRANSACTION ISOLATION LEVEL must be called before any query"の
+	   エラーが発生した場合に"kind mimatch"エラーになることを防ぐようにしました(Tatsuo)。
+	   以下のシナリオで問題が発生します。
+	   <pre>
+	   M:S1:BEGIN;
+	   S:S1:BEGIN;
+	   M:S1:SELECT 1; <-- only sent to MASTER
+	   M:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	   S:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+	   M: <-- error
+	   S: <-- ok since no previous SELECT is sent. kind mismatch error occurs!
+	   </pre>
+
+<li>FreeBSDにおいて、psでのprocess statusの表示で余計なスペースが含まれてしまうのを修正しました(Jun Kuriyama)
+
+<li>BEGIN;を2度続けるとkind mismatch errorが発生するのを修正しました(Tatsuo)
+
+<li>PostgreSQLがたくさんのDEBUGメッセージを出力する場合に、誤ってエラーと見なすバグを修正しました(Tatsuo)
+
+<li>クエリのキャンセルが動くようになりました(Tatsuo)
+
+<li>オンラインリカバリの後クライアントからの接続を受け付けるタイミングが早すぎるバグを修正しました。
+このバグにより、ノードデータの貫性が保たれない可能性がありました(Tatsuo)
+
+<li>SELECT, INSERT, UPDATE, DELETE以外のコマンドでも必要ならばトランザクションブロックの内側で実行するようにしました。
+これにより、エラー発生の際にロールバックしてノードの整合性を保つことができます(Tatsuo)
+
+<li>オンラインリカバリ後、pgpool-IIの子プロセスがクラッシュすることがあるバグを修正しました。
+これは、オンラインリカバリの後、新しくアタッチされたノードに接続がないのに、そのノードに子プロセスが終了時に終了メッセージをバックエンドに送信しようとして起っていました(Tatsuo)
+
+<li>PostgreSQLがpostgresql.confを再読み込みした際にpgpoolがエラーを検出してしまうバグを修正しました。
+これは、PostgreSQLが（たぶん）ドキュメントに書かれていないタイミングで「パラメータ変更」パケットを送信してくるために起り、修正はそのことに対応したものです(Tatsuo)
+
+</ul>
+
+<h2>2.1 (inamiboshi) 2008/7/25</h2>
+<h3>新機能</h3>
+<ul>
+  <li> failover_command と failback_command に、新しいマスタノード ID
+  を表す '%m' をサポートしました。(Yoshiyuki)
+  <li> failover_command と failback_command に、古いマスタノード ID を
+  表す '%M' をサポートしました。(Yoshiyuki)
+  <li> リカバリのタイムアウト時間を指定する recovery_timeout パラメー
+  タを追加しました。(Taiki)
+  <li> pg_md5 コマンドに -p オプションを追加しました。(Volkan Yazici,
+  Taiki)
+  <li> pgpool -v を実行するとバージョン番号を表示し、終了するようにし
+  ました。(Yoshiyuki)
+</ul>
+
+<h3>互換性</h3>
+<ul>
+  <li> pgpool_recovery と pgpool_remote_start 関数はスーパーユーザのみ実行
+  できるように権限チェックを強化しました。(Yoshiyuki)
+  <li> raw モードでスタンバイノードにはコネクションプールを作成しない
+  ようにしました。(Yoshiyuki)
+  <li> replication_timeout パラメータを削除しました。(Yoshiyuki)
+  <li> PCP クライアントコマンドのタイムアウトを無効にしました。(Taiki)
+  <li> replicate_select = false の場合に、COPY TO STDOUT をレプリケー
+  ションさせないようにしました。(Yoshiyuki)
+</ul>
+
+<h3>修正</h3>
+<h4> 全般 </h4>
+<ul>
+  <li> CloseComplete メッセージを受けとるとクラッシュする不具合を修正
+  しました。(Yoshiyuki)
+  <li> メッセージ転送処理を効率よくしました。(Yoshiyuki)
+  <li> Solaris 10 でコンパイルできるようにしました。(Yoshiyuki)
+  <li> ヘルスチェックとリカバリのログ出力を改良しました。(Tatsuo)
+  <li> 様々なメモリリークを修正しました。(Yoshiyuki)
+  <li> "failed to read kind from frontend" というエラーメッセージを
+  ERRORレベルから LOG レベルに下げました。(Yoshiyuki)
+  <li> raw モードでフェイルオーバに失敗する不具合を修正しました。
+  (Taiki)
+  <li> 不正なノードを追加・切り離しを行うとゾンビプロセスが発生する不
+  具合を修正しました。(Yoshiyuki)
+  <li> health_check_timeout が正しく動作しない不具合を修正しました。
+  (Kenichi Sawada)
+  <li> FreeBSD で ps コマンドの出力が正しくない不具合を修正しました。
+  (ISHIDA Akio)
+  <li> Unix domain ソケットが残っている場合のエラーメッセージを強化し
+  ました。(Jun Kuriyama)
+  <li> 認証に失敗した場合のエラーメッセージを強化しました。(Tatsuo)
+</ul>
+
+<h4>レプリケーション</h4>
+<ul>
+  <li> replicate_select を設定しても、常に false の挙動になる不具合を
+  修正しました。(Tatsuo)
+  <li> 拡張問い合わせプロトコルを使っていると、トランザクションを誤ってロー
+  ルバックしてしまう不具合を修正しました。(Yoshiyuki)
+  <li> 非同期クエリを使っていると pgpool が不安定になる不具合を修正し
+  ました。(Yoshiyuki)
+  <li> 拡張問合せプロトコルを使うと /* REPLICATION */などのヒント句が消えて
+  しまう不具合を修正しました。(Yoshiyuki)
+  <li> DEALLOCATE ALL を実行するとクラッシュする不具合を修正しました。
+  (Yoshiyuki)
+  <li> immediate shutdown するとハングアップする不具合を修正しました。
+  (Yoshiyuki)
+  <li> 高負荷時にオンラインリカバリを実施すると、リカバリプロセスがハ
+  ングアップする可能性のある不具合を修正しました。(Yoshiyuki)
+  <li> 拡張問合せプロトコルを使って SELECT を実行した際に、トランザク
+  ションブロック内でクエリがエラーになると、pgpool がハングアップする
+  可能性のある不具合を修正しました。(Yoshiyuki)
+</ul>
+
+<h4>マスタースレーブ</h4>
+<ul>
+  <li> トランザクションブロック内で、SET, PREPARE, DEALLOCATE を実行す
+  ると、プロセスがダウンする不具合を修正しました。(Yoshiyuki)
+  <li> マスタースレーブモードでロードバランスが正しく動作していない不
+  具合を修正しました。(Yoshiyuki)
+</ul>
+
+<h4>パラレルクエリ</h4>
+<ul>
+  <li> INSERT に失敗する不具合を修正しました。(Yoshiharu)
+  <li> FROM 句に AS が含まれると構文エラーになる不具合を修正しました。(sho)
+  <li> クエリを複数回実行するとハングアップする不具合を修正しました。(Yoshiharu)
+  <li> JOIN に失敗する不具合を修正しました。(Yoshiharu)
+  <li> DISTINCT構文 の解析に失敗する不具合を修正しました。(Yoshiharu)
+</ul>
+
+<hr>
+
+<h2>2.0.1 (hikitsuboshi) 2007/11/21</h2>
+<ul>
+  <li> UPDATE もしくは DELETE を実行するとプロセスがダウンする不具合を
+       修正しました。(Yoshiyuki) 
+  <li> master_slave を true に設定している場合に、SQL 構文エラーを検知
+       した時にマスタにのみそのクエリを送信するようにしました。(Yoshiyuki)
+</ul>
+
+<hr>
+
+<h2>2.0 (hikitsuboshi) 2007/11/16</h2>
+<h3>互換性</h3>
+<ul>
+  <li> ignore_leading_white_space のデフォルト値を true にしました。
+  (Yoshiyuki)
+  <li> replicate_strict を廃止しました。常に replicate_strict が true
+  の挙動になります。(Yoshiyuki)
+</ul>
+
+<h3>全般</h3>
+<ul>
+  <li> pgpool.conf をリロードできるようにしました。リロード時に分散ルー
+  ルも同時にリロードします。(Yoshiyuki)
+  <li> SQL パーサを PostgreSQL 8.3 に対応しました。(Yoshiyuki)
+  <li> ノードを切り離した際にユーザが設定したコマンドを実行できるよう
+  に、pgpool.conf に failover_command というパラメータを追加しました。
+  (Yoshiyuki)
+  <li> ノードを復帰した際にユーザが設定したコマンドを実行できるように、
+  pgpool.conf に failback_command というパラメータを追加しました。
+  (Yoshiyuki)
+  <li> pgpool.conf に client_idle_limit というパラメータを追加しました。
+  このパラメータではクライアントからのクエリの最大待ち時間を設定するこ
+  とができます。(Tatsuo)
+</ul>
+
+<h3>レプリケーション</h3>
+<ul>
+  <li> トランザクションブロックに囲まれていないクエリをレプリケーショ
+  ンさせる場合、内部的にトランザクションを開始させるようにしました。
+  (Yoshiyuki)
+  <li> レプリケーションを高速化させるようにしました。(Yoshiyuki)
+  <li> ノードを再同期させて復帰させる、オンラインリカバリ機能を実装し
+  ました。(Yoshiyuki)
+  <li> INSERT, UPDATE, DELETE した行数がすべて一致しなかった場合に、ト
+  ランザクションをアボートさせるようにしました。(Yoshiyuki)
+<pre>
+   x=# update t set a = a + 1;
+   ERROR:  pgpool detected difference of the number of update tuples
+   HINT:  check data consistency between master and other db node
+</pre>
+  <li> 複数のバックエンドから異なる結果が返ってきた場合に、同じ結果が
+  多数返ってきた結果を信頼する多数決方式を実装しました。(Yoshiyuki)
+  <li> V2 問合せプロトコルでロードバランスできるようにしました。(Yoshiyuki)
+</ul>
+
+<h3>パラレルクエリ</h3>
+<ul>
+  <li> パラレルモードで部分レプリケーションをサポートしました。(Yoshiharu)
+</ul>
+
+<hr>
+
+<h2>1.3 (sohiboshi) 2007/10/23</h2>
+<ul>
+  <li> 新しく authentication_timeout というパラメータを追加しました。(Yoshiyuki)
+    <ul>
+     <li>このパラメータでは認証時間のタイムアウトを設定します。 
+     <li>デフォルト値は 60 (1 分)です。
+   </ul>
+  <li> スタートアップパケットの長さが 10000 バイト越えている場合には、接続を切断するようにしました。(Yoshiyuki)
+  <li> DEALLOCATE を実行するとまれに不正なメモリアクセスが発生する不具
+       合を修正しました。(Yoshiyuki)
+  <li> トランザクション内で SELECT を実行した後に SELECT を正しくロードバラ
+       ンスできない不具合を修正しました。(Yoshiyuki)
+       <ul>
+	<li> この不具合は 1.2 で混入した不具合です。
+       </ul>
+  <li> 64bit 環境でクエリキャッシュ機能を有効にすると、クラッシュする可能性のある不具合を修正しました(Yoshiyuki)
+</ul>
+
+<hr>
+
+<h2>1.2.1 (tomoboshi) 2007/09/28</h2>
+<ul>
+  <li> 拡張問合せプロトコルの Parse メッセージの処理でデッドロックが発
+  生する可能性がある不具合を修正しました。(Yoshiyuki)
+
+  <li> Prepared statement を管理する領域がメモリリークしている不具合を
+  修正しました。(Yoshiyuki)
+
+  <li> 一部の OS でコンパイルエラーになる不具合を修正しました。(Yoshiyuki)
+
+  <li>master/slave モード内で SET, PREPARE, DEALLOCATE 文をレプリケーションさせるようにしました。(Yoshiyuki)
+</ul>
+
+<hr>
+
+<h2>1.2 (tomoboshi) 2007/08/01</h2>
+<ul>
+  <li> pgpool.conf に replicate_select という新規パラメータを追加しま
+  した。デフォルト値は false です。(Yoshiyuki)
+  <ul>
+    <li> true に設定した場合は、ロードバランスされない SELECT 文をレプ
+    リケーションします(pgpool-II 1.0 の挙動)。false の場合はマスタにの
+    み SELECT を送信します。
+  </ul>
+
+  <li> シグナル処理を安全に行うようにしました。(Yoshiyuki)
+  <ul>
+    <li>まれにゾンビプロセスが残ってしまったり、不安定になることがありました。
+  </ul>
+  
+  <li> トランザクション中に SELECT 文がエラーになると、ハングアップし
+  てしまう不具合を修正しました。(Yoshiyuki)
+  <ul>
+    <li> この不具合は 1.1 に入った不具合です。
+  </ul>
+
+  <li> PREPARE/EXECUTE が master/slave モードで正しく動作しない不具合
+  を修正しました。(Yoshiyuki)
+
+  <li> デッドロックを検知すると、kind mismatch error が発生する不具合
+  を修正しました。(Yoshiyuki)
+
+  <li> 拡張問い合わせプロトコルを使ったドライバを使用した場合に、構文
+        解析時に警告が発生する SQL 文を実行するとハングアップもしくは
+        プロセスがクラッシュする不具合を修正しました。(Yoshiyuki)
+
+  <li> コネクションキャッシュが一杯になるとメモリリークが発生する不具
+  合を修正しました。(Yoshiyuki)
+
+  <li> セッションが残った状態で PostgreSQL を fast shutdown もしくは
+  immediate shutdown すると、残ったセッションがハングアップする不具合
+  を修正しました。(Yoshiyuki)
+
+  <li> ロードバランス先を接続開始時に決定し、同じセッション内ではすべ
+  て同じノードにクエリを送信するようにしました。(Yoshiyuki)
+
+  <li> connection_life_time を設定している場合にバッファオーバランが発
+  生する可能性がある不具合を修正しました。(Yoshiyuki)
+
+</ul>
+
+<hr>
+
+<h2>1.1.1 (amiboshi) 2007/06/15</h2>
+<ul>
+  <li> load_balance_mode を有効にしていると、"kind mismatch" エラーが
+  発生してしまう不具合を修正しました。これは 1.1 で入った不具合です。
+  (Yoshiyuki)
+  <li> プロトコルバージョン 2 を使ったドライバでレプリケーション使用す
+  ると、pgpool がハングアップする不具合を修正しました(Yoshiyuki)
+  <li> 拡張問合せプロトコルを使用すると、まれにデッドロックが発生する
+  不具合を修正しました(Yoshiyuki)
+</ul>
+
+<hr>
+
+<h2>1.1 (amiboshi) 2007/05/25</h2>
+<ul>
+  <li> HBA 認証をサポートしました(Taiki)
+  <li> log_connections をサポートしました(Taiki)
+  <li> log_hostname をサポートしました(Taiki)
+  <li> ps コマンドで pgpool の状態がわかるようにしました(Taiki)
+  <li> MacOS X でコンパイルエラーになる不具合を修正しました(Yoshiyuki)
+  <li> 拡張問い合わせプロトコルを使ったクエリをロードバランスできるよ
+  うにしました(Yoshiyuki)
+  <li> レプリケーション設定時、SELECT は master にのみ送信するようにし
+  ました(Yoshiyuki)
+    <ul>
+      <li> もし SELECT をレプリケーションさせる場合は /*REPLICATION*/
+      のように SELECT の前にコメントを付ける必要があります
+    </ul>
+  <li> レプリケーション設定時、SELECT nextval() および SELECT setval()
+  を自動的にレプリケーションさせるようにしました(Yoshiyuki)
+  <li> バックエンドへ接続中にシグナルに割り込まれると、フェイルオーバ
+  してしまう不具合を修正しました(Yoshiyuki)
+  <li> PAM 認証のサンプルファイル pgpool.pam を
+  $PREFIX/share/pgpool-II/ にインストールするようにしました(Taiki)
+  <li> 巨大な SQL を実行しようとした場合に pgpool が無限ループに入る不
+  具合を修正しました(Yoshiyuki) 
+</ul>
+
+<hr>
+
+<h2>1.0.2 (suboshi) 2007/02/13</h2>
+<ul>
+  <li> 巨大な SQL を実行しようとした場合に pgpool が無限ループに入る不
+  具合を修正しました(Yoshiyuki) 
+  <li> 拡張問合せプロトコルを使った場合にまれに pgpool が止まってしま
+  う不具合を修正しました(Yoshiyuki) 
+  <li> フェイルオーバ、フェイルバック時のログ出力を改善しました
+  (Tatsuo)
+  <li> SHOW pool_status の結果にバックエンドステータス情報を追加しまし
+  た(Tatsuo)
+  <li> レプリケーション時に UPDATE/DELETE の件数が実際の件数とは異なっ
+  た結果を返す不具合を修正しました(Tatsuo)
+  <li> 古い gcc を使うと libpq のリンクに失敗する不具合を修正しました
+  (Yoshiyuki)
+  <li> PHP:PDO や DBD-Pg を使った場合に、自動 DEALLOCATE が失敗してし
+  まう不具合を修正しました(Yoshiyuki)
+  <li> SELECT FOR UPDATE, SELECT INTO をロードバランスさせないようにし
+  ました。また、SELECT の前にコメントがある場合もロードバランスさせな
+  いようにしました。これは pgpool-I との互換性のためです。(Yoshiyuki)
+  <li> configure 時の libpq のデフォルトパスを pg_config コマンドを使っ
+  て取得するようにしました。なお、--with-pgsql 関連のオプションは次の
+  バージョンでは廃止予定です(Yoshiyuki)
+  <li> コネクションプール再利用時に、ソケットが壊れている場合は再接続
+  するようにしました(Yoshiyuki)
+  <li> PostgreSQL 7.4.x の libpq を使ってビルドしようとすると、
+  configure スクリプトでエラーとなってしまう不具合を修正しました
+  (Yoshiyuki)
+</ul>
+
+<div class="copyright">
+<hr>
+<copyright>
+Copyright &copy; 2003 &ndash; 2008 PgPool Global Development Group
+</copyright>
+</div>
+</body>
+</html>

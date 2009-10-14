@@ -1,0 +1,474 @@
+2.2.5 (urukiboshi) 2009/10/4
+	  * Version 2.2.5
+
+	  This version fixes various bugs in 2.2.4 or before.
+
+	  * Bug fixes
+
+	  - Fix connection_count_down(). It decrements the connection
+        counter too much in some corner cases and causes online
+        recover never completes(Tatsuo)
+
+	  - Detect frontend exiting while waiting for commands complete in
+        other cases such as internal locks are issued and Parse
+        (Tatsuo)
+
+	  - Fix inifinit loop in reset_backend(Xavier Noguer, Tatsuo)
+
+	  - Fix Parse() to print actual query when it detects kind
+        mismatch error(Tatsuo)
+
+	  - Document enhancements(Tatsuo)
+
+2.2.4 (urukiboshi) 2009/8/24
+	  * Version 2.2.4
+
+	  This version fixes various bugs in 2.2.3 or before.
+
+	  * Bug fixes
+
+	  - Fix possible bug introduced in pgpool-II 2.2.2.  Load balance
+		control variables may remain not be restored and subsequent
+		DML/DDL call might sent to only master node(Tatsuo)
+
+	  - Send NOTICE message to frontend periodically if V2 protocol is
+		used. This is ifdef out since it affectes visible change to
+		applications.  2.2.3 unconditionaly sends param packet to
+		client even it uses version 2 protocol, which is apparentlt
+		wrong. Also tweak checking period from 1 second to 30 seconds
+		since 1 second seems too aggressive(Tatsuo)
+
+	  - Block signals before forking children rather after.  Otherwise
+		parent will be killed by failover signal if it receives a
+		signal before establishing signal handler(Tatsuo)
+
+	  - Remove unnecessary spaces and tabs at the end of line(Jun Kuriyama)
+
+2.2.3 (urukiboshi) 2009/8/11
+	  * Version 2.2.3
+
+	  This version fixes various bugs in 2.2.2 or before.
+
+	  * Bug fixes
+
+	  - Fix child process death if one of backends is not available(Tatsuo).
+
+	  - Fix various parallel query bugs(Yoshiharu Mori)
+
+	  - Fix message corruption for kid mismatch error(Akio Ishida)
+
+	  - Now stetmemt_time works(Tatsuo)
+
+	  - Enhance health checking to detect postmaster stopping by
+        SIGSTOP(Tatsuo)
+
+	  - Detect frontend abnormal exiting while waiting for reply from
+        backend. This only works with V3 protocol(Tatsuo)
+
+	  - Do not start internal transaction if command is CLUSTER
+        without arguments(Tatsuo)
+
+	  - Fix bug with COPY FROM in that backend process remains after
+        COPY failed(Tatsuo)
+
+	  * Enhancements
+
+	  - Show last query for extended protocol(Akio Ishida)
+
+	  - Allow to compile sql/pgpool-recovery/pgpool-recovery.c with
+        PostgreSQL 8.4(Tatsuo)
+
+2.2.2 (urukiboshi) 2009/5/5
+	  * Version 2.2.2
+
+	  This version fixes various bugs in 2.2.1 or before. Please note
+	  that an importan fix is made to avoid data incositency risk,
+	  which could happen when client does not exit gracely(without
+	  sending "X" packet) while pgpool is trying to send data to
+	  it. This could happen with all version of pgpool-II.
+
+	  * Bug fixes
+
+	  - Ignore write error on frontend connection. This is needed to
+		continue processing with backend, otherwise we risk data
+		incositency(Tatsuo)
+
+	  - Fix bug introduced in 2.2.1 (In master slave mode, sometimes
+	  	DEALLOCATE fails). If prepared statement reused, pgpool
+	  	hangs(Toshihiro)
+
+	  - Fix pgpool crash when SQL command PREPARE and protocol level
+        EXECUTE are mixed. The bug was introduced in 2.2(Tatsuo)
+
+	  - Avoid "unexpected EOF on client connection" error in PostgreSQL
+        when reset query fails(Tatsuo)
+		
+2.2.1 (urukiboshi) 2009/4/25
+	  * Version 2.2.1
+
+	  This version fixes various bugs in 2.2.
+
+	  * Bug fixes
+
+	  - In master slave mode, sometimes DEALLOCATE fails. This is
+		caused by that the first PREPARE was not executed on the
+		slave(Toshihiro)
+
+	  - Update pgpool.spec along with related files(Devrim)
+
+	  - Fix inser_lock so that it is ignored when protocol version is
+        2(Tatsuo)
+		
+	  - Remove excessive log messages regarding parameter change notice(Tatsuo)
+
+	  - Add missing files to doc(Tatsuo)
+
+2.2 (urukiboshi) 2009/2/28
+	  * Version 2.2
+
+	  This version enhances SERIAL data type handling and on line
+	  recovery. Also an important bug, serializable transactions could
+	  cause data inconsistency among DB nodes, is fixed. Query
+	  cancelation, which never worked since pgpool-II was born, is
+	  finally fixed.
+
+	  * New features/enhancements
+
+		- With insert_lock, now a table is locked only if it has
+          SERIAL data type and now the default value for insert_lock
+          is true(Tatsuo)
+
+		- Start internal transaction other than INSERT, UPDATE, DELETE
+          and SELECT to keep node consistency(Tatsuo)
+
+		- Add client_idle_limit_in_recovery directive. This will
+		  prevent 2nd stage of on line recovery from not going forward
+		  by idle clients sitting forever(Tatsuo)
+
+		- Add pid_file_name directive which specifies a path to the
+		  file containing pgpool process id. "logdir" is no more used(Tatsuo)
+
+		- Allow to load balance DECLARE, FETCH and CLOSE(Tatsuo)
+
+		- Add -d option to pcp commands(Jun Kuriyama)
+
+		- Enahnce kind mismatch error message to include originarl
+          query string(Tatsuo)
+
+	  * Bug fixes
+
+	    - Close all file descriptors when running in daemon mode.
+	      Otherwise we inherit sockets from apache when it's
+	      started by pgpoolAdmin. This results in that port 80 is
+	      occupied for example.  Patch provided by Akio
+	      Ishida. Also add chdir("/"). This is always good for
+	      daemon programs(Tatsuo)
+
+	    - Allow MD5 authentication in raw mode as stated in docs(Tatsuo)
+
+	    - Check transaction serialization failure error in
+	      serializable mode and abort all nodes if so. Otherwise
+	      we allow data inconsistency among DB nodes(Tatsuo).
+
+	      See following scenario: (M:master, S:slave)
+
+		  	M:S1:BEGIN;
+			M:S2:BEGIN;
+			S:S1:BEGIN;
+			S:S2:BEGIN;
+			M:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+			M:S2:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+			S:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+			S:S2:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+			M:S1:UPDATE t1 SET i = i + 1;
+			S:S1:UPDATE t1 SET i = i + 1;
+			M:S2:UPDATE t1 SET i = i + 1; <-- blocked
+			S:S1:COMMIT;
+			M:S1:COMMIT;
+			M:S2:ERROR:  could not serialize access due to concurrent update
+			S:S2:UPDATE t1 SET i = i + 1; <-- success in UPDATE and data becomes inconsistent!
+
+		- avoid kind mismatch error caused by "SET TRANSACTION
+		  ISOLATION LEVEL must be called before any query"(Tatsuo).
+
+		   This could happen in following scenario:
+
+	        M:S1:BEGIN;
+            S:S1:BEGIN;
+			M:S1:SELECT 1; <-- only sent to MASTER
+			M:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+			S:S1:SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+			M: <-- error
+			S: <-- ok since no previous SELECT is sent. kind mismatch error occurs!
+
+		- Process status display has extra space on FreeeBSD(Jun Kuriyama)
+
+		- Fix incorrect kind mismatch detection case. e.g: BEGIN;
+		  BEGIN; (Tatsuo)
+
+	    - If PostgreSQL sends lots of DEBUG message, sometimes pgpool
+	      complains:
+		  2008-11-08 22:41:53 ERROR: pid 23744: do_command: backend does not
+		  return ReadyForQuery. This due to a wrong assumption for the
+		  client/server protocol(Tatsuo)
+
+		- Fix the case when sending an erronous query to abort
+          transaction. It assumed that after sending an error query,
+          always ReadyForQuery came right after that. If some
+          debugging or logging verboseness is set, PostgreSQL might
+          sends NOTICE before ReadyForQuery(Tatsuo)
+
+		- Query cancelation now works. It never worked since pgpool-II
+          was born(Tatsuo)
+
+		- Fix online recovery to wait for failback done before
+          allowing to accept connections from clients. It was supposed
+          to work like this but actually was not since the day 0 when
+          online recovery was born. Without the fix there could be
+          potential data inconsistency among DB nodes(Tatsuo)
+
+		- Fix pgpool-II crash after on line recovery. This happens
+          after the failback process adds a recovered node which has
+          no connection to the node(Tatsuo)
+
+		- Fix pgpool-II errors when postgresql.conf is reloaded. This
+          was caused by parameter status packet sent asynchronously
+          from backend, which indicates the internal setting of
+          backend has been changed(Tatsuo)
+
+	  * Incompatible changes
+
+		- Always fail over and restart all children. Before we do
+		  restart only if master has not been changed. This is
+		  wrong. If we have trouble with network cable or something,
+		  TCP/IP stack keeps on retrying for long time and the only
+		  way to prevent it is restarting process(Tatsuo)
+
+		- "logdir" is no more used. Instead use
+          "pid_file_name"(Tatsuo)
+
+		- Default value for insert_lock is now true(Tatsuo)
+
+2.1 (inamiboshi) 2008/7/25
+      * Version 2.1
+
+      * New feature
+        - Add '%m' format to failover_command and failback_command to
+          obtain new master node ID. (Yoshiyuki)
+        - Add '%m' format to failover_command and failback_command to
+          obtain old master node ID. (Yoshiyuki)
+        - Add new directive "recovery_timeout" to specify recovery
+          timeout in second. (Taiki)
+        - Add optino '-v' to print pgpool version. (Yoshiyuki)
+
+      * Incompatibility
+        - Restrict pgpool_recovery() and pgpool_remote_start()
+          functions to superusers. (Yoshiyuki)
+        - Do not create a connection pool to standby node in raw
+          mode. (Yoshiyuki)
+        - Remove "replication_timeout" parameter. (Yoshiyuki)
+          - This enabled if replication_strict was false. However,
+            replication_strict was already removed.
+        - Ignore timeout argument of pcp commands. (Taiki)
+        - Do not replicate "COPY TO STDOUT" when replicate_select is
+          false. (Yoshiyuki)
+
+      * Bug fix
+      ** General
+        - Fix crash when CloseComplete message was
+          received. (Yoshiyuki)
+        - Improve network I/O routine. (Yoshiyuki)
+        - Fix compile errors on Solaris 10. (Yoshiyuki)
+        - Improve log messages of health check and recovery. (Tatsuo)
+        - Change error level of the "failed to read kind from
+          frontend" message from ERROR to LOG. (Yoshiyuki)
+        - Fix failover failure in raw mode. (Taiki)
+        - Fix zombie process bug. (Yoshiyuki)
+        - Fix health_check_timeout to work correctly. (Kenichi Sawada)
+        - Support ps status on FreeBSD. (ISHIDA Akio)
+        - Improve bind(2) failure report. (Jun Kuriyama)
+        - Improve error message when client authentication
+          failed. (Tatsuo)
+
+      ** Replication
+        - Fix replicate_select to work correctly. (Tatsuo)
+        - Fix a wrong rollback bug with extended query. (Yoshiyuki)
+        - Fix a bug with asynchronous query. (Yoshiyuki)
+        - Fix hint clause handling like /*REPLICATION*/ with extended
+          query. (Yoshiyuki)
+        - Fix crash of "DEALLOCATE ALL". (Yoshiyuki)
+        - Fix hang up when a backend node does immediate
+          shutdown. (Yoshiyuki)
+        - Fix hang up online recovery in high load. (Yoshiyuki)
+        - Fix hang up with extended query protocol when SELECT is
+          failed inside a transaction block. (Yoshiyuki)
+
+      ** Master Slave
+        - Fix load balancing to work correctly. (Yoshiyuki)
+        - Fix crash if SET, PREPARE or DEALLOCATE is executed inside a
+          transaction block. (Yoshiyuki)
+
+      ** Parallel query
+        - Fix INSERT failure. (Yoshiharu)
+        - Fix syntax error when a query contains "AS" in FROM
+          clause. (sho)
+        - Fix Hung up when two or more statment was executed 
+          in parallel mode (Yoshiharu)
+        - Fix Query rewriting of Join Expression and DISTINCT ON
+          (Yoshiharu)
+
+2.0.1 (hikitsuboshi) 2007/11/21
+      * Version 2.0.1
+      * Fix process down with UPDATE or DELETE query.(Yoshiyuki)
+      * Send a syntax query only to a master node if master_slave is
+        true.(Yoshiyuki)
+
+2.0 (hikitsuboshi) 2007/11/16
+      * Version 2.0
+
+      * Incompatibility since pgpool-II 1.x
+        - the default value for ignore_leading_white_space is now
+          true(Yoshiyuki) 
+        - replicate_strict is removed. The value is always
+          true(Yoshiyuki)
+
+      * General
+        - Allow to reload pgpool.conf(Yoshiyuki)
+        - The paraser is now compatible with PostgreSQL 8.3(Yoshiyuki)
+        - Add new directive "failover_command" to specify command when
+          a node is detached(Yoshiyuki)
+        - Add new directive "client_idle_limit" to specify the time out since
+          the last command is arrived from a client(Tatsuo)
+  
+      * Replication
+        - Always start a new transaction even if the query is not in
+          an explicit transaction to enhance the reliabilty of
+          replication(Yoshiyuki)
+        - Enhance the performance of replication for write
+          queries. Now the worst case is 1/2 compared with single DB
+          node regardless the number of DB nodes. Previous release
+          tends to degrade according to the numer of DB
+          nodes(Yoshiyuki)
+        - Add "online recovery" which allows to add a DB node and sync
+          with other DB nodes without stopping the pgpool
+          server(Yoshiyuki)
+        - Abort a transaction if INSERT, UPDATE and DELETE reports
+          different number of result rows(Yoshiyuki)
+
+          x=# update t set a = a + 1;
+          ERROR:  pgpool detected difference of the number of update tuples
+          HINT:  check data consistency between master and other db node
+
+        - If the results from DB nodes do not match, select the
+          possible correct result by "decide by majority". Previous
+          release always trust the result of the master DB
+          node(Yoshiyuki)
+        - Allow load balance in V2 frontend/backend protocol(Yoshiyuki)
+
+      * Parallel query
+        - Allow "partial replication" to enhance the performance of
+          the parallel query(Yoshiharu)
+
+1.3 (sohiboshi) 2007/10/23
+      * Version 1.3
+      * Add new "authentication_timeout" directive, being the default
+        value is 60. (Yoshiyuki)
+        - Maximum time in seconds to complete client authentication.
+      * Reject a connection when startup packet length is greater than
+        10,000 byte. (Yoshiyuki)
+      * Fix invalid memory access when pgpool processed DEALLOCATE
+        statement. (Yoshiyuki)
+      * Fix hang up in load balance mode. (Yoshiyuki)
+        - This was introduced in V1.2.
+      * Fix segmentation fault in 64-bit environment when query cache
+        is enable. (Yoshiyuki)
+
+1.2.1 (tomoboshi) 2007/09/28
+      * Version 1.2.1
+      * Fix deadlock while processing Parse message. (Yoshiyuki)
+      * Fix memory leak in reset_prepared_list(). (Yoshiyuki)
+      * Fix compile error on FreeBSD 4.11. (Yoshiyuki)
+      * SET, PREPARE and DEALLOCATE statements are replicated in
+        master/slave mode. (Yoshiyuki)
+
+1.2 (tomoboshi) 2007/08/01
+      * Version 1.2
+      * Add new "replicate_select" directive, being the default value
+        is false. (Yoshiyuki) 
+        - If it is true, SELECT query is replicated. This behavior is
+          same as V3.2 or earlier.
+      * Improve signal handling. (Yoshiyuki)
+        - Occasionaly, zombie processes were remained. Or processes
+          were unstable.
+      * Fix hang up when SELECT was error inside a transaction
+        block. The bug was introduced in V3.3. (Yoshiyuki)
+      * Fix PREPARE/EXECUTE handling in master slave mode. (Yoshiyuki)
+      * Fix "kind mismatch error" when deadlock error 
+      * Fix hang up and SEGV in extended query protocol when a warning
+        SQL like "SELECT '\'';" executed. (Yoshiyuki)
+      * Fix hang up when postmaster did fast or immediate
+        shutdown. (Yoshiyuki)
+      * Fix memory leak when connection cache was full. (Yoshiyuki)
+      * Load balancing node is selected when a session
+        starts. (Yoshiyuki)
+      * Fix buffer overrun if connection_life_time was
+        set. (Yoshiyuki)
+
+1.1.1 (amiboshi) 2007/6/15
+      * Version 1.1.1
+      * Fix "kind mismatch" bug when load_balance_mode is true
+        introduced in 1.1 (Yoshiyuki)
+      * Fix deadlock with extended query protocol(Yoshiyuki)
+      * Fix numerous bugs with protocol V2(Yoshiyuki)
+
+1.1 (amiboshi) 2007/5/25
+      * Version 1.1
+      * Support HBA authentication(Taiki)
+      * Support log_connections(Taiki)
+      * Support log_hostname(Taiki)
+      * Show pgpool status in ps command(Taiki)
+      * Fix compile error on MacOS X(Yoshiyuki)
+      * Allow load balancing with extended protocol(Yoshiyuki)
+      * Improve replication. SELECT nextval() and SELECT setval() are
+        now replicated. (Yoshiyuki)
+      * Change SELECT query is only sent to the master node. (Yoshiyuki)
+        - Use /*REPLICATION*/ comment to repliate a SELECT query.
+      * Fix unexpected failover error due to receiving an interrupt
+        signal while connecting to the backend. (Yoshiyuki)
+      * Add "pgpool.pam" file, for PAM configuration file, to be
+        installed under "$PREFIX/share/pgpool-II/". (Taiki)
+      * Fix core dump when executing large SQL. (Yoshiyuki)
+
+1.0.2 (suboshi) 2007/02/12
+      * Version 1.0.2
+      * Fix bug when executing large SQL to prevent pgpool goes into
+        infinite loop(Yoshiyuki)
+      * Fix bug with extended protocol handling(Yoshiyuki)
+      * Enhance log for failover and failback(Tatsuo)
+      * Add backend status info to show pool_status(Tatsuo)
+      * Fix UPDATE/DELETE returns wrong number of rows(Tatsuo)
+      * Fix configure fails to link libpq when used with older
+        version of gcc(Yoshiyuki)
+      * Fix DEALLOCATE treatment when used with PHP:PDO DBD-Pg(Yoshiyuki)
+      * Do not load balance SELECT FOR UPDATE, SELECT INTO and SELECT
+        with comments. This behavior is compatible with
+        pgpool-I(Yoshiyuki)
+      * Obtain path to libpq using pg_config. --with-pgsql will be
+        removed in next version(Yoshiyuki) 
+      * When reusing connection pool, reconnect to backend if the
+        socket is broken(Yoshiyuki)
+      * Fix error with configure when used with PostgreSQL
+        7.4(Yoshiyuki)
+
+1.0.1 (suboshi) 2006/09/22
+      * Version 1.0.1
+      * This version fixes bugs including master/slave not being
+        working, deadlock problem in COPY FROM STDIN. Also documents
+        are improved.
+
+1.0.0 (suboshi) 2006/09/08
+      * Initial release
+
+Local Variables:
+mode: outline
+End:
