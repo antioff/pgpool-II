@@ -1,3 +1,4 @@
 copy: *.conf
 copy: *.init
+copy: *.patch
 tar.gz: pgpool-II
