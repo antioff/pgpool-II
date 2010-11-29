@@ -6,7 +6,7 @@
 
 Name:		pgpool-II 
 Version:	2.3.3
-Release:        alt1 
+Release:        alt2 
 Summary:	pgpool is a connection pool/replication server for PostgreSQL	
 License: 	BSD
 Group: 		Databases
@@ -14,6 +14,7 @@ Url:		http://pgfoundry.org/projects/pgpool
 Source:		%name-%version.tar.gz
 Source1:        pgpool.init
 Source2:	pgpool.conf
+Patch0:		0001-Fix-EINTR-for-all-cases-in-health-check.patch
 
 BuildRequires: flex gcc-c++ postgresql-devel
 
@@ -24,6 +25,7 @@ Group:          Databases
 
 %prep
 %setup -q
+%patch0 -p2
 
 %build
 %configure	--includedir=/usr/include/pgsql
