@@ -78,6 +78,9 @@ header files for %name.
 
 
 %changelog
+* Mon Nov 29 2010 Alexander V Openkin <open@altlinux.ru> 2.3.3-alt2
+- thresh@ megapatch 
+
 * Mon Nov 29 2010 Alexander V Openkin <open@altlinux.ru> 2.3.3-alt1
 - 2.3.3 release 
 
