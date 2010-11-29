@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_connection_pool.c,v 1.13.2.3 2009/08/22 04:19:49 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_connection_pool.c,v 1.22 2010/04/13 04:14:08 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2009	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -69,7 +69,7 @@ int pool_init_cp(void)
 	for (i = 0; i < pool_config->max_pool; i++)
 	{
 		pool_connection_pool[i].info = &(MY_PROCESS_INFO.connection_info[i]);
-		memset(pool_connection_pool[i].info, 0, sizeof(ConnectionInfo));
+		memset(pool_connection_pool[i].info, 0, sizeof(ConnectionInfo) * MAX_NUM_BACKENDS);
 	}
 	return 0;
 }
@@ -154,7 +154,7 @@ POOL_CONNECTION_POOL *pool_get_cp(char *user, char *database, int protoMajor, in
 					info = p->info;
 					memset(p, 0, sizeof(POOL_CONNECTION_POOL_SLOT));
 					p->info = info;
-					memset(p->info, 0, sizeof(ConnectionInfo));
+					memset(p->info, 0, sizeof(ConnectionInfo) * MAX_NUM_BACKENDS);
 					POOL_SETMASK(&oldmask);
 					return NULL;
 				}
@@ -201,7 +201,7 @@ void pool_discard_cp(char *user, char *database, int protoMajor)
 	info = p->info;
 	memset(p, 0, sizeof(POOL_CONNECTION_POOL));
 	p->info = info;
-	memset(p->info, 0, sizeof(ConnectionInfo));
+	memset(p->info, 0, sizeof(ConnectionInfo) * MAX_NUM_BACKENDS);
 }
 
 
@@ -254,7 +254,7 @@ POOL_CONNECTION_POOL *pool_create_cp(void)
 	p = oldestp;
 	pool_send_frontend_exits(p);
 
-	pool_debug("discarding old %d th connection. user: %s database: %s",
+	pool_debug("discarding old %zd th connection. user: %s database: %s",
 			   oldestp - pool_connection_pool,
 			   MASTER_CONNECTION(p)->sp->user,
 			   MASTER_CONNECTION(p)->sp->database);
@@ -277,7 +277,7 @@ POOL_CONNECTION_POOL *pool_create_cp(void)
 	info = p->info;
 	memset(p, 0, sizeof(POOL_CONNECTION_POOL));
 	p->info = info;
-	memset(p->info, 0, sizeof(ConnectionInfo));
+	memset(p->info, 0, sizeof(ConnectionInfo) * MAX_NUM_BACKENDS);
 
 	return new_connection(p);
 }
@@ -383,7 +383,7 @@ void pool_backend_timer(void)
 				info = p->info;
 				memset(p, 0, sizeof(POOL_CONNECTION_POOL));
 				p->info = info;
-				memset(p->info, 0, sizeof(ConnectionInfo));
+				memset(p->info, 0, sizeof(ConnectionInfo) * MAX_NUM_BACKENDS);
 			}
 			else
 			{
@@ -410,7 +410,7 @@ void pool_backend_timer(void)
 /*
  * connect to postmaster through INET domain socket
  */
-int connect_inet_domain_socket(int slot)
+int connect_inet_domain_socket(int slot, bool retry)
 {
 	char *host;
 	int port;
@@ -418,13 +418,13 @@ int connect_inet_domain_socket(int slot)
 	host = pool_config->backend_desc->backend_info[slot].backend_hostname;
 	port = pool_config->backend_desc->backend_info[slot].backend_port;
 
-	return connect_inet_domain_socket_by_port(host, port);
+	return connect_inet_domain_socket_by_port(host, port, retry);
 }
 
 /*
  * connect to postmaster through UNIX domain socket
  */
-int connect_unix_domain_socket(int slot)
+int connect_unix_domain_socket(int slot, bool retry)
 {
 	int port;
 	char *socket_dir;
@@ -432,10 +432,14 @@ int connect_unix_domain_socket(int slot)
 	port = pool_config->backend_desc->backend_info[slot].backend_port;
 	socket_dir = pool_config->backend_socket_dir;
 
-	return connect_unix_domain_socket_by_port(port, socket_dir);
+	return connect_unix_domain_socket_by_port(port, socket_dir, retry);
 }
 
-int connect_unix_domain_socket_by_port(int port, char *socket_dir)
+/*
+ * Connect to PostgreSQL server by using UNIX domain socket.
+ * If retry is true, retry to call connect() upon receiving EINTR error.
+ */
+int connect_unix_domain_socket_by_port(int port, char *socket_dir, bool retry)
 {
 	struct sockaddr_un addr;
 	int fd;
@@ -455,9 +459,15 @@ int connect_unix_domain_socket_by_port(int port, char *socket_dir)
 
 	for (;;)
 	{
+		if (exit_request)		/* exit request already sent */
+		{
+			pool_log("connect_unix_domain_socket_by_port: exit request has been sent");
+			return -1;
+		}
+
 		if (connect(fd, (struct sockaddr *)&addr, len) < 0)
 		{
-			if (errno == EINTR || errno == EAGAIN)
+			if ((errno == EINTR && retry) || errno == EAGAIN)
 				continue;
 
 			pool_error("connect_unix_domain_socket_by_port: connect() failed: %s", strerror(errno));
@@ -470,7 +480,11 @@ int connect_unix_domain_socket_by_port(int port, char *socket_dir)
 	return fd;
 }
 
-int connect_inet_domain_socket_by_port(char *host, int port)
+/*
+ * Connect to PostgreSQL server by using INET domain socket.
+ * If retry is true, retry to call connect() upon receiving EINTR error.
+ */
+int connect_inet_domain_socket_by_port(char *host, int port, bool retry)
 {
 	int fd;
 	int len;
@@ -504,7 +518,7 @@ int connect_inet_domain_socket_by_port(char *host, int port)
 	hp = gethostbyname(host);
 	if ((hp == NULL) || (hp->h_addrtype != AF_INET))
 	{
-		pool_error("connect_inet_domain_socket: gethostbyname() failed: %s host: %s", strerror(errno), host);
+		pool_error("connect_inet_domain_socket: gethostbyname() failed: %s host: %s", hstrerror(h_errno), host);
 		close(fd);
 		return -1;
 	}
@@ -514,9 +528,15 @@ int connect_inet_domain_socket_by_port(char *host, int port)
 
 	for (;;)
 	{
+		if (exit_request)		/* exit request already sent */
+		{
+			pool_log("connect_inet_domain_socket_by_port: exit request has been sent");
+			return -1;
+		}
+
 		if (connect(fd, (struct sockaddr *)&addr, len) < 0)
 		{
-			if (errno == EINTR || errno == EAGAIN)
+			if ((errno == EINTR && retry) || errno == EAGAIN)
 				continue;
 
 			pool_error("connect_inet_domain_socket: connect() failed: %s",strerror(errno));
@@ -539,11 +559,11 @@ static POOL_CONNECTION_POOL_SLOT *create_cp(POOL_CONNECTION_POOL_SLOT *cp, int s
 
 	if (*b->backend_hostname == '\0')
 	{
-		fd = connect_unix_domain_socket(slot);
+		fd = connect_unix_domain_socket(slot, TRUE);
 	}
 	else
 	{
-		fd = connect_inet_domain_socket(slot);
+		fd = connect_inet_domain_socket(slot, TRUE);
 	}
 
 	if (fd < 0)

@@ -1,12 +1,12 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_type.h,v 1.9 2008/12/30 00:59:35 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_type.h,v 1.11 2009/12/06 12:55:08 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2008	PgPool Global Development Group
+ * Copyright (c) 2003-2009	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -29,6 +29,20 @@
 #include "config.h"
 #include <sys/types.h>
 #include <sys/socket.h>
+
+typedef signed char int8;		/* == 8 bits */
+typedef signed short int16;		/* == 16 bits */
+typedef signed int int32;		/* == 32 bits */
+
+/*
+ * uintN
+ *		Unsigned integer, EXACTLY N BITS IN SIZE,
+ *		used for numerical computations and the
+ *		frontend/backend protocol.
+ */
+typedef unsigned char uint8;	/* == 8 bits */
+typedef unsigned short uint16;	/* == 16 bits */
+typedef unsigned int uint32;	/* == 32 bits */
 
 /* Define common boolean type. C++ and BEOS already has it so exclude them. */
 #ifdef c_plusplus
@@ -174,6 +188,13 @@ typedef struct {
 	QueryCacheTableInfo query_cache_table_info; /* query cache db session info */
 	BACKEND_STATUS system_db_status;
 } SystemDBInfo;
+
+/*
+ * Backend status record file
+ */
+typedef struct {
+	BACKEND_STATUS status[MAX_NUM_BACKENDS];
+} BackendStatusRecord;
 
 /*
  *  It seems that sockaddr_storage is now commonly used in place of sockaddr.

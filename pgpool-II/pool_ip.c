@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_ip.c,v 1.2.2.1 2009/08/22 04:19:49 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_ip.c,v 1.3 2009/08/22 04:04:21 t-ishii Exp $
  *
  * This file was imported from PostgreSQL 8.0.8 source code.
  * See below for the copyright and description.

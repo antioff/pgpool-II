@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/sql/pgpool-recovery/pgpool-recovery.c,v 1.6.2.2 2009/07/14 08:42:24 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/sql/pgpool-recovery/pgpool-recovery.c,v 1.7 2009/07/14 08:40:57 t-ishii Exp $
  *
  * pgpool-recovery: exec online recovery script from SELECT statement.
  *

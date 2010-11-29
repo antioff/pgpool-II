@@ -8,7 +8,7 @@ JDBC ドライバテストスイートでは、JDBC ドライバを使って pgpool へ接続し、
 あらかじめ CLASSPATH に JDBC ドライバの jar ファイルを通しておいてくだ
 さい。例を示します。
 
-export CLASSPATH=.:/home/t-ishii/lib/postgresql-8.4-701.jdbc4.jar
+export CLASSPATH=.:/home/t-ishii/lib/postgresql-8.3-604.jdbc4.jar 
 
 接続先等のテスト環境の設定は pgpool.properties で定義します。
 

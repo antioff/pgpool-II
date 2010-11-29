@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_path.c,v 1.2.2.1 2009/08/22 04:19:49 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_path.c,v 1.3 2009/08/22 04:04:21 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii

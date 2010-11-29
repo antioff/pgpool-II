@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
-* $Header: /cvsroot/pgpool/pgpool-II/pool_stream.c,v 1.14.2.2 2009/08/22 04:19:49 t-ishii Exp $
+* $Header: /cvsroot/pgpool/pgpool-II/pool_stream.c,v 1.19 2010/01/26 14:49:58 t-ishii Exp $
 *
 * pgpool: a language independent connection pool server for PostgreSQL
 * written by Tatsuo Ishii
 *
-* Copyright (c) 2003-2009	PgPool Global Development Group
+* Copyright (c) 2003-2010	PgPool Global Development Group
 *
 * Permission to use, copy, modify, and distribute this software and
 * its documentation for any purpose and without fee is hereby
@@ -109,6 +109,9 @@ void pool_close(POOL_CONNECTION *cp)
 	if (cp->buf2)
 		free(cp->buf2);
 	pool_discard_params(&cp->params);
+
+	pool_ssl_close(cp);
+
 	free(cp);
 }
 
@@ -144,7 +147,12 @@ int pool_read(POOL_CONNECTION *cp, void *buf, int len)
 			}
 		}
 
-		readlen = read(cp->fd, readbuf, READBUFSZ);
+		if (cp->ssl_active > 0) {
+		  readlen = pool_ssl_read(cp, readbuf, READBUFSZ);
+		} else {
+		  readlen = read(cp->fd, readbuf, READBUFSZ);
+		}
+
 		if (readlen == -1)
 		{
 			if (errno == EINTR || errno == EAGAIN)
@@ -254,7 +262,12 @@ char *pool_read2(POOL_CONNECTION *cp, int len)
 			}
 		}
 
-		readlen = read(cp->fd, buf, len);
+		if (cp->ssl_active > 0) {
+		  readlen = pool_ssl_read(cp, buf, len);
+		} else {
+		  readlen = read(cp->fd, buf, len);
+		}
+
 		if (readlen == -1)
 		{
 			if (errno == EINTR || errno == EAGAIN)
@@ -404,7 +417,11 @@ int pool_flush_it(POOL_CONNECTION *cp)
 			}
 		}
 #endif
-		sts = write(cp->fd, cp->wbuf + offset, wlen);
+		if (cp->ssl_active > 0) {
+		  sts = pool_ssl_write(cp, cp->wbuf + offset, wlen);
+		} else {
+		  sts = write(cp->fd, cp->wbuf + offset, wlen);
+		}
 
 		if (sts > 0)
 		{
@@ -438,8 +455,16 @@ int pool_flush_it(POOL_CONNECTION *cp)
 
 		else
 		{
-			pool_error("pool_flush_it: write failed (%s) offset: %d wlen: %d",
-					   strerror(errno), offset, wlen);
+			/* If this is the backend stream, report error. Otherwise
+			 * just report debug message.
+			 */
+			if (cp->isbackend)
+				pool_error("pool_flush_it: write failed to backend (%d). reason: %s offset: %d wlen: %d",
+						   cp->db_node_id, strerror(errno), offset, wlen);
+			else
+				pool_debug("pool_flush_it: write failed to frontend. reason: %s offset: %d wlen: %d",
+						   strerror(errno), offset, wlen);
+
 			cp->wbufpo = 0;
 			return -1;
 		}
@@ -459,8 +484,14 @@ int pool_flush(POOL_CONNECTION *cp)
 	{
 		if (cp->isbackend)
 		{
-			notice_backend_error(cp->db_node_id);
-			child_exit(1);
+			/* if fail_over_on_backend_erro is true, then trigger failover */
+			if (pool_config->fail_over_on_backend_error)
+			{
+				notice_backend_error(cp->db_node_id);
+				child_exit(1);
+			}
+			else
+				return -1;
 		}
 		else
 		{
@@ -579,7 +610,12 @@ char *pool_read_string(POOL_CONNECTION *cp, int *len, int line)
 			}
 		}
 
-		readlen = read(cp->fd, cp->sbuf+readp, readsize);
+		if (cp->ssl_active > 0) {
+		  readlen = pool_ssl_read(cp, cp->sbuf+readp, readsize);
+		} else {
+		  readlen = read(cp->fd, cp->sbuf+readp, readsize);
+		}
+
 		if (readlen == -1)
 		{
 			pool_error("pool_read_string: read() failed. reason:%s", strerror(errno));

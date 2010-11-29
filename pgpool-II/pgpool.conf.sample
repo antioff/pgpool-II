@@ -1,6 +1,6 @@
 #
 # pgpool-II configuration file sample
-# $Header: /cvsroot/pgpool/pgpool-II/pgpool.conf.sample,v 1.26 2009/02/15 05:26:28 t-ishii Exp $
+# $Header: /cvsroot/pgpool/pgpool-II/pgpool.conf.sample,v 1.32 2010/01/31 02:22:24 t-ishii Exp $
 
 # Host name or IP address to listen on: '*' for all, '' for no TCP/IP
 # connections
@@ -74,13 +74,11 @@ replication_stop_on_mismatch = false
 # If false, it is only sent to the master node.
 replicate_select = false
 
-# Semicolon separated list of queries to be issued at the end of a session
-reset_query_list = 'ABORT; RESET ALL; SET SESSION AUTHORIZATION DEFAULT'
-# for 8.3 or newer PostgreSQL versions DISCARD ALL can be used as
-# follows. However beware that DISCARD ALL holds exclusive lock on
-# pg_listener so it will be a serious performance problem if there are
-# lots of concurrent sessions.
-# reset_query_list = 'ABORT; DISCARD ALL'
+# Semicolon separated list of queries to be issued at the end of a
+# session
+reset_query_list = 'ABORT; DISCARD ALL'
+# for 8.2 or older this should be as follows. 
+#reset_query_list = 'ABORT; RESET ALL; SET SESSION AUTHORIZATION DEFAULT'
 
 # If true print timestamp on each log line.
 print_timestamp = true
@@ -122,6 +120,12 @@ failover_command = ''
 #
 failback_command = ''
 
+# If true, trigger fail over when writing to the backend communication
+# socket fails. This is the same behavior of pgpool-II 2.2.x or
+# earlier. If set to false, pgpool will report an error and disconnect
+# the session.
+fail_over_on_backend_error = true
+
 # If true, automatically locks a table with INSERT statements to keep
 # SERIAL data consistency.  If the data does not have SERIAL data
 # type, no lock will be issued. An /*INSERT LOCK*/ comment has the
@@ -138,6 +142,10 @@ ignore_leading_white_space = true
 # to PostgreSQL, this allows for observing queries without engaging in full
 # debugging.
 log_statement = false
+
+# If true, print all statements to the log. Similar to log_statement except
+# that prints DB node id and backend process id info.
+log_per_node_statement = false
 
 # If true, incoming connections will be printed to the log.
 log_connections = false
@@ -206,3 +214,27 @@ recovery_timeout = 90
 # explicit transactions!)  0 means no disconnect. This parameter only
 # takes effect in recovery 2nd stage.
 client_idle_limit_in_recovery = 0
+
+# Specify table name to lock. This is used when rewriting lo_creat
+# command in replication mode. The table must exist and has writable
+# permission to public. If the table name is '', no rewriting occurs.
+lobj_lock_table = ''
+
+# If true, enable SSL support for both frontend and backend connections.
+# note that you must also set ssl_key and ssl_cert for SSL to work in
+# the frontend connections.
+ssl = false
+# path to the SSL private key file
+#ssl_key = './server.key'
+# path to the SSL public certificate file
+#ssl_cert = './server.cert'
+
+# If either ssl_ca_cert or ssl_ca_cert_dir is set, then certificate
+# verification will be performed to establish the authenticity of the
+# certificate.  If neither is set to a nonempty string then no such
+# verification takes place.  ssl_ca_cert should be a path to a single
+# PEM format file containing CA root certificate(s), whereas ssl_ca_cert_dir
+# should be a directory containing such files.  These are analagous to the
+# -CAfile and -CApath options to openssl verify(1), respectively.
+#ssl_ca_cert = ''
+#ssl_ca_cert_dir = ''

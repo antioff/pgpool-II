@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_proto_modules.c,v 1.6.2.13 2009/10/02 07:56:42 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_proto_modules.c,v 1.37 2010/03/19 07:23:44 t-ishii Exp $
  * 
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2009	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -45,6 +45,7 @@
 
 #include "pool.h"
 #include "pool_signal.h"
+#include "pool_timestamp.h"
 #include "pool_proto_modules.h"
 #include "parser/pool_string.h"
 
@@ -96,6 +97,7 @@ char *parsed_query = NULL;
 
 static int check_errors(POOL_CONNECTION_POOL *backend, int backend_id);
 static void generate_error_message(char *prefix, int specific_error, char *query);
+static int is_temp_table(POOL_CONNECTION_POOL *backend, Node *node);
 
 POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 										POOL_CONNECTION_POOL *backend)
@@ -349,7 +351,8 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 			IsA(node, VariableSetStmt) || IsA(node, DiscardStmt))
 		{
 			/*
-			 * PREPARE, DEALLOCATE and SET statements must be replicated.
+			 * PREPARE, SET, DEALLOCATE and DISCARD statements must be
+			 * replicated even if we are in master/slave mode.
 			 */
 			if (MASTER_SLAVE && TSTATE(backend) != 'E')
 				force_replication = 1;
@@ -524,17 +527,106 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 	{
 		/* check if query is "COMMIT" or "ROLLBACK" */
 		commit = is_commit_query(node);
-		free_parser();
 
 		/*
 		 * Query is not commit/rollback
 		 */
 		if (!commit)
 		{
+			char		*rewrite_query;
+
+			if (node)
+		   	{
+				Portal *portal = NULL;
+
+				if (IsA(node, PrepareStmt))
+				{
+					portal = pending_prepared_portal;
+					portal->num_tsparams = 0;
+				}
+				else if (IsA(node, ExecuteStmt))
+					portal = lookup_prepared_statement_by_statement(
+							&prepared_list, ((ExecuteStmt *) node)->name);
+
+				/* rewrite `now()' to timestamp literal */
+				rewrite_query = rewrite_timestamp(backend, node, false, portal);
+				if (rewrite_query != NULL)
+				{
+					string = rewrite_query;
+					len = strlen(string) + 1;
+				}
+
+			}
+
+			/*
+			 * Optimization effort: If there's only one session, we do
+			 * not need to wait for the master node's response, and
+			 * could execute a query concurrently.
+			 */
+			if (pool_config->num_init_children == 1)
+			{
+				/* Send query to DB nodes */
+				for (i=0;i<NUM_BACKENDS;i++)
+				{
+					if (!VALID_BACKEND(i))
+						continue;
+
+					per_node_statement_log(backend, i, string);
+
+					if (send_simplequery_message(CONNECTION(backend, i), len, string, MAJOR(backend)) != POOL_CONTINUE)
+					{
+						free_parser();
+						return POOL_END;
+					}
+				}
+
+				/* Wait for response from DB nodes */
+				for (i=0;i<NUM_BACKENDS;i++)
+				{
+					if (!VALID_BACKEND(i))
+						continue;
+
+					if (wait_for_query_response(frontend, CONNECTION(backend, i), string, MAJOR(backend)) != POOL_CONTINUE)
+					{
+						/* Cancel current transaction */
+						CancelPacket cancel_packet;
+
+						cancel_packet.protoVersion = htonl(PROTO_CANCEL);
+						cancel_packet.pid = MASTER_CONNECTION(backend)->pid;
+						cancel_packet.key= MASTER_CONNECTION(backend)->key;
+						cancel_request(&cancel_packet);
+
+						free_parser();
+						return POOL_END;
+					}
+
+					/*
+					 * Check if some error detected.  If so, emit
+					 * log. This is usefull when invalid encoding error
+					 * occurs. In this case, PostgreSQL does not report
+					 * what statement caused that error and make users
+					 * confused.
+					 */
+					per_node_error_log(backend, i, string, "SimpleQuery: Error or notice message from backend: ", true);
+
+				}
+				if (commit)
+				{
+					TSTATE(backend) = 'I';
+				}
+				free_parser();
+				return POOL_CONTINUE;
+			}
+
 			/* Send the query to master node */
 
+			per_node_statement_log(backend, MASTER_NODE_ID, string);
+
 			if (send_simplequery_message(MASTER(backend), len, string, MAJOR(backend)) != POOL_CONTINUE)
+			{
+				free_parser();
 				return POOL_END;
+			}
 
 			if (wait_for_query_response(frontend, MASTER(backend), string, MAJOR(backend)) != POOL_CONTINUE)
 			{
@@ -546,6 +638,7 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 				cancel_packet.key= MASTER_CONNECTION(backend)->key;
 				cancel_request(&cancel_packet);
 
+				free_parser();
 				return POOL_END;
 			}
 
@@ -560,6 +653,17 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 				string = POOL_ERROR_QUERY;
 				len = strlen(string) + 1;
 			}
+			else
+			{
+				/*
+				 * Check if some error detected.  If so, emit
+				 * log. This is usefull when invalid encoding error
+				 * occurs. In this case, PostgreSQL does not report
+				 * what statement caused that error and make users
+				 * confused.
+				 */
+				per_node_error_log(backend, MASTER_NODE_ID, string, "SimpleQuery: Error or notice message from backend: ", true);
+			}
 		}
 
 		/* send query to other than master nodes */
@@ -568,8 +672,13 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 			if (!VALID_BACKEND(i) || IS_MASTER_NODE_ID(i))
 				continue;
 
+			per_node_statement_log(backend, i, string);
+
 			if (send_simplequery_message(CONNECTION(backend, i), len, string, MAJOR(backend)) != POOL_CONTINUE)
+			{
+				free_parser();
 				return POOL_END;
+			}
 		}
 
 		/* Wait for nodes othan than the master node */
@@ -588,15 +697,31 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 				cancel_packet.key= MASTER_CONNECTION(backend)->key;
 				cancel_request(&cancel_packet);
 
+				free_parser();
 				return POOL_END;
 			}
+
+			/*
+			 * Check if some error detected.  If so, emit
+			 * log. This is usefull when invalid encoding error
+			 * occurs. In this case, PostgreSQL does not report
+			 1* what statement caused that error and make users
+			 * confused.
+			 */
+			per_node_error_log(backend, i, string, "SimpleQuery: Error or notice message from backend: ", true);
+
 		}
 
 		/* send "COMMIT" or "ROLLBACK" to only master node if query is "COMMIT" or "ROLLBACK" */
 		if (commit)
 		{
+			per_node_statement_log(backend, MASTER_NODE_ID, string);
+
 			if (send_simplequery_message(MASTER(backend), len, string, MAJOR(backend)) != POOL_CONTINUE)
+			{
+				free_parser();
 				return POOL_END;
+			}
 
 			if (wait_for_query_response(frontend, MASTER(backend), string, MAJOR(backend)) != POOL_CONTINUE)
 			{
@@ -608,16 +733,27 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 				cancel_packet.key= MASTER_CONNECTION(backend)->key;
 				cancel_request(&cancel_packet);
 
+				free_parser();
 				return POOL_END;
 			}
 
+			/*
+			 * Check if some error detected.  If so, emit
+			 * log. This is usefull when invalid encoding error
+			 * occurs. In this case, PostgreSQL does not report
+			 1* what statement caused that error and make users
+			 * confused.
+			 */
+			per_node_error_log(backend, MASTER_NODE_ID, string, "SimpleQuery: Error or notice message from backend: ", true);
 
 			TSTATE(backend) = 'I';
 		}
+		free_parser();
 	}
 	else
 	{
-		free_parser();
+		per_node_statement_log(backend, MASTER_NODE_ID, string);
+
 		if (send_simplequery_message(MASTER(backend), len, string, MAJOR(backend)) != POOL_CONTINUE)
 			return POOL_END;
 
@@ -631,8 +767,20 @@ POOL_STATUS NotificationResponse(POOL_CONNECTION *frontend,
 				cancel_packet.key= MASTER_CONNECTION(backend)->key;
 				cancel_request(&cancel_packet);
 
+				free_parser();
 				return POOL_END;
 		}
+
+		/*
+		 * Check if some error detected.  If so, emit
+		 * log. This is usefull when invalid encoding error
+		 * occurs. In this case, PostgreSQL does not report
+		 1* what statement caused that error and make users
+		 * confused.
+		 */
+		per_node_error_log(backend, MASTER_NODE_ID, string, "SimpleQuery: Error or notice message from backend: ", true);
+
+		free_parser();
 	}
 
 	return POOL_CONTINUE;
@@ -650,7 +798,7 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend,
 	char kind;
 	int status, commit = 0;
 	Portal *portal;
-	char *string1;
+	char *string1 = NULL;
 	PrepareStmt *p_stmt;
 	POOL_STATUS ret;
 	int specific_error = 0;
@@ -755,7 +903,7 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend,
 		if (!commit)
 		{
 			/* Send the query to master node */
-
+			per_node_statement_log(backend, MASTER_NODE_ID, string1);
 			if (send_execute_message(backend, MASTER_NODE_ID, len, string) != POOL_CONTINUE)
 				return POOL_END;
 
@@ -797,8 +945,12 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend,
 				if (send_execute_message(backend, i, len + 5, msg))
 					return POOL_END;
 			}
-			else if (send_execute_message(backend, i, len, string) != POOL_CONTINUE)
-				return POOL_END;
+			else
+			{
+				per_node_statement_log(backend, i, string1);
+				if (send_execute_message(backend, i, len, string) != POOL_CONTINUE)
+					return POOL_END;
+			}
 		}
 
 		/* Wait for nodes other than the master node */
@@ -824,6 +976,8 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend,
 		/* send "COMMIT" or "ROLLBACK" to only master node if query is "COMMIT" or "ROLLBACK" */
 		if (commit)
 		{
+			per_node_statement_log(backend, MASTER_NODE_ID, string1);
+
 			if (send_execute_message(backend, MASTER_NODE_ID, len, string) != POOL_CONTINUE)
 				return POOL_END;
 
@@ -843,6 +997,8 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend,
 	}
 	else
 	{
+		per_node_statement_log(backend, MASTER_NODE_ID, string1);
+
 		if (send_execute_message(backend, MASTER_NODE_ID, len, string) != POOL_CONTINUE)
 			return POOL_END;
 
@@ -902,6 +1058,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 	int deadlock_detected = 0;
 	int insert_stmt_with_lock = 0;
 	POOL_STATUS status;
+	char per_node_statement_log_buffer[1024];
 
 	/* read Parse packet */
 	if (pool_read(frontend, &len, sizeof(len)) < 0)
@@ -910,7 +1067,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 	len = ntohl(len) - 4;
 	string = pool_read2(frontend, len);
 
-	pool_debug("Parse: portal name <%s>", string);
+	pool_debug("Parse: statement name <%s>", string);
 
 	name = string;
 	stmt = string + strlen(string) + 1;
@@ -918,7 +1075,8 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 	parse_tree_list = raw_parser(stmt);
 	if (parse_tree_list == NIL)
 	{
-		free_parser();
+		/* free_parser(); */
+		;
 	}
 	else
 	{
@@ -929,10 +1087,30 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 
 		insert_stmt_with_lock = need_insert_lock(backend, stmt, node);
 
+		/* Special treatment for master/slave + temp tables */
+		if (MASTER_SLAVE)
+		{
+			/* Is there "NO LOAD BALANCE" comment? */
+			if (!strncasecmp(stmt, NO_LOAD_BALANCE, NO_LOAD_BALANCE_COMMENT_SZ) ||
+				/* or the table used in a query is a temporary one ? */
+				is_temp_table(backend, node))
+			{
+				/*
+				 * From now on, let only master handle queries.  This is
+				 * typically usefull for using temp tables in master/slave
+				 * mode
+				 */
+				master_slave_was_enabled = 1;
+				MASTER_SLAVE = 0;
+				master_slave_dml = 1;
+			}
+		}
+
 		portal = create_portal();
 		if (portal == NULL)
 		{
 			pool_error("Parse: create_portal() failed");
+			free_parser();
 			return POOL_END;
 		}
 
@@ -943,6 +1121,11 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 		/* translate Parse message to PrepareStmt */
 		p_stmt = palloc(sizeof(PrepareStmt));
 		p_stmt->type = T_PrepareStmt;
+
+		/* XXX: there's a confusion here. Someone mixed up statement
+		 * name with portal name. It is regarded that statment name ==
+		 * portal name. Someday we should fix this. Sigh.
+		 */
 		p_stmt->name = pstrdup(name);
 		p_stmt->query = copyObject(node);
 		portal->stmt = (Node *)p_stmt;
@@ -962,8 +1145,44 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 			pending_prepared_portal = portal;
 		}
 
-		/* switch old memory context */
+		/*
+		 * Switch to old memory context. Caution. Now we are in parser
+		 * memory context.
+		 * Palloced memories will be gone if free_parser() called!
+		 */
 		pool_memory = old_context;
+
+		if (REPLICATION)
+		{
+			char		*rewrite_query;
+			bool		 rewrite_to_params = true;
+
+			/*
+			 * rewrite `now()'.
+			 * if stmt is unnamed, we rewrite `now()' to timestamp constant.
+			 * else we rewrite `now()' to params and expand that at Bind
+			 * message.
+			 */
+			if (*name == '\0')
+				rewrite_to_params = false;
+			portal->num_tsparams = 0;
+			rewrite_query = rewrite_timestamp(backend, node, rewrite_to_params, portal);
+			if (rewrite_query != NULL)
+			{
+				int alloc_len = len - strlen(stmt) + strlen(rewrite_query);
+				string = palloc(alloc_len);
+				strcpy(string, name);
+				strcpy(string + strlen(name) + 1, rewrite_query);
+				memcpy(string + strlen(name) + strlen(rewrite_query) + 2,
+						stmt + strlen(stmt) + 1,
+						len - (strlen(name) + strlen(stmt) + 2));
+
+				len = len - strlen(stmt) + strlen(rewrite_query);
+				name = string;
+				stmt = string + strlen(name) + 1;
+				pool_debug("rewrite query  %s %s len=%d", name, stmt, len);
+			}
+		}
 
 		if (REPLICATION)
 		{
@@ -983,9 +1202,16 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 
 				kind = pool_read_kind(backend);
 				if (kind != 'Z')
+				{
+					free_parser();
 					return POOL_END;
+				}
+
 				if (ReadyForQuery(frontend, backend, 0) != POOL_CONTINUE)
+				{
+					free_parser();
 					return POOL_END;
+				}
 			}
 
 			if (is_strict_query(node))
@@ -997,17 +1223,27 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 				status = insert_lock(frontend, backend, stmt, (InsertStmt *)node);
 				if (status != POOL_CONTINUE)
 				{
+					free_parser();
 					return status;
 				}
 			}
 		}
-		free_parser();
 	}
 
 	/* send to master node */
+	snprintf(per_node_statement_log_buffer, sizeof(per_node_statement_log_buffer), "Parse: %s", stmt);
+	per_node_statement_log(backend, MASTER_NODE_ID, per_node_statement_log_buffer);
 	if (send_extended_protocol_message(backend, MASTER_NODE_ID,
 									   "P", len, string))
+	{
+		free_parser();
 		return POOL_END;
+	}
+
+	/*
+	 * Cannot call free_parser() here. Since "string" might be allocated in parser context.
+	 * free_parser();
+	 */
 
 	if (REPLICATION || PARALLEL_MODE || MASTER_SLAVE)
 	{
@@ -1025,6 +1261,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 			cancel_packet.pid = MASTER_CONNECTION(backend)->pid;
 			cancel_packet.key= MASTER_CONNECTION(backend)->key;
 			cancel_request(&cancel_packet);
+			free_parser();
 			return POOL_END;
 		}
 
@@ -1036,7 +1273,20 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 		 */
 		deadlock_detected = detect_deadlock_error(MASTER(backend), MAJOR(backend));
 		if (deadlock_detected < 0)
+		{
+			free_parser();
 			return POOL_END;
+		}
+		else
+		{
+			/*
+			 * Check if other than deadlock error detected.  If so, emit
+			 * log. This is usefull when invalid encoding error occurs. In
+			 * this case, PostgreSQL does not report what statement caused
+			 * that error and make users confused.
+			 */
+			per_node_error_log(backend, MASTER_NODE_ID, stmt, "Parse(): Error or notice message from backend: ", true);
+		}
 
 		for (i=0;i<NUM_BACKENDS;i++)
 		{
@@ -1046,15 +1296,28 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 				{
 					pool_log("Parse: received deadlock error message from master node");
 
+					per_node_statement_log(backend, i, POOL_ERROR_QUERY);
+
 					if (send_simplequery_message(CONNECTION(backend, i),
 												 strlen(POOL_ERROR_QUERY)+1,
 												 POOL_ERROR_QUERY,
 												 MAJOR(backend)))
+					{
+						free_parser();
 						return POOL_END;
+					}
 				}
-				else if (send_extended_protocol_message(backend, i,
-														"P", len, string))
-					return POOL_END;
+				else
+				{
+					snprintf(per_node_statement_log_buffer, sizeof(per_node_statement_log_buffer), "Parse: %s", stmt);
+					per_node_statement_log(backend, i, per_node_statement_log_buffer);
+
+					if (send_extended_protocol_message(backend, i,"P", len, string))
+					{
+						free_parser();
+						return POOL_END;
+					}
+				}
 			}
 		}
 
@@ -1074,10 +1337,25 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 				cancel_packet.pid = MASTER_CONNECTION(backend)->pid;
 				cancel_packet.key= MASTER_CONNECTION(backend)->key;
 				cancel_request(&cancel_packet);
+				free_parser();
 				return POOL_END;
 			}
+
+			/*
+			 * Check if error (or notice response) from backend is
+			 * detected.  If so, emit log. This is usefull when
+			 * invalid encoding error occurs. In this case, PostgreSQL
+			 * does not report what statement caused that error and
+			 * make users confused.
+			 */
+			per_node_error_log(backend, i, stmt, "Parse(): Error or notice message from backend: ", true);
 		}
 	}
+
+	/*
+	 * Ok. we are safe to call free_parser();
+	 */
+	free_parser();
 
 	for (;;)
 	{
@@ -1088,8 +1366,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend,
 			return ret;
 
 		SimpleForwardToFrontend(kind, frontend, backend);
-		if (pool_flush(frontend) < 0)
-			return POOL_ERROR;
+		pool_flush(frontend);
 
 		/* Ignore warning messages */
 		if (kind != 'N')
@@ -1263,16 +1540,14 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 			pool_write(frontend, &len, sizeof(len));
 			pool_write(frontend, &state, 1);
 		}
-
-		if (pool_flush(frontend))
-			return POOL_END;
+		pool_flush(frontend);
 	}
 
 	in_progress = 0;
 
 	/* end load balance mode */
 	if (in_load_balance)
-		end_load_balance(backend);
+		end_load_balance();
 
 	if (master_slave_dml)
 	{
@@ -1524,6 +1799,16 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 
 		case 'P':  /* Parse message */
 			allow_close_transaction = 0;
+
+			if (MASTER_SLAVE &&
+				(TSTATE(backend) != 'I' || receive_extended_begin))
+			{
+				pool_debug("kind: %c master_slave_dml enabled", fkind);
+				master_slave_was_enabled = 1;
+				MASTER_SLAVE = 0;
+				master_slave_dml = 1;
+			}
+
 			status = Parse(frontend, backend);
 			break;
 
@@ -1532,7 +1817,9 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 			/* fall through */
 
 		default:
-			if (MAJOR(backend) == PROTO_MAJOR_V3)
+			if ((MAJOR(backend) == PROTO_MAJOR_V3) &&
+			    (fkind == 'S' || fkind == 'H' || fkind == 'D' || fkind == 'f'||
+				 fkind == 'C' || fkind == 'B' || fkind == 'F' || fkind == 'd' || fkind == 'c'))
 			{
 				if (MASTER_SLAVE &&
 					(TSTATE(backend) != 'I' || receive_extended_begin))
@@ -2414,4 +2701,134 @@ static void generate_error_message(char *prefix, int specific_error, char *query
 	string_append_char(msg, error_messages[specific_error]);
 	pool_error(msg->data, query);
 	free_string(msg);
+}
+
+/*
+ * Judge the table used in a query represented by node is a temporary
+ * table or not.
+ */
+static int is_temp_table(POOL_CONNECTION_POOL *backend, Node *node)
+{
+/*
+ * Query to know if pg_class has relistemp column or not.
+ * PostgreSQL 8.4 or later has this.
+ */
+#define HASRELITEMPPQUERY "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_attribute AS a WHERE c.relname = 'pg_class' AND a.attrelid = c.oid AND a.attname = 'relistemp'"
+
+/*
+ * Query to know if the target table is a temporary one.
+ * This query is valid through PostgreSQL 7.3 to 8.3.
+ */
+#define ISTEMPQUERY83 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname ~ '^pg_temp_'"
+
+/*
+ * Query to know if the target table is a temporary one.
+ * This query is valid PostgreSQL 8.4 or later.
+ */
+#define ISTEMPQUERY84 "SELECT count(*) FROM pg_catalog.pg_class AS c WHERE c.relname = '%s' AND c.relistemp"
+
+	char *str;
+	int hasrelistemp;
+	int result;
+	static POOL_RELCACHE *hasrelistemp_cache;
+	static POOL_RELCACHE *relcache;
+	char *query;
+
+	/*
+	 * For version 2 protocol, we cannot support the checking since
+	 * the underlying infrastructure (do_query) does not support the
+	 * protocol. So we just return false.
+	 */
+	if (MAJOR(backend) == PROTO_MAJOR_V2)
+		return 0;
+
+	/* For SELECT, it's hard to extract table names. So we always return 0 */
+	if (IsA(node, SelectStmt))
+	{
+		return 0;
+	}
+
+	/* Obtain table name */
+	if (IsA(node, InsertStmt))
+		str = nodeToString(((InsertStmt *)node)->relation);
+	else if (IsA(node, UpdateStmt))
+		str = nodeToString(((UpdateStmt *)node)->relation);
+	else if (IsA(node, DeleteStmt))
+		str = nodeToString(((DeleteStmt *)node)->relation);
+	else		/* Unknown statement */
+		str = NULL;
+
+	if (str == NULL)
+	{
+			return 0;
+	}
+
+	/*
+	 * Check backend version
+	 */
+	if (!hasrelistemp_cache)
+	{
+		hasrelistemp_cache = pool_create_relcache(32, HASRELITEMPPQUERY,
+										int_register_func, int_unregister_func,
+										false);
+		if (hasrelistemp_cache == NULL)
+		{
+			pool_error("is_temp_table: pool_create_relcache error");
+			return false;
+		}
+	}
+
+	hasrelistemp = pool_search_relcache(hasrelistemp_cache, backend, "pg_class")==0?0:1;
+	if (hasrelistemp)
+		query = ISTEMPQUERY84;
+	else
+		query = ISTEMPQUERY83;
+
+	/*
+	 * If relcache does not exist, create it.
+	 */
+	if (!relcache)
+	{
+		relcache = pool_create_relcache(32, query,
+										int_register_func, int_unregister_func,
+										true);
+		if (relcache == NULL)
+		{
+			pool_error("is_temp_table: pool_create_relcache error");
+			return false;
+		}
+	}
+
+	/*
+	 * Search relcache.
+	 */
+	result = pool_search_relcache(relcache, backend, str)==0?0:1;
+	return result;
+}
+
+/*
+ * Make per DB node statement log
+ */
+void per_node_statement_log(POOL_CONNECTION_POOL *backend, int node_id, char *query)
+{
+	POOL_CONNECTION_POOL_SLOT *slot = backend->slots[node_id];
+
+	if (pool_config->log_per_node_statement)
+		pool_log("DB node id: %d backend pid: %d statement: %s", node_id, ntohl(slot->pid), query);
+}
+
+/*
+ * Check kind and produce error message
+ * All data read in this function is returned to stream.
+ */
+void per_node_error_log(POOL_CONNECTION_POOL *backend, int node_id, char *query, char *prefix, bool unread)
+{
+	POOL_CONNECTION_POOL_SLOT *slot = backend->slots[node_id];
+	char *message;
+
+	if (pool_extract_error_message(true, CONNECTION(backend, node_id), MAJOR(backend), true, &message) > 0)
+	{
+		pool_log("%s: DB node id: %d backend pid: %d statement: %s message: %s",
+				 prefix, node_id, ntohl(slot->pid), query, message);
+	}
 }

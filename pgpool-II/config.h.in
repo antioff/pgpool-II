@@ -12,6 +12,13 @@
 /* Define to the return type of 'accept' */
 #undef ACCEPT_TYPE_RETURN
 
+/* float4 values are passed by value if 'true', by reference if 'false' */
+#undef FLOAT4PASSBYVAL
+
+/* float8, int8, and related values are passed by value if 'true', by
+   reference if 'false' */
+#undef FLOAT8PASSBYVAL
+
 /* Define to 1 if you have the `asprintf' function. */
 #undef HAVE_ASPRINTF
 
@@ -45,6 +52,9 @@
 /* Define to 1 if you have the `compat' library (-lcompat). */
 #undef HAVE_LIBCOMPAT
 
+/* Define to 1 if you have the `crypt' library (-lcrypt). */
+#undef HAVE_LIBCRYPT
+
 /* Define to 1 if you have the `gen' library (-lgen). */
 #undef HAVE_LIBGEN
 
@@ -75,6 +85,16 @@
 /* Define to 1 if you have the `socket' library (-lsocket). */
 #undef HAVE_LIBSOCKET
 
+/* Define to 1 if constants of type 'long long int' should have the suffix LL.
+   */
+#undef HAVE_LL_CONSTANTS
+
+/* Define to 1 if `long int' works and is 64 bits. */
+#undef HAVE_LONG_INT_64
+
+/* Define to 1 if `long long int' works and is 64 bits. */
+#undef HAVE_LONG_LONG_INT_64
+
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
@@ -86,6 +106,9 @@
 
 /* Define to 1 if you have the <netinet/tcp.h> header file. */
 #undef HAVE_NETINET_TCP_H
+
+/* Define to 1 if you have the <openssl/ssl.h> header file. */
+#undef HAVE_OPENSSL_SSL_H
 
 /* Define to 1 if you have the <pam/pam_appl.h> header file. */
 #undef HAVE_PAM_PAM_APPL_H
@@ -202,6 +225,9 @@
    longer depend upon `wait3'. */
 #undef HAVE_WAIT3
 
+/* Define to the appropriate snprintf format for 64-bit ints, if any. */
+#undef INT64_FORMAT
+
 /* Name of package */
 #undef PACKAGE
 
@@ -223,14 +249,41 @@
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
+/* The size of a `size_t', as computed by sizeof. */
+#undef SIZEOF_SIZE_T
+
+/* The size of a `unsigned long', as computed by sizeof. */
+#undef SIZEOF_UNSIGNED_LONG
+
+/* The size of a `void *', as computed by sizeof. */
+#undef SIZEOF_VOID_P
+
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
 
+/* Define to the appropriate snprintf format for unsigned 64-bit ints, if any.
+   */
+#undef UINT64_FORMAT
+
+/* Define to 1 if you want float4 values to be passed by value.
+   (--enable-float4-byval) */
+#undef USE_FLOAT4_BYVAL
+
+/* Define to 1 if you want float8, int8, etc values to be passed by value.
+   (--enable-float8-byval) */
+#undef USE_FLOAT8_BYVAL
+
 /* Define to 1 to build with PAM support. (--with-pam) */
 #undef USE_PAM
+
+/* Use replacement snprintf() functions. */
+#undef USE_REPL_SNPRINTF
+
+/* Define to 1 to build with SSL support. (--with-openssl) */
+#undef USE_SSL
 
 /* Version number of package */
 #undef VERSION

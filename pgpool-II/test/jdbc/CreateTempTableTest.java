@@ -1,3 +1,6 @@
+/*
+ * Test for master/slave mode + temporary tables
+ */
 import java.sql.*;
 
 public class CreateTempTableTest extends PgpoolTest {
@@ -14,17 +17,17 @@ public class CreateTempTableTest extends PgpoolTest {
 	    pstmt.executeUpdate();
 	    pstmt.close();
 
-	    pstmt = connection.prepareStatement("INSERT INTO t1 SELECT ?");
+	    pstmt = connection.prepareStatement("/*NO LOAD BALANCE*/ INSERT INTO t1 SELECT ?");
 	    pstmt.setInt(1, 100);
 	    pstmt.executeUpdate();
 	    pstmt.close();
 
-	    pstmt = connection.prepareStatement("UPDATE t1 SET i = ?");
+	    pstmt = connection.prepareStatement("/*NO LOAD BALANCE*/ UPDATE t1 SET i = ?");
 	    pstmt.setInt(1, 200);
 	    pstmt.executeUpdate();
 	    pstmt.close();
 
-		pstmt = connection.prepareStatement("SELECT sum(i) FROM t1");
+		pstmt = connection.prepareStatement("/*NO LOAD BALANCE*/ SELECT sum(i) FROM t1");
 		rs = pstmt.executeQuery();
 		rs.next();
 		logwriter.println(rs.getInt(1));

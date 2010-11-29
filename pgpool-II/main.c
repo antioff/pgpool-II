@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/main.c,v 1.45.2.6 2009/09/25 07:35:16 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/main.c,v 1.64 2010/04/13 04:14:08 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2009	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -84,6 +84,8 @@
 static void daemonize(void);
 static int read_pid_file(void);
 static void write_pid_file(void);
+static int read_status_file(void);
+static int write_status_file(void);
 static pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file);
 static pid_t fork_a_child(int unix_fd, int inet_fd, int id);
 static int create_unix_domain_socket(struct sockaddr_un un_addr_tmp);
@@ -162,6 +164,8 @@ static volatile sig_atomic_t wakeup_request = 0;
 static int pipe_fds[2]; /* for delivering signals */
 
 int my_proc_id;
+
+static BackendStatusRecord backend_rec;	/* Backend status record */
 
 int myargc;
 char **myargv;
@@ -262,6 +266,12 @@ int main(int argc, char **argv)
 		}
 	}
 
+#ifdef USE_SSL
+	/* global ssl init */
+	SSL_library_init();
+	SSL_load_error_strings();
+#endif /* USE_SSL */
+
 	mypid = getpid();
 
 	if (pool_init_config())
@@ -277,7 +287,7 @@ int main(int argc, char **argv)
 		load_hba(hba_file);
 
 	/*
-	 * if a non-switch argument remains, then it should be either "reload", "stop" or "switch"
+	 * If a non-switch argument remains, then it should be either "reload" or "stop".
 	 */
 	if (optind == (argc - 1))
 	{
@@ -356,6 +366,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	/*
+	 * Restore previous backend status if possible
+	 */
+	read_status_file();
+
 	/* clear cache */
 	if (clear_cache && pool_config->enable_query_cache && SYSDB_STATUS == CON_UP)
 	{
@@ -384,7 +399,16 @@ int main(int argc, char **argv)
 		inet_fd = create_inet_domain_socket(pool_config->listen_addresses, pool_config->port);
 	}
 
-	size = pool_config->num_init_children * pool_config->max_pool * sizeof(ConnectionInfo);
+	/*
+	 * con_info is a 3 dimension array: i corresponds to pgpool child
+	 * process, j corresponds to connection pool in each process and k
+	 * corresponds to backends in each connection pool.
+	 *
+	 * XXX: Before 2010/4/12 this was a 2 dimension array: i
+	 * corresponds to pgpool child process, j corresponds to
+	 * connection pool in each process. Of course this was wrong.
+	 */
+	size = pool_config->num_init_children * pool_config->max_pool * MAX_NUM_BACKENDS * sizeof(ConnectionInfo);
 	con_info = pool_shared_memory_create(size);
 	if (con_info == NULL)
 	{
@@ -403,7 +427,7 @@ int main(int argc, char **argv)
 	memset(pids, 0, size);
 	for (i = 0; i < pool_config->num_init_children; i++)
 	{
-		pids[i].connection_info = &con_info[i * pool_config->max_pool];
+		pids[i].connection_info = &con_info[i * pool_config->max_pool * MAX_NUM_BACKENDS];
 	}
 
 	/* create fail over/switch over event area */
@@ -460,7 +484,7 @@ int main(int argc, char **argv)
 		myexit(1);
 	}
 
-	pool_log("pgpool successfully started");
+	pool_log("%s successfully started. version %s (%s)", PACKAGE, VERSION, PGPOOLVERSION);
 
 	/* fork a child for PCP handling */
 	snprintf(pcp_un_addr.sun_path, sizeof(pcp_un_addr.sun_path), "%s/.s.PGSQL.%d",
@@ -774,6 +798,92 @@ static void write_pid_file(void)
 }
 
 /*
+* Read the status file
+*/
+static int read_status_file(void)
+{
+	FILE *fd;
+	char fnamebuf[POOLMAXPATHLEN];
+	int i;
+	bool someone_wakeup = false;
+
+	snprintf(fnamebuf, sizeof(fnamebuf), "%s/%s", pool_config->logdir, STATUS_FILE_NAME);
+	fd = fopen(fnamebuf, "r");
+	if (!fd)
+	{
+		pool_log("Backend status file %s does not exist", fnamebuf);
+		return -1;
+	}
+	if (fread(&backend_rec, 1, sizeof(backend_rec), fd) != sizeof(backend_rec))
+	{
+		pool_error("Could not read backend status file as %s. reason: %s",
+				   fnamebuf, strerror(errno));
+		fclose(fd);
+		return -1;
+	}
+	fclose(fd);
+
+	for (i=0;i< pool_config->backend_desc->num_backends;i++)
+	{
+		if (backend_rec.status[i] == CON_DOWN)
+			BACKEND_INFO(i).backend_status = CON_DOWN;
+		else
+		{
+			BACKEND_INFO(i).backend_status = CON_CONNECT_WAIT;
+			someone_wakeup = true;
+		}
+	}
+
+	/*
+	 * If no one woke up, we regard the status file bogus
+	 */
+	if (someone_wakeup == false)
+	{
+		for (i=0;i< pool_config->backend_desc->num_backends;i++)
+		{
+			BACKEND_INFO(i).backend_status = CON_CONNECT_WAIT;
+		}
+	}
+
+	return 0;
+}
+
+/*
+* Write the pid file
+*/
+static int write_status_file(void)
+{
+	FILE *fd;
+	char fnamebuf[POOLMAXPATHLEN];
+	int i;
+
+	snprintf(fnamebuf, sizeof(fnamebuf), "%s/%s", pool_config->logdir, STATUS_FILE_NAME);
+	fd = fopen(fnamebuf, "w");
+	if (!fd)
+	{
+		pool_error("Could not open status file %s", fnamebuf);
+		return -1;
+	}
+
+	memset(&backend_rec, 0, sizeof(backend_rec));
+
+	for (i=0;i< pool_config->backend_desc->num_backends;i++)
+	{
+		backend_rec.status[i] = BACKEND_INFO(i).backend_status;
+	}
+
+	if (fwrite(&backend_rec, 1, sizeof(backend_rec), fd) != sizeof(backend_rec))
+	{
+		pool_error("Could not write backend status file as %s. reason: %s",
+				   fnamebuf, strerror(errno));
+		fclose(fd);
+		return -1;
+	}
+	fclose(fd);
+	return 0;
+}
+
+/*
  * fork a child for PCP
  */
 pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file)
@@ -853,6 +963,7 @@ static int create_inet_domain_socket(const char *hostname, const int port)
 	int status;
 	int one = 1;
 	int len;
+	int backlog;
 
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd == -1)
@@ -902,7 +1013,11 @@ static int create_inet_domain_socket(const char *hostname, const int port)
 		myexit(1);
 	}
 
-	status = listen(fd, PGPOOLMAXLITSENQUEUELENGTH);
+	backlog = pool_config->num_init_children * 2;
+	if (backlog > PGPOOLMAXLITSENQUEUELENGTH)
+		backlog = PGPOOLMAXLITSENQUEUELENGTH;
+
+	status = listen(fd, backlog);
 	if (status < 0)
 	{
 		pool_error("listen() failed. reason: %s", strerror(errno));
@@ -987,6 +1102,8 @@ static void myexit(int code)
 	myunlink(un_addr.sun_path);
 	myunlink(pcp_un_addr.sun_path);
 	myunlink(pool_config->pid_file_name);
+
+	write_status_file();
 
 	pool_shmem_exit(code);
 	exit(code);
@@ -1389,6 +1506,9 @@ int health_check(void)
 {
 	int fd;
 	int sts;
+	int wr;
+	static bool is_first = true;
+	static char *dbname;
 
 	/* V2 startup packet */
 	typedef struct {
@@ -1399,13 +1519,21 @@ int health_check(void)
 	char kind;
 	int i;
 
+	/* Do not execute health check during recovery */
 	if (*InRecovery)
 		return 0;
+
+ Retry:
+	/*
+	 * First we try with "postgres" database.
+	 */
+	if (is_first)
+		dbname = "postgres";
 
 	memset(&mysp, 0, sizeof(mysp));
 	mysp.len = htonl(296);
 	mysp.sp.protoVersion = htonl(PROTO_MAJOR_V2 << 16);
-	strcpy(mysp.sp.database, "template1");
+	strcpy(mysp.sp.database, dbname);
 	strncpy(mysp.sp.user, pool_config->health_check_user, sizeof(mysp.sp.user) - 1);
 	*mysp.sp.options = '\0';
 	*mysp.sp.unused = '\0';
@@ -1420,11 +1548,11 @@ int health_check(void)
 			continue;
 
 		if (*(BACKEND_INFO(i).backend_hostname) == '\0')
-			fd = connect_unix_domain_socket(i);
+			fd = connect_unix_domain_socket(i, FALSE);
 		else
-			fd = connect_inet_domain_socket(i);
+			fd = connect_inet_domain_socket(i, FALSE);
 
-		if (fd < 0)
+		if (fd < 0 && errno != EINTR)
 		{
 			pool_error("health check failed. %d th host %s at port %d is down",
 					   i,
@@ -1433,8 +1561,18 @@ int health_check(void)
 
 			return i+1;
 		}
+		else if ( fd < 0 && errno == EINTR )
+		{
+			pool_error("connect() failed. restarting health check for host %s at port %d. reason: %s",
+					BACKEND_INFO(i).backend_hostname,
+					BACKEND_INFO(i).backend_port,
+					strerror(errno));
+			errno = 0;
+			continue;
+		}
 
-		if (write(fd, &mysp, sizeof(mysp)) < 0)
+		wr = write(fd, &mysp, sizeof(mysp));
+		if ( wr < 0 && errno != EINTR)
 		{
 			pool_error("health check failed during write. host %s at port %d is down. reason: %s",
 					   BACKEND_INFO(i).backend_hostname,
@@ -1443,13 +1581,23 @@ int health_check(void)
 			close(fd);
 			return i+1;
 		}
+		else if (wr < 0 && errno == EINTR)
+		{
+			pool_error("write() failed. restarting health check for host %s at port %d. reason: %s",
+					BACKEND_INFO(i).backend_hostname,
+					BACKEND_INFO(i).backend_port,
+					strerror(errno));
+			errno = 0;
+			close(fd);
+			continue;
+		}
 
 		/*
 		 * Don't bother to be blocked by read(2). It will be
 		 * interrupted by ALRAM anyway.
 		 */
 		sts = read(fd, &kind, 1);
-		if (sts == -1)
+		if (sts == -1 && errno != EINTR)
 		{
 			pool_error("health check failed during read. host %s at port %d is down. reason: %s",
 					   BACKEND_INFO(i).backend_hostname,
@@ -1466,6 +1614,19 @@ int health_check(void)
 			close(fd);
 			return i+1;
 		}
+		else if (sts == -1 && errno == EINTR)
+		{
+			pool_error("read() failed. restarting health check for host %s at port %d. reason: %s",
+					    BACKEND_INFO(i).backend_hostname,
+					    BACKEND_INFO(i).backend_port,
+					    strerror(errno));
+			errno = 0;
+			close(fd);
+			continue;
+		}
+
+		if (is_first)
+			is_first = false;
 
 		/*
 		 * If a backend raised a FATAL error(max connections error or
@@ -1473,6 +1634,15 @@ int health_check(void)
 		 */
 		if ((kind != 'E') && (write(fd, "X", 1) < 0))
 		{
+			if (!strcmp(dbname, "postgres"))
+			{
+				/*
+				 * Retry with template1
+				 */
+				dbname = "template1";
+				goto Retry;
+			}
+
 			pool_error("health check failed during write. host %s at port %d is down. reason: %s. Perhaps wrong health check user?",
 					   BACKEND_INFO(i).backend_hostname,
 					   BACKEND_INFO(i).backend_port,
@@ -1520,9 +1690,9 @@ system_db_health_check(void)
 		return 0;
 
 	if (*SYSDB_INFO->hostname == '\0')
-		fd = connect_unix_domain_socket_by_port(SYSDB_INFO->port, pool_config->backend_socket_dir);
+		fd = connect_unix_domain_socket_by_port(SYSDB_INFO->port, pool_config->backend_socket_dir, FALSE);
 	else
-		fd = connect_inet_domain_socket_by_port(SYSDB_INFO->hostname, SYSDB_INFO->port);
+		fd = connect_inet_domain_socket_by_port(SYSDB_INFO->hostname, SYSDB_INFO->port, FALSE);
 
 	if (fd < 0)
 	{
@@ -1570,7 +1740,7 @@ static RETSIGTYPE reap_handler(int sig)
 
 /*
  * Attach zombie processes and restart child processes.
- * reaper() must be called under protecting signals.
+ * reaper() must be called protected from signals.
  */
 static void reaper(void)
 {
@@ -1603,16 +1773,29 @@ static void reaper(void)
 	while ((pid = wait3(&status, WNOHANG, NULL)) > 0)
 #endif
 	{
+		if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV)
+		{
+			/* Child terminated by segmentation fault. Report it */
+			pool_error("Child process %d was terminated by segmentation fault", pid);
+		}
+			
 		/* if exiting child process was PCP handler */
 		if (pid == pcp_pid)
 		{
-			pool_debug("PCP child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
+			if (WIFSIGNALED(status))
+				pool_debug("PCP child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
+			else
+				pool_debug("PCP child %d exits with status %d", pid, status);
 
 			pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
 			pool_debug("fork a new PCP child pid %d", pcp_pid);
 			break;
-		} else {
-			pool_debug("child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
+		} else
+		{
+			if (WIFSIGNALED(status))
+				pool_debug("child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
+			else
+				pool_debug("child %d exits with status %d", pid, status);
 
 			/* look for exiting child's pid */
 			for (i=0;i<pool_config->num_init_children;i++)

@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/child.c,v 1.26.2.8 2009/09/06 03:52:12 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/child.c,v 1.45 2010/04/13 04:14:08 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2009	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -74,7 +74,7 @@ static void connection_count_down(void);
 /*
  * non 0 means SIGTERM(smart shutdown) or SIGINT(fast shutdown) has arrived
  */
-static int exit_request;
+volatile sig_atomic_t exit_request = 0;
 
 static int idle;		/* non 0 means this child is in idle state */
 static int accepted = 0;
@@ -85,6 +85,8 @@ extern char **myargv;
 char remote_ps_data[NI_MAXHOST];		/* used for set_ps_display */
 
 volatile sig_atomic_t got_sighup = 0;
+
+int LocalSessionId;	/* Local session id */
 
 /*
 * child main loop
@@ -99,7 +101,6 @@ void do_child(int unix_fd, int inet_fd)
 	struct timeval timeout;
 	static int connected;
 	int connections_count = 0;	/* used if child_max_connections > 0 */
-	int first_ready_for_query_received;		/* for master/slave mode */
 	int found;
 	char psbuf[NI_MAXHOST + 128];
 
@@ -168,17 +169,13 @@ void do_child(int unix_fd, int inet_fd)
 	for (;;)
 	{
 		int connection_reuse = 1;
-		int ssl_request = 0;
 		StartupPacket *sp;
 
-		/* pgpool stop request already sent? */
-		if (exit_request)
-		{
-			die(0);
-			child_exit(0);
-		}
-
 		idle = 1;
+
+		/* pgpool stop request already sent? */
+		check_stop_request();
+
 		accepted = 0;
 
 		/* perform accept() */
@@ -237,25 +234,10 @@ void do_child(int unix_fd, int inet_fd)
 		}
 
 		/* SSL? */
-		if (sp->major == 1234 && sp->minor == 5679)
+		if (sp->major == 1234 && sp->minor == 5679 && !frontend->ssl_active)
 		{
-			/* SSL not supported */
-			pool_debug("SSLRequest: sent N; retry startup");
-			if (ssl_request)
-			{
-				pool_close(frontend);
-				pool_free_startup_packet(sp);
-				connection_count_down();
-				continue;
-			}
-
-			/*
-			 * say to the frontend "we do not suppport SSL"
-			 * note that this is not a NOTICE response despite it's an 'N'!
-			 */
-			pool_write_and_flush(frontend, "N", 1);
-			ssl_request = 1;
-			pool_free_startup_packet(sp);
+			pool_debug("SSLRequest from client");
+			pool_ssl_negotiate_serverclient(frontend);
 			goto retry_startup;
 		}
 
@@ -290,8 +272,6 @@ void do_child(int unix_fd, int inet_fd)
 		 * if there's no connection associated with user and database,
 		 * we need to connect to the backend and send the startup packet.
 		 */
-
-		first_ready_for_query_received = 0;		/* for master/slave mode */
 
 		/* look for existing connection */
 		found = 0;
@@ -334,13 +314,6 @@ void do_child(int unix_fd, int inet_fd)
 				connection_count_down();
 				continue;
 			}
-
-			/* in master/slave mode, the first "ready for query"
-			 * packet should be treated as if we were not in the
-			 * mode
-			 */
-			if (MASTER_SLAVE)
-				first_ready_for_query_received = 1;
 		}
 
 		else
@@ -405,6 +378,7 @@ void do_child(int unix_fd, int inet_fd)
 		}
 
 		connected = 1;
+		LocalSessionId++;
 
  		/* show ps status */
 		sp = MASTER_CONNECTION(backend)->sp;
@@ -426,7 +400,7 @@ void do_child(int unix_fd, int inet_fd)
 		{
 			POOL_STATUS status;
 
-			status = pool_process_query(frontend, backend, 0, first_ready_for_query_received);
+			status = pool_process_query(frontend, backend, 0);
 
 			sp = MASTER_CONNECTION(backend)->sp;
 
@@ -445,6 +419,7 @@ void do_child(int unix_fd, int inet_fd)
 						!strcmp(sp->database, "postgres") ||
 						!strcmp(sp->database, "regression"))
 					{
+						reset_connection();
 						pool_close(frontend);
 						pool_send_frontend_exits(backend);
 						pool_discard_cp(sp->user, sp->database, sp->major);
@@ -454,7 +429,7 @@ void do_child(int unix_fd, int inet_fd)
 						POOL_STATUS status1;
 
 						/* send reset request to backend */
-						status1 = pool_process_query(frontend, backend, 1, 0);
+						status1 = pool_process_query(frontend, backend, 1);
 						pool_close(frontend);
 
 						/* if we detect errors on resetting connection, we need to discard
@@ -1091,22 +1066,23 @@ void cancel_request(CancelPacket *sp)
 	int i;
 	ConnectionInfo *c = NULL;
 	CancelPacket cp;
+	int loop_num = pool_config->num_init_children*pool_config->max_pool*MAX_NUM_BACKENDS;
 
 	pool_debug("Cancel request received");
 
 	/* look for cancel key from shmem info */
-	for (i=0;i<pool_config->num_init_children*pool_config->max_pool;i++)
+	for (i=0;i<loop_num;i++)
 	{
 		c = &con_info[i];
 
 		if (c->pid == sp->pid && c->key == sp->key)
 		{
 			pool_debug("found pid:%d key:%d i:%d",c->pid, c->key,i);
-			c = &con_info[i/pool_config->max_pool * pool_config->max_pool];
+			c = &con_info[i/(pool_config->max_pool * pool_config->max_pool)];
 			break;
 		}
 	}
-	if (i == pool_config->num_init_children*pool_config->max_pool)
+	if (i == loop_num)
 		return;	/* invalid key */
 
 	for (i=0;i<NUM_BACKENDS;i++,c++)
@@ -1115,9 +1091,9 @@ void cancel_request(CancelPacket *sp)
 			continue;
 
 		if (*(BACKEND_INFO(i).backend_hostname) == '\0')
-			fd = connect_unix_domain_socket(i);
+			fd = connect_unix_domain_socket(i, TRUE);
 		else
-			fd = connect_inet_domain_socket(i);
+			fd = connect_inet_domain_socket(i, TRUE);
 
 		if (fd < 0)
 		{
@@ -1176,6 +1152,7 @@ static POOL_CONNECTION_POOL *connect_backend(StartupPacket *sp, POOL_CONNECTION 
 
 			/* mark this is a backend connection */
 			CONNECTION(backend, i)->isbackend = 1;
+			pool_ssl_negotiate_clientserver(CONNECTION(backend, i));
 
 			/*
 			 * save startup packet info
@@ -1207,13 +1184,13 @@ static POOL_CONNECTION_POOL *connect_backend(StartupPacket *sp, POOL_CONNECTION 
 }
 
 /*
- * signal handler for SIGINT and SIGQUUT
+ * signal handler for SIGTERM, SIGINT and SIGQUUT
  */
 static RETSIGTYPE die(int sig)
 {
-	exit_request = 1;
+	pool_debug("child received shutdown request signal %d", sig);
 
-	pool_debug("child receives shutdown request signal %d", sig);
+	exit_request = sig;
 
 	switch (sig)
 	{
@@ -1221,7 +1198,6 @@ static RETSIGTYPE die(int sig)
 			if (idle == 0)
 			{
 				pool_debug("child receives smart shutdown request but it's not in idle state");
-				return;
 			}
 			break;
 
@@ -1230,14 +1206,9 @@ static RETSIGTYPE die(int sig)
 			child_exit(0);
 			break;
 		default:
+			pool_error("die() received unknown signal: %d", sig);
 			break;
 	}
-
-	/*
-	 * child_exit() does this. So we don't need it.
-	 * send_frontend_exits();
-	 */
-	child_exit(0);
 }
 
 /*
@@ -1412,13 +1383,13 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	int len, len1;
 	int status;
 
-	cp = malloc(sizeof(POOL_CONNECTION_POOL));
+	cp = malloc(sizeof(POOL_CONNECTION_POOL_SLOT));
 	if (cp == NULL)
 	{
 		pool_error("make_persistent_db_connection: could not allocate memory");
 		return NULL;
 	}
-	memset(cp, 0, sizeof(POOL_CONNECTION_POOL));
+	memset(cp, 0, sizeof(POOL_CONNECTION_POOL_SLOT));
 
 	startup_packet = malloc(sizeof(*startup_packet));
 	if (startup_packet == NULL)
@@ -1434,11 +1405,11 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	 */
 	if (*hostname == '\0')
 	{
-		fd = connect_unix_domain_socket_by_port(port, pool_config->backend_socket_dir);
+		fd = connect_unix_domain_socket_by_port(port, pool_config->backend_socket_dir, TRUE);
 	}
 	else
 	{
-		fd = connect_inet_domain_socket_by_port(hostname, port);
+		fd = connect_inet_domain_socket_by_port(hostname, port, TRUE);
 	}
 
 	if (fd < 0)
@@ -1450,6 +1421,7 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	cp->con = pool_open(fd);
 	cp->closetime = 0;
 	cp->con->isbackend = 1;
+	pool_ssl_negotiate_clientserver(cp->con);
 
 	/*
 	 * build V3 startup packet
@@ -1857,4 +1829,23 @@ int select_load_balancing_node(void)
 static RETSIGTYPE reload_config_handler(int sig)
 {
 	got_sighup = 1;
+}
+
+/*
+ * Exit myself if SIGTERM, SIGINT or SIGQUIT has been sent
+ */
+void check_stop_request(void)
+{
+    /*
+	 * If smart shutdown was requested but we are not in idle state,
+	 * do not exit
+	 */
+	if (exit_request == SIGTERM && idle == 0)
+		return;
+
+	if (exit_request)
+	{
+		reset_variables();
+		child_exit(0);
+	}
 }

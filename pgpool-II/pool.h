@@ -1,12 +1,12 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool.h,v 1.36.2.5 2009/09/06 03:52:12 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool.h,v 1.58 2010/03/06 12:54:01 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2009	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -35,6 +35,12 @@
 #include <sys/types.h>
 #include <limits.h>
 
+#ifdef USE_SSL
+#include <openssl/crypto.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#endif
+
 /* undef this if you have problems with non blocking accept() */
 #define NONE_BLOCK
 
@@ -57,6 +63,9 @@
 
 /* pid file name */
 #define DEFAULT_PID_FILE_NAME "/var/run/pgpool/pgpool.pid"
+
+/* status file name */
+#define STATUS_FILE_NAME "pgpool_status"
 
 typedef enum {
 	POOL_CONTINUE = 0,
@@ -161,6 +170,15 @@ typedef struct {
 	char *health_check_user;		/* PostgreSQL user name for health check */
 	char *failover_command;     /* execute command when failover happens */
 	char *failback_command;     /* execute command when failback happens */
+
+	/*
+	 * If true, trigger fail over when writing to the backend
+	 * communication socket fails. This is the same behavior of
+	 * pgpool-II 2.2.x or earlier. If set to false, pgpool will report
+	 * an error and disconnect the session.
+	 */
+	int	fail_over_on_backend_error;
+
 	char *recovery_user;		/* PostgreSQL user name for online recovery */
 	char *recovery_password;		/* PostgreSQL user password for online recovery */
 	char *recovery_1st_stage_command;   /* Online recovery command in 1st stage */
@@ -173,6 +191,7 @@ typedef struct {
 						   data consistency */
 	int ignore_leading_white_space;		/* ignore leading white spaces of each query */
  	int log_statement; /* 0:false, 1: true - logs all SQL statements */
+ 	int log_per_node_statement; /* 0:false, 1: true - logs per node detailed SQL statements */
 
 	int parallel_mode;	/* if non 0, run in parallel query mode */
 
@@ -186,6 +205,8 @@ typedef struct {
 	char *system_db_user;		/* user name to access system DB */
 	char *system_db_password;	/* password to access system DB */
 
+	char *lobj_lock_table;		/* table name to lock for rewriting lo_creat */
+
 	BackendDesc *backend_desc;	/* PostgreSQL Server description. Placed on shared memory */
 
 	LOAD_BALANCE_STATUS	load_balance_status[MAX_NUM_BACKENDS];	/* to remember which DB node is selected for load balancing */
@@ -195,6 +216,13 @@ typedef struct {
 	int replication_enabled;		/* replication mode enabled */
 	int master_slave_enabled;		/* master/slave mode enabled */
 	int num_reset_queries;		/* number of queries in reset_query_list */
+
+	/* ssl configuration */
+	int ssl;	/* if non 0, activate ssl support (frontend+backend) */
+	char *ssl_cert;	/* path to ssl certificate (frontend only) */
+	char *ssl_key;	/* path to ssl key (frontend only) */
+	char *ssl_ca_cert;	/* path to root (CA) certificate */
+	char *ssl_ca_cert_dir;	/* path to directory containing CA certificates */
 } POOL_CONFIG;
 
 #define MAX_PASSWORD_SIZE		1024
@@ -214,6 +242,12 @@ typedef struct {
 	char *wbuf;	/* write buffer for the connection */
 	int wbufsz;	/* write buffer size */
 	int wbufpo;	/* buffer offset */
+
+#ifdef USE_SSL
+	SSL_CTX *ssl_ctx; /* SSL connection context */
+	SSL *ssl;	/* SSL connection */
+#endif
+	int ssl_active; /* SSL is failed if < 0, off if 0, on if > 0 */
 
 	char *hp;	/* pending data buffer head address */
 	int po;		/* pending data offset */
@@ -309,6 +343,43 @@ typedef struct {
 	UNIT unit;
 } Interval;
 
+/*
+ * Relation cache structure
+ */
+#define MAX_ITEM_LENGTH	1024
+
+/* Relation lookup cache structure */
+
+typedef void *(*func_ptr) ();
+
+typedef struct {
+	char dbname[MAX_ITEM_LENGTH];	/* database name */
+	char relname[MAX_ITEM_LENGTH];	/* table name */
+	void *data;	/* user data */
+	int refcnt;		/* reference count */
+	int session_id;		/* LocalSessionId */
+} PoolRelCache;
+
+typedef struct {
+	int num;		/* number of cache items */
+	char sql[MAX_ITEM_LENGTH];	/* Query to relation */
+	/*
+	 * User defined function to be called at data register.
+	 * Argument is POOL_SELECT_RESULT *.
+	 * This function must return a pointer to be
+	 * saved in cache->data.
+	 */
+	func_ptr	register_func;
+	/*
+	 * User defined function to be called at data unregister.
+	 * Argument cache->data.
+	 */
+	func_ptr	unregister_func;
+	bool cache_is_session_local;		/* True if cache life time is session local */
+	PoolRelCache *cache;	/* cache data */
+} POOL_RELCACHE;
+
+
 #ifdef NOT_USED
 #define NUM_BACKENDS (in_load_balance? (selected_slot+1) : \
 					  (((!REPLICATION && !PARALLEL_MODE)||master_slave_dml)? Req_info->master_node_id+1: \
@@ -350,6 +421,8 @@ typedef struct {
 #define LOCK_COMMENT_SZ (sizeof(LOCK_COMMENT)-1)
 #define NO_LOCK_COMMENT "/*NO INSERT LOCK*/"
 #define NO_LOCK_COMMENT_SZ (sizeof(NO_LOCK_COMMENT)-1)
+#define NO_LOAD_BALANCE "/*NO LOAD BALANCE*/"
+#define NO_LOAD_BALANCE_COMMENT_SZ (sizeof(NO_LOAD_BALANCE)-1)
 
 #define MAX_NUM_SEMAPHORES		3
 #define CONN_COUNTER_SEM 0
@@ -425,9 +498,12 @@ extern POOL_REQUEST_INFO *Req_info;
 extern volatile sig_atomic_t *InRecovery;
 extern char remote_ps_data[];		/* used for set_ps_display */
 extern volatile sig_atomic_t got_sighup;
+extern volatile sig_atomic_t exit_request;
 
 #define QUERY_STRING_BUFFER_LEN 1024
 extern char query_string_buffer[];		/* last query string sent to simpleQuery() */
+
+extern int LocalSessionId;	/* Local session id. incremented when new frontend connected */
 
 /*
  * public functions
@@ -454,8 +530,7 @@ extern int select_load_balancing_node(void);
 extern int pool_init_cp(void);
 extern POOL_STATUS pool_process_query(POOL_CONNECTION *frontend,
 									  POOL_CONNECTION_POOL *backend,
-									  int connection_reuse,
-									  int first_ready_for_query_received);
+									  int reset_request);
 
 extern POOL_CONNECTION *pool_open(int fd);
 extern void pool_close(POOL_CONNECTION *cp);
@@ -477,6 +552,13 @@ extern POOL_CONNECTION_POOL *pool_get_cp(char *user, char *database, int protoMa
 extern void pool_discard_cp(char *user, char *database, int protoMajor);
 extern void pool_backend_timer(void);
 
+/* SSL functionality */
+extern void pool_ssl_negotiate_serverclient(POOL_CONNECTION *cp);
+extern void pool_ssl_negotiate_clientserver(POOL_CONNECTION *cp);
+extern void pool_ssl_close(POOL_CONNECTION *cp);
+extern int pool_ssl_read(POOL_CONNECTION *cp, void *buf, int size);
+extern int pool_ssl_write(POOL_CONNECTION *cp, const void *buf, int size);
+
 extern POOL_STATUS ErrorResponse(POOL_CONNECTION *frontend, 
 								  POOL_CONNECTION_POOL *backend);
 
@@ -490,10 +572,10 @@ extern void send_failback_request(int node_id);
 extern void pool_connection_pool_timer(POOL_CONNECTION_POOL *backend);
 extern RETSIGTYPE pool_backend_timer_handler(int sig);
 
-extern int connect_inet_domain_socket(int secondary_backend);
-extern int connect_unix_domain_socket(int secondary_backend);
-extern int connect_inet_domain_socket_by_port(char *host, int port);
-extern int connect_unix_domain_socket_by_port(int port, char *socket_dir);
+extern int connect_inet_domain_socket(int slot, bool retry);
+extern int connect_unix_domain_socket(int slot, bool retry);
+extern int connect_inet_domain_socket_by_port(char *host, int port, bool retry);
+extern int connect_unix_domain_socket_by_port(int port, char *socket_dir, bool retry);
 
 extern void pool_set_timeout(int timeoutval);
 extern int pool_check_fd(POOL_CONNECTION *cp);
@@ -523,6 +605,21 @@ extern void pool_send_error_message(POOL_CONNECTION *frontend, int protoMajor,
 							 char *hint,
 							 char *file,
 							 int line);
+extern void pool_send_fatal_message(POOL_CONNECTION *frontend, int protoMajor,
+							 char *code,
+							 char *message,
+							 char *detail,
+							 char *hint,
+							 char *file,
+							 int line);
+extern void pool_send_severity_message(POOL_CONNECTION *frontend, int protoMajor,
+							 char *code,
+							 char *message,
+							 char *detail,
+							 char *hint,
+							 char *file,
+							 char *severity,
+							 int line);
 extern void pool_send_readyforquery(POOL_CONNECTION *frontend);
 extern int send_startup_packet(POOL_CONNECTION_POOL_SLOT *cp);
 extern void pool_free_startup_packet(StartupPacket *sp);
@@ -549,8 +646,6 @@ extern POOL_STATUS OneNode_do_command(POOL_CONNECTION *frontend, POOL_CONNECTION
 
 extern POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	char *hostname, int port, char *dbname, char *user, char *password);
-
-extern POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT **result);
 
 /* define pool_system.c */
 extern POOL_CONNECTION_POOL_SLOT *pool_system_db_connection(void);
@@ -593,5 +688,29 @@ extern void finish_recovery(void);
 extern void pool_set_nonblock(int fd);
 extern void pool_unset_nonblock(int fd);
 extern void cancel_request(CancelPacket *sp);
+extern void check_stop_request(void);
+
+/* pool_process_query.c */
+extern void reset_variables(void);
+extern void reset_connection(void);
+extern void per_node_statement_log(POOL_CONNECTION_POOL *backend, int node_id, char *query);
+extern void per_node_error_log(POOL_CONNECTION_POOL *backend, int node_id, char *query, char *prefix, bool unread);
+extern int pool_extract_error_message(bool read_kind, POOL_CONNECTION *backend, int major, bool unread, char **message);
+extern POOL_STATUS do_command(POOL_CONNECTION *frontend, POOL_CONNECTION *backend,
+					   char *query, int protoMajor, int pid, int key, int no_ready_for_query);
+extern POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT **result, int major);
+extern void free_select_result(POOL_SELECT_RESULT *result);
+
+/* pool_relcache.c */
+extern POOL_RELCACHE *pool_create_relcache(int cachesize, char *sql,
+									func_ptr register_func, func_ptr unregister_func,
+									bool issessionlocal);
+extern void pool_discard_relcache(POOL_RELCACHE *relcache);
+extern void *pool_search_relcache(POOL_RELCACHE *relcache, POOL_CONNECTION_POOL *backend, char *table);
+extern void *int_register_func(POOL_SELECT_RESULT *res);
+extern void *int_unregister_func(void *data);
+
+/* pool_lobj.c */
+extern char *pool_rewrite_lo_creat(char kind, char *packet, int packet_len, POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend, int* len);
 
 #endif /* POOL_H */

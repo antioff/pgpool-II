@@ -17,7 +17,7 @@
  *  Taiki Yamaguchi <yamaguchi@sraoss.co.jp>
  *
  * IDENTIFICATION
- *	$Header: /cvsroot/pgpool/pgpool-II/md5.c,v 1.1.1.1.6.1 2009/08/22 04:19:49 t-ishii Exp $
+ *	$Header: /cvsroot/pgpool/pgpool-II/md5.c,v 1.2 2009/08/22 04:04:21 t-ishii Exp $
  */
 
 #include <stdio.h>

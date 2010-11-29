@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_proto_modules.h,v 1.1.2.5 2009/10/03 11:55:50 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_proto_modules.h,v 1.8 2009/11/14 13:22:32 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -42,6 +42,7 @@ typedef struct {
 	Node *stmt;        /* parse tree for prepared statement */
 	char *sql_string;  /* original SQL statement */
 	POOL_MEMORY_POOL *prepare_ctxt; /* memory context for parse tree */
+	int num_tsparams;
 } Portal;
 
 /*
@@ -147,7 +148,7 @@ extern int is_commit_query(Node *node);
 extern int is_strict_query(Node *node); /* returns non 0 if this is strict query */
 extern int load_balance_enabled(POOL_CONNECTION_POOL *backend, Node* node, char *sql);
 extern void start_load_balance(POOL_CONNECTION_POOL *backend);
-extern void end_load_balance(POOL_CONNECTION_POOL *backend);
+extern void end_load_balance(void);
 extern int need_insert_lock(POOL_CONNECTION_POOL *backend, char *query, Node *node);
 extern POOL_STATUS insert_lock(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend, char *query, InsertStmt *node);
 extern void add_prepared_list(PreparedStatementList *p, Portal *portal);

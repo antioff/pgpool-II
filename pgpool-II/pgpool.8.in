@@ -1,7 +1,7 @@
 .\" Copyright 2004-2009 by PgPool Global Development Group
 .\" This man page is subject to the same license as the rest of pgpool.
 .\"
-.TH PGPOOL 8 "08 Mar 2009"
+.TH PGPOOL 8 "12 Oct 2009"
 .\" Please adjust this date whenever revising the manpage.
 .hy 0
 .ad l
@@ -39,34 +39,50 @@ Shutdown.
 .TP
 \fBpgpool\fP [ \fIoptions...\fP ] \fBreload\fP
 Reloads the configuration.
-..
+.
 .SH OPTIONS
 .TP
 \fB\-a\fR \fIpath\fR
+.P
+.B \--hba-file\fR \fIpath\fR
 Sets the path to the \fIpool_hba.conf\fR configuration file (default: \fI@sysconfdir@/pgpool_hba.conf\fR).
 .TP
 \fB\-c\fR
+.P
+.B \--clear-cache
 Clears the query cache.
 .TP
 \fB\-d\fR
+.P
+.B \--debug
 Print lots of debug messages.
 .TP
 \fB\-f\fR \fIpath\fR
+.P
+.B \--config-file\fR \fIpath\fR
 Sets the path to the \fIpgpool.conf\fR configuration file (default: \fI@sysconfdir@/pgpool.conf\fR).
 .TP
 \fB\-F\fR \fIpath\fR
+.P
+.B \--pcp-config-file\fR \fIpath\fR
 Sets the path to the \fIpcp.conf\fR configuration file (default: \fI@sysconfdir@/pcp.conf\fR).
 .TP
 \fB\-h\fR
+.P
+.B \--help
 Print a help message and exit.
 .TP
 \fB\-m\fR \fImode\fR
+.P
+.B \--mode\fR \fImode\fR
 Shutdown mode: 
 .B smart, fast, 
 or
 .BR immediate .
 .TP
 \fB\-n\fR
+.P
+.B \--no-daemon
 Foreground mode.
 Error messages go to stdout or stderr, which
 could be piped out to log processors such as
@@ -78,6 +94,8 @@ To daemonize, explicitly invoke
 in background.
 .TP
 .B \-v
+.P
+.B \--version
 Print version and exit.
 .
 .SH FILES
