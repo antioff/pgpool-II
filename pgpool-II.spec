@@ -6,7 +6,7 @@
 
 Name:		pgpool-II 
 Version:	2.3.3
-Release:        alt1 
+Release:        alt2 
 Summary:	pgpool is a connection pool/replication server for PostgreSQL	
 License: 	BSD
 Group: 		Databases
