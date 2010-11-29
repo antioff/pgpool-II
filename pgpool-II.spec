@@ -25,7 +25,7 @@ Group:          Databases
 
 %prep
 %setup -q
-%patch0 -p2
+#%patch0 -p2
 
 %build
 %configure	--includedir=/usr/include/pgsql
