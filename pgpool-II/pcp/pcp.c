@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp.c,v 1.8 2008/12/31 10:25:40 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp.c,v 1.13.2.1 2011/04/23 06:06:03 t-ishii Exp $
  *
  * Handles PCP connection, and protocol communication with pgpool-II
  * These are client APIs. Server program should use APIs in pcp_stream.c
@@ -8,7 +8,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2008	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -48,6 +48,8 @@ static int debug = 1;
 static int debug = 0;
 #endif
 static int pcp_authorize(char *username, char *password);
+
+static int _pcp_detach_node(int nid, bool gracefully);
 
 /* --------------------------------
  * pcp_connect - open connection to pgpool using given arguments
@@ -127,7 +129,7 @@ pcp_connect(char *hostname, int port, char *username, char *password)
 		}
 
 		memset((char *) &addr, 0, sizeof(addr));
-		((struct sockaddr *) &addr)->sa_family = AF_INET;
+		addr.sin_family = AF_INET;
 		hp = gethostbyname(hostname);
 		if ((hp == NULL) || (hp->h_addrtype != AF_INET))
 		{
@@ -162,6 +164,7 @@ pcp_connect(char *hostname, int port, char *username, char *password)
 	if (pcp_authorize(username, password) < 0)
 	{
 		pcp_close(pc);
+		pc = NULL;
 		return -1;
 	}
 
@@ -293,7 +296,7 @@ pcp_disconnect(void)
 	{
 		/* backend had closed connection already */
 	}
-	if (debug) fprintf(stderr, "DEBUG: send: tos=\"X\", len=%d\n", sizeof(int));
+	if (debug) fprintf(stderr, "DEBUG: send: tos=\"X\", len=%d\n", (int) sizeof(int));
 
 	pcp_close(pc);
 	pc = NULL;
@@ -481,8 +484,8 @@ pcp_node_info(int nid)
 				free(buf);
 				return NULL;
 			}
-			// FIXME
-//			rsize -= strlen("CommandComplete") + 1;
+			/* FIXME */
+			/* rsize -= strlen("CommandComplete") + 1; */
 
  			index = (char *) memchr(buf, '\0', rsize) + 1;
 			if (index != NULL)
@@ -726,6 +729,14 @@ pcp_process_info(int pid, int *array_size)
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
 					process_info->connection_info[offset].counter = atoi(index);
+
+				index = (char *) memchr(index, '\0', rsize) + 1;
+				if (index != NULL)
+					process_info->connection_info[offset].pid = atoi(index);
+
+				index = (char *) memchr(index, '\0', rsize) + 1;
+				if (index != NULL)
+					process_info->connection_info[offset].connected = atoi(index);
 
 				offset++;
 			}
@@ -1075,11 +1086,30 @@ free_systemdb_info(SystemDBInfo * si)
 int
 pcp_detach_node(int nid)
 {
+  return _pcp_detach_node(nid, FALSE);
+}
+
+/* --------------------------------
+
+ * and dettach a node given by the argument from pgpool's control
+ *
+ * return 0 on success, -1 otherwise
+ * --------------------------------
+ */
+int
+pcp_detach_node_gracefully(int nid)
+{
+  return _pcp_detach_node(nid, TRUE);
+}
+
+static int _pcp_detach_node(int nid, bool gracefully)
+{
 	int wsize;
 	char node_id[16];
 	char tos;
 	char *buf = NULL;
 	int rsize;
+	char *sendchar;
 
 	if (pc == NULL)
 	{
@@ -1090,7 +1120,12 @@ pcp_detach_node(int nid)
 
 	snprintf(node_id, sizeof(node_id), "%d", nid);
 
-	pcp_write(pc, "D", 1);
+	if (gracefully)
+	  sendchar = "d";
+	else
+	  sendchar = "D";
+
+	pcp_write(pc, sendchar, 1);
 	wsize = htonl(strlen(node_id)+1 + sizeof(int));
 	pcp_write(pc, &wsize, sizeof(int));
 	pcp_write(pc, node_id, strlen(node_id)+1);

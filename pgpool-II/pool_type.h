@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_type.h,v 1.11 2009/12/06 12:55:08 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_type.h,v 1.15 2010/08/05 23:37:43 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -81,7 +81,7 @@ typedef char bool;
 #define SM_TTY			64
 
 #define MAX_NUM_BACKENDS 128
-#define MAX_CONNECTION_SLOTS 128
+#define MAX_CONNECTION_SLOTS MAX_NUM_BACKENDS
 #define MAX_DB_HOST_NAMELEN	 128
 #define MAX_PATH_LENGTH 256
 
@@ -107,6 +107,7 @@ typedef struct {
 	double backend_weight;	/* normalized backend load balance ratio */
 	double unnormalized_weight; /* descripted parameter */
 	char backend_data_directory[MAX_PATH_LENGTH];
+	unsigned long long int standby_delay;		/* The replication delay against the primary */
 } BackendInfo;
 
 typedef struct {
@@ -127,8 +128,8 @@ typedef struct {
 	int			counter; /* used counter */
 	time_t 		create_time; /* connection creation time */
 	int load_balancing_node; /* load balancing node */
+	bool		connected;	/* true if frontend connected */
 } ConnectionInfo;
-
 
 /*
  * process information
@@ -254,11 +255,11 @@ typedef enum UserAuth
 	uaReject,
 	/*  uaKrb4, */
 	/*  uaKrb5, */
-	uaTrust
+	uaTrust,
 	/*  uaIdent, */
 	/*  uaPassword, */
 	/*  uaCrypt, */
-	/*  uaMD5 */
+	uaMD5
 #ifdef USE_PAM
 	,uaPAM
 #endif /* USE_PAM */

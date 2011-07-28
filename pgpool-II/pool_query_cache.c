@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_query_cache.c,v 1.10 2009/08/22 04:04:21 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_query_cache.c,v 1.15 2010/08/30 03:55:58 kitagawa Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2008	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -37,6 +37,10 @@
 
 #include "pool.h"
 #include "md5.h"
+#include "pool_stream.h"
+#include "pool_config.h"
+#include "pool_proto_modules.h"
+#include "parser/parsenodes.h"
 
 #define QUERY_CACHE_TABLE_NAME "query_cache"
 #define CACHE_REGISTER_PREPARED_STMT "register_prepared_stmt"
@@ -797,6 +801,9 @@ init_query_cache_info(POOL_CONNECTION *pc, char *database, char *query)
 		return -1;
 	strcpy(query_cache_info->db_name, database);
 
+	/* initialize create_timestamp */
+	query_cache_info->create_time = NULL;
+
 	return 0;
 }
 
@@ -814,7 +821,8 @@ free_query_cache_info(void)
 	free(query_cache_info->query);
 	free(query_cache_info->cache);
 	free(query_cache_info->db_name);
-	free(query_cache_info->create_time);
+	if (query_cache_info->create_time)
+		free(query_cache_info->create_time);
 	free(query_cache_info);
 	query_cache_info = NULL;
 }
@@ -980,4 +988,34 @@ define_prepared_statements(void)
 
 	free(sql);
 	PQclear(pg_result);
+}
+
+/* --------------------------------
+ * Execute query cache look up
+ * --------------------------------
+ */
+POOL_STATUS pool_execute_query_cache_lookup(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend, Node *node)
+{
+	SelectStmt *select = (SelectStmt *)node;
+	POOL_STATUS status = POOL_END;	/* cache not found */
+
+	if (! (select->intoClause || select->lockingClause))
+	{
+		parsed_query = strdup(nodeToString(node));
+		if (parsed_query == NULL)
+		{
+			pool_error("pool_execute_query_cache_lookup: malloc failed");
+			return POOL_ERROR;
+		}
+
+		status = pool_query_cache_lookup(frontend, parsed_query, backend->info->database, TSTATE(backend, MASTER_NODE_ID));
+		if (status == POOL_CONTINUE)
+		{
+			free(parsed_query);
+			parsed_query = NULL;
+			free_parser();
+		}
+	}
+
+	return status;
 }

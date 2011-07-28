@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/recovery.c,v 1.14 2009/12/23 09:30:43 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/recovery.c,v 1.18.2.2 2011/04/25 22:59:29 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2008	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -28,6 +28,8 @@
 #include <string.h>
 
 #include "pool.h"
+#include "pool_config.h"
+
 #include "libpq-fe.h"
 
 #define WAIT_RETRY_COUNT (pool_config->recovery_timeout / 3)
@@ -39,7 +41,6 @@ static int exec_checkpoint(PGconn *conn);
 static int exec_recovery(PGconn *conn, BackendInfo *backend, char stage);
 static int exec_remote_start(PGconn *conn, BackendInfo *backend);
 static PGconn *connect_backend_libpq(BackendInfo *backend);
-static int wait_connection_closed(void);
 static int check_postmaster_started(BackendInfo *backend);
 
 static char recovery_command[1024];
@@ -48,6 +49,7 @@ extern volatile sig_atomic_t pcp_wakeup_request;
 
 int start_recovery(int recovery_node)
 {
+	int node_id;
 	BackendInfo *backend;
 	BackendInfo *recovery_backend;
 	PGconn *conn;
@@ -62,26 +64,28 @@ int start_recovery(int recovery_node)
 
 	Req_info->kind = NODE_RECOVERY_REQUEST;
 
-	backend = &pool_config->backend_desc->backend_info[MASTER_NODE_ID];
+	node_id = MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID;
+	backend = &pool_config->backend_desc->backend_info[node_id];
 	recovery_backend = &pool_config->backend_desc->backend_info[recovery_node];
 
 	conn = connect_backend_libpq(backend);
 	if (conn == NULL)
 	{
-		PQfinish(conn);
-		pool_error("start_recover: could not connect master node.");
+		pool_error("start_recovery: could not connect master node (%d)", node_id);
 		return 1;
 	}
 
 	/* 1st stage */
-	if (exec_checkpoint(conn) != 0)
+	if (REPLICATION)
 	{
-		PQfinish(conn);
-		pool_error("start_recovery: CHECKPOINT failed");
-		return 1;
+		if (exec_checkpoint(conn) != 0)
+		{
+			PQfinish(conn);
+			pool_error("start_recovery: CHECKPOINT failed");
+			return 1;
+		}
+		pool_log("CHECKPOINT in the 1st stage done");
 	}
-
-	pool_log("CHECKPOINT in the 1st stage done");
 
 	if (exec_recovery(conn, recovery_backend, FIRST_STAGE) != 0)
 	{
@@ -91,33 +95,37 @@ int start_recovery(int recovery_node)
 
 	pool_log("1st stage is done");
 
-	pool_log("starting 2nd stage");
-
-	/* 2nd stage */
-	*InRecovery = 1;
-	if (wait_connection_closed() != 0)
+	if (REPLICATION)
 	{
-		PQfinish(conn);
-		pool_error("start_recovery: timeover for waiting connection closed");
-		return 1;
+		pool_log("starting 2nd stage");
+
+		/* 2nd stage */
+		*InRecovery = 1;
+		if (wait_connection_closed() != 0)
+		{
+			PQfinish(conn);
+			pool_error("start_recovery: timeover for waiting connection closed");
+			return 1;
+		}
+
+		pool_log("all connections from clients have been closed");
+
+		if (exec_checkpoint(conn) != 0)
+		{
+			PQfinish(conn);
+			pool_error("start_recovery: CHECKPOINT failed");
+			return 1;
+		}
+
+		pool_log("CHECKPOINT in the 2nd stage done");
+
+		if (exec_recovery(conn, recovery_backend, SECOND_STAGE) != 0)
+		{
+			PQfinish(conn);
+			return 1;
+		}
 	}
 
-	pool_log("all connections from clients have been closed");
-
-	if (exec_checkpoint(conn) != 0)
-	{
-		PQfinish(conn);
-		pool_error("start_recovery: CHECKPOINT failed");
-		return 1;
-	}
-
-	pool_log("CHECKPOINT in the 2nd stage done");
-
-	if (exec_recovery(conn, recovery_backend, SECOND_STAGE) != 0)
-	{
-		PQfinish(conn);
-		return 1;
-	}
 	if (exec_remote_start(conn, recovery_backend) != 0)
 	{
 		PQfinish(conn);
@@ -268,21 +276,21 @@ static int check_postmaster_started(BackendInfo *backend)
 	int i = 0;
 	char port_str[16];
 	PGconn *conn;
-	static bool is_first = true;
-	static char *dbname;
+	char *dbname;
 
-	snprintf(port_str, sizeof(port_str),
-			 "%d", backend->backend_port);
+	snprintf(port_str, sizeof(port_str),"%d", backend->backend_port);
 
- Retry:
 	/*
 	 * First we try with "postgres" database.
 	 */
-	if (is_first)
-		dbname = "postgres";
+	dbname = "postgres";
 
 	do {
 		ConnStatusType r;
+
+		pool_log("check_postmaster_started: try to connect to postmaster on hostname:%s database:%s user:%s (retry %d times)",
+				 backend->backend_hostname, dbname, pool_config->recovery_user, i);
+
 		conn = PQsetdbLogin(backend->backend_hostname,
 							port_str,
 							NULL,
@@ -291,19 +299,44 @@ static int check_postmaster_started(BackendInfo *backend)
 							pool_config->recovery_user,
 							pool_config->recovery_password);
 
-		if (is_first)
-			is_first = false;
+		r = PQstatus(conn);
+		PQfinish(conn);
+		if (r == CONNECTION_OK)
+			return 0;
+
+		pool_log("check_postmaster_started: failed to connect to postmaster on hostname:%s database:%s user:%s",
+			 backend->backend_hostname, dbname, pool_config->recovery_user);
+		
+		sleep(3);
+	} while (i++ < 3);	/* XXX Hard coded retry (9 seconds) */
+
+	/*
+	 * Retry with "template1" database.
+	 */
+	dbname = "template1";
+	i = 0;
+
+	do {
+		ConnStatusType r;
+
+		pool_log("check_postmaster_started: try to connect to postmaster on hostname:%s database:%s user:%s (retry %d times)",
+				 backend->backend_hostname, dbname, pool_config->recovery_user, i);
+
+		conn = PQsetdbLogin(backend->backend_hostname,
+							port_str,
+							NULL,
+							NULL,
+							dbname,
+							pool_config->recovery_user,
+							pool_config->recovery_password);
 
 		r = PQstatus(conn);
 		PQfinish(conn);
 		if (r == CONNECTION_OK)
 			return 0;
 
-		/*
-		 * Retry with template1
-		 */
-		dbname = "template1";
-		goto Retry;
+		pool_log("check_postmaster_started: failed to connect to postmaster on hostname:%s database:%s user:%s",
+			 backend->backend_hostname, dbname, pool_config->recovery_user);
 
 		if (WAIT_RETRY_COUNT != 0)
 			sleep(3);
@@ -339,7 +372,7 @@ static PGconn *connect_backend_libpq(BackendInfo *backend)
 /*
  * Wait all connections are closed.
  */
-static int wait_connection_closed(void)
+int wait_connection_closed(void)
 {
 	int i = 0;
 

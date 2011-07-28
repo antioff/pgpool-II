@@ -1,6 +1,6 @@
 #
 # pgpool-II configuration file sample for replication mode
-# $Header: /cvsroot/pgpool/pgpool-II/pgpool.conf.sample-replication,v 1.3 2010/01/31 02:22:24 t-ishii Exp $
+# $Header: /cvsroot/pgpool/pgpool-II/pgpool.conf.sample-replication,v 1.11.2.2 2011/02/22 06:36:49 kitagawa Exp $
 
 # Host name or IP address to listen on: '*' for all, '' for no TCP/IP
 # connections
@@ -23,7 +23,7 @@ pcp_socket_dir = '/tmp'
 # Unix domain socket path for the backend. Debian package defaults to /var/run/postgresql!
 backend_socket_dir = '/tmp'
 
-# pgpool communication manager timeout. 0 means no timeout, but strongly not recommended!
+# pgpool communication manager timeout. 0 means no timeout. This parameter is ignored now.
 pcp_timeout = 10
 
 # number of pre-forked child process
@@ -63,15 +63,21 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
 replication_mode = true
 
 # Load balancing mode, i.e., all SELECTs are load balanced.
-# This is ignored if replication_mode is false.
 load_balance_mode = true
 
-# if there's a data mismatch between master and secondary
-# start degeneration to stop replication mode
+# If there's a disagreement with the packet kind sent from backend,
+# then degenrate the node which is most likely "minority".  If false,
+# just force to exit this session.
 replication_stop_on_mismatch = false
 
-# If true, replicate SELECT statement when load balancing is disabled.
-# If false, it is only sent to the master node.
+# If there's a disagreement with the number of affected tuples in
+# UPDATE/DELETE, then degenrate the node which is most likely
+# "minority".
+# If false, just abort the transaction to keep the consistency.
+failover_if_affected_tuples_mismatch = false
+
+# If true, replicate SELECT statement when replication_mode or parallel_mode is enabled.
+# A priority of replicate_select is higher than load_balance_mode.
 replicate_select = false
 
 # Semicolon separated list of queries to be issued at the end of a
@@ -80,11 +86,48 @@ reset_query_list = 'ABORT; DISCARD ALL'
 # for 8.2 or older this should be as follows. 
 #reset_query_list = 'ABORT; RESET ALL; SET SESSION AUTHORIZATION DEFAULT'
 
+# white_function_list is a comma separated list of function names
+# those do not write to database. Any functions not listed here
+# are regarded to write to database and SELECTs including such 
+# writer-functions will be executed on master(primary) in master/slave
+# mode, or executed on all DB nodes in replication mode.
+#
+# black_function_list is a comma separated list of function names
+# those write to database. Any functions not listed here
+# are regarded not to write to database and SELECTs including such 
+# read-only-functions will be executed on any DB nodes.
+#
+# You cannot make full both white_function_list and
+# black_function_list at the same time. If you specify something in
+# one of them, you should make empty other.
+#
+# Pre 3.0 pgpool-II recognizes nextval and setval in hard coded
+# way. Following setting will do the same as the previous version.
+# white_function_list = ''
+# black_function_list = 'nextval,setval'
+white_function_list = ''
+black_function_list = 'nextval,setval'
+
 # If true print timestamp on each log line.
 print_timestamp = true
 
 # If true, operate in master/slave mode.
 master_slave_mode = false
+
+# Master/slave sub mode. either 'slony' or 'stream'. Default is 'slony'.
+master_slave_sub_mode = 'slony'
+
+# If the standby server delays more than delay_threshold,
+# any query goes to the primary only. The unit is in bytes.
+# 0 disables the check. Default is 0.
+# Note that health_check_period required to be greater than 0
+# to enable the functionality.
+delay_threshold = 0
+
+# 'always' logs the standby delay whenever health check runs.
+# 'if_over_threshold' logs only if the delay exceeds delay_threshold.
+# 'none' disables the delay log.
+log_standby_delay = 'none'
 
 # If true, cache connection pool.
 connection_cache = true
@@ -104,7 +147,9 @@ health_check_user = 'nobody'
 #                  %p = port number
 #                  %D = database cluster path
 #                  %m = new master node id
+#                  %H = hostname of the new master node
 #                  %M = old master node id
+#                  %P = old primary node id
 #                  %% = '%' character
 #
 failover_command = ''
@@ -115,7 +160,9 @@ failover_command = ''
 #                  %p = port number
 #                  %D = database cluster path
 #                  %m = new master node id
+#                  %H = hostname of the new master node
 #                  %M = old master node id
+#                  %P = old primary node id
 #                  %% = '%' character
 #
 failback_command = ''
@@ -129,7 +176,7 @@ fail_over_on_backend_error = true
 # If true, automatically locks a table with INSERT statements to keep
 # SERIAL data consistency.  If the data does not have SERIAL data
 # type, no lock will be issued. An /*INSERT LOCK*/ comment has the
-# same effect.  A /NO INSERT LOCK*/ comment disables the effect.
+# same effect.  A /*NO INSERT LOCK*/ comment disables the effect.
 insert_lock = true
 
 # If true, ignore leading white spaces of each query while pgpool judges
@@ -185,9 +232,7 @@ backend_data_directory1 = '/data1'
 
 # - HBA -
 
-# If true, use pool_hba.conf for client authentication. In pgpool-II
-# 1.1, the default value is false. The default value will be true in
-# 1.2.
+# If true, use pool_hba.conf for client authentication.
 enable_pool_hba = false
 
 # - online recovery -
@@ -211,8 +256,10 @@ recovery_timeout = 90
 
 # If client_idle_limit_in_recovery is n (n > 0), the client is forced
 # to be disconnected whenever after n seconds idle (even inside an
-# explicit transactions!)  0 means no disconnect. This parameter only
-# takes effect in recovery 2nd stage.
+# explicit transactions!) in the second stage of online recovery.
+# n = -1 forces clients to be disconnected immediately.
+# 0 disables this functionality(wait forever).
+# This parameter only takes effect in recovery 2nd stage.
 client_idle_limit_in_recovery = 0
 
 # Specify table name to lock. This is used when rewriting lo_creat
@@ -238,3 +285,6 @@ ssl = false
 # -CAfile and -CApath options to openssl verify(1), respectively.
 #ssl_ca_cert = ''
 #ssl_ca_cert_dir = ''
+
+# Debug message verbosity level. 0: no message, 1 <= : more verbose
+debug_level = 0

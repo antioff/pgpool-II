@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_lobj.c,v 1.3 2010/01/31 02:54:06 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_lobj.c,v 1.7 2010/07/10 11:18:28 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -29,6 +29,9 @@
 #include <netinet/in.h>
 
 #include "pool.h"
+#include "pool_lobj.h"
+#include "pool_relcache.h"
+#include "pool_config.h"
 
 /*
  * Rewrite lo_creat call to lo_create call if:
@@ -101,9 +104,9 @@ char *pool_rewrite_lo_creat(char kind, char *packet, int packet_len,
 	}
 
 	/*
-	 * Get lo_crea oid
+	 * Get lo_creat oid
 	 */
-	lo_creat_oid = (int)pool_search_relcache(relcache_lo_creat, backend, "pg_proc");
+	lo_creat_oid = (int)(intptr_t)pool_search_relcache(relcache_lo_creat, backend, "pg_proc");
 
 	memmove(&orig_fcall_oid, packet, sizeof(int32));
 	orig_fcall_oid = ntohl(orig_fcall_oid);
@@ -132,7 +135,7 @@ char *pool_rewrite_lo_creat(char kind, char *packet, int packet_len,
 	/*
 	 * Get lo_create oid
 	 */
-	lo_create_oid = (int)pool_search_relcache(relcache_lo_create, backend, "pg_proc");
+	lo_create_oid = (int)(intptr_t)pool_search_relcache(relcache_lo_create, backend, "pg_proc");
 
 	pool_debug("pool_check_lo_creat: lo_creat_oid: %d lo_create_oid: %d",
 			   lo_creat_oid, lo_create_oid);
@@ -169,7 +172,7 @@ char *pool_rewrite_lo_creat(char kind, char *packet, int packet_len,
 	/*
 	 * If transaction state is E, do_command failed to execute command
 	 */
-	if (TSTATE(backend) == 'E')
+	if (TSTATE(backend, MASTER_NODE_ID) == 'E')
 	{
 		pool_log("pool_check_lo_creat: failed to execute: %s", qbuf);
 		return NULL;

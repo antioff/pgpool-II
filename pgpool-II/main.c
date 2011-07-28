@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/main.c,v 1.64 2010/04/13 04:14:08 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/main.c,v 1.85.2.9 2011/05/25 17:13:16 gleu Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -19,6 +19,8 @@
  * is" without express or implied warranty.
  */
 #include "pool.h"
+#include "pool_config.h"
+#include "pool_process_context.h"
 
 #include <ctype.h>
 #include <sys/types.h>
@@ -47,11 +49,16 @@
 
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
+#else
+#include "getopt_long.h"
 #endif
+
+#include <libgen.h>
 
 #include "version.h"
 #include "parser/pool_memory.h"
 #include "parser/pool_string.h"
+#include "pool_passwd.h"
 
 /*
  * Process pending signal actions.
@@ -84,10 +91,11 @@
 static void daemonize(void);
 static int read_pid_file(void);
 static void write_pid_file(void);
-static int read_status_file(void);
+static int read_status_file(bool discard_status);
 static int write_status_file(void);
 static pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file);
 static pid_t fork_a_child(int unix_fd, int inet_fd, int id);
+static pid_t worker_fork_a_child(void);
 static int create_unix_domain_socket(struct sockaddr_un un_addr_tmp);
 static int create_inet_domain_socket(const char *hostname, const int port);
 static void myexit(int code);
@@ -96,7 +104,6 @@ static void reaper(void);
 static void wakeup_children(void);
 static void reload_config(void);
 static int pool_pause(struct timeval *timeout);
-static void pool_sleep(unsigned int second);
 static void kill_all_children(int sig);
 static int get_next_master_node(void);
 
@@ -113,15 +120,17 @@ static void stop_me(void);
 
 static int trigger_failover_command(int node, const char *command_line);
 
+static int find_primary_node(void);
+
 static struct sockaddr_un un_addr;		/* unix domain socket path */
 static struct sockaddr_un pcp_un_addr;  /* unix domain socket path for PCP */
 
-ProcessInfo *pids;	/* shmem child pid table */
+ProcessInfo *process_info;	/* Per child info table on shmem */
 
 /*
  * shmem connection info table
- * this is a two dimension array. i.e.:
- * con_info[pool_config->num_init_children][pool_config->max_pool]
+ * this is a three dimension array. i.e.:
+ * con_info[pool_config->num_init_children][pool_config->max_pool][MAX_NUM_BACKENDS]
  */
 ConnectionInfo *con_info;
 
@@ -138,17 +147,8 @@ static char hba_file[POOLMAXPATHLEN+1];
 static int exiting = 0;		/* non 0 if I'm exiting */
 static int switching = 0;		/* non 0 if I'm fail overing or degenerating */
 
-#ifdef NOT_USED
-static int degenerated = 0;	/* set non 0 if already degenerated */
-#endif
-
 static int clear_cache = 0;		/* non 0 if clear chache option (-c) is given */
 static int not_detach = 0;		/* non 0 if non detach option (-n) is given */
-int debug = 0;	/* non 0 if debug option is given (-d) */
-
-pid_t mypid;	/* pgpool parent process id */
-
-long int weight_master;	/* normalized weight of master (0-RAND_MAX range) */
 
 static int stop_sig = SIGTERM;	/* stopping signal default value */
 
@@ -167,6 +167,8 @@ int my_proc_id;
 
 static BackendStatusRecord backend_rec;	/* Backend status record */
 
+static pid_t worker_pid; /* pid of worker process */
+
 int myargc;
 char **myargv;
 
@@ -181,7 +183,24 @@ int main(int argc, char **argv)
 	int size;
 	int retrycnt;
 	int sys_retrycnt;
+	int debug_level = 0;
+	int	optindex;
+	bool discard_status = false;
 
+	static struct option long_options[] = {
+		{"hba-file", required_argument, NULL, 'a'},
+		{"clear", no_argument, NULL, 'c'},
+		{"debug", no_argument, NULL, 'd'},
+		{"config-file", required_argument, NULL, 'f'},
+		{"pcp-file", required_argument, NULL, 'F'},
+		{"help", no_argument, NULL, 'h'},
+		{"mode", required_argument, NULL, 'm'},
+		{"dont-detach", no_argument, NULL, 'n'},
+		{"discard-status", no_argument, NULL, 'D'},
+		{"version", no_argument, NULL, 'v'},
+		{NULL, 0, NULL, 0}
+	};
+	
 	myargc = argc;
 	myargv = argv;
 
@@ -189,7 +208,7 @@ int main(int argc, char **argv)
 	snprintf(pcp_conf_file, sizeof(pcp_conf_file), "%s/%s", DEFAULT_CONFIGDIR, PCP_PASSWD_FILE_NAME);
 	snprintf(hba_file, sizeof(hba_file), "%s/%s", DEFAULT_CONFIGDIR, HBA_CONF_FILE_NAME);
 
-	while ((opt = getopt(argc, argv, "a:cdf:F:hm:nv")) != -1)
+    while ((opt = getopt_long(argc, argv, "a:cdf:F:hm:nDv", long_options, &optindex)) != -1)
 	{
 		switch (opt)
 		{
@@ -207,7 +226,7 @@ int main(int argc, char **argv)
 				break;
 
 			case 'd':	/* debug option */
-				debug = 1;
+				debug_level = 1;
 				break;
 
 			case 'f':	/* specify configuration file */
@@ -256,6 +275,10 @@ int main(int argc, char **argv)
 				not_detach = 1;
 				break;
 
+			case 'D':	/* discard pgpool_status */
+				discard_status = true;
+				break;
+
 			case 'v':
 				show_version();
 				exit(0);
@@ -277,11 +300,23 @@ int main(int argc, char **argv)
 	if (pool_init_config())
 		exit(1);
 
+	/*
+	 * Override debug level
+	 */
+	pool_config->debug_level = debug_level;
+
 	if (pool_get_config(conf_file, INIT_CONFIG))
 	{
 		pool_error("Unable to get configuration. Exiting...");
 		exit(1);
 	}
+
+
+	/*
+	 * Override debug level
+	 */
+	if (pool_config->debug_level == 0)
+		pool_config->debug_level = debug_level;
 
 	if (pool_config->enable_pool_hba)
 		load_hba(hba_file);
@@ -358,6 +393,22 @@ int main(int argc, char **argv)
 		write_pid_file();
 	else
 		daemonize();
+	
+	/*
+	 * Locate pool_passwd
+	 */
+	if (strcmp("", pool_config->pool_passwd))
+	{
+		char pool_passwd[POOLMAXPATHLEN+1];
+		char dirnamebuf[POOLMAXPATHLEN+1];
+		char *dirp;
+
+		strncpy(dirnamebuf, conf_file, sizeof(dirnamebuf));
+		dirp = dirname(dirnamebuf);
+		snprintf(pool_passwd, sizeof(pool_passwd), "%s/%s",
+				 dirp, pool_config->pool_passwd);
+		pool_init_pool_passwd(pool_passwd);
+	}
 
 	if (pool_semaphore_create(MAX_NUM_SEMAPHORES))
 	{
@@ -369,7 +420,7 @@ int main(int argc, char **argv)
 	/*
 	 * Restore previous backend status if possible
 	 */
-	read_status_file();
+	read_status_file(discard_status);
 
 	/* clear cache */
 	if (clear_cache && pool_config->enable_query_cache && SYSDB_STATUS == CON_UP)
@@ -408,7 +459,7 @@ int main(int argc, char **argv)
 	 * corresponds to pgpool child process, j corresponds to
 	 * connection pool in each process. Of course this was wrong.
 	 */
-	size = pool_config->num_init_children * pool_config->max_pool * MAX_NUM_BACKENDS * sizeof(ConnectionInfo);
+	size = pool_coninfo_size();
 	con_info = pool_shared_memory_create(size);
 	if (con_info == NULL)
 	{
@@ -418,16 +469,16 @@ int main(int argc, char **argv)
 	memset(con_info, 0, size);
 
 	size = pool_config->num_init_children * (sizeof(ProcessInfo));
-	pids = pool_shared_memory_create(size);
-	if (pids == NULL)
+	process_info = pool_shared_memory_create(size);
+	if (process_info == NULL)
 	{
-		pool_error("failed to allocate pids");
+		pool_error("failed to allocate process_info");
 		myexit(1);
 	}
-	memset(pids, 0, size);
+	memset(process_info, 0, size);
 	for (i = 0; i < pool_config->num_init_children; i++)
 	{
-		pids[i].connection_info = &con_info[i * pool_config->max_pool * MAX_NUM_BACKENDS];
+		process_info[i].connection_info = pool_coninfo(i,0,0);
 	}
 
 	/* create fail over/switch over event area */
@@ -463,8 +514,8 @@ int main(int argc, char **argv)
 	/* fork the children */
 	for (i=0;i<pool_config->num_init_children;i++)
 	{
-		pids[i].pid = fork_a_child(unix_fd, inet_fd, i);
-		pids[i].start_time = time(NULL);
+		process_info[i].pid = fork_a_child(unix_fd, inet_fd, i);
+		process_info[i].start_time = time(NULL);
 	}
 
 	/* set up signal handlers */
@@ -495,8 +546,14 @@ int main(int argc, char **argv)
 	pcp_inet_fd = create_inet_domain_socket("*", pool_config->pcp_port);
 	pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
 
+	/* Fork worker process */
+	worker_pid = worker_fork_a_child();
+
 	retrycnt = 0;		/* reset health check retry counter */
 	sys_retrycnt = 0;	/* reset SystemDB health check retry counter */
+
+	/* Save primary node id */
+	Req_info->primary_node_id = find_primary_node();
 
 	/*
 	 * This is the main loop
@@ -638,31 +695,36 @@ static void show_version(void)
 static void usage(void)
 {
 	fprintf(stderr, "%s version %s (%s),\n",	PACKAGE, VERSION, PGPOOLVERSION);
-	fprintf(stderr, "  a generic connection pool/replication/load balance server for PostgreSQL\n\n");
+	fprintf(stderr, "  A generic connection pool/replication/load balance server for PostgreSQL\n\n");
 	fprintf(stderr, "Usage:\n");
 	fprintf(stderr, "  pgpool [ -c] [ -f CONFIG_FILE ] [ -F PCP_CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]\n");
-	fprintf(stderr, "         [ -n ] [ -d ]\n");
+	fprintf(stderr, "         [ -n ] [ -D ] [ -d ]\n");
 	fprintf(stderr, "  pgpool [ -f CONFIG_FILE ] [ -F PCP_CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]\n");
 	fprintf(stderr, "         [ -m SHUTDOWN-MODE ] stop\n");
 	fprintf(stderr, "  pgpool [ -f CONFIG_FILE ] [ -F PCP_CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] reload\n\n");
 	fprintf(stderr, "Common options:\n");
-	fprintf(stderr, "  -a HBA_CONFIG_FILE  Sets the path to the pool_hba.conf configuration file\n");
+	fprintf(stderr, "  -a, --hba-file=HBA_CONFIG_FILE\n");
+	fprintf(stderr, "                      Sets the path to the pool_hba.conf configuration file\n");
 	fprintf(stderr, "                      (default: %s/%s)\n",DEFAULT_CONFIGDIR, HBA_CONF_FILE_NAME);
-	fprintf(stderr, "  -f CONFIG_FILE      Sets the path to the pgpool.conf configuration file\n");
+	fprintf(stderr, "  -f, --config-file=CONFIG_FILE\n");
+	fprintf(stderr, "                      Sets the path to the pgpool.conf configuration file\n");
 	fprintf(stderr, "                      (default: %s/%s)\n",DEFAULT_CONFIGDIR, POOL_CONF_FILE_NAME);
-	fprintf(stderr, "  -F PCP_CONFIG_FILE  Sets the path to the pcp.conf configuration file\n");
+	fprintf(stderr, "  -F, --pcp-file=PCP_CONFIG_FILE\n");
+	fprintf(stderr, "                      Sets the path to the pcp.conf configuration file\n");
 	fprintf(stderr, "                      (default: %s/%s)\n",DEFAULT_CONFIGDIR, PCP_PASSWD_FILE_NAME);
-	fprintf(stderr, "  -h                  Prints this help\n\n");
+	fprintf(stderr, "  -h, --help          Prints this help\n\n");
 	fprintf(stderr, "Start options:\n");
-	fprintf(stderr, "  -c                  Clears query cache (enable_query_cache must be on)\n");
-	fprintf(stderr, "  -n                  Don't run in daemon mode, does not detach control tty\n");
-	fprintf(stderr, "  -d                  Debug mode\n\n");
+	fprintf(stderr, "  -c, --clear         Clears query cache (enable_query_cache must be on)\n");
+	fprintf(stderr, "  -n, --dont-detach   Don't run in daemon mode, does not detach control tty\n");
+	fprintf(stderr, "  -D, --discard-status Discard pgpool_status file and do not restore previous status\n");
+	fprintf(stderr, "  -d, --debug         Debug mode\n\n");
 	fprintf(stderr, "Stop options:\n");
-	fprintf(stderr, "  -m SHUTDOWN-MODE    Can be \"smart\", \"fast\", or \"immediate\"\n\n");
+	fprintf(stderr, "  -m, --mode=SHUTDOWN-MODE\n");
+	fprintf(stderr, "                      Can be \"smart\", \"fast\", or \"immediate\"\n\n");
 	fprintf(stderr, "Shutdown modes are:\n");
 	fprintf(stderr, "  smart       quit after all clients have disconnected\n");
 	fprintf(stderr, "  fast        quit directly, with proper shutdown\n");
-	fprintf(stderr, "  immediate   quit without complete shutdown; will lead to recovery on restart\n");
+	fprintf(stderr, "  immediate   the same mode as fast\n");
 }
 
 /*
@@ -673,6 +735,7 @@ static void daemonize(void)
 	int			i;
 	pid_t		pid;
 	int			fdlimit;
+    int         rc_chdir;
 
 	pid = fork();
 	if (pid == (pid_t) -1)
@@ -699,7 +762,7 @@ static void daemonize(void)
 
 	mypid = getpid();
 
-	chdir("/");
+	rc_chdir = chdir("/");
 
 	i = open("/dev/null", O_RDWR);
 	dup2(i, 0);
@@ -800,7 +863,7 @@ static void write_pid_file(void)
 /*
 * Read the status file
 */
-static int read_status_file(void)
+static int read_status_file(bool discard_status)
 {
 	FILE *fd;
 	char fnamebuf[POOLMAXPATHLEN];
@@ -814,6 +877,25 @@ static int read_status_file(void)
 		pool_log("Backend status file %s does not exist", fnamebuf);
 		return -1;
 	}
+
+	/*
+	 * If discard_status is true, unlink pgpool_status and
+	 * do not restore previous status.
+	 */
+	if (discard_status)
+	{
+		fclose(fd);
+		if (unlink(fnamebuf) == 0)
+		{
+			pool_log("Backend status file %s discarded", fnamebuf);
+		}
+		else
+		{
+			pool_error("Failed to discard backend status file %s reason:%s", fnamebuf, strerror(errno));
+		}
+		return 0;
+	}
+
 	if (fread(&backend_rec, 1, sizeof(backend_rec), fd) != sizeof(backend_rec))
 	{
 		pool_error("Could not read backend status file as %s. reason: %s",
@@ -826,7 +908,10 @@ static int read_status_file(void)
 	for (i=0;i< pool_config->backend_desc->num_backends;i++)
 	{
 		if (backend_rec.status[i] == CON_DOWN)
+		{
 			BACKEND_INFO(i).backend_status = CON_DOWN;
+			pool_log("read_status_file: %d th backend is set to down status", i);
+		}
 		else
 		{
 			BACKEND_INFO(i).backend_status = CON_CONNECT_WAIT;
@@ -902,6 +987,7 @@ pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 		/* call PCP child main */
 		POOL_SETMASK(&UnBlockSig);
 		reload_config_request = 0;
+		run_as_pcp_child = true;
 		pcp_do_child(unix_fd, inet_fd, pcp_conf_file);
 	}
 	else if (pid == -1)
@@ -943,7 +1029,48 @@ pid_t fork_a_child(int unix_fd, int inet_fd, int id)
 		POOL_SETMASK(&UnBlockSig);
 		reload_config_request = 0;
 		my_proc_id = id;
+		run_as_pcp_child = false;
 		do_child(unix_fd, inet_fd);
+	}
+	else if (pid == -1)
+	{
+		pool_error("fork() failed. reason: %s", strerror(errno));
+		myexit(1);
+	}
+	return pid;
+}
+
+/*
+* fork worker child process
+*/
+pid_t worker_fork_a_child()
+{
+	pid_t pid;
+
+	pid = fork();
+
+	if (pid == 0)
+	{
+		/* Before we unconditionally closed pipe_fds[0] and pipe_fds[1]
+		 * here, which is apparently wrong since in the start up of
+		 * pgpool, pipe(2) is not called yet and it mistakenly closes
+		 * fd 0. Now we check the fd > 0 before close(), expecting
+		 * pipe returns fds greater than 0.  Note that we cannot
+		 * unconditionally remove close(2) calls since fork_a_child()
+		 * may be called *after* pgpool starting up.
+		 */
+		if (pipe_fds[0] > 0)
+		{
+			close(pipe_fds[0]);
+			close(pipe_fds[1]);
+		}
+
+		myargv = save_ps_display_args(myargc, myargv);
+
+		/* call child main */
+		POOL_SETMASK(&UnBlockSig);
+		reload_config_request = 0;
+		do_worker_child();
 	}
 	else if (pid == -1)
 	{
@@ -979,7 +1106,7 @@ static int create_inet_domain_socket(const char *hostname, const int port)
 	}
 
 	memset((char *) &addr, 0, sizeof(addr));
-	((struct sockaddr *)&addr)->sa_family = AF_INET;
+	addr.sin_family = AF_INET;
 
 	if (strcmp(hostname, "*")==0)
 	{
@@ -1043,8 +1170,8 @@ static int create_unix_domain_socket(struct sockaddr_un un_addr_tmp)
 		myexit(1);
 	}
 	memset((char *) &addr, 0, sizeof(addr));
-	((struct sockaddr *)&addr)->sa_family = AF_UNIX;
-	snprintf(addr.sun_path, sizeof(addr.sun_path), un_addr_tmp.sun_path);
+	addr.sun_family = AF_UNIX;
+	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", un_addr_tmp.sun_path);
 	len = sizeof(struct sockaddr_un);
 	status = bind(fd, (struct sockaddr *)&addr, len);
 	if (status == -1)
@@ -1081,12 +1208,12 @@ static void myexit(int code)
 	if (getpid() != mypid)
 		return;
 
-	if (pids != NULL) {
+	if (process_info != NULL) {
 		POOL_SETMASK(&AuthBlockSig);
 		exiting = 1;
 		for (i = 0; i < pool_config->num_init_children; i++)
 		{
-			pid_t pid = pids[i].pid;
+			pid_t pid = process_info[i].pid;
 			if (pid)
 			{
 				kill(pid, SIGTERM);
@@ -1198,7 +1325,7 @@ static RETSIGTYPE exit_handler(int sig)
 
 	for (i = 0; i < pool_config->num_init_children; i++)
 	{
-		pid_t pid = pids[i].pid;
+		pid_t pid = process_info[i].pid;
 		if (pid)
 		{
 			kill(pid, sig);
@@ -1206,6 +1333,7 @@ static RETSIGTYPE exit_handler(int sig)
 	}
 
 	kill(pcp_pid, sig);
+	kill(worker_pid, sig);
 
 	POOL_SETMASK(&UnBlockSig);
 
@@ -1215,16 +1343,18 @@ static RETSIGTYPE exit_handler(int sig)
 	if (errno != ECHILD)
 		pool_error("wait() failed. reason:%s", strerror(errno));
 
-	pids = NULL;
+	process_info = NULL;
 	myexit(0);
 }
 
 /*
- * calculate next master node id
+ * Calculate next valid master node id.
+ * If no valid node found, returns -1.
  */
 static int get_next_master_node(void)
 {
 	int i;
+
 	for (i=0;i<pool_config->backend_desc->num_backends;i++)
 	{
 		/*
@@ -1235,12 +1365,17 @@ static int get_next_master_node(void)
 		 */
 		if (RAW_MODE)
 		{
+			/* if in raw mode, we can switch to a standby node */
 			if (BACKEND_INFO(i).backend_status == CON_CONNECT_WAIT)
 				break;
 		}
 		else if (VALID_BACKEND(i))
 			break;
 	}
+
+	if (i == pool_config->backend_desc->num_backends)
+		i = -1;
+
 	return i;
 }
 
@@ -1374,7 +1509,7 @@ static void failover(void)
 
 	new_master = get_next_master_node();
 
-	if (new_master == pool_config->backend_desc->num_backends)
+	if (new_master < 0)
 	{
 		pool_error("failover_handler: no valid DB node found");
 	}
@@ -1429,7 +1564,7 @@ static void failover(void)
 	/* kill all children */
 	for (i = 0; i < pool_config->num_init_children; i++)
 	{
-		pid_t pid = pids[i].pid;
+		pid_t pid = process_info[i].pid;
 		if (pid)
 		{
 			kill(pid, SIGQUIT);
@@ -1444,8 +1579,11 @@ static void failover(void)
 			trigger_failover_command(i, pool_config->failover_command);
 	}
 
-	pool_log("failover_handler: set new master node: %d", new_master);
-	Req_info->master_node_id = new_master;
+	if (new_master >= 0)
+	{
+		pool_log("failover_handler: set new master node: %d", new_master);
+		Req_info->master_node_id = new_master;
+	}
 
 /* no need to wait since it will be done in reap_handler */
 #ifdef NOT_USED
@@ -1462,8 +1600,8 @@ static void failover(void)
 	/* fork the children */
 	for (i=0;i<pool_config->num_init_children;i++)
 	{
-		pids[i].pid = fork_a_child(unix_fd, inet_fd, i);
-		pids[i].start_time = time(NULL);
+		process_info[i].pid = fork_a_child(unix_fd, inet_fd, i);
+		process_info[i].start_time = time(NULL);
 	}
 
 	if (Req_info->kind == NODE_UP_REQUEST)
@@ -1478,6 +1616,9 @@ static void failover(void)
 				 BACKEND_INFO(node_id).backend_hostname,
 				 BACKEND_INFO(node_id).backend_port);
 	}
+
+	/* Save primary node id */
+	Req_info->primary_node_id = find_primary_node();
 
 	switching = 0;
 
@@ -1506,7 +1647,6 @@ int health_check(void)
 {
 	int fd;
 	int sts;
-	int wr;
 	static bool is_first = true;
 	static char *dbname;
 
@@ -1552,7 +1692,7 @@ int health_check(void)
 		else
 			fd = connect_inet_domain_socket(i, FALSE);
 
-		if (fd < 0 && errno != EINTR)
+		if (fd < 0)
 		{
 			pool_error("health check failed. %d th host %s at port %d is down",
 					   i,
@@ -1561,18 +1701,8 @@ int health_check(void)
 
 			return i+1;
 		}
-		else if ( fd < 0 && errno == EINTR )
-		{
-			pool_error("connect() failed. restarting health check for host %s at port %d. reason: %s",
-					BACKEND_INFO(i).backend_hostname,
-					BACKEND_INFO(i).backend_port,
-					strerror(errno));
-			errno = 0;
-			continue;
-		}
 
-		wr = write(fd, &mysp, sizeof(mysp));
-		if ( wr < 0 && errno != EINTR)
+		if (write(fd, &mysp, sizeof(mysp)) < 0)
 		{
 			pool_error("health check failed during write. host %s at port %d is down. reason: %s",
 					   BACKEND_INFO(i).backend_hostname,
@@ -1581,23 +1711,13 @@ int health_check(void)
 			close(fd);
 			return i+1;
 		}
-		else if (wr < 0 && errno == EINTR)
-		{
-			pool_error("write() failed. restarting health check for host %s at port %d. reason: %s",
-					BACKEND_INFO(i).backend_hostname,
-					BACKEND_INFO(i).backend_port,
-					strerror(errno));
-			errno = 0;
-			close(fd);
-			continue;
-		}
 
 		/*
 		 * Don't bother to be blocked by read(2). It will be
 		 * interrupted by ALRAM anyway.
 		 */
 		sts = read(fd, &kind, 1);
-		if (sts == -1 && errno != EINTR)
+		if (sts == -1)
 		{
 			pool_error("health check failed during read. host %s at port %d is down. reason: %s",
 					   BACKEND_INFO(i).backend_hostname,
@@ -1613,16 +1733,6 @@ int health_check(void)
 					   BACKEND_INFO(i).backend_port);
 			close(fd);
 			return i+1;
-		}
-		else if (sts == -1 && errno == EINTR)
-		{
-			pool_error("read() failed. restarting health check for host %s at port %d. reason: %s",
-					    BACKEND_INFO(i).backend_hostname,
-					    BACKEND_INFO(i).backend_port,
-					    strerror(errno));
-			errno = 0;
-			close(fd);
-			continue;
 		}
 
 		if (is_first)
@@ -1783,12 +1893,27 @@ static void reaper(void)
 		if (pid == pcp_pid)
 		{
 			if (WIFSIGNALED(status))
-				pool_debug("PCP child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
+				pool_log("PCP child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
 			else
-				pool_debug("PCP child %d exits with status %d", pid, status);
+				pool_log("PCP child %d exits with status %d", pid, status);
 
 			pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
-			pool_debug("fork a new PCP child pid %d", pcp_pid);
+			pool_log("fork a new PCP child pid %d", pcp_pid);
+			break;
+		}
+
+		/* exiting process was worker process */
+		else if (pid == worker_pid)
+		{
+			if (WIFSIGNALED(status))
+				pool_log("worker child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
+			else
+				pool_log("worker child %d exits with status %d", pid, status);
+
+			if (status)
+				worker_pid = worker_fork_a_child();
+
+			pool_log("fork a new worker child pid %d", worker_pid);
 			break;
 		} else
 		{
@@ -1800,14 +1925,14 @@ static void reaper(void)
 			/* look for exiting child's pid */
 			for (i=0;i<pool_config->num_init_children;i++)
 			{
-				if (pid == pids[i].pid)
+				if (pid == process_info[i].pid)
 				{
 					/* if found, fork a new child */
 					if (!switching && !exiting && status)
 					{
-						pids[i].pid = fork_a_child(unix_fd, inet_fd, i);
-						pids[i].start_time = time(NULL);
-						pool_debug("fork a new child pid %d", pids[i].pid);
+						process_info[i].pid = fork_a_child(unix_fd, inet_fd, i);
+						process_info[i].start_time = time(NULL);
+						pool_debug("fork a new child pid %d", process_info[i].pid);
 						break;
 					}
 				}
@@ -1823,7 +1948,7 @@ static void reaper(void)
 BackendInfo *
 pool_get_node_info(int node_number)
 {
-	if (node_number >= NUM_BACKENDS)
+	if (node_number < 0 || node_number >= NUM_BACKENDS)
 		return NULL;
 
 	return &BACKEND_INFO(node_number);
@@ -1850,7 +1975,7 @@ pool_get_process_list(int *array_size)
 	*array_size = pool_config->num_init_children;
 	array = calloc(*array_size, sizeof(int));
 	for (i = 0; i < *array_size; i++)
-		array[i] = pids[i].pid;
+		array[i] = process_info[i].pid;
 
 	return array;
 }
@@ -1864,8 +1989,8 @@ pool_get_process_info(pid_t pid)
 	int		i;
 
 	for (i = 0; i < pool_config->num_init_children; i++)
-		if (pids[i].pid == pid)
-			return &pids[i];
+		if (process_info[i].pid == pid)
+			return &process_info[i];
 
 	return NULL;
 }
@@ -1922,6 +2047,9 @@ static void reload_config(void)
 	if (pool_config->parallel_mode)
 		pool_memset_system_db_info(system_db_info->info);
 	kill_all_children(SIGHUP);
+
+	if (worker_pid)
+		kill(worker_pid, SIGHUP);
 }
 
 static void kill_all_children(int sig)
@@ -1931,7 +2059,7 @@ static void kill_all_children(int sig)
 	/* kill all children */
 	for (i = 0; i < pool_config->num_init_children; i++)
 	{
-		pid_t pid = pids[i].pid;
+		pid_t pid = process_info[i].pid;
 		if (pid)
 		{
 			kill(pid, sig);
@@ -1974,7 +2102,7 @@ static int pool_pause(struct timeval *timeout)
  * macro. Note that most of these processes are done while all signals
  * are blocked.
  */
-static void pool_sleep(unsigned int second)
+void pool_sleep(unsigned int second)
 {
 	struct timeval current_time, sleep_time;
 
@@ -2033,6 +2161,7 @@ static int trigger_failover_command(int node, const char *command_line)
 	char port_buf[6];
 	char buf[2];
 	BackendInfo *info;
+	BackendInfo *newmaster;
 
 	if (command_line == NULL || (strlen(command_line) == 0))
 		return 0;
@@ -2063,22 +2192,31 @@ static int trigger_failover_command(int node, const char *command_line)
 				char val = *(command_line + 1);
 				switch (val)
 				{
-					case 'p': /* port */
+					case 'p': /* failed node port */
 						snprintf(port_buf, sizeof(port_buf), "%d", info->backend_port);
 						string_append_char(exec_cmd, port_buf);
 						break;
 
-					case 'D': /* database directory */
+					case 'D': /* failed node database directory */
 						string_append_char(exec_cmd, info->backend_data_directory);
 						break;
 
-					case 'd': /* node id */
+					case 'd': /* failed node id */
 						snprintf(port_buf, sizeof(port_buf), "%d", node);
 						string_append_char(exec_cmd, port_buf);
 						break;
 
-					case 'h': /* host name */
+					case 'h': /* failed host name */
 						string_append_char(exec_cmd, info->backend_hostname);
+						break;
+
+					case 'H': /* new master host name */
+						newmaster = pool_get_node_info(get_next_master_node());
+						if (newmaster)
+							string_append_char(exec_cmd, newmaster->backend_hostname);
+						else
+							/* no vaid new master */
+							string_append_char(exec_cmd, "");
 						break;
 
 					case 'm': /* new master node id */
@@ -2088,6 +2226,11 @@ static int trigger_failover_command(int node, const char *command_line)
 
 					case 'M': /* old master node id */
 						snprintf(port_buf, sizeof(port_buf), "%d", MASTER_NODE_ID);
+						string_append_char(exec_cmd, port_buf);
+						break;
+
+					case 'P': /* old primary node id */
+						snprintf(port_buf, sizeof(port_buf), "%d", PRIMARY_NODE_ID);
 						string_append_char(exec_cmd, port_buf);
 						break;
 
@@ -2117,4 +2260,118 @@ static int trigger_failover_command(int node, const char *command_line)
 	pool_memory = NULL;
 
 	return r;
+}
+
+/*
+ * Find the primary node (i.e. not standby node) and returns its node
+ * id. If no primary node is found, returns -1.
+ */
+static int find_primary_node(void)
+{
+	BackendInfo *bkinfo;
+	POOL_CONNECTION_POOL_SLOT *s;
+	POOL_CONNECTION *con; 
+	POOL_STATUS status;
+	POOL_SELECT_RESULT *res;
+	bool is_standby;
+	int i;
+
+	/* Streaming replication mode? */
+	if (pool_config->master_slave_mode == 0 ||
+		strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP))
+	{
+		/* No point to look for primary node if not in streaming
+		 * replication mode.
+		 */
+		pool_debug("find_primary_node: not in streaming replication mode");
+		return -1;
+	}
+
+	for(i=0;i<NUM_BACKENDS;i++)
+	{
+		if (!VALID_BACKEND(i))
+			continue;
+
+		/*
+		 * Check to see if this is a standby node or not.
+		 */
+		is_standby = false;
+
+		bkinfo = pool_get_node_info(i);
+		s = make_persistent_db_connection(bkinfo->backend_hostname, 
+										  bkinfo->backend_port,
+										  "postgres",
+										  pool_config->health_check_user,
+										  "");
+		if (!s)
+		{
+			pool_error("find_primary_node: make_persistent_connection failed");
+			break;
+		}
+		con = s->con;
+
+		status = do_query(con, "SELECT count(*) FROM pg_catalog.pg_proc AS p WHERE p.proname = 'pgpool_walrecrunning'",
+						  &res, PROTO_MAJOR_V3);
+		if (res->numrows <= 0)
+		{
+			pool_log("find_primary_node: do_query returns no rows");
+		}
+		if (res->data[0] == NULL)
+		{
+			pool_log("find_primary_node: do_query returns no data");
+		}
+		if (res->nullflags[0] == -1)
+		{
+			pool_log("find_primary_node: do_query returns NULL");
+		}
+		if (res->data[0] && !strcmp(res->data[0], "0"))
+		{
+			pool_log("find_primary_node: pgpool_walrecrunning does not exist");
+			free_select_result(res);
+			discard_persistent_db_connection(s);
+			return -1;
+		}
+
+		status = do_query(con, "SELECT pg_is_in_recovery() AND pgpool_walrecrunning()",
+						  &res, PROTO_MAJOR_V3);
+		if (res->numrows <= 0)
+		{
+			pool_log("find_primary_node: do_query returns no rows");
+		}
+		if (res->data[0] == NULL)
+		{
+			pool_log("find_primary_node: do_query returns no data");
+		}
+		if (res->nullflags[0] == -1)
+		{
+			pool_log("find_primary_node: do_query returns NULL");
+		}
+		if (res->data[0] && !strcmp(res->data[0], "t"))
+		{
+			is_standby = true;
+		}   
+		free_select_result(res);
+		discard_persistent_db_connection(s);
+
+		/*
+		 * If this is a standby, we continue to look for primary node.
+		 */
+		if (is_standby)
+		{
+			pool_log("find_primary_node: %d node is standby", i);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if (i == NUM_BACKENDS)
+	{
+		pool_log("find_primary_node: no primary node found");
+		return -1;
+	}
+
+	pool_log("find_primary_node: primary node id is %d", i);
+	return i;
 }

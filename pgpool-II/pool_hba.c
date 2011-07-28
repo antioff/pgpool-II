@@ -1,12 +1,12 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_hba.c,v 1.6 2009/08/22 04:04:21 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_hba.c,v 1.11 2010/08/10 15:08:32 gleu Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Portions Copyright (c) 2003-2008	PgPool Global Development Group
+ * Portions Copyright (c) 2003-2010	PgPool Global Development Group
  * Portions Copyright (c) 1996-2005, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California                                          *
  * Permission to use, copy, modify, and distribute this software and
@@ -33,8 +33,11 @@
 #include "pool.h"
 #include "pool_path.h"
 #include "pool_ip.h"
+#include "pool_stream.h"
+#include "pool_config.h"
 #include "parser/pool_memory.h"
 #include "parser/pg_list.h"
+#include "pool_passwd.h"
 
 #define MULTI_VALUE_SEP "\001" /* delimiter for multi-valued column strings */
 #define MAX_TOKEN	256
@@ -60,6 +63,7 @@ static char *tokenize_inc_file(const char *outer_filename, const char *inc_filen
 static bool pg_isblank(const char c);
 static void next_token(FILE *fp, char *buf, int bufsz);
 static char * next_token_expand(const char *filename, FILE *file);
+static POOL_STATUS CheckMd5Auth(char *username);
 
 #ifdef USE_PAM
 #ifdef HAVE_PAM_PAM_APPL_H
@@ -198,7 +202,7 @@ void ClientAuthentication(POOL_CONNECTION *frontend)
 					 "no pool_hba.conf entry for host \"%s\", user \"%s\", database \"%s\"",
 					 hostinfo, frontend->username, frontend->database);
 #endif
-			pool_error(errmessage);
+			pool_error("%s", errmessage);
 			pool_send_error_message(frontend, frontend->protoVersion, "XX000", errmessage,
 									"", "", __FILE__, __LINE__);
 
@@ -215,8 +219,9 @@ void ClientAuthentication(POOL_CONNECTION *frontend)
 /* 		case uaIdent: */
 /* 			break; */
 
-/* 		case uaMD5: */
-/* 			break; */
+		case uaMD5:
+			status = CheckMd5Auth(frontend->username);
+ 			break;
 
 /* 		case uaCrypt: */
 /* 			break; */
@@ -387,7 +392,12 @@ static void auth_failed(POOL_CONNECTION *frontend)
 /* 					 "Ident authentication with pgpool failed for user \"%s\"", */
 /* 					 frontend->username); */
 /* 			break; */
-/* 		case uaMD5: */
+ 		case uaMD5:
+			snprintf(errmessage, messagelen,
+					 "\"MD5\" authentication with pgpool failed for user \"%s\"",
+					 frontend->username);
+			break;
+
 /* 		case uaCrypt: */
 /* 		case uaPassword: */
 /* 			snprintf(errmessage, messagelen, */
@@ -408,7 +418,7 @@ static void auth_failed(POOL_CONNECTION *frontend)
 			break;
 	}
 
-	pool_error(errmessage);
+	pool_error("%s", errmessage);
 	if (send_error_to_frontend)
 		pool_send_error_message(frontend, frontend->protoVersion, "XX000", errmessage,
 								"", "", __FILE__, __LINE__);
@@ -791,9 +801,9 @@ static void parse_hba_auth(ListCell **line_item, UserAuth *userauth_p,
 	*/
 	else if (strcmp(token, "reject") == 0)
 		*userauth_p = uaReject;
-	/*
 	else if (strcmp(token, "md5") == 0)
 		*userauth_p = uaMD5;
+	/*
 	else if (strcmp(token, "crypt") == 0)
 		*userauth_p = uaCrypt;
 	*/
@@ -1434,3 +1444,22 @@ static POOL_STATUS CheckPAMAuth(POOL_CONNECTION *frontend, char *user, char *pas
 }
 
 #endif   /* USE_PAM */
+
+static POOL_STATUS CheckMd5Auth(char *username)
+{
+	char *passwd;
+
+	/* Look for the entry in pool_passwd */
+	passwd = pool_get_passwd(username);
+
+	if (passwd == NULL)
+	{
+		/* Not found. authentication failed */
+		return POOL_ERROR;
+	}
+
+	/*
+	 * Ok for now. Actual authentication will be performed later.
+	 */
+	return POOL_CONTINUE;
+}

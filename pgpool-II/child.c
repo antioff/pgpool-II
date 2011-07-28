@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/child.c,v 1.45 2010/04/13 04:14:08 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/child.c,v 1.65.2.3 2011/02/23 03:49:07 t-ishii Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -45,17 +45,17 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
-
 #ifdef HAVE_CRYPT_H
 #include <crypt.h>
 #endif
 
 #include "pool.h"
+#include "pool_process_context.h"
+#include "pool_session_context.h"
+#include "pool_config.h"
 #include "pool_ip.h"
 #include "md5.h"
+#include "pool_stream.h"
 
 static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *timeout);
 static StartupPacket *read_startup_packet(POOL_CONNECTION *cp);
@@ -70,7 +70,10 @@ static void send_frontend_exits(void);
 static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password);
 static void connection_count_up(void);
 static void connection_count_down(void);
-
+static void init_system_db_connection(void);
+static bool connect_using_existing_connection(POOL_CONNECTION *frontend,
+											  POOL_CONNECTION_POOL *backend,
+											  StartupPacket *sp);
 /*
  * non 0 means SIGTERM(smart shutdown) or SIGINT(fast shutdown) has arrived
  */
@@ -86,8 +89,6 @@ char remote_ps_data[NI_MAXHOST];		/* used for set_ps_display */
 
 volatile sig_atomic_t got_sighup = 0;
 
-int LocalSessionId;	/* Local session id */
-
 /*
 * child main loop
 */
@@ -97,9 +98,8 @@ void do_child(int unix_fd, int inet_fd)
 	POOL_CONNECTION_POOL *backend;
 	struct timeval now;
 	struct timezone tz;
-	int child_idle_sec;
 	struct timeval timeout;
-	static int connected;
+	static int connected;		/* non 0 if has been accepted connections from frontend */
 	int connections_count = 0;	/* used if child_max_connections > 0 */
 	int found;
 	char psbuf[NI_MAXHOST + 128];
@@ -129,29 +129,15 @@ void do_child(int unix_fd, int inet_fd)
 	}
 #endif
 
+	/* Initialize per process context */
+	pool_init_process_context();
+
 	/* initialize random seed */
 	gettimeofday(&now, &tz);
 	srandom((unsigned int) now.tv_usec);
 
-	/* initialize systemdb connection */
-	if (pool_config->parallel_mode || pool_config->enable_query_cache)
-	{
-		system_db_connect();
-		if (PQstatus(system_db_info->pgconn) != CONNECTION_OK)
-		{
-			pool_error("Could not make persistent libpq system DB connection");
-		}
-
-		system_db_info->connection = make_persistent_db_connection(pool_config->system_db_hostname,
-																   pool_config->system_db_port,
-																   pool_config->system_db_dbname,
-																   pool_config->system_db_user,
-																   pool_config->system_db_password);
-		if (system_db_info->connection == NULL)
-		{
-			pool_error("Could not make persistent system DB connection");
-		}
-	}
+	/* initialize system db connection */
+	init_system_db_connection();
 
 	/* initialize connection pool */
 	if (pool_init_cp())
@@ -159,16 +145,11 @@ void do_child(int unix_fd, int inet_fd)
 		child_exit(1);
 	}
 
-	child_idle_sec = 0;
-
 	timeout.tv_sec = pool_config->child_life_time;
 	timeout.tv_usec = 0;
 
-	init_prepared_list();
-
 	for (;;)
 	{
-		int connection_reuse = 1;
 		StartupPacket *sp;
 
 		idle = 1;
@@ -200,9 +181,8 @@ void do_child(int unix_fd, int inet_fd)
 		/* set frontend fd to blocking */
 		pool_unset_nonblock(frontend->fd);
 
-		/* set busy flag and clear child idle timer */
+		/* reset busy flag */
 		idle = 0;
-		child_idle_sec = 0;
 
 		/* check backend timer is expired */
 		if (backend_timer_expired)
@@ -265,7 +245,10 @@ void do_child(int unix_fd, int inet_fd)
 		}
 
 		/*
-		 * Ok, negotiaton with frontend has been done. Let's go to the next step.
+		 * Ok, negotiaton with frontend has been done. Let's go to the
+		 * next step.  Connect to backend if there's no existing
+		 * connection which can be reused by this frontend.
+		 * Authentication is also done in this step.
 		 */
 
 		/*
@@ -287,12 +270,12 @@ void do_child(int unix_fd, int inet_fd)
 			 */
 			if (sp->len != MASTER_CONNECTION(backend)->sp->len)
 			{
-				pool_debug("pool_process_query: connection exists but startup packet length is not identical");
+				pool_debug("do_child: connection exists but startup packet length is not identical");
 				found = 0;
 			}
 			else if(memcmp(sp->startup_packet, MASTER_CONNECTION(backend)->sp->startup_packet, sp->len) != 0)
 			{
-				pool_debug("pool_process_query: connection exists but startup packet contents is not identical");
+				pool_debug("do_child: connection exists but startup packet contents is not identical");
 				found = 0;
 			}
 
@@ -307,8 +290,6 @@ void do_child(int unix_fd, int inet_fd)
 		if (backend == NULL)
 		{
 			/* create a new connection to backend */
-			connection_reuse = 0;
-
 			if ((backend = connect_backend(sp, frontend)) == NULL)
 			{
 				connection_count_down();
@@ -318,67 +299,12 @@ void do_child(int unix_fd, int inet_fd)
 
 		else
 		{
-			int i, freed = 0;
-			/*
-			 * save startup packet info
-			 */
-			for (i = 0; i < NUM_BACKENDS; i++)
-			{
-				if (VALID_BACKEND(i))
-				{
-					if (!freed)
-					{
-						pool_free_startup_packet(backend->slots[i]->sp);
-						freed = 1;
-					}
-					backend->slots[i]->sp = sp;
-				}
-			}
-
-			/* reuse existing connection to backend */
-
-			if (pool_do_reauth(frontend, backend))
-			{
-				pool_close(frontend);
-				connection_count_down();
+			/* reuse existing connection */
+			if (!connect_using_existing_connection(frontend, backend, sp))
 				continue;
-			}
-
-			if (MAJOR(backend) == 3)
-			{
-				if (send_params(frontend, backend))
-				{
-					pool_close(frontend);
-					connection_count_down();
-					continue;
-				}
-			}
-
-			/* send ReadyForQuery to frontend */
-			pool_write(frontend, "Z", 1);
-
-			if (MAJOR(backend) == 3)
-			{
-				int len;
-				char tstate;
-
-				len = htonl(5);
-				pool_write(frontend, &len, sizeof(len));
-				tstate = TSTATE(backend);
-				pool_write(frontend, &tstate, 1);
-			}
-
-			if (pool_flush(frontend) < 0)
-			{
-				pool_close(frontend);
-				connection_count_down();
-				continue;
-			}
-
 		}
 
 		connected = 1;
-		LocalSessionId++;
 
  		/* show ps status */
 		sp = MASTER_CONNECTION(backend)->sp;
@@ -386,14 +312,13 @@ void do_child(int unix_fd, int inet_fd)
 				 sp->user, sp->database, remote_ps_data);
 		set_ps_display(psbuf, false);
 
-		if (MAJOR(backend) == PROTO_MAJOR_V2)
-			TSTATE(backend) = 'I';
+		/*
+		 * Initialize per session context
+		 */
+		pool_init_session_context(frontend, backend);
 
-		if (pool_config->load_balance_mode)
-		{
-			/* select load balancing node */
-			backend->info->load_balancing_node = select_load_balancing_node();
-		}
+		/* Mark this connection pool is conncted from frontend */
+		pool_coninfo_set_frontend_connected(pool_get_process_context()->proc_id, pool_pool_index());
 
 		/* query process loop */
 		for (;;)
@@ -449,11 +374,6 @@ void do_child(int unix_fd, int inet_fd)
 				/* error occured. discard backend connection pool
                    and disconnect connection to the frontend */
 				case POOL_ERROR:
-#ifdef NOT_USED
-					pool_discard_cp(sp->user, sp->database);
-					pool_close(frontend);
-					notice_backend_error();
-#endif
 					pool_log("do_child: exits with status 1 due to error");
 					child_exit(1);
 					break;
@@ -477,6 +397,12 @@ void do_child(int unix_fd, int inet_fd)
 			if (status != POOL_CONTINUE)
 				break;
 		}
+
+		/* Destroy session context */
+		pool_session_context_destroy();
+
+		/* Mark this connection pool is not conncted from frontend */
+		pool_coninfo_unset_frontend_connected(pool_get_process_context()->proc_id, pool_pool_index());
 
 		accepted = 0;
 		connection_count_down();
@@ -506,48 +432,6 @@ void do_child(int unix_fd, int inet_fd)
  */
 
 /*
- * set non-block flag
- */
-void pool_set_nonblock(int fd)
-{
-	int var;
-
-	/* set fd to none blocking */
-	var = fcntl(fd, F_GETFL, 0);
-	if (var == -1)
-	{
-		pool_error("fcntl failed. %s", strerror(errno));
-		child_exit(1);
-	}
-	if (fcntl(fd, F_SETFL, var | O_NONBLOCK) == -1)
-	{
-		pool_error("fcntl failed. %s", strerror(errno));
-		child_exit(1);
-	}
-}
-
-/*
- * unset non-block flag
- */
-void pool_unset_nonblock(int fd)
-{
-	int var;
-
-	/* set fd to none blocking */
-	var = fcntl(fd, F_GETFL, 0);
-	if (var == -1)
-	{
-		pool_error("fcntl failed. %s", strerror(errno));
-		child_exit(1);
-	}
-	if (fcntl(fd, F_SETFL, var & ~O_NONBLOCK) == -1)
-	{
-		pool_error("fcntl failed. %s", strerror(errno));
-		child_exit(1);
-	}
-}
-
-/*
 * perform accept() and return new fd
 */
 static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *timeout)
@@ -573,6 +457,9 @@ static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *time
 	char remote_port[NI_MAXSERV];
 
 	set_ps_display("wait for connection request", false);
+
+	/* Destroy session context for just in case... */
+	pool_session_context_destroy();
 
 	FD_ZERO(&readmask);
 	FD_SET(unix_fd, &readmask);
@@ -1056,6 +943,72 @@ int send_startup_packet(POOL_CONNECTION_POOL_SLOT *cp)
 }
 
 /*
+ * Reuse existing connection
+ */
+static bool connect_using_existing_connection(POOL_CONNECTION *frontend, 
+											  POOL_CONNECTION_POOL *backend,
+											  StartupPacket *sp)
+{
+	int i, freed = 0;
+	/*
+	 * save startup packet info
+	 */
+	for (i = 0; i < NUM_BACKENDS; i++)
+	{
+		if (VALID_BACKEND(i))
+		{
+			if (!freed)
+			{
+				pool_free_startup_packet(backend->slots[i]->sp);
+				freed = 1;
+			}
+			backend->slots[i]->sp = sp;
+		}
+	}
+
+	/* reuse existing connection to backend */
+
+	if (pool_do_reauth(frontend, backend))
+	{
+		pool_close(frontend);
+		connection_count_down();
+		return false;
+	}
+
+	if (MAJOR(backend) == 3)
+	{
+		if (send_params(frontend, backend))
+		{
+			pool_close(frontend);
+			connection_count_down();
+			return false;
+		}
+	}
+
+	/* send ReadyForQuery to frontend */
+	pool_write(frontend, "Z", 1);
+
+	if (MAJOR(backend) == 3)
+	{
+		int len;
+		char tstate;
+
+		len = htonl(5);
+		pool_write(frontend, &len, sizeof(len));
+		tstate = TSTATE(backend, MASTER_NODE_ID);
+		pool_write(frontend, &tstate, 1);
+	}
+
+	if (pool_flush(frontend) < 0)
+	{
+		pool_close(frontend);
+		connection_count_down();
+		return false;
+	}
+	return true;
+}
+
+/*
  * process cancel request
  */
 void cancel_request(CancelPacket *sp)
@@ -1063,27 +1016,41 @@ void cancel_request(CancelPacket *sp)
 	int	len;
 	int fd;
 	POOL_CONNECTION *con;
-	int i;
+	int i,j,k;
 	ConnectionInfo *c = NULL;
 	CancelPacket cp;
-	int loop_num = pool_config->num_init_children*pool_config->max_pool*MAX_NUM_BACKENDS;
+	bool found = false;
 
 	pool_debug("Cancel request received");
 
 	/* look for cancel key from shmem info */
-	for (i=0;i<loop_num;i++)
+	for (i=0;i<pool_config->num_init_children;i++)
 	{
-		c = &con_info[i];
-
-		if (c->pid == sp->pid && c->key == sp->key)
+		for (j=0;j<pool_config->max_pool;j++)
 		{
-			pool_debug("found pid:%d key:%d i:%d",c->pid, c->key,i);
-			c = &con_info[i/(pool_config->max_pool * pool_config->max_pool)];
-			break;
+			for (k=0;k<NUM_BACKENDS;k++)
+			{
+				c = pool_coninfo(i, j, k);
+				pool_debug("con_info: address:%p database:%s user:%s pid:%d key:%d i:%d",
+						   c, c->database, c->user, ntohl(c->pid), ntohl(c->key),i);
+
+				if (c->pid == sp->pid && c->key == sp->key)
+				{
+					pool_debug("found pid:%d key:%d i:%d",ntohl(c->pid), ntohl(c->key),i);
+					c = pool_coninfo(i, j, 0);
+					found = true;
+					goto found;
+				}
+			}
 		}
 	}
-	if (i == loop_num)
+
+ found:
+	if (!found)
+	{
+		pool_error("cancel_request: invalid cancel key: pid:%d key:%d",ntohl(sp->pid), ntohl(sp->key));
 		return;	/* invalid key */
+	}
 
 	for (i=0;i<NUM_BACKENDS;i++,c++)
 	{
@@ -1112,7 +1079,7 @@ void cancel_request(CancelPacket *sp)
 		cp.pid = c->pid;
 		cp.key = c->key;
 
-		pool_debug("pid:%d key: %d",cp.pid,cp.key);
+		pool_log("cancel_request: canceling backend pid:%d key: %d", ntohl(cp.pid),ntohl(cp.key));
 
 		if (pool_write_and_flush(con, &cp, sizeof(CancelPacket)) < 0)
 			pool_error("Could not send cancel request packet for backend %d", i);
@@ -1336,6 +1303,7 @@ void pool_free_startup_packet(StartupPacket *sp)
 			free(sp->user);
 		free(sp);
 	}
+	sp = NULL;
 }
 
 /*
@@ -1496,6 +1464,39 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	}
 
 	return cp;
+}
+
+/*
+ * Discard connection and memory allocated by
+ * make_persistent_db_connection().
+ */
+void discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT *cp)
+{
+	int len;
+
+	if(cp == NULL)
+		return;
+
+	pool_write(cp->con, "X", 1);
+	len = htonl(4);
+	pool_write(cp->con, &len, sizeof(len));
+
+	/*
+	 * XXX we cannot call pool_flush() here since backend may already
+	 * close the socket and pool_flush() automatically invokes fail
+	 * over handler. This could happen in copy command (remember the
+	 * famous "lost synchronization with server, resetting
+	 * connection" message)
+	 */
+	pool_set_nonblock(cp->con->fd);
+	pool_flush_it(cp->con);
+	pool_unset_nonblock(cp->con->fd);
+
+	pool_close(cp->con);
+	free(cp->sp->startup_packet);
+	free(cp->sp->database);
+	free(cp->sp->user);
+	free(cp);
 }
 
 /*
@@ -1793,6 +1794,7 @@ static RETSIGTYPE wakeup_handler(int sig)
  */
 int select_load_balancing_node(void)
 {
+	int selected_slot;
 	double total_weight,r;
 	int i;
 
@@ -1847,5 +1849,30 @@ void check_stop_request(void)
 	{
 		reset_variables();
 		child_exit(0);
+	}
+}
+
+/*
+ * Initialize system DB connection
+ */
+static void init_system_db_connection(void)
+{	
+	if (pool_config->parallel_mode || pool_config->enable_query_cache)
+	{
+		system_db_connect();
+		if (PQstatus(system_db_info->pgconn) != CONNECTION_OK)
+		{
+			pool_error("Could not make persistent libpq system DB connection");
+		}
+
+		system_db_info->connection = make_persistent_db_connection(pool_config->system_db_hostname,
+																   pool_config->system_db_port,
+																   pool_config->system_db_dbname,
+																   pool_config->system_db_user,
+																   pool_config->system_db_password);
+		if (system_db_info->connection == NULL)
+		{
+			pool_error("Could not make persistent system DB connection");
+		}
 	}
 }

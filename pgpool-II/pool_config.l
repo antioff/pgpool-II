@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_config.l,v 1.33 2010/03/25 04:24:09 kitagawa Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_config.l,v 1.48 2010/08/17 02:09:00 kitagawa Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -26,6 +26,7 @@
 %{
 
 #include "pool.h"
+#include "pool_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +41,7 @@ POOL_CONFIG *pool_config;	/* configuration values */
 POOL_SYSTEMDB_CONNECTION_POOL *system_db_info;
 static unsigned Lineno;
 static char *default_reset_query_list[] = {"ABORT", "DISCARD ALL"};
+static char *default_black_function_list[] = {"nextval", "setval"};
 
 typedef enum {
   POOL_KEY = 1,
@@ -54,7 +56,6 @@ typedef enum {
 
 static char *extract_string(char *value, POOL_TOKEN token);
 static char **extract_string_tokens(char *str, char *delim, int *n);
-static int eval_logical(char *str);
 static void clear_host_entry(int slot);
 
 %}
@@ -113,12 +114,21 @@ int pool_init_config(void)
 
 	memset(pool_config, 0, sizeof(POOL_CONFIG));
 
+#ifndef POOL_PRIVATE
 	pool_config->backend_desc = pool_shared_memory_create(sizeof(BackendDesc));
 	if (pool_config->backend_desc == NULL)
 	{
 		pool_error("failed to allocate pool_config->backend_desc");
 		return -1;
 	}
+#else
+	pool_config->backend_desc = malloc(sizeof(BackendDesc));
+	if (pool_config->backend_desc == NULL)
+	{
+		pool_error("failed to allocate pool_config->backend_desc");
+		return -1;
+	}
+#endif
 
 	/* set hardcoded default values */
 	pool_config->listen_addresses = "localhost";
@@ -142,16 +152,24 @@ int pool_init_config(void)
 	pool_config->log_connections = 0;
 	pool_config->log_hostname = 0;
 	pool_config->enable_pool_hba = 0;
+	pool_config->pool_passwd = "pool_passwd";
 
 	pool_config->replication_mode = 0;
 	pool_config->load_balance_mode = 0;
 	pool_config->replication_stop_on_mismatch = 0;
+	pool_config->failover_if_affected_tuples_mismatch = 0;
 	pool_config->replicate_select = 0;
 	pool_config->reset_query_list = default_reset_query_list;
 	pool_config->num_reset_queries = sizeof(default_reset_query_list)/sizeof(char *);
-	pool_config->reset_query_list = default_reset_query_list;
+	pool_config->white_function_list = NULL;
+	pool_config->num_white_function_list = 0;
+	pool_config->black_function_list = default_black_function_list;
+	pool_config->num_black_function_list = sizeof(default_black_function_list)/sizeof(char *);
 	pool_config->print_timestamp = 1;
 	pool_config->master_slave_mode = 0;
+	pool_config->master_slave_sub_mode = "slony";
+	pool_config->delay_threshold = 0;
+	pool_config->log_standby_delay = 0;
 	pool_config->connection_cache = 1;
 	pool_config->health_check_timeout = 20;
 	pool_config->health_check_period = 0;
@@ -182,6 +200,7 @@ int pool_init_config(void)
 	pool_config->ssl_key = "";
 	pool_config->ssl_ca_cert = "";
 	pool_config->ssl_ca_cert_dir = "";
+	pool_config->debug_level = 0;
 
 	res = gethostname(localhostname,sizeof(localhostname));
 	if(res !=0 )
@@ -521,6 +540,25 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->enable_pool_hba = v;
 		}
+		else if (!strcmp(key, "pool_passwd") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->pool_passwd = str;
+		}
+
 		else if (!strcmp(key, "backend_socket_dir") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
@@ -585,6 +623,20 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_debug("replication_stop_on_mismatch: %d", v);
 			pool_config->replication_stop_on_mismatch = v;
 		}
+		else if (!strcmp(key, "failover_if_affected_tuples_mismatch") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			int v = eval_logical(yytext);
+
+			if (v < 0)
+			{
+				pool_error("pool_config: invalid value %s for %s", yytext, key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_debug("failover_if_affected_tuples_mismatch: %d", v);
+			pool_config->failover_if_affected_tuples_mismatch = v;
+		}
 		else if (!strcmp(key, "replicate_select") &&
 				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
 		{
@@ -624,6 +676,60 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 		}
 
+		else if (!strcmp(key, "white_function_list") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->white_function_list =
+				extract_string_tokens(str, ",", &pool_config->num_white_function_list);
+
+			if (pool_config->white_function_list == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+		}
+
+		else if (!strcmp(key, "black_function_list") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->black_function_list =
+				extract_string_tokens(str, ",", &pool_config->num_black_function_list);
+
+			if (pool_config->black_function_list == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+		}
+
 		else if (!strcmp(key, "print_timestamp") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			int v = eval_logical(yytext);
@@ -655,6 +761,72 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				fclose(fd);
 				return(-1);
 			}
+		}
+
+		else if (!strcmp(key, "master_slave_sub_mode") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+
+			if (strcmp(str, MODE_SLONY) && strcmp(str, MODE_STREAMREP))
+			{
+				pool_error("pool_config: %s must be either \"slony\" or \"stream\"", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->master_slave_sub_mode = str;
+		}
+
+		else if (!strcmp(key, "delay_threshold") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			long long int v = atol(yytext);
+
+			if (token != POOL_INTEGER || v < 0)
+			{
+				pool_error("pool_config: %s must be greater or equal to 0 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->delay_threshold = v;
+		}
+
+		else if (!strcmp(key, "log_standby_delay") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+
+			if (strcmp(str, "always") && strcmp(str, "if_over_threshold") && strcmp(str, "none"))
+			{
+				pool_error("pool_config: invalid log_standby_delay %s", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->log_standby_delay = str;
 		}
 
 		else if (!strcmp(key, "connection_cache") && CHECK_CONTEXT(INIT_CONFIG, context))
@@ -871,9 +1043,9 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		{
 			int v = atoi(yytext);
 
-			if (token != POOL_INTEGER || v < 0)
+			if (token != POOL_INTEGER || v < -1)
 			{
-				pool_error("pool_config: %s must be greater or equal to 0 numeric value", key);
+				pool_error("pool_config: %s must be greater or equal to -1 numeric value", key);
 				fclose(fd);
 				return(-1);
 			}
@@ -1323,6 +1495,19 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->ssl_ca_cert_dir = str;
 		}
+
+		else if (!strcmp(key, "debug_level") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v < 0)
+			{
+				pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->debug_level = v;
+		}
 	}
 
 	fclose(fd);
@@ -1345,8 +1530,8 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		}
 	}
 
-	pool_debug("num_backends: %d num_backends: %d total_weight: %f",
-			   pool_config->backend_desc->num_backends, pool_config->backend_desc->num_backends, total_weight);
+	pool_debug("num_backends: %d total_weight: %f",
+			   pool_config->backend_desc->num_backends, total_weight);
 	/*
 	 * Normalize load balacing weights. What we are doing here is,
 	 * assign 0 to RAND_MAX to each backend's weight according to the
@@ -1369,7 +1554,9 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 
 	if (pool_config->parallel_mode || pool_config->enable_query_cache)
 	{
+#ifndef POOL_PRIVATE
 		int dist_num;
+#endif
 		SystemDBInfo *info;
 		
 		system_db_info = malloc(sizeof(POOL_SYSTEMDB_CONNECTION_POOL));
@@ -1380,12 +1567,17 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		}
 		memset(system_db_info, 0, sizeof(*system_db_info));
 
+#ifndef POOL_PRIVATE
 		system_db_info->system_db_status = pool_shared_memory_create(sizeof(BACKEND_STATUS));
+#else
+		system_db_info->system_db_status = malloc(sizeof(BACKEND_STATUS));
+#endif
 		if (system_db_info->system_db_status == NULL)
 		{
 			pool_error("failed to allocate system_db_info->system_db_status");
 			return -1;
 		}
+
 		*system_db_info->system_db_status = CON_CONNECT_WAIT;	/* which is the same as SYSDB_STATUS = CON_CONNECT_WAIT */
 
 		info = malloc(sizeof(SystemDBInfo));
@@ -1405,8 +1597,10 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		info->dist_def_num = 0;
 		info->dist_def_slot = NULL;
 
+#ifndef POOL_PRIVATE
 		if (pool_config->parallel_mode)
 		{
+
 			dist_num = pool_memset_system_db_info(info);
 			if(dist_num < 0)
 			{
@@ -1429,6 +1623,21 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 		}
 		SYSDB_STATUS = CON_UP;
+#endif
+	}
+
+	if (strcmp(pool_config->recovery_1st_stage_command, "") || 
+		strcmp(pool_config->recovery_2nd_stage_command, ""))
+	{
+		for (i=0;i<MAX_CONNECTION_SLOTS;i++)
+		{
+			if (pool_config->backend_desc->backend_info[i].backend_port != 0 &&
+				!strcmp(pool_config->backend_desc->backend_info[i].backend_data_directory, ""))
+			{
+				pool_error("pool_config: recovery_1st_stage_command and recovery_2nd_stage_command requires backend_data_directory to be set");
+				return -1;
+			}
+		}
 	}
 
 	return 0;
@@ -1453,38 +1662,123 @@ static char *extract_string(char *value, POOL_TOKEN token)
 	return ret;
 }
 
-static int eval_logical(char *str)
+/*
+ * Try to interpret value as boolean value.  Valid values are: true,
+ * false, yes, no, on, off, 1, 0; as well as unique prefixes thereof.
+ * If the string parses okay, return true, else false.
+ * If okay and result is not NULL, return the value in *result.
+ * This function copied from PostgreSQL source code.
+ */
+static bool parse_bool_with_len(const char *value, size_t len, bool *result)
 {
-	int ret;
+	switch (*value)
+	{
+		case 't':
+		case 'T':
+			if (strncasecmp(value, "true", len) == 0)
+			{
+				if (result)
+					*result = true;
+				return true;
+			}
+			break;
+		case 'f':
+		case 'F':
+			if (strncasecmp(value, "false", len) == 0)
+			{
+				if (result)
+					*result = false;
+				return true;
+			}
+			break;
+		case 'y':
+		case 'Y':
+			if (strncasecmp(value, "yes", len) == 0)
+			{
+				if (result)
+					*result = true;
+				return true;
+			}
+			break;
+		case 'n':
+		case 'N':
+			if (strncasecmp(value, "no", len) == 0)
+			{
+				if (result)
+					*result = false;
+				return true;
+			}
+			break;
+		case 'o':
+		case 'O':
+			/* 'o' is not unique enough */
+			if (strncasecmp(value, "on", (len > 2 ? len : 2)) == 0)
+			{
+				if (result)
+					*result = true;
+				return true;
+			}
+			else if (strncasecmp(value, "off", (len > 2 ? len : 2)) == 0)
+			{
+				if (result)
+					*result = false;
+				return true;
+			}
+			break;
+		case '1':
+			if (len == 1)
+			{
+				if (result)
+					*result = true;
+				return true;
+			}
+			break;
+		case '0':
+			if (len == 1)
+			{
+				if (result)
+					*result = false;
+				return true;
+			}
+			break;
+		default:
+			break;
+	}
 
-	if (!strcasecmp(str, "true"))
-		ret = 1;
-	else if (!strcasecmp(str, "false"))
-		ret = 0;
-	else if (!strcmp(str, "1"))
-		ret = 1;
-	else if (!strcmp(str, "0"))
-		ret = 0;
-	else
-		ret = -1;
+	if (result)
+		*result = false;		/* suppress compiler warning */
+	return false;
+}
 
-	return ret;
+int eval_logical(char *str)
+{
+	bool result;
+
+	if (!parse_bool_with_len(str, strlen(str), &result))
+		return -1;
+
+	return (result ? 1 : 0);
 }
 
 /*
- * extract tokens separated by delimi from str. return value is an
+ * Extract tokens separated by delimi from str. Return value is an
  * array of pointers to malloced strings. number of tokens is set to
- * n; note that str will be destroyed by strtok(). Also return value
- * points to static data, that means subsequent call will change the
- * return value.
+ * n; note that str will be destroyed by strtok().
  */
 #define MAXTOKENS 1024
 static char **extract_string_tokens(char *str, char *delimi, int *n)
 {
 	char *token;
-	static char *tokens[MAXTOKENS];
+	static char **tokens;
 
 	*n = 0;
+
+	tokens = malloc(MAXTOKENS*sizeof(char *));
+	if (tokens == NULL)
+	{
+		pool_error("extract_string_tokens: out of memory");
+		return NULL;
+	}
 
 	for (token = strtok(str, delimi); token != NULL && *n < MAXTOKENS; token = strtok(NULL, delimi))
 	{

@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp_stop_pgpool.c,v 1.3 2008/12/31 10:25:40 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp_stop_pgpool.c,v 1.7 2010/08/22 08:24:02 gleu Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -24,6 +24,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef HAVE_GETOPT_H
+#include <getopt.h>
+#else
+#include "getopt_long.h"
+#endif
 
 #include "pcp.h"
 
@@ -40,8 +45,15 @@ main(int argc, char **argv)
 	char pass[MAX_USER_PASSWD_LEN];
 	char mode;
 	int ch;
+	int	optindex;
 
-	while ((ch = getopt(argc, argv, "hd")) != -1) {
+	static struct option long_options[] = {
+		{"debug", no_argument, NULL, 'd'},
+		{"help", no_argument, NULL, 'h'},
+		{NULL, 0, NULL, 0}
+	};
+	
+    while ((ch = getopt_long(argc, argv, "hd", long_options, &optindex)) != -1) {
 		switch (ch) {
 		case 'd':
 			pcp_enable_debug();
@@ -145,15 +157,15 @@ usage(void)
 	fprintf(stderr, "pcp_stop_pgpool - terminate pgpool-II\n\n");
 	fprintf(stderr, "Usage: pcp_stop_pgpool [-d] timeout hostname port# username password mode\n");
 	fprintf(stderr, "Usage: pcp_stop_pgpool  -h\n\n");
-	fprintf(stderr, "  -d       - enable debug message (optional)\n");
-	fprintf(stderr, "  timeout  - connection timeout value in seconds. command exits on timeout\n");
-	fprintf(stderr, "  hostname - pgpool-II hostname\n");
-	fprintf(stderr, "  port#    - pgpool-II port number\n");
-	fprintf(stderr, "  username - username for PCP authentication\n");
-	fprintf(stderr, "  password - password for PCP authentication\n");
-	fprintf(stderr, "  mode     - shutdown mode\n");
-	fprintf(stderr, "             s - smart shutdown  f - fast shutdown  i - immediate shutdown\n");
-	fprintf(stderr, "  -h       - print this help\n");
+	fprintf(stderr, "  -d, --debug : enable debug message (optional)\n");
+	fprintf(stderr, "  timeout     : connection timeout value in seconds. command exits on timeout\n");
+	fprintf(stderr, "  hostname    : pgpool-II hostname\n");
+	fprintf(stderr, "  port#       : PCP port number\n");
+	fprintf(stderr, "  username    : username for PCP authentication\n");
+	fprintf(stderr, "  password    : password for PCP authentication\n");
+	fprintf(stderr, "  mode        : shutdown mode\n");
+	fprintf(stderr, "                s - smart shutdown  f - fast shutdown  i - immediate shutdown\n");
+	fprintf(stderr, "  -h, --help  : print this help\n");
 }
 
 static void

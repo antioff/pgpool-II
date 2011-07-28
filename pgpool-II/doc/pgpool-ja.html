@@ -8,7 +8,7 @@
 <body>
 
 <!-- hhmts start -->
-Last modified: Mon Feb 22 14:03:07 JST 2010
+Last modified: Sun May  1 18:24:35 JST 2011
 <!-- hhmts end -->
 
 <body bgcolor="#ffffff">
@@ -28,9 +28,18 @@ Last modified: Mon Feb 22 14:03:07 JST 2010
         <li><a href="#platform">pgpool-II$B$N2TF/4D6-(B</a></li>
         <li><a href="#install">pgpool-II$B$N%$%s%9%H!<%k(B</a></li>
         <li><a href="#config">pgpool-II$B$N@_Dj(B</a></li>
+        <li><a href="#common">$B6&DL@_Dj9`L\(B</a></li>
+        <li><a href="#connection_pool_mode">$B%3%M%/%7%g%s%W!<%k%b!<%I(B</a></li>
+        <li><a href="#replication_mode">$B%l%W%j%1!<%7%g%s%b!<%I(B</a></li>
+        <li><a href="#master_slave_mode">$B%^%9%?!<%9%l!<%V%b!<%I(B</a></li>
+        <li><a href="#stream">Streaming Replication$B$X$NBP1~(B</a></li>
         <li><a href="#start">pgpool-II$B$N5/F0$HDd;_(B</a></li>
         <li><a href="#reload">pgpool-II$B$N@_Dj%U%!%$%k$N:FFI$_9~$_(B</a></li>
-	<li><a href="#online-recovery">$B%*%s%i%$%s%j%+%P%j(B</a></li>
+        <li><a href="#show-commands">SHOW$B%3%^%s%I(B</a></li>
+	    <li><a href="#online-recovery">$B%*%s%i%$%s%j%+%P%j(B</a></li>
+	    <li><a href="#backup">$B%P%C%/%"%C%W(B</a></li>
+	    <li><a href="#deploy">pgpool-II$B$NG[CV$K$D$$$F(B</a></li>
+	    <li><a href="#troubleshooting">$B%H%i%V%k%7%e!<%F%#%s%0(B</a></li>
         <li><a href="#restriction">$B@)8B;v9`(B</a></li>
         <li><a href="#reference">$B%j%U%!%l%s%9(B</a></li>
         <li><a href="#internal">$BFbIt>pJs(B</a></li>
@@ -56,27 +65,27 @@ pgpool-II$B$O(BPostgreSQL$B@lMQ$N%_%I%k%&%'%"$G!"(BPostgreSQL$B$N%G!<%?%Y!<
 
 <li>$B%3%M%/%7%g%s%W!<%j%s%0(B
 <p>
-PostgreSQL$B$X$N@\B3$rJ]B8$7$F$*$-!":FMxMQ$9$k$3$H$K$h$C$F(BPostgreSQL$B$X$N@\B3%*!<%P%X%C%I$rDc8:$G$-!"%7%9%F%`A4BN$N%9%k!<%W%C%H$r8~>e$5$;$k$3$H$,$G$-$^$9!#(B
+PostgreSQL$B$X$N@\B3$rJ]B8$7$F$*$-!":FMxMQ$9$k$3$H$K$h$C$F(BPostgreSQL$B$X$N@\B3%*!<%P%X%C%I$rDc8:$7!"%7%9%F%`A4BN$N%9%k!<%W%C%H$r8~>e$9$k$3$H$,$G$-$^$9!#(B
 </p>
 
 <li>$B%l%W%j%1!<%7%g%s(B
 <p>
-pgpool-II$B$OJ#?t$N(BPostgreSQL$B%5!<%P$r4IM}$9$k$3$H$,$G$-$^$9!#%l%W%j%1!<%7%g%s$r;HMQ$9$k$3$H$K$h$j!"J*M}E*$K(B2$BBf0J>e$N%G%#%9%/$K%j%"%k%?%$%`$G%O!<%I%G%#%9%/$N%P%C%/%"%C%W$r<h$k$3$H$,$G$-!"K|$,0l$I$l$+$N%G%#%9%/$K>c32$,H/@8$7$F$b1?MQ$r7QB3$9$k$3$H$,$G$-$^$9!#(B
+pgpool-II$B$OJ#?t$N(BPostgreSQL$B%5!<%P$r4IM}$9$k$3$H$,$G$-$^$9!#%l%W%j%1!<%7%g%s5!G=$r;HMQ$9$k$3$H$K$h$j!"J*M}E*$K(B2$BBf0J>e$N(BDB$B%5!<%P$K%j%"%k%?%$%`$G%G!<%?$rJ]B8$9$k$3$H$,$G$-!"K|$,0l$I$l$+$N(BDB$B%5!<%P$K>c32$,H/@8$7$F$b1?MQ$r7QB3$9$k$3$H$,$G$-$^$9!#(B
 </p>
 
 <li>$BIi2YJ,;6(B
 <p>
-$B%l%W%j%1!<%7%g%s$r1?MQ$7$F$$$k>l9g!"$9$Y$F$N(BPostgreSQL$B%G!<%?%Y!<%9$NFbMF$,0lCW$7$F$$$k$N$G!"$I$N%5!<%P$KLd$$9g$o$;$F$bF1$87k2L$,JV$C$F$-$^$9!#$3$N$3$H$rMxMQ$7$F!"B??t$N%j%/%(%9%H$r$=$l$>$l$N%5!<%P$GJ,C4$7$FIi2Y$r7Z8:$5$;!"%7%9%F%`A4BN$N@-G=$r8~>e$5$;$k$3$H$,$G$-$^$9!#:GNI$N>l9g$K$O%5!<%PBf?t$KHfNc$7$?@-G=8~>e$,8+9~$a$^$9!#FC$KB??t$N%f!<%6$,BgNL$NLd$$9g$o$;$rEj$2$k$h$&$J4D6-$G0RNO$rH/4x$7$^$9!#(B
+$B%l%W%j%1!<%7%g%s$^$?%^%9%?!<%9%l!<%V%b!<%I$G1?MQ$7$F$$$k>l9g!"$I$N%5!<%P$KLd$$9g$o$;$F$bF1$87k2L$,JV$C$F$-$^$9!#B??t$N8!:w%j%/%(%9%H$r$=$l$>$l$N%5!<%P$GJ,C4$7$FIi2Y$r7Z8:$5$;!"%7%9%F%`A4BN$N@-G=$r8~>e$5$;$k$3$H$,$G$-$^$9!#:GNI$N>l9g$K$O%5!<%PBf?t$KHfNc$7$?@-G=8~>e$,8+9~$a$^$9!#FC$KB??t$N%f!<%6$,BgNL$NLd$$9g$o$;$rEj$2$k$h$&$J4D6-$G0RNO$rH/4x$7$^$9!#(B
 </p>
 
 <li>$B@\B3?t$N@)8B(B
 <p>
-PostgreSQL$B$K@\B32DG=$J%;%C%7%g%s?t$K$O8B3&$,$"$j!"$=$l$rD6$($F@\B3$9$k$3$H$O$G$-$^$;$s!#$+$H8@$C$F!"F1;~%;%C%7%g%s?t$r$`$d$_$KB?$/@_Dj$9$k$H!"%a%b%j!<$J$I$N%j%=!<%9$,B?$/>CHq$5$l$F%Q%U%)!<%^%s%9$K1F6A$,$"$j$^$9!#(Bpgpool-II$B$G$b%/%i%$%"%s%H$+$i$N@\B3?t$K$O>e8B$,$"$j$^$9$,!"$=$l$rD6$($F$b$?$@$A$K%(%i!<$K$J$k$3$H$O$J$/!"0lDj$N4VBT$?$5$l$k$h$&$K$J$C$F$$$^$9!#$7$?$,$C$F!"(Bpgpool-II$B$O(BPostgreSQL$B$X$N@\B3MW5a$r<B<AE*$K%-%e!<%$%s%0$7!"(BPostgreSQL$B$X$N2aBg$J@\B3?t$r@)8B$9$k$3$H$,2DG=$G$9!#(B
+PostgreSQL$B$K@\B32DG=$J%;%C%7%g%s?t$K$O>e8B$,$"$j!"$=$l$rD6$($F@\B3$9$k$3$H$O$G$-$^$;$s!#$+$H8@$C$F!"F1;~%;%C%7%g%s?t$r$`$d$_$KB?$/$9$k$H!"%a%b%j!<$J$I$N%j%=!<%9$,B?$/>CHq$5$l$F%Q%U%)!<%^%s%9$K1F6A$,$"$j$^$9!#(Bpgpool-II$B$G$b%/%i%$%"%s%H$+$i$N@\B3?t$K$O>e8B$,$"$j$^$9$,!"$=$l$rD6$($F$b$?$@$A$K%(%i!<$K$J$k$3$H$O$J$/!"0lDj$N4VBT$?$5$l$k$h$&$K$J$C$F$$$^$9!#$7$?$,$C$F!"(Bpgpool-II$B$O(BPostgreSQL$B$X$N@\B3MW5a$r<B<AE*$K%-%e!<%$%s%0$7!"(BPostgreSQL$B$X$N2aBg$J@\B3?t$r@)8B$9$k$3$H$,2DG=$G$9!#(B
 </p>
 
 <li>$B%Q%i%l%k%/%(%j(B
 <p>
-$BJ#?t$N%5!<%P$K%G!<%?$rJ,3d$7$F<u$1;}$?$;!"$=$l$>$l$N%5!<%P$KF1;~$K8!:wLd$$9g$o$;$rEj$2$F!"Ld$$9g$o$;$N=hM};~4V$rC;=L$9$k%Q%i%l%k%/%(%j$,MxMQ$G$-$^$9!#FC$KBg5,LO$J%G!<%?$r8!:w$9$k$H$-$K0RNO$rH/4x$7$^$9!#(B
+$BJ#?t$N%5!<%P$K%G!<%?$rJ,3d$7$F<u$1;}$?$;!"$=$l$>$l$N%5!<%P$KF1;~$K8!:wLd$$9g$o$;$rEj$2$F!"Ld$$9g$o$;$N=hM};~4V$rC;=L$9$k%Q%i%l%k%/%(%j$,MxMQ$G$-$^$9!#FC$KBg5,LO$J%G!<%?%Y!<%9$KBP$7$F8!:w$r<B9T$9$k$H$-$K0RNO$rH/4x$7$^$9!#(B
 </p>
 
 </ul>
@@ -85,10 +94,18 @@ PostgreSQL$B$K@\B32DG=$J%;%C%7%g%s?t$K$O8B3&$,$"$j!"$=$l$rD6$($F@\B3$9$k$3$H$O$
 <p>
 pgpool-II$B$O(BPostgreSQL$B%P%C%/%(%s%I$H%U%m%s%H%(%s%I$NDL?.%W%m%H%3%k$rM}2r$7$F$=$N4V$rCf7Q$7$^$9!#$9$J$o$A!"(BPostgreSQL$B$N%G!<%?%Y!<%9%"%W%j%1!<%7%g%s$+$i$O(BPostgreSQL$B%5!<%P$K!"(BPostgreSQL$B$+$i$O%G!<%?%Y!<%9%"%W%j%1!<%7%g%s$K8+$($k$h$&$K@_7W$5$l$F$$$^$9!#$=$N$?$a!"(BPostgreSQL$B$=$N$b$N$O$b$A$m$s!"%"%W%j%1!<%7%g%s$N3+H/8@8l$K$h$i$:!"(BPostgreSQL$B$N%G!<%?%Y!<%9%"%W%j%1!<%7%g%s$K$[$H$s$I<j$r2C$($k$3$H$J$/!"(Bpgpool-II$B$N5!G=$,MxMQ$G$-$^$9!#(B
 </p>
+<p><strong>$B0lIt$N(BSQL$B$K$O(B<a href="#restriction">$B@)8B;v9`(B</a>$B$,$"$j$^$9!#(B</strong></p>
 
 <h1>pgpool-II$B$N2TF/4D6-(B<a name="platform"></a></h1>
 <p>
-pgpool-II$B$O!"(BLinux$B$r$O$8$a!"(BSolaris$B$d(BFreeBSD$B$J$I$N$[$H$s$I$N(BUNIX$B4D6-$GF0:n$7$^$9!#(BWindows$B$G$OF0$-$^$;$s!#BP1~$9$k(BPostgreSQL$B$N%P!<%8%g%s$O!"(BPostgreSQL$B$N(B6.4$B0J9_$G$9!#$?$@$7%Q%i%l%k%/%(%j%b!<%I$r;HMQ$9$k$H$-$O(BPostgreSQL 7.4$B0J9_$r$*;H$$$/$@$5$$!#(B
+pgpool-II$B$O!"(BLinux$B$r$O$8$a!"(BSolaris$B$d(BFreeBSD$B$J$I$N$[$H$s$I$N(BUNIX$B4D6-$GF0:n$7$^$9!#(BWindows$B$G$OF0$-$^$;$s!#(B
+</p>
+<p>$BBP1~$9$k(BPostgreSQL$B$N%P!<%8%g%s$O!"(BPostgreSQL$B$N(B6.4$B0J9_$G$9!#$?$@$7%Q%i%l%k%/%(%j%b!<%I$r;HMQ$9$k$H$-$O(BPostgreSQL 7.4$B0J9_$r$*;H$$$/$@$5$$!#(B
+$B$^$?!"(BPostgreSQL 7.4$B$h$jA0$N%P!<%8%g%s$G$O!";HMQ$G$-$k5!G=$K@)8B;v9`$,$"$j$^$9!#(B
+</p>
+<p>
+pgpool-II$BG[2<$GMxMQ$9$k(BPostgreSQL$B%5!<%P$N%a%8%c!<%P!<%8%g%s$O0lCW$7$F$$$J$1$l$P$J$j$^$;$s!#(B
+$B$^$?!"%*%s%i%$%s%j%+%P%j5!G=$rMxMQ$9$k$H$-$O!"(BOS$B$d%O!<%I%&%'%"%"!<%-%F%/%A%c$rF1$8$b$N$K$7$J$1$l$P$J$j$^$;$s!#(B
 </p>
 
 <h1>pgpool-II$B$N%$%s%9%H!<%k(B<a name="install"></a></h1>
@@ -142,9 +159,47 @@ PostgreSQL$B$N%/%i%$%"%s%H%i%$%V%i%j$J$I$,%$%s%9%H!<%k$5$l$F$$$k%H%C%W%G%#(B
 make
 make install
 </pre>
-$B$G%$%s%9%H!<%k$,40N;$7$^$9(B(GNU make$B$,I,MW$J$N$G!"(BFreeBSD$B$J$I$G$O(B
-make$B$r(Bgmake$B$KFI$_BX$($F$/$@$5$$(B)$B!#(B
+</p>
+
+<dt>pgpool_regclass$B$N%$%s%9%H!<%k(B
+<dd>
+<p>
+PostgreSQL 8.0$B0J9_$r;HMQ$7$F$$$k>l9g$O!"(Bpgpool-II$B$,FbIt$G;HMQ$9$k(BC$B4X?t(Bpgpool_regclass$B$r%$%s%9%H!<%k$7$^$9!#(B
+$B$3$N4X?t$,%$%s%9%H!<%k$5$l$F$$$J$/$F$b(Bpgpool-II$B$OF0:n$7$^$9$,!"0c$&%9%-!<%^$GF1$8%F!<%V%kL>$rDj5A$7$F$$$F!"(BSQL$BJ8$NCf$G%9%-!<%^L>$r>JN,$7$F$$$k>l9g$K!"IT6q9g$,@8$8$k$3$H$,$"$j$^$9(B($B0l;~%F!<%V%k$r=|$/(B)$B!#(B
+$B$7$?$,$C$F!"2DG=$J$i$P(Bpgpool_regclass$B$r%$%s%9%H!<%k$9$k$3$H$r$*4+$a$7$^$9!#(B
+
+<pre>
+# cd pgpool-II-x.x.x/sql/pgpool-regclass
+# make
+# make install
+# psql -f pgpool-regclass.sql template1
+</pre>
+
+pgpool-regclass.sql$B$N<B9T$O!"(Bpgpool-II$B7PM3$GMxMQ$9$k%G!<%?%Y!<%9Kh$KI,MW$K$J$j$^$9!#(B
+$B$?$@$7!"(B"psql -f pgpool-regclass.sql template1"$B$r<B9T8e$K:n@.$5$l$?%G!<%?%Y!<%9$G$O<+F0E*$K(Bpgpool-regclass.sql$B$NFbMF$,H?1G$5$l$F$$$k$N$G!"?7$?$K(Bpgpool-regclass.sql$B$r<B9T$9$kI,MW$O$"$j$^$;$s!#(B
+</p>
+
+<dt>pgpool_walrecunning$B$N%$%s%9%H!<%k(B
+<dd>
+<p>
+PostgreSQL 9.0$B0J9_$r;HMQ$7$F$$$F!"%9%H%j!<%_%s%0%l%W%j%1!<%7%g%s$rMxMQ$7$?$$>l9g$O!"(BC$B4X?t(Bpgpool_walrecrunning$B$r%$%s%9%H!<%k$7$^$9!#(B
+$B$3$N%$%s%9%H!<%k$O!"(Bpgpool-II$B$,%"%/%;%9$9$kM=Dj$N$9$Y$F$N(BPostgreSQL$B%5!<%P$G<B;\$7$F$/$@$5$$!#(B
+<pre>
+cd pgpool-II-x.x.x/sql/pgpool-walrecrunning
+make
+make install
+psql -f pgpool-walrecrunning.sql template1
+</pre>
+pgpool-walrecrunning.sql$B$N<B9T$O!"(Bpgpool-II$B7PM3$GMxMQ$9$k%G!<%?%Y!<%9Kh$KI,MW$K$J$j$^$9!#(B
+$B$?$@$7!"(B"psql -f pgpool-walrecrunning.sql template1"$B$r<B9T8e$K:n@.$5$l$?%G!<%?%Y!<%9$G$O<+F0E*$K(Bpgpool-walrecrunning.sql$B$NFbMF$,H?1G$5$l$F$$$k$N$G!"?7$?$K(Bpgpool-walrecrunning.sql$B$r<B9T$9$kI,MW$O$"$j$^$;$s!#(B
+</p>
+
 </dl>
+<p>
+$B0J>e$G%$%s%9%H!<%k$,40N;$7$^$9(B(GNU make$B$,I,MW$J$N$G!"(BSolaris$B$d(BFreeBSD$B$J$I$G$O(B
+make$B$r(Bgmake$B$KFI$_BX$($F$/$@$5$$(B)$B!#(B
+</p>
+
 
 <h1>pgpool-II$B$N@_Dj(B<a name="config"></a></h1>
 <p>
@@ -156,8 +211,7 @@ pgpool-II$B$N@_Dj%U%!%$%k$O%G%U%)%k%H$G$O(B/usr/local/etc/pgpool.conf$B$*$h$S
 
 <tr>
 <th>$B;HMQ$G$-$k5!G=(B/$B%b!<%I(B</th>
-<th>raw$B%b!<%I(B</th>
-<th>$B%3%M%/%7%g%s%W!<%k%b!<%I(B</th>
+<th>raw$B%b!<%I(B(*3)</th>
 <th>$B%l%W%j%1!<%7%g%s%b!<%I(B</th>
 <th>$B%^%9%?%9%l!<%V%b!<%I(B</th>
 <th>$B%Q%i%l%k%/%(%j%b!<%I(B</th>
@@ -169,25 +223,22 @@ pgpool-II$B$N@_Dj%U%!%$%k$O%G%U%)%k%H$G$O(B/usr/local/etc/pgpool.conf$B$*$h$S
 <td align="center">$B!{(B</td>
 <td align="center">$B!{(B</td>
 <td align="center">$B!{(B</td>
-<td align="center">$B!{(B</td>
 </tr>
 
 <tr>
 <td>$B%l%W%j%1!<%7%g%s(B</td>
 <td align="center">$B!_(B</td>
-<td align="center">$B!_(B</td>
 <td align="center">$B!{(B</td>
 <td align="center">$B!_(B</td>
-<td align="center">$B"$(B(*)</td>
+<td align="center">$B"$(B(*1)</td>
 </tr>
 
 <tr>
 <td>$BIi2YJ,;6(B</td>
 <td align="center">$B!_(B</td>
-<td align="center">$B!_(B</td>
 <td align="center">$B!{(B</td>
 <td align="center">$B!{(B</td>
-<td align="center">$B"$(B(*)</td>
+<td align="center">$B"$(B(*1)</td>
 </tr>
 
 <tr>
@@ -195,7 +246,14 @@ pgpool-II$B$N@_Dj%U%!%$%k$O%G%U%)%k%H$G$O(B/usr/local/etc/pgpool.conf$B$*$h$S
 <td align="center">$B!{(B</td>
 <td align="center">$B!{(B</td>
 <td align="center">$B!{(B</td>
+<td align="center">$B!_(B</td>
+</tr>
+
+<tr>
+<td>$B%*%s%i%$%s%j%+%P%j(B</td>
+<td align="center">$B!_(B</td>
 <td align="center">$B!{(B</td>
+<td align="center">$B"$(B(*2)</td>
 <td align="center">$B!_(B</td>
 </tr>
 
@@ -204,13 +262,11 @@ pgpool-II$B$N@_Dj%U%!%$%k$O%G%U%)%k%H$G$O(B/usr/local/etc/pgpool.conf$B$*$h$S
 <td align="center">$B!_(B</td>
 <td align="center">$B!_(B</td>
 <td align="center">$B!_(B</td>
-<td align="center">$B!_(B</td>
 <td align="center">$B!{(B</td>
 </tr>
 
 <tr>
 <td>$B%5!<%PBf?t(B</td>
-<td align="center">1$B0J>e(B</td>
 <td align="center">1$B0J>e(B</td>
 <td align="center">2$B0J>e(B</td>
 <td align="center">2$B0J>e(B</td>
@@ -222,16 +278,24 @@ pgpool-II$B$N@_Dj%U%!%$%k$O%G%U%)%k%H$G$O(B/usr/local/etc/pgpool.conf$B$*$h$S
 <td align="center">$BITMW(B</td>
 <td align="center">$BITMW(B</td>
 <td align="center">$BITMW(B</td>
-<td align="center">$BITMW(B</td>
 <td align="center">$BI,MW(B</td>
 </tr>
 
 </table>
 
-(*)$B%Q%i%l%k%/%(%j%b!<%I$G$O!"%l%W%j%1!<%7%g%s$^$?$OIi2YJ,;6$rM-8z$K$9$kI,MW$,$"$j$^$9!#(B
+<p>
+<ul>
+ <li>
+(*1)$B%Q%i%l%k%/%(%j%b!<%I$G$O!"%l%W%j%1!<%7%g%s$^$?$OIi2YJ,;6$rM-8z$K$9$kI,MW$,$"$j$^$9!#(B
 $B$?$@$7!"J,3d$7$FJ]B8$7$F$$$k%F!<%V%k$KBP$7$F$O!"%l%W%j%1!<%7%g%s$J$i$S$KIi2YJ,;6$N5!G=$O;HMQ$5$l$^$;$s!#(B
+<li>(*2)$B%^%9%?!<%9%l!<%V%b!<%I$G$O!"(BStreaming Replication$B$HJ;MQ$9$k$H$-$K$N$_%*%s%i%$%s%j%+%P%j$,2DG=$G$9!#(B
+<li>(*3)$BC1$K(Bpgpool-II$B$r7PM3$7$F@\B3$9$k$@$1$N%b!<%I$G$9!#(B
+$B%l%W%j%1!<%7%g%s%b!<%I$b%^%9%?!<%9%l!<%V%b!<%I$bM-8z$K$7$F$$$J$$$H$-$NF0:n$G$9!#(B
+PostgreSQL$B%5!<%P$X$N@\B3%;%C%7%g%s?t$r@)8B$7$?$j!"(B2$BBf0J>e$N(BPostgreSQL$B%5!<%P$rMQ0U$7$F%U%'%$%k%*!<%PF0:n$r$5$;$?$$$H$-$KMxMQ$7$^$9!#(B
+</ul>
+</p>
 
-<h2>pcp.conf$B$N@_Dj(B</h2>
+<h1>pcp.conf$B$N@_Dj(B</h1>
 <p>
 $B$I$NF0:n%b!<%I$G$b!"(Bpcp.conf$B$N@_Dj$OI,MW$G$9!#(Bpgpool-II$B$K$O4IM}<T$,(Bpgpool-II$B$N(B
 $BDd;_$d>pJs<hF@$J$I$N4IM}A`:n$r9T$&$?$a$N%$%s%?!<%U%'%$%9$,MQ0U$5$l$F$$$^(B
@@ -254,11 +318,15 @@ pcp.conf$B$G$O6uGr9T$d(B#$B$G;O$^$k9T$O%3%a%s%H$H8+$J$5$l$^$9!#(B
 $B$N$h$&$K;XDj$7$^$9!#(B
 [md5$B0E9f2=$7$?%Q%9%o!<%I(B]$B$O!"(B$prefix/bin/pg_md5$B%3%^%s%I$G:n@.$G$-$^$9!#(B
 </p>
+<p>
 <pre>
 ./pg_md5 foo
 acbd18db4cc2f85cedef654fccc4a4d8
 </pre>
+</p>
+<p>
 $B%Q%9%o!<%I$r0z?t$KEO$7$?$/$J$$>l9g$O(B pg_md5 -p $B$r<B9T$7$F$/$@$5$$!#(B
+</p>
 <pre>
 ./pg_md5 -p
 password: &lt;$B%Q%9%o!<%I$rF~NO(B&gt;
@@ -268,24 +336,51 @@ pcp.conf$B$O!"(Bpgpool-II$B$rF0:n$5$;$k%f!<%6(BID$B$GFI$_<h$j2DG=$K$J$C$F$$
 $B$J$j$^$;$s!#(B
 </p>
 
-<h2>pgpool.conf$B$N@_Dj(B</h2>
+<h1>pgpool.conf$B$N@_Dj(B</h1>
+<h2>$B%5%s%W%k%U%!%$%k(B</h2>
 <p>
-$BA0=R$N$h$&$K!"F0:n%b!<%I$K$h$C$F!"(Bpgpool.conf$B$N@_Dj9`L\$,0[$J$j$^$9!#(B
-pgpool-II$B$r%$%s%9%H!<%k$9$k$H!"(B$prefix/etc/pgpool.conf.sample$B$,$G$-$k$N$G!"$=$l$r(B
-$prefix/etc/pgpool.conf$B$H$$$&L>A0$G%3%T!<$7$^$9!#(B
+pgpool-II$B$r%$%s%9%H!<%k$9$k$H!"%$%s%9%H!<%k@h%G%#%l%/%H%j(B($B%G%U%)%k%H$G$O(B/usr/local)/etc/pgpool.conf.sample$B$,$G$-$k$N$G!"$=$l$r(B
+$B%$%s%9%H!<%k@h%G%#%l%/%H%j(B/etc/pgpool.conf$B$H$$$&L>A0$G%3%T!<$7$^$9!#(B
 </p>
 <pre>
-cp $prefix/etc/pgpool.conf.sample $prefix/etc/pgpool.conf
+cp $B%$%s%9%H!<%k@h%G%#%l%/%H%j(B/etc/pgpool.conf.sample $prefix/etc/pgpool.conf
 </pre>
+<p>
+$B$^$?!"3FF0:n%b!<%IMQ$N%5%s%W%k(Bpgpool.conf$B$,MQ0U$5$l$F$$$^$9!#(B
+$B$3$A$i$b$4MxMQ2<$5$$!#(B
+</p>
+<p>
+<table border>
+<tr>
+<th>$BF0:n%b!<%I(B</th>
+<th>$B%5%s%W%k%U%!%$%kL>(B</th>
+</tr>
+
+<tr>
+<td>$B%l%W%j%1!<%7%g%s%b!<%I(B</td>
+<td>pgpool.conf.sample-replication</td>
+</tr>
+
+<tr>
+<td>$B%^%9%?!<%9%l!<%V%b!<%I(B(Slony-I)</td>
+<td>pgpool.conf.sample-master-slave</td>
+</tr>
+
+<tr>
+<td>$B%^%9%?!<%9%l!<%V%b!<%I(B(Streaming replication)</td>
+<td>pgpool.conf.sample-stream</td>
+</tr>
+</table>
+</p>
+
+<h2>$B%3%a%s%H$N07$$(B</h2>
 <p>
 pgpool.conf$B$G$O6uGr9T$d(B#$B$G;O$^$k9T$O%3%a%s%H$H8+$J$5$l$^$9!#(B
 </p>
 
-<h3>raw$B%b!<%I(B</h3>
+<h1><a name="common"></a>$B6&DL@_Dj9`L\(B</h1>
 <p>
-$BC1$K(Bpgpool-II$B$r7PM3$7$F@\B3$9$k$@$1$N%b!<%I$G$9!#(BPostgreSQL$B%5!<%P$X$N@\(B
-$BB3%;%C%7%g%s?t$r@)8B$7$?$j!"(B2$BBf0J>e$N(BPostgreSQL$B%5!<%P$rMQ0U$7$F%U%'%$%k(B
-$B%*!<%PF0:n$r$5$;$?$$$H$-$KMxMQ$7$^$9!#(B
+$B3FF0:n%b!<%I$G6&DL$9$k@_Dj9`L\$r@bL@$7$^$9!#(B
 </p>
 
 <dl>
@@ -351,13 +446,27 @@ pcp$B$,(Bpgppool$B$H@\B3$9$k:]$N%?%$%`%"%&%HCM!#(B0$B$K$9$k$H%?%$%`%"%&%H$7
 <dt>num_init_children
 <dd>
 <p>
-prefork$B$9$k(Bpgpool-II$B$N%5!<%P%W%m%;%9$N?t$G$9!#%G%U%)%k%HCM$O(B32$B$K$J$C$F(B
-$B$$$^$9!#(B
-   $B$J$*!"Ld$$9g$o$;$N%-%c%s%;%k$r9T$&$HDL>o$N%3%M%/%7%g%s$H$OJL$K?7$?(B
-   $B$J%3%M%/%7%g%s$,D%$i$l$^$9!#$7$?$,$C$F!"$9$Y$F$N%3%M%/%7%g%s$,;HMQ(B
-   $BCf$N>l9g$OLd$$9g$o$;$N%-%c%s%;%k$,$G$-$J$/$C$F$7$^$&$N$G!"$4Cm0U2<(B
-   $B$5$$!#Ld$$9g$o$;$N%-%c%s%;%k$rI,$:J]>Z$7$?$$>l9g$O!"A[Dj$5$l$k%3%M(B
-   $B%/%7%g%s?t$NG\$NCM$r@_Dj$9$k$3$H$r$*$9$9$a$7$^$9!#(B
+prefork$B$9$k(Bpgpool-II$B$N%5!<%P%W%m%;%9$N?t$G$9!#%G%U%)%k%HCM$O(B32$B$K$J$C$F$$$^$9!#(B
+$B$3$l$,!"(Bpgpool-II$B$KBP$7$F%/%i%$%"%s%H$,F1;~$K@\B3$G$-$k>e8B$N?t$K$J$j$^$9!#(B
+$B$3$l$rD6$($?>l9g$O!"$=$N%/%i%$%"%s%H$O!"(Bpgpool-II$B$N$I$l$+$i$N%W%m%;%9$X$N%U%m%s%H%(%s%I$N@\B3$,=*N;$9$k$^$GBT$?$5$l$^$9(B(PostgreSQL$B$H0c$C$F%(%i!<$K$J$j$^$;$s(B)$B!#(B
+$B4pK\E*$K8e=R$N(Bmax_pool*num_init_children$BJ,$@$1(BPostgreSQL$B$X$N%3%M%/%7%g%s$,D%$i$l$^$9$,!"B>$K0J2<$N9MN8$,I,MW$G$9!#(B
+<ul>
+<li>$BLd$$9g$o$;$N%-%c%s%;%k$r9T$&$HDL>o$N%3%M%/%7%g%s$H$OJL$K?7$?$J%3%M%/%7%g%s$,D%$i$l$^$9!#(B
+$B$7$?$,$C$F!"$9$Y$F$N%3%M%/%7%g%s$,;HMQCf$N>l9g$OLd$$9g$o$;$N%-%c%s%;%k$,$G$-$J$/$J$C$F$7$^$&$N$G!"$4Cm0U2<$5$$!#(B
+$BLd$$9g$o$;$N%-%c%s%;%k$rI,$:J]>Z$7$?$$>l9g$O!"A[Dj$5$l$k%3%M%/%7%g%s?t$NG\$NCM$r@_Dj$9$k$3$H$r$*$9$9$a$7$^$9!#(B
+<li>$B0lHL%f!<%6$G(BPostgreSQL$B$K@\B3$G$-$k$N$O!"(Bmax_connections - superuser_reserved_connections $BJ,$@$1$G$9!#(B
+
+</ul>
+</p>
+<p>
+$B0J>e$r$^$H$a$k$H!"(B
+<pre>
+max_pool*num_init_children <= (max_connections - superuser_reserved_connections) ($B%/%(%j$N%-%c%s%;%k$r9MN8$7$J$$>l9g(B)
+max_pool*num_init_children*2 <= (max_connections - superuser_reserved_connections) ($B%/%(%j$N%-%c%s%;%k$r9MN8$9$k>l9g(B)
+</pre>
+$B$N$I$A$i$+$rK~$?$9$h$&$K@_Dj$7$F$/$@$5$$!#(B
+</p>
+<p>
 $B$3$N%Q%i%a!<%?$rJQ99$7$?;~$K$O(B pgpool-II $B$r:F5/F0$7$F$/$@$5$$!#(B
 </p>
 
@@ -478,11 +587,13 @@ prefork$B$9$k(Bpgpool-II$B$N%5!<%P%W%m%;%9$N?t$G$9!#%G%U%)%k%HCM$O(B32$B$K$
 <tr><td>$BJ8;z(B</td><td>$B0UL#(B</td></tr>
 <tr><td>%d</td><td>$B@Z$jN%$5$l$?%N!<%IHV9f(B</td></tr>
 <tr><td>%h</td><td>$B@Z$jN%$5$l$?%N!<%I$N%[%9%HL>(B</td></tr>
+<tr><td>%H</td><td>$B?7$7$$%^%9%?!<$N%[%9%HL>(B</td></tr>
 <tr><td>%p</td><td>$B@Z$jN%$5$l$?%N!<%I$N%]!<%HHV9f(B</td></tr>
 <tr><td>%D</td><td>$B@Z$jN%$5$l$?%N!<%I$N%G!<%?%Y!<%9%/%i%9%?%Q%9(B
 </td></tr>
 <tr><td>%M</td><td>$B8E$$%^%9%?!<$N%N!<%IHV9f(B</td></tr>
 <tr><td>%m</td><td>$B?7$7$$%^%9%?!<$N%N!<%IHV9f(B</td></tr>
+<tr><td>%P</td><td>$B8E$$%W%i%$%^%j%N!<%IHV9f(B</td></tr>
 <tr><td>%%</td><td>'%'$BJ8;z(B</td></tr>
 </table>
 </center>
@@ -509,6 +620,8 @@ pgpool $B$,I,MW$J>pJs$KCV$-49$($F%3%^%s%I$r<B9T$7$^$9!#(B
 </td></tr>
 <tr><td>%M</td><td>$B8E$$%^%9%?!<$N%N!<%IHV9f(B</td></tr>
 <tr><td>%m</td><td>$B?7$7$$%^%9%?!<$N%N!<%IHV9f(B</td></tr>
+<tr><td>%H</td><td>$B?7$7$$%^%9%?!<$N%[%9%HL>(B</td></tr>
+<tr><td>%P</td><td>$B8E$$%W%i%$%^%j%N!<%IHV9f(B</td></tr>
 <tr><td>%%</td><td>'%'$BJ8;z(B</td></tr>
 </table>
 </center>
@@ -645,7 +758,7 @@ backend_data_directory $B$O?7$7$/DI2C$7$?9T$r@_Dj%U%!%$%k:FFI$_9~$_$GDI2C$9$k(
 $B$k>l9g$K$O(B pgpool-II $B$r:F5/F0$7$F$/$@$5$$!#(B
 </p>
 
-  <dt>ssl</dt>
+  <dt><a name="ssl">ssl</a></dt>
   <dd>
       <p>
 	 true$B$J$i$P(Bpgpool-II$B$H%U%m%s%H%(%s%I!"(Bpgpool-II$B$H%P%C%/%(%s%I$N4V$N(BSSL$B@\B3$,2DG=$K$J$j$^$9!#(B
@@ -683,17 +796,26 @@ backend_data_directory $B$O?7$7$/DI2C$7$?9T$r@_Dj%U%!%$%k:FFI$_9~$_$GDI2C$9$k(
 	 ssl_cert$B$N%G%U%)%k%HCM$O$"$j$^$;$s!#(B
 	 ssl_cert$B$N@_Dj$,$J$$>l9g$O!"%U%m%s%H%(%s%I$H$N@\B3$G(BSSL$B$,;HMQ$5$l$J$/$J$j$^$9!#(B
       </p>
+
+  <dt>debug_level</dt>
+  <dd>
+      <p>
+	 $B%G%P%C%0%a%C%;!<%8$N>\:Y%l%Y%k!#(B0$B$G%G%P%C%0%a%C%;!<%8$N=PNO$J$7!#(B
+	 1$B0J>e$G%G%P%C%0%a%C%;!<%8$r=PNO$7$^$9!#(B
+	 $B?t;z$,Bg$-$1$l$P$h$j>\:Y$J%a%C%;!<%8$,=PNO$5$l$k$h$&$K$J$j$^$9(B(3.0$B$G$O:#$N$H$3$m%a%C%;!<%8$N>\:YEY$OJQ$j$^$;$s(B)$B!#(B
+	 $B%G%U%)%k%HCM$O(B0$B$G$9!#(B
+      </p>
   </dd>
 
 </dl>
 
-<h4>SSL$B>ZL@=q$N@8@.(B</h4>
+<h2>SSL$B>ZL@=q$N@8@.(B</h2>
 <p>
 $B>ZL@=q$N07$$$K$D$$$F$O$3$N%^%K%e%"%k$NHO0O30$G$9!#(B
 PostgreSQL$B%I%-%e%a%s%H(B<a href="http://www.postgresql.jp/document/pg842doc/html/ssl-tcp.html">SSL$B$K$h$k0BA4$J(BTCP/IP$B@\B3(B</a>$B$N>O$K<+J,$GG'>Z$9$k>ZL@=q$r:n@.$9$k%3%^%s%I$NNc$,$"$j$^$9!#(B
 </p>
 
-<h4><p>raw$B%b!<%I$K$*$1$k%U%'%$%k%*!<%PF0:n$K$D$$$F(B</p></h4>
+<h2><p>raw$B%b!<%I$K$*$1$k%U%'%$%k%*!<%PF0:n$K$D$$$F(B</p></h2>
 <p>
 raw$B%b!<%I$K$*$$$F!"(B2$BBf0J>e$N(BPostgreSQL$B%5!<%P$r;XDj$9$k$H!"%U%'%$%k%*!<%P(B
 $B$,2DG=$G$9!#%U%'%$%k%*!<%P$G$O!"@5>o;~$K$O(Bbackend_hostname0$B$G;XDj$7$?(B
@@ -704,7 +826,7 @@ backend_hostname2...$B$G$bF1MM$K$J$j$^$9!#(B
 
 </p>
 
-<h3>$B%3%M%/%7%g%s%W!<%k%b!<%I(B</h3>
+<h1><a name="connection_pool_mode"></a>$B%3%M%/%7%g%s%W!<%k%b!<%I(B</h1>
 <p>
 raw$B%b!<%I$K2C$(!"%3%M%/%7%g%s%W!<%j%s%0$,MxMQ$G$-$k$h$&$K$J$j$^$9!#(B
 $B@_Dj9`L\$O!"(Braw$B%b!<%I$G$N@_Dj9`L\$NB>$K0J2<$r@_Dj$7$^$9!#(B
@@ -777,14 +899,14 @@ raw$B%b!<%I$K2C$(!"%3%M%/%7%g%s%W!<%j%s%0$,MxMQ$G$-$k$h$&$K$J$j$^$9!#(B
 
 </dl>
 
-<h4><p>$B%3%M%/%7%g%s%W!<%k%b!<%I$K$*$1$k%U%'%$%k%*!<%PF0:n$K$D$$$F(B</p></h4>
+<h2><p>$B%3%M%/%7%g%s%W!<%k%b!<%I$K$*$1$k%U%'%$%k%*!<%PF0:n$K$D$$$F(B</p></h2>
 <p>
 raw$B%b!<%I$HF1MM$NF0:n$r$7$^$9!#(B
 </p>
 
-<h3>$B%l%W%j%1!<%7%g%s%b!<%I(B</h3>
+<h1><a name="replication_mode"></a>$B%l%W%j%1!<%7%g%s%b!<%I(B</h1>
 <p>
-$B%l%W%j%1!<%7%g%s$rM-8z$K$9$k%b!<%I$G$9!#(B
+$B%l%W%j%1!<%7%g%s$rM-8z$K$9$k%b!<%I$G$9(B($B@_Dj%U%!%$%k$N?w7A$O(Bpgpool.conf-replication)$B!#(B
 raw$B%b!<%I!"%3%M%/%7%g%s%W!<%k%b!<%I$K2C$(!"0J2<$r@_Dj$7$^$9!#(B
 </p>
 
@@ -807,19 +929,61 @@ raw$B%b!<%I!"%3%M%/%7%g%s%W!<%k%b!<%I$K2C$(!"0J2<$r@_Dj$7$^$9!#(B
 <dt>replication_stop_on_mismatch
 <dd>
 <p>
-   true$B$r;XDj$9$k$H%^%9%?!<(BDB$B$HB>$N(BDB$B%N!<%I$N4V$G%G!<%?$NIT0lCW$,$"$C$?>l9g(B
-   $B$K6/@)E*$K=LB`1?E>$KF~$j$^$9!#$3$N%*%W%7%g%s$,(Bfalse$B$N>l9g$O!"3:Ev$N(B
-   $BLd$$9g$o$;$r6/@)E*$K=*N;$9$k$@$1$KN1$a$^$9!#%G%U%)%k%HCM$O(Bfalse$B$G$9!#(B
+   $B3F(BDB$B%N!<%I$+$iAw$i$l$F$/$k%Q%1%C%H$N<oN`$,IT0lCW$K$J$C$?>l9g$K!"(BDB$B%N!<%I$r@Z$jJ|$7$F=LB`1?E>$KF~$j$^$9!#(B
+$BNI$/$"$k%1!<%9$H$7$F$O!"(Breplicate_select$B$,;XDj$5$l$F$$$F(BSELECT$B$,3F(BDB$B%N!<%I$G<B9T$5$l$F$$$k$H$-$K!"8!:w7k2L9T?t$,0lCW$7$J$$$J$I!"$,$"$j$^$9(B($B$3$l$K8BDj$5$l$k$b$N$G$O$"$j$^$;$s!#$?$H$($P$"$k(BDB$B%N!<%I$G(BUPDATE$B$,@.8y$7$?$N$K!"B>$N(BDB$B%N!<%I$G$O<:GT$7$?>l9g$,0lNc$G$9(B)$B!#(B
+$B$?$@$7!"(Bpgpool$B$O%Q%1%C%H$NCf?H$^$G$O%A%'%C%/$7$F$$$J$$$N$G!"(BSELECT$B7k2L$N%G!<%?FbMF$,0[$J$C$F$$$F$b!"=LB`$O5/$-$J$$$3$H$KCm0U$7$F$/$@$5$$!#(B
+$B=LB`BP>]$N(BDB$B%N!<%I$O!VB??t7h!W$G>/?tGI$K$J$C$?$b$N$,BP>]$K$J$j$^$9!#(B
+$B$b$7B??t7h$GF1I<$K$J$C$?>l9g$O!"%^%9%?(BDB$B%N!<%I(B(DB$B%N!<%IHV9f$,$b$C$H$b$o$+$$$b$N(B)$B$r4^$`%0%k!<%W$,M%@h$5$l!"$=$l0J30$N%0%k!<%W$K=jB0$9$k(BDB$B%N!<%I$,@Z$jJ|$7$NBP>]$K$J$j$^$9!#(B
+$B$3$N%*%W%7%g%s$,(Bfalse$B$N>l9g$O!"3:Ev$N%;%C%7%g%s$r6/@)E*$K=*N;$9$k$@$1$KN1$a$^$9!#(B
+$B%G%U%)%k%HCM$O(Bfalse$B$G$9!#(B
 </p>
 
-<a name="replicate_select">
+<dt>failover_if_affected_tuples_mismatch
+<dd>
+<p>
+   $B3F(BDB$B%N!<%I$G<B9T$5$l$?(BINSERT/UPDATE/DELETE$B$N7k2L9T?t$,IT0lCW$K$J$C$?>l9g$K!"(BDB$B%N!<%I$r@Z$jJ|$7$F=LB`1?E>$KF~$j$^$9!#(B
+$B=LB`BP>]$N(BDB$B%N!<%I$O!VB??t7h!W$G>/?tGI$K$J$C$?$b$N$,BP>]$K$J$j$^$9!#(B
+$B$b$7B??t7h$GF1I<$K$J$C$?>l9g$O!"%^%9%?(BDB$B%N!<%I(B(DB$B%N!<%IHV9f$,$b$C$H$b$o$+$$$b$N(B)$B$r4^$`%0%k!<%W$,M%@h$5$l!"$=$l0J30$N%0%k!<%W$K=jB0$9$k(BDB$B%N!<%I$,@Z$jJ|$7$NBP>]$K$J$j$^$9!#(B
+$B$3$N%*%W%7%g%s$,(Bfalse$B$N>l9g$O!"3:Ev$N%;%C%7%g%s$r6/@)E*$K=*N;$9$k$@$1$KN1$a$^$9!#(B
+$B%G%U%)%k%HCM$O(Bfalse$B$G$9!#(B
+</p>
+
+<a name="white_function_list"></a>
+<dt>white_function_list
+<dd>
+<p>
+$B%G!<%?%Y!<%9$KBP$7$F(B<strong>$B99?7$r9T$J$o$J$$4X?tL>(B</strong>$B$r%3%s%^6h@Z$j$G;XDj$7$^$9!#(B
+$B$3$N%j%9%H$K4^$^$l$J$$4X?t8F$S=P$7$r4^$`(BSELECT$B$O!"Ii2YJ,;6$NBP>]$H$O$J$i$:!"%l%W%j%1!<%7%g%s%b!<%I$K$*$$$F$O$9$Y$F$N(BDB$B%N!<%I$G<B9T$5$l$^$9!#(B
+($B%^%9%?!<%9%l!<%V%b!<%I$K$*$$$F$O!"%^%9%?!<(B(primary)DB$B%N!<%I$K$N$_Aw?.$5$l$^$9(B)$B!#(B
+</p>
+
+<a name="black_function_list"></a>
+<dt>black_function_list
+<dd>
+<p>
+$B%G!<%?%Y!<%9$KBP$7$F(B<strong>$B99?7$r9T$J$&4X?tL>(B</strong>$B$r%3%s%^6h@Z$j$G;XDj$7$^$9!#(B
+$B$3$N%j%9%H$K4^$^$l$k4X?t8F$S=P$7$r4^$`(BSELECT$B$O!"Ii2YJ,;6$NBP>]$H$O$J$i$:!"%l%W%j%1!<%7%g%s%b!<%I$K$*$$$F$O$9$Y$F$N(BDB$B%N!<%I$G<B9T$5$l$^$9!#(B
+$B$3$N%j%9%H$K4^$^$l$J$$4X?t8F$S=P$7$r4^$`(BSELECT$B$O!"Ii2YJ,;6$NBP>]$H$J$j$^$9!#(B
+</p>
+<p>
+white_function_list$B$H(Bblack_function_list$B$NN>J}$r6u0J30$K$9$k$3$H$O$G$-$^$;$s!#(B
+$B$I$A$i$+0lJ}$N$_$K4X?tL>$r;XDj$7$^$9!#(B
+</p>
+<p>
+pgpool-II 3.0$B$h$jA0$N%P!<%8%g%s$G$O!"8GDj$G(Bnextval$B$H(Bsetval$B$,=q$-9~$_$r9T$J$&4X?t$H$7$FG'<1$5$l$F$$$^$7$?!#(B
+$B$=$l$HF1$8F0:n$r9T$J$o$;$k$K$O!"0J2<$N$h$&$K(Bwhite_function_list$B$H(Bblack_function_list$B$r;XDj$7$^$9!#(B
+currval$B$H(Blastval$B$O!"=q$-9~$_$r9T$&4X?t$G$O$"$j$^$;$s$,!"(Bblack_function_list$B$KEPO?$7$F$*$+$J$$$H!"Ii2YJ,;6$5$l!"(Bnextval$B$J$7$K8F$S=P$5$l$F$7$^$C$F%(%i!<$K$J$C$F$7$^$&$N$G!"(Bblack_function_list$B$KEPO?$7$F$*$/J}$,NI$$$G$7$g$&!#(B
+</p>
+<pre>
+white_function_list = ''
+black_function_list = 'nextval,setval,currval,lastval'
+</pre>
+
+<a name="replicate_select"></a>
 <dt>replicate_select
 <dd>
 <p>
-   true $B$r@_Dj$9$k$H%m!<%I%P%i%s%9$5$l$J$$(B SELECT $BJ8$r%l%W%j%1!<%7%g%s(B
-   $B$5$;$^$9!#$3$l$O(B pgpool-II 1.0 $B$^$G$N5sF0$HF1$8$K$J$j$^$9!#(Bfalse $B$r(B
-   $B@_Dj$9$k$H(B SELECT $BJ8$r%^%9%?$N$_$KAw?.$7$^$9!#%G%U%)%k%HCM$O(B false
-   $B$G$9!#(B
+true $B$r@_Dj$9$k$H!"%l%W%j%1!<%7%g%s%b!<%I$G$O(B SELECT $BJ8$r%l%W%j%1!<%7%g%s$7$^$9!#$3$l$O(B pgpool-II 1.0 $B$^$G$N5sF0$HF1$8$K$J$j$^$9!#(Bfalse $B$r@_Dj$9$k$H(B SELECT $BJ8$r%^%9%?$N$_$KAw?.$7$^$9!#%G%U%)%k%HCM$O(B false $B$G$9!#(B
 </p>
 <p>
 replicate_select$B!"(Bload_balance_mode$B!"(BSELECT$BLd9g$o$;$,L@<(E*$J%H%i%s%6%/%7%g%s%V%m%C%/$NFbB&$K$"$k$+$I$&$+$I$&$+$G!"%l%W%j%1!<%7%g%s%b!<%I$NF0:n$,JQ2=$7$^$9!#>\:Y$rI=$K<($7$^$9!#(B
@@ -865,12 +1029,12 @@ replicate_select$B!"(Bload_balance_mode$B!"(BSELECT$BLd9g$o$;$,L@<(E*$J%H%i
 </tr>
 
 <tr>
-<td>$B7k2L(B(R:$B%l%W%j%1!<%7%g%s(B, M: $B%^%9%?$N$_$KAw?.!"(BL: $B%m!<%I%P%i%s%9$5$l$k(B</td>
+<td>$B7k2L(B(R:$B%l%W%j%1!<%7%g%s(B, M: $B%^%9%?$N$_$KAw?.(B, L: $B%m!<%I%P%i%s%9$5$l$k(B)</td>
 <td>R</td>
 <td>R</td>
 <td>M</td>
 <td>M</td>
-<td>L</td>
+<td>R</td>
 <td>R</td>
 <td>M</td>
 <td>L</td>
@@ -906,19 +1070,22 @@ replicate_select$B!"(Bload_balance_mode$B!"(BSELECT$BLd9g$o$;$,L@<(E*$J%H%i
    $B%s%6%/%7%g%s$N3+;O!"%F!<%V%k%m%C%/!"%H%i%s%6%/%7%g%s$N=*N;$r9T$C$F(B
    $B$/$l$k$N$G!"$3$&$7$?<j4V$r>J$/$3$H$,$G$-$^$9!J$9$G$K%H%i%s%6%/%7%g(B
    $B%s$,3+;O$5$l$F$$$k>l9g$O(BLOCK TABLE...$B$@$1$,<B9T$5$l$^$9!K!#(B
+</p>
+<p>
+$B$J$*!"(Bpgpool-II 3.0$B0J9_$G$O!"BP1~$9$k%7!<%1%s%9%F!<%V%k$KBP$7$F9T%m%C%/$r9T$J$&$3$H$K$h$C$FGSB>@)8f$r9T$J$$$^$9!#$=$l0JA0$N%P!<%8%g%s$HHf$Y$k$H!"(BVACUUM(autovacuum$B$r4^$`(B)$B$H$N%m%C%/6%9g$,$J$/$J$k%a%j%C%H$,$"$j$^$9!#(B
+</p>
+<p>
    $B%F!<%V%k$G(BSERIAL$B7?$,;H$o$l$F$$$J$$>l9g$K$O!"%F!<%V%k$N%m%C%/$O9T$J$o$l$^$;$s!#(B
    $B$J$*!"$"$^$jI,MW$J$$$+$bCN$l$^$;$s$,!"%3%a%s%H$rMxMQ$7$F!"$3$N5sF0$r(B
    $B:Y$+$/@)8f$9$k$3$H$b$G$-$^$9!#(B
 </p>
 
 <ol>
-<li>insert_lock$B$r(Btrue$B$K$7$F!"(BINSERT$BJ8$N@hF,$K(B/*NO INSERT LOCK*/$B%3%a(B
-      $B%s%H$rDI2C$9$k!#$3$N%3%a%s%H$,$"$k$H!"%F!<%V%k%m%C%/$O9T$o$l$^$;(B
-      $B$s!#(B
+<li>insert_lock$B$r(Btrue$B$K$7$F!"(BINSERT$BJ8$N@hF,$K(B/*NO INSERT LOCK*/$B%3%a%s%H$rDI2C$9$k!#(B
+$B$3$N%3%a%s%H$,$"$k$H!"%F!<%V%k%m%C%/$O9T$o$l$^$;$s(B(pgpool-II 3.0$B0J9_$G$bF1MM(B)$B!#(B
 
-<li>insert_lock$B$r(Bfalse$B$K$7$F!"(BINSERT$BJ8$N@hF,$K(B/*INSERT LOCK*/$B%3%a%s(B
-      $B%H$rDI2C$9$k!#$3$N%3%a%s%H$,$"$k$H!"$3$N(BINSERT$BJ8$KBP$7$F$N$_%F!<(B
-      $B%V%k%m%C%/$,9T$o$l$^$9!#(B
+<li>insert_lock$B$r(Bfalse$B$K$7$F!"(BINSERT$BJ8$N@hF,$K(B/*INSERT LOCK*/$B%3%a%s%H$rDI2C$9$k!#(B
+$B$3$N%3%a%s%H$,$"$k$H!"$3$N(BINSERT$BJ8$KBP$7$F$N$_%F!<%V%k%m%C%/$,9T$o$l$^$9(B(pgpool-II 3.0$B0J9_$G$bF1MM(B)$B!#(B
 </ol>
 
 <p>
@@ -963,13 +1130,22 @@ replicate_select$B!"(Bload_balance_mode$B!"(BSELECT$BLd9g$o$;$,L@<(E*$J%H%i
 <dt>recovery_1st_stage_command
 <dd>
 <p>
-  $B:G=i$K%*%s%i%$%s%j%+%P%jCf$K5/F0$9$k%3%^%s%IL>$r;XDj$7$^$9!#%3%^%s%I(B
-  $B%U%!%$%k$O%;%-%e%j%F%#>e$N4QE@$+$i%G!<%?%Y!<%9%/%i%9%?0J2<$K$"$k%3%^(B
-  $B%s%I$d%9%/%j%W%H$N$_$r8F$S=P$7$^$9!#(B
-
+  $B%*%s%i%$%s%j%+%P%jCf$K5/F0$9$k%3%^%s%IL>$r;XDj$7$^$9!#(B
+  $B$3$N%9%/%j%W%H$O(BPostgreSQL$B$N%^%9%?%5!<%P(B($B%W%i%$%^%j%5!<%P(B)$B$,5/F0$7$^$9!#(B
+  $B%3%^%s%I%U%!%$%k$O%;%-%e%j%F%#>e$N4QE@$+$i%G!<%?%Y!<%9%/%i%9%?0J2<$K$"$k%3%^%s%I$d%9%/%j%W%H$N$_$r8F$S=P$7$^$9!#(B
   $BNc$($P!"(Brecovery_1st_stage_command = 'sync-command' $B$H@_Dj$7$F$"$k>l(B
   $B9g!"(B$PGDATA/sync-command $B$r5/F0$7$h$&$H$7$^$9!#(B
-
+</p>
+<p>
+recovery_1st_stage_command $B$O<!$N(B3$B$D$N0z?t$r<u$1$H$j$^$9!#(B
+</p>
+<ol>
+<li>$B%^%9%?(B($B%W%i%$%^%j(B)$B%G!<%?%Y!<%9%/%i%9%?$X$N%Q%9(B</li>
+<li>$B%j%+%P%jBP>]$N(BPostgreSQL$B$N%[%9%HL>(B</li>
+<li>$B%j%+%P%jBP>]$N%G!<%?%Y!<%9%/%i%9%?$X$N%Q%9(B</li>
+</ol>
+</p>
+<p>
   recovery_1st_stage_command $B$r<B9T$7$F$$$k4V$O(B pgpool $B$G$O%/%i%$%"%s(B
   $B%H$+$i$N@\B3$r(B<b>$B@)8B$7$^$;$s(B</b>$B!#;2>H$d99?7$r9T$&$3$H$,$G$-$^$9!#(B
 </p>
@@ -980,13 +1156,22 @@ replicate_select$B!"(Bload_balance_mode$B!"(BSELECT$BLd9g$o$;$,L@<(E*$J%H%i
 <dt>recovery_2nd_stage_command
 <dd>
 <p>
-  2 $B2sL\$N%*%s%i%$%s%j%+%P%jCf$K5/F0$9$k%3%^%s%IL>$r;XDj$7$^$9!#%3%^%s(B
-  $B%I%U%!%$%k$O%;%-%e%j%F%#>e$N4QE@$+$i%G!<%?%Y!<%9%/%i%9%?0J2<$K$"$k%3(B
-  $B%^%s%I$d%9%/%j%W%H$N$_$r8F$S=P$7$^$9!#(B
-
+  2 $B2sL\$N%*%s%i%$%s%j%+%P%jCf$K5/F0$9$k%3%^%s%IL>$r;XDj$7$^$9!#(B
+  $B$3$N%9%/%j%W%H$O(BPostgreSQL$B$N%^%9%?%5!<%P(B($B%W%i%$%^%j%5!<%P(B)$B$,5/F0$7$^$9!#(B
+  $B%3%^%s%I%U%!%$%k$O%;%-%e%j%F%#>e$N4QE@$+$i%G!<%?%Y!<%9%/%i%9%?0J2<$K$"$k%3%^%s%I$d%9%/%j%W%H$N$_$r8F$S=P$7$^$9!#(B
   $BNc$($P!"(Brecovery_2nd_stage_command = 'sync-command' $B$H@_Dj$7$F$"$k>l(B
   $B9g!"(B$PGDATA/sync-command $B$r5/F0$7$h$&$H$7$^$9!#(B
-
+</p>
+<p>
+recovery_2nd_stage_command $B$O<!$N(B3$B$D$N0z?t$r<u$1$H$j$^$9!#(B
+</p>
+<ol>
+<li>$B%^%9%?(B($B%W%i%$%^%j(B)$B%G!<%?%Y!<%9%/%i%9%?$X$N%Q%9(B</li>
+<li>$B%j%+%P%jBP>]$N(BPostgreSQL$B$N%[%9%HL>(B</li>
+<li>$B%j%+%P%jBP>]$N%G!<%?%Y!<%9%/%i%9%?$X$N%Q%9(B</li>
+</ol>
+</p>
+<p>
   recovery_2nd_stage_command $B$r<B9T$7$F$$$k4V$O(B pgpool $B$G$O%/%i%$%"%s(B
   $B%H$+$i@\B3!";2>H!"99?7=hM}$r0l@Z(B<b>$B<u$1IU$1$^$;$s(B</b>$B!#$^$?!"%P%C%A(B
   $B=hM}$J$I$K$h$C$F@\B3$7$F$$$k%/%i%$%"%s%H$,D9;~4VB8:_$7$F$$$k>l9g$K$O(B
@@ -1024,7 +1209,15 @@ recovery_timeout$B$r(B0$B$H$7$F$b%?%$%`%"%&%H$,L58z$K$J$k$o$1$G$O$J$/!"C1$KB(
   $B%F!<%8$G$N$_8zNO$,$"$j$^$9!#A02s%/%i%$%"%s%H$+$iMh$?%/%(%j$+$i!"(B
   client_idle_limit_in_recovery $BIC1[$($F$b<!$N%/%(%j$,FO$+$J$$>l9g$O!"%/(B
   $B%i%$%"%s%H$X$N@\B3$r6/@)E*$K@ZCG$7!"(B
-  $B%j%+%P%j$N%;%+%s%I%9%F!<%8$N?J9T$,K832$5$l$k$N$rKI$.$^$9!#%G%U%)%k%HCM$O(B 0($BL58z(B)$B$G$9!#(B
+  $B%j%+%P%j$N%;%+%s%I%9%F!<%8$N?J9T$,K832$5$l$k$N$rKI$.$^$9!#(B
+  -1$B$r;XDj$9$k$H!"D>$A$K%/%i%$%"%s%H$X$N@\B3$r@ZCG$7$F%;%+%s%I%9%F!<%8$KF~$j$^$9!#(B
+  $B%G%U%)%k%HCM$O(B 0($BL58z(B)$B$G$9!#(B
+</p>
+<p>
+$B%/%i%$%"%s%H$,K;$7$/!"%"%$%I%k>uBV$K$J$i$J$$>l9g$O(Bclient_idle_limit_in_recovery$B$r@_Dj$7$F$b%;%+%s%I%9%F!<%8$K0\9T$G$-$^$;$s!#(B
+$B$3$N>l9g!"(Bclient_idle_limit_in_recovery$B$K(B-1$B$r@_Dj$9$k$H!"%/%i%$%"%s%H$,%S%8!<$G$"$C$F$b$?$@$A$K%/%i%$%"%s%H$X$N@\B3$r@ZCG$7!"%;%+%s%I%9%F!<%8$K0\9T$9$k$3$H$,$G$-$^$9!#(B
+</p>
+<p>
 $B$3$N%Q%i%a!<%?$rJQ99$7$?;~$K$O@_Dj%U%!%$%k$r:FFI$_9~$_$7$F$/$@$5$$!#(B
 </p>
 
@@ -1089,13 +1282,13 @@ lobj_lock_table$B$N%G%U%)%k%HCM$O6uJ8;z$G$9!#(B
 
 </dl>
 
-<h4><p>$B%m!<%I%P%i%s%9$N>r7o$K$D$$$F(B</p></h4>
+<h2><p>$B%m!<%I%P%i%s%9$N>r7o$K$D$$$F(B</p></h2>
 <p>
 load_balance_mode = true $B$r@_Dj$7$?>l9g!"0J2<$N>r7o$N$9$Y$F$rK~$?$7$?;~$K(BSELECT$B$J$I$NLd$$9g$o$;$,%m!<%I%P%i%s%9$5$l$^$9!#(B
 <ul>
 <li>PostgreSQL$B$N%P!<%8%g%s$,(B7.4$B0J9_$G$"$k(B
 <li>$BLd$$9g$o$;$,L@<(E*$J%H%i%s%/%6%7%g%s%V%m%C%/$NFbB&$K$J$$(B($B$D$^$j!"(BBEGIN$B$rH/9T$7$F$$$J$$(B)
-<li>SELECT$BJ8(B(WITH$BIU$b4^$`!#(BSELECT nextval $B$H(B SELECT setval $B$O=|$/(B)$B$^$?$O(BCOPY TO STDOUT, EXPLAIN, EXPLAIN ANALYZE SELECT... $B$N$$$:$l$+$G$"$k(B
+<li>SELECT$BJ8(B(WITH$BIU$b4^$`!#(Bblack_list$B$^$?$O(Bwhite_list$B$G;XDj$5$l$?=q$-9~$_$r4^$`(BSELECT$B$r=|$/(B)$B$^$?$O(BCOPY TO STDOUT, EXPLAIN, EXPLAIN ANALYZE SELECT... $B$N$$$:$l$+$G$"$k(B
 <li>SELECT INTO $BJ8$G$O$J$$(B
 <li>SELECT FOR UPDATE/SELECT FOR SHARE$BJ8$G$O$J$$(B
 <li>$B%/%(%jJ8;zNs$,(B SELECT$B$^$?$O(BWITH $B$G;O$^$k(B(ignore_leading_white_space = true$B$N>l9g$O6uGr$OL5;k$7$^$9(B)
@@ -1104,7 +1297,7 @@ load_balance_mode = true $B$r@_Dj$7$?>l9g!"0J2<$N>r7o$N$9$Y$F$rK~$?$7$?;~$K(BS
 <p>
 
 (<a href="#replicate_select">replicate_select$B$N9`L\(B</a>$B$b;29M$K$7$F$/$@$5$$(B)
-$B$^$?!"(B<a href="load_balance.png">$B>\:Y$JH=Dj>r7o$r%U%m!<%A%c!<%H$K$7$?$b$N(B</a>$B$b$4Mw2<$5$$!#(B
+$B$^$?!"(B<a href="where_to_send_queries.pdf">$B>\:Y$JH=Dj>r7o$r%U%m!<%A%c!<%H$K$7$?$b$N(B</a>$B$b$4Mw2<$5$$!#(B
 
 $B$J$*!"(B
 <pre>
@@ -1124,47 +1317,332 @@ autocommit $B$rL58z$K$9$k$H!"(Bpgpool$B$,FbIt$G(B BEGIN $B%3%^%s%I$r<B9T$9$
 </font>
 </p>
 
-<h4><p>$B%l%W%j%1!<%7%g%s%b!<%I$K$*$1$k=LB`1?E>$K$D$$$F(B</p></h4>
+<h2><p>$B%l%W%j%1!<%7%g%s%b!<%I$K$*$1$k=LB`1?E>$K$D$$$F(B</p></h2>
 <p>
 PostgreSQL$B%5!<%P$N$&$A!"(B1$BBf$,%@%&%s$9$k$H!"$=$N%5!<%P$r@Z$jN%$7$F=LB`1?(B
 $BE>$KF~$j$^$9!#(B1$BBf$G$b%5!<%P$,@8$-;D$C$F$$$l$P!"%7%9%F%`$H$7$F$N1?MQ$r7Q(B
 $BB3$G$-$^$9!#(B
 </p>
 
-<h4><p>$B%l%W%j%1!<%7%g%s%b!<%I8GM-$N%(%i!<$K$D$$$F(B</p></h4>
+<h2><p>$B%l%W%j%1!<%7%g%s%b!<%I8GM-$N%(%i!<$K$D$$$F(B</p></h2>
 <p>
-$B%G!<%?$N@09g@-$rJ]$D$?$a$K!"(Bpgpool$B$O%l%W%j%1!<%7%g%s;~$K(B INSERT, UPDATE,
-DELETE $B$N99?77o?t$,$9$Y$F$N%N!<%I$,F1$8$G$J$$>l9g!"0U?^E*$K9=J8%(%i!<$r5/$9(BSQL$B$rAw?.$9$k$3$H$K$h$C$F!"%H%i%s%6%/%7%g%s$r%"%\!<%H$5$;$^$9(B($B%U%'%$%k%*!<%P$O5/$-$^$;$s(B)$B!#0J2<$N$h$&$J46$8$K$J$j$^$9!#(B
+pgpool$B$O%l%W%j%1!<%7%g%s;~$K(B UPDATE$B!"(BDELETE $B$N99?77o?t$,$9$Y$F$N%N!<%I$,F1$8$G$J$$>l9g!"(Bfailover_if_affected_tuples_mismatch $B$,(B false$B$J$i$P!"(B
+$B0U?^E*$K9=J8%(%i!<$r5/$9(BSQL$B$rAw?.$9$k$3$H$K$h$C$F!"%H%i%s%6%/%7%g%s$r%"%\!<%H$5$;$^$9!#(B
+true$B$J$i$P!"%U%'%$%k%*!<%P$,5/$-$^$9!#$=$N:]!"0J2<$N$h$&$J%(%i!<%a%C%;!<%8$,I=<($5$l$^$9!#(B
+
 <pre>
    =# UPDATE t SET a = a + 1;
-   ERROR: pgpool detected difference of the number of update tuples
+   ERROR: pgpool detected difference of the number of update tuples Possible last query was: "update t1 set i = 1;"
    HINT: check data consistency between master and other db node
 </pre>
-
+$B%m%0$K$O99$K0J2<$N$h$&$K!"99?79T?t$,5-O?$5$l$^$9(B($B$3$N>l9g$O(BDB$B%N!<%I(B0$B$,(B0$B9T!"(BDB$B%N!<%I(B1$B$,(B1$B9T(B)$B!#(B
+<pre>
+2010-07-22 13:23:25 LOG:   pid 5490: SimpleForwardToFrontend: Number of affected tuples are: 0 1
+2010-07-22 13:23:25 LOG:   pid 5490: ReadyForQuery: Degenerate backends: 1
+2010-07-22 13:23:25 LOG:   pid 5490: ReadyForQuery: Number of affected tuples are: 0 1
+</pre>
 </p>
 
-<h3>$B%^%9%?!<%9%l!<%V%b!<%I(B</h3>
+<h1><a name="master_slave_mode"></a>$B%^%9%?!<%9%l!<%V%b!<%I(B</h1>
 <p>
-  master/slave$B%b!<%I$O!"(BSlony-I$B$N$h$&$J!"(Bmaster/slave$B<0$N%l%W%j%1!<%7%g(B
-  $B%s%=%U%H$K%l%W%j%1!<%7%g%s$r$^$+$;$k%b!<%I$G$9!#$3$N%b!<%I$G;H$&$?$a$K(B
-  $B$O!"%l%W%j%1!<%7%g%s%b!<%I$HF1$8$h$&$K!"(BDB$B%N!<%I$N%[%9%H>pJs(B
-  $B$r%;%C%H$7!"(Bmaster_slave_mode$B$H(Bload_balance_mode$B$r(Btrue$B$K$7$^$9!#$3$N$H(B
-  $B$-!"Ld$$9g$o$;$K$h$C$F%^%9%?!<(BDB$B$@$1$KLd$$9g$o$;$,Aw$i$l$k>l9g$H!"(BDB
-  $B%N!<%I$N4V$G%m!<%I%P%i%s%9$5$l$FLd$$9g$o$;$,Aw$i$l$k>l9g$,$"$j$^$9!#(B
-  $B%m!<%I%P%i%s%9$N>r7o$O%l%W%j%1!<%7%g%s%b!<%I$HF1$8$G$9!#(B
+  master/slave$B%b!<%I$O!"(BSlony-I$B$d(BStreaming Replication$B$N$h$&$J!"(Bmaster/slave$B<0$N%l%W%j%1!<%7%g%s%=%U%H$K%l%W%j%1!<%7%g%s$r$^$+$;$k%b!<%I$G$9!#(B
+$B$3$N%b!<%I$G;H$&$?$a$K$O!"%l%W%j%1!<%7%g%s%b!<%I$HF1$8$h$&$K!"(BDB$B%N!<%I$N%[%9%H>pJs$r%;%C%H$7!"(Bmaster_slave_mode$B$H(Bload_balance_mode$B$r(Btrue$B$K$7$^$9!#(B
+$B$3$N$H$-!"Ld$$9g$o$;$K$h$C$F%^%9%?!<(BDB$B$@$1$KLd$$9g$o$;$,Aw$i$l$k>l9g$H!"(BDB$B%N!<%I$N4V$G%m!<%I%P%i%s%9$5$l$FLd$$9g$o$;$,Aw$i$l$k>l9g$,$"$j$^$9!#(B
+$B%m!<%I%P%i%s%9$N>r7o$O%l%W%j%1!<%7%g%s%b!<%I$HF1$8$G$9!#(B
 </p>
 
 <p>
-$B%^%9%?%9%l!<%V%b!<%I$G$O!"0l;~%F!<%V%k$N:n@.!"99?7$O%^%9%?%N!<%I$G$N$_<B9T$5$l$^$9!#(B
-$B0l;~%F!<%V%k$X$N8!:w$O!"(BSELECT$BJ8$NA0$K(B/*NO LOAD BALANCE*/$B$H$$$&%3%a%s%H$r=q$/$3$H$K$h$C$F<B9T$G$-$^$9!#(B
+$B%^%9%?%9%l!<%V%b!<%I$G$O!"0l;~%F!<%V%k$N:n@.!"99?7!"8!:w$O%^%9%?%N!<%I$G$N$_<B9T$5$l$^$9!#(B
 </p>
 <p>
 $B%^%9%?!<%9%l!<%V%b!<%I$G$O!"(Bpgpool.conf$B$N(Breplication_mode$B$r(Bfalse$B$K!"(Bmaster_slave_mode
-$B$r(Btrue$B$K$7$^$9!#(B
+$B$r(Btrue$B$K$7$^$9(B($BF1;~$K(Btrue$B$K$O$G$-$^$;$s(B)$B!#(B
+$B$^$?!"(B'master_slave_sub_mode'$B$r;XDj$7$^$9!#$3$l$O!"(B'slony'($B%G%U%)%k%H(B)$B$+!"(B'stream'$B$G$9!#(B
+'slony'$B$O(BSlony-I$B$rMxMQ$9$k;~$K;XDj$7$^$9!#(B
+'stream'$B$O!"(BPostgreSQL$BAH$_9~$_$N(BStreaming Replication$B$rMxMQ$9$k$H$-$K;XDj$7$^$9!#(B
+Slony-I$B$r;H$&>l9g$N@_Dj%U%!%$%k$N?w7A$O(Bpgpool.conf.sample-master-slave$B$G$9!#(B
+Streaming Replication$B$r;H$&>l9g$N?w7A$O(Bpgpool.conf.sample-stream$B$G$9!#(B
+</p>
+<p>
 $B$3$N%Q%i%a!<%?$rJQ99$7$?;~$K$O(B pgpool-II $B$r:F5/F0$7$F$/$@$5$$!#(B
 </p>
+<p>
+$B%^%9%?!<%9%l!<%V%b!<%I$G$b!"(BDB$B=q$-9~$_$r9T$J$&4X?t$N8F$S=P$7$r4^$`(BSELECT$B$rIi2YJ,;6$NBP>]$+$i30$9;XDj$r(Bwhite_function_list$B$H(Bblack_function_list$B$G9T$J$&$3$H$,$G$-$^$9!#(B
+$B>\:Y$O(B<a href="#white_function_list">white_function_list</a>$B$N9`$r$4Mw2<$5$$!#(B
+</p>
 
-<h3>$B%Q%i%l%k%b!<%I(B</h3>
+<h1><a name="stream">Streaming Replication$B$X$NBP1~(B</a></h1>
+<p>
+$BA0=R$N$h$&$K!"%^%9%?%9%l!<%V%b!<%I$G!"(B'master_slave_sub mode'$B$K(B'stream'$B$r;XDj$9$k$H!"(BPostgreSQL 9.0$B$+$iMxMQ2DG=$K$J$C$?(BStreaming Replication$B$KBP1~$7$^$9(B
+(pgpool-II$B$G$O!":#$N$H$3$m!"(BStreaming Replication$B$H(BHot Standby$B$rJ;MQ$9$k$3$H$rA0Ds$K$7$F$$$^$9(B)$B!#(B
+$B$3$N%b!<%I$G$O!"0J2<$N@_Dj9`L\$bMxMQ$G$-$^$9!#(B
+<ul>
+<li>delay_threshold
+<p>
+$B%9%?%s%P%$%5!<%P$X$N%l%W%j%1!<%7%g%s$NCY1d5vMFEY$r%P%$%HC10L$G;XDj$7$^$9!#(B
+pgpool-II$B$O!"%X%k%9%A%'%C%/$N:]$K!"%9%?%s%P%$%5!<%P$NCY1d$,$3$NCM$rD6$($?>l9g$K$O!"(B
+$BIi2YJ,;6$,M-8z$G$"$C$F$b$=$N(BDB$B%N!<%I$K(BSELECT$B$rAw?.$;$:!"%W%i%$%^%j%5!<%P$KAw$k$h$&$K$7$^$9!#(B
+delay_threshold$B$,(B0$B$N>l9g$O!"CY1d$N%A%'%C%/$r9T$J$$$^$;$s!#(B
+$B$^$?!"(Bdelay_threshold$B$,;XDj$5$l$F$$$F$b!"%X%k%9%A%'%C%/$,L58z$J$i$P!"$d$O$j$3$N5!G=$OF/$-$^$;$s!#(B
+$B%G%U%)%k%HCM$O(B0$B$G$9!#(B
+$B$3$N%Q%i%a!<%?$O@_Dj%U%!%$%k$N:FFI9~$K$h$C$FJQ99$G$-$^$9!#(B
+</p>
+
+<li>log_standby_delay
+<p>
+$B%l%W%j%1!<%7%g%s$NCY1d>u67$r%m%0$9$k>r7o$r;XDj$7$^$9!#(B
+'none'$B$r;XDj$9$k$H!"%m%0$r=PNO$7$^$;$s!#(B
+'always'$B$J$i%X%k%9%A%'%C%/$r<B9T$9$k$?$S$KI,$:=PNO$7$^$9!#(B
+'if_over_threshold'$B$r;XDj$9$k$H!"(Bdelay_threshold$B$rD6$($?$H$-$@$1%m%0$,=PNO$5$l$^$9!#(B
+$B%G%U%)%k%HCM$O(B'none'$B$G$9!#(B
+$B$3$N%Q%i%a!<%?$O@_Dj%U%!%$%k$N:FFI9~$K$h$C$FJQ99$G$-$^$9!#(B
+</p>
+<p>
+$B$J$*!"%l%W%j%1!<%7%g%s$NCY1d>u67$O(B show pool_status $B%3%^%s%I$G$b3NG'$G$-$^$9!#(B
+$B9`L\L>$O(B"standby_delay#"$B$G$9(B(#$B$O(BDB$B%N!<%I(BID$B$G$9(B)$B!#(B
+</p>
+</ul>
+</p>
+
+<h2>Streaming Replication$B$G$N%U%'%$%k%*!<%P(B</h2>
+<p>
+Streaming replication$B$rMxMQ$7$?%^%9%?%9%l!<%V%b!<%I$G$O!"(BPrimary$B$d(BStandby$B%N!<%I$,Dd;_$7$?>l9g$K!"%l%W%j%1!<%7%g%s%b!<%I$HF1$8$h$&$K<+F0%U%'%$%k%*!<%P$r9T$J$o$;$k$3$H$,$G$-$^$9!#(B
+$BFC$K2?$b@_Dj$7$J$/$F$b!"Dd;_$7$?%N!<%I$r<+F0E*$K@Z$jJ|$9$3$H$,$G$-$^$9$,!"(BStreaming replication$B$G$O!"(B
+$B!V%H%j%,%U%!%$%k!W$r:n@.$9$k$3$H$K$h$j!"(BStandby$B%N!<%I$r!"%j%+%P%j%b!<%I$+$i99?7Ld$$9g$o$;$r<u$1IU$1$kDL>o$N(BPostgreSQL$B$NF0:n%b!<%I$K<+F0JQ99$9$k$3$H$,$G$-$^$9!#(B
+$B$3$l$rMxMQ$7$F!"%U%'%$%k%*!<%P%3%^%s%I$rJ;MQ$7$F!"(BPrimary$B%N!<%I$,%@%&%s$7$?$H$-$K!"(BStandby$B%N!<%I$,<+F0E*$K$H$C$FBe$k$h$&$J@_Dj$r9T$J$&$3$H$,$G$-$^$9!#(B
+</p>
+<p>
+<strong>$BCm0U(B: $BJ#?t$N(BStandby$B%N!<%I$rMxMQ$7$F$$$k>l9g!"$3$N@_Dj$r9T$J$&$H$-$O!"(Bdelay_threshold$B$r@_Dj$7$F!"B>$N(BStandby$B$K?6$jJ,$1$i$l$?(BSELECT$B$,8E$$%G!<%?$r<hF@$7$J$$$h$&$K$7$F$*$/$3$H$r$*4+$a$7$^$9!#(B
+$B$^$?!"(B1$BBfL\$N(BStandby$B%N!<%I$,(BPrimary$B$K$H$C$FBe$C$?$N$A$K%@%&%s$7$F$7$^$C$?%1!<%9$G!"(B2$BBfL\$N(BStandby$B$,99$K<h$C$FBe$o$k$H%G!<%?$KIT@09g$,$*$-$k$N$G!"$=$N$h$&$J@_Dj$O9T$J$o$J$$$h$&$K$7$F$/$@$5$$!#(B</strong>
+</p>
+<p>
+$B%U%'%$%k%*!<%P$N@_Dj<j=g$r<($7$^$9!#(B
+</p>
+<p>
+<ol>
+ <li>$B%U%'%$%k%*!<%PMQ$N%9%/%j%W%H$rE,Ev$J>l=j(B($B$3$3$G$O(B/usr/local/pgsql/bin)$B$KG[CV$7$F!"<B9T8"8B$rM?$($F$*$-$^$9!#(B
+<pre>
+$ cd /usr/loca/pgsql/bin
+$ cat failover_stream.sh
+#! /bin/sh
+# Failover command for streming replication.
+# This script assumes that DB node 0 is primary, and 1 is standby.
+# 
+# If standby goes down, does nothing. If primary goes down, create a
+# trigger file so that standby take over primary node.
+#
+# Arguments: $1: failed node id. $2: new master hostname. $3: path to
+# trigger file.
+
+failed_node=$1
+new_master=$2
+trigger_file=$3
+
+# Do nothing if standby goes down.
+if [ $failed_node = 1 ]; then
+	exit 0;
+fi
+
+# Create trigger file.
+/usr/bin/ssh -T $new_master /bin/touch $trigger_file
+
+exit 0;
+
+chmod 755 failover_stream.sh
+</pre>
+<li>pgpool.conf$B$N!"(Bfailover_commmand$B$r@_Dj$7$^$9!#(B
+<pre>
+failover_command = '/usr/local/src/pgsql/9.0-beta/bin/failover_stream.sh %d %H /tmp/trigger_file0'
+</pre>
+
+<li>standby$B%N!<%I$N(Brecovery.conf$B$r@_Dj$7$^$9!#(B
+<a href="recovery.conf.sample">recovery.conf$B$N%5%s%W%k(B</a>$B$O(B PostgreSQL$B$N%$%s%9%H!<%k%G%#%l%/%H%j2<$N(B"share/recovery.conf.sample"$B$K$"$j$^$9!#(B
+$B$3$l$r(Bstanndby$B%N!<%I$N%G!<%?%Y!<%9%/%i%9%?2<$K(B"recovery.conf"$B$H$7$F%3%T!<$7$F$*$-$^$9!#(B
+$B$=$7$F!"0J2<$N9`L\$r@_Dj$7$^$9!#(B
+<pre>
+standby_mode = 'on'
+primary_conninfo = 'host=primary_host$B$N%[%9%HL>(B user=postgres'
+trigger_file = '/tmp/trigger_file0'
+</pre>
+
+<li>primary$B%N!<%I$N(Bpostgresql.conf$B$r@_Dj$7$^$9!#(B
+$B0J2<$ONc$G$9$N$G!"I,$:<B:]$K9g$o$;$FD4@0$7$F$/$@$5$$!#(B
+
+<pre>
+wal_level = hot_standby
+max_wal_senders = 1
+</pre>
+
+<li>primary$B%N!<%I$N(Bpg_hba.conf$B$r@_Dj$7$^$9!#(B
+$B0J2<$ONc$G$9$N$G!"I,$:<B:]$K9g$o$;$FD4@0$7$F$/$@$5$$!#(B
+
+<pre>
+host	replication	postgres		192.168.0.10/32		trust
+</pre>
+
+</ol>
+
+<p>
+primary$B$H(Bstandby$B$N(BPostgreSQL$B$r5/F0$9$l$P!"(BStreaming replication$B$,3+;O$5$l$^$9!#(B
+$B$=$7$F!"(Bprimary$B%N!<%I$,%@%&%s$7$?$H$-$K!"<+F0E*$K(Bstandby$B%N!<%I$,DL>o$N(BPostgreSQL$B$H$7$FN)$A>e$,$j!"99?7Ld$$9g$o$;$r<u$1IU$1$k$h$&$K$J$j$^$9!#(B
+</p>
+
+<h2>Streaming Replication$B$G$N%*%s%i%$%s%j%+%P%j(B</h2>
+<p>
+Streaming replication$B$rMxMQ$7$?%^%9%?%9%l!<%V%b!<%I$G$O!"%l%W%j%1!<%7%g%s%b!<%I$HF1$8$h$&$K%*%s%i%$%s%j%+%P%j$,MxMQ$G$-$^$9!#(B
+primary$B%5!<%P$r%^%9%?$H$7!"(Bstandby$B%5!<%P$r%j%+%P%j$7$^$9!#(B
+primary$B%5!<%P$,F0:n$7$F$$$k$N$,$3$NJ}K!$NA0Ds>r7o$G$9$N$G!"(B
+primary$B%5!<%P$,Dd;_$7$F$$$k>uBV$G$O%*%s%i%$%s%j%+%P%j$O$G$-$^$;$s!#(B
+primary$B%5!<%,Dd;_$7$F$$$k>uBV$+$i$NI|5l$O!"$9$Y$F$N(BDB$B%N!<%I$H(Bpgpool-II$B$rDd;_$5$;$F<jF0$G<B;\$7$J$1$l$P$J$j$^$;$s!#(B
+</p>
+
+<p>
+<ol>
+ <li>$B%j%+%P%j=hM}$r<B9T$9$k%f!<%6(B recovery_user $B$r@_Dj$7$^$9!#DL>o!"(Bpostgres$B%f!<%6$H$J$j$^$9!#(B
+<pre>
+recovery_user = 'postgres'
+</pre>
+<li>recovery_password $B$r@_Dj$7$^$9!#$3$l$O!"(Brecovery_user $B$,(BDB$B$K%m%0%$%s$9$k$H$-$K;H$&%Q%9%o!<%I$G$9!#(B
+<pre>
+recovery_password = 't-ishii'
+</pre>
+
+<li> recovery_1st_stage_command $B$r@_Dj$7$^$9!#(B
+$B$3$3$G;XDj$9$k%U%!%$%k$O!"(Bprimary$B%5!<%P$+$i%Y!<%9%P%C%/%"%C%W$r<hF@$7!"(Bstandby$B%5!<%P$K%j%9%H%"$9$k$b$N$G$J$1$l$P$J$j$^$;$s!#(B
+recovery_1st_stage_command $B$O!"(Bprimary$B$N(BPostgreSQL$B$+$i!"(Brecovery_user$B$N8"8B$G5/F0$5$l!"$=$N;~$K0z?t$r<u$1$H$j$^$9!#(B
+$B>\:Y$O!"(B<a href="#RECOVERY_1ST_STAGE_COMMAND">recovery_1st_stage_command</a>$B$N@_Dj9`L\$r$4Mw$/$@$5$$!#(B
+$B$3$N%9%/%j%W%H%U%!%$%k$O!"(Bprimary$B$N%G!<%?%Y!<%9%/%i%9%?2<$KG[CV$7!"<B9T8"8B$rM?$($F$*$-$^$9!#(B
+$B%5%s%W%k$H$7$F!"(Bprimary/standby$B$=$l$>$l0lBf9=@.$N>l9g$N%9%/%j%W%H(B<a href="basebackup.sh">(basebackup.sh)</a>$B$r<($7$^$9!#(B
+$B$3$N%9%/%j%W%H$G$O!"(Brecovery_user $B$,%Q%9%o!<%I$J$7$G%j%+%P%jBP>]$N(Bstandby$B%N!<%I$K%m%0%$%s$G$-$k$3$H$rA0Ds$K$7$F$$$k$N$G!"$"$i$+$8$a(Bssh$B$N@_Dj$r9T$J$C$F$*$/I,MW$,$"$j$^$9!#(B
+<pre>
+recovery_1st_stage_command = 'basebackup.sh'
+</pre>
+<li>recovery_2nd_stage_command $B$O!"6u$N$^$^$G9=$$$^$;$s!#(B
+<pre>
+recovery_2nd_stage_command = ''
+</pre>
+
+<li>$B%*%s%i%$%s%j%+%P%j$r<B;\$9$k$?$a$N(B PostgreSQL $B$N(B C $B8@8l4X?t$d(BSQL$B4X?t$r3F(BDB$B%N!<%I$K%$%s%9%H!<%k$7$^$9!#(B
+</p>
+
+<pre>
+# cd pgpool-II-x.x.x/sql/pgpool-recovery
+# make
+# make install
+# psql -f pgpool-recovery.sql template1
+</pre>
+
+<li>$B%*%s%i%$%s%j%+%P%j$,=*N;$7$?$"$H!"(Bpgpool-II$B$O!"Dd;_$7$F$$$?(BDB$B%N!<%I$N(BPostgreSQL$B$r5/F0$7$^$9!#(B
+$B$=$N$?$a$N%9%/%j%W%H$r!"3F(BDB$B%N!<%I$N(BDB$B%/%i%9%?$K%$%s%9%H!<%k$7$^$9!#(B
+<a href="pgpool_remote_start">$B%9%/%j%W%H$N%5%s%W%k(B</a>$B$,%=!<%9%3!<%I$N(B"sample"$B%G%#%l%/%H%j$K4^$^$l$F$$$k$N$G!"$=$l$rMxMQ$7$F$/$@$5$$!#(B
+$B$3$N%5%s%W%k$NCf$G$O!"(BPostgreSQL$B$N5/F0$r(Bpg_ctl$B%3%^%s%I$G9T$C$F$*$j!"(Bpg_ctl$B%3%^%s%I$X$N%Q%9$,5-=R$5$l$F$$$^$9!#(B
+$B%G%U%)%k%H$G$O(B/usr/local/pgsql/bin/pg_ctl$B$H$J$C$F$$$k$N$G!"$*;H$$$N4D6-$K9g$o$;$F=$@5$7$F$/$@$5$$!#(B
+$B$J$*!"$3$N%9%/%j%W%H$O(Bssh$B$r;HMQ$7$^$9$N$G!">/$/$H$b!"(Bprimary$B$N(BDB$B%N!<%I$+$i!"(Bstandby$B$N(BDB$B%N!<%I$KBP$7$F!"(Brecovery_user$B$G%Q%9%o!<%I$J$7$G(Bssh$B$,MxMQ$G$-$k$3$H$,I,MW$G$9!#(B
+$BI,MW$J$i$P$"$i$+$8$a@_Dj$7$F$*$$$F$/$@$5$$!#(B
+</ol>
+</p>
+
+<p>
+$B0J>e$G%*%s%i%$%s%j%+%P%j$N@_Dj$,=*N;$7$^$7$?!#(B
+standby$B%N!<%I$rDd;_$7$?>uBV$G!"(Bpcp_recovery_node$B$rMxMQ$9$k$+!"(BpgpoolAdmin$B$N!V%j%+%P%j!W%\%?%s$G%*%s%i%$%s%j%+%P%j$,=PMh$k$h$&$K$J$C$?$O$:$G$9!#(B
+$B$&$^$/$$$+$J$$>l9g$O!"(Bpgpool-II$B$N%m%0!"(Bprimary$B%5!<%P!"(Bstandby$B%5!<%P$N%m%0$r3NG'$7$F$/$@$5$$!#(B
+</p>
+<p>
+$B;29M$^$G$K!"%9%H%j!<%_%s%0%l%W%j%1!<%7%g%s$G$N%*%s%i%$%s%j%+%P%j$NFbIt=hM}$NN.$l$r@bL@$7$^$9!#(B
+<ol>
+<li>pgpool-II$B$O!"(Bprimary$B%5!<%P$K%f!<%6(B: recovery_user, $B%Q%9%o!<%I(B: recovery_password $B$G(Btemplate1$B%G!<%?%Y!<%9$K@\B3$7$^$9(B
+<li>primary$B%5!<%P$G!"(Bpgpool_recovery$B4X?t$r<B9T$7$^$9(B
+<li>pgpool_recovery$B4X?t$O!"(Brecovery_1st_stage_command $B$G;XDj$5$l$?%9%/%j%W%H$r<B9T$7$^$9!#(B
+$B$J$*!"(BPostgreSQL$B$O!"%G!<%?%Y!<%9%/%i%9%?%G%#%l%/%H%jCf$G4X?t$r<B9T$7$^$9!#(B
+$B$h$C$F!"(Bpgpool_recovery$B4X?t$b(Bprimary$B%5!<%P$N%G!<%?%Y!<%9%/%i%9%?%G%#%l%/%H%jCf$G4X?t$r<B9T$5$l$k$3$H$KCm0U$7$F$/$@$5$$!#(B
+<li>primary$B%5!<%P$G!"(Bpgpool_remote_start$B4X?t$r<B9T$7$^$9!#(B
+$B$3$N4X?t$O!"(Bprimary$B%5!<%P$N%G!<%?%Y!<%9%/%i%9%?%G%#%l%/%H%jCf$K$"$k(Bpgpool_remote_start$B$H$$$&L>A0$N%9%/%j%W%H$r5/F0$7!"$3$3$+$i(Bssh$B7PM3$G%j%+%P%jBP>]$N(Bstandby$B%5!<%P$N(BPostgreSQL$B$r(Bpg_ctl$B%3%^%s%I$r;H$C$F5/F0$7$^$9!#(B
+$B5/F0$O%P%C%/%0%i%&%s%I$G9T$o$l!"5/F0$G$-$?$+$I$&$+$O<!$N%9%F%C%W$G3NG'$5$l$^$9!#(B
+<li>pgpool-II$B$+$i!"(Bstandby$B%5!<%P$N(BPostgreSQL$B$N(Bpostgres$B%G!<%?%Y!<%9(B(postgres$B%G!<%?%Y!<%9$,$J$$>l9g$O(Btemplate1$B%G!<%?%Y!<%9(B)$B$K!"%f!<%6(B: recovery_user, $B%Q%9%o!<%I(B: recovery_password $B$G(Btemplate1$B%G!<%?%Y!<%9$K@\B3$r;n$_$^$9!#(B
+$B%j%H%i%$$O!"(B<a href="#RECOVERY_TIMEOUT">recovery_timeout</a>$BIC4V9T$o$l$^$9!#(B
+PostgreSQL$B$N5/F0$K@.8y$7$?$i!"<!$N%9%F%C%W$K0\$j$^$9!#(B
+<li><a href="#FAILBACK_COMMAND">failback_command</a>$B$,6u$G$J$$>l9g$O!"(Bpgpool-II$B$N?F%W%m%;%9$O;XDj$5$l$?%9%/%j%W%H$r5/F0$7$^$9!#(B
+<li>failback_command$B$,=*N;$7$?$i!"(Bpgpool-II$B$N;R%W%m%;%9$r$9$Y$F:F5/F0$7$^$9!#(B
+</ol>
+</p>
+
+<h2>Streaming Replication$B$G$N%/%(%j?6$jJ,$1(B</h2>
+<p>
+Streaming replication$B$H(BHot Standby$B$rMxMQ$7$F$$$k4D6-$G$O!"(Bprimary$B%N!<%I$KAw$C$F$h$$Ld$$9g$o$;!"(Bstandby$B$KAw$C$F$b$h$$Ld$$9g$o$;!"N>J}$KAw$i$J$1$l$P$J$i$J$$Ld$$9g$o$;$r87L)$K4IM}$9$kI,MW$,$"$j$^$9!#(B
+pgpool-II$B$N(BStreaming Replication$B%b!<%I$O!"$3$&$7$??6$jJ,$1$r<+F0E*$K9T$J$$$^$9!#(B
+$B$3$3$G$O!"$=$N%m%8%C%/$K$D$$$F@bL@$7$^$9!#(B
+</p>
+<p>
+$B$^$:!"Ld$$9g$o$;$N<oN`$K$h$C$F0J2<$N$h$&$KJ,$1$i$l$^$9!#(B
+</p>
+<p>
+<ul>
+ <li>Primary$B%N!<%I$K$7$+Aw$i$l$J$$Ld$$9g$o$;(B
+	  <ul>
+	   <li>INSERT, UPDATE, DELETE, COPY FROM, TRUNCATE, CREATE, DROP, ALTER, COMMENT
+	   <li>SELECT ... FOR SHARE | UPDATE
+	   <li>$B%H%i%s%6%/%7%g%s$NJ,N%%l%Y%k$,%7%j%"%i%$%6%V%k$N>l9g$N(BSELECT
+	   <li>ROW EXCLUSIVE MODE$B$h$j$b6/$$(BLOCK
+	   <li>$B%H%i%s%6%/%7%g%s%3%^%s%I$N0lIt(B
+			<ul>
+			 <li>BEGIN READ WRITE, START TRANSACTION READ WRITE
+			 <li>SET TRANSACTION READ WRITE, SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE
+			 <li>SET transaction_read_only = off
+			</ul>
+	   <li>$BFsAj%3%_%C%H4XO"$N%3%^%s%I!#(BPREPARE TRANSACTION, COMMIT PREPARED, ROLLBACK PREPARED
+	   <li>LISTEN, UNLISTEN, NOTIFY
+	   <li>VACUUM
+	   <li>$B%7!<%1%s%94XO"$N4X?t(B(nextval$B$d(Bsetval$B$J$I(B)$B$N8F$S=P$7!#(B
+	   <li>$B%i!<%8%*%V%8%'%/%H$N@8@.(B
+	  </ul>
+ <li>Primary/Standby$B$I$A$i$K$bAw$k$3$H$N$G$-$kLd$$9g$o$;!#(B
+$BIi2YJ,;6@_Dj$,M-8z$J$i$P!"(Bstandby$B%N!<%I$K$bAw?.$5$l$^$9!#(B
+$B$?$@$7!"%l%W%j%1!<%7%g%s$NCY1d>e8B(B(delay_threshold)$B$,@_Dj$5$l$F$$$F!"(B
+$B%l%W%j%1!<%7%g%s$NCY1d$,(Bdelay_threshold$B$r>e2s$C$F$$$k>l9g$OLd$$9g$o$;$O(BPrimary$B$KAw$i$l$^$9!#(B
+	  <ul>
+	   <li>$B>e5-0J30$N(BSELECT
+	   <li>COPY TO
+	   <li>DECLARE, FETCH, CLOSE
+	   <li>SHOW
+	  </ul>
+ <li>Primary/Standby$B$I$A$i$K$bAw$i$l$kLd$$9g$o$;(B
+	  <ul>
+	   <li>SET
+	   <li>DISCARD
+	   <li>DEALLOCATE ALL
+	  </ul>
+</ul>
+</p>
+
+<p>
+$BL@<(E*$J%H%i%s%6%/%7%g%s$G$O!"0J2<$N$h$&$K$J$j$^$9!#(B
+<ul>
+ <li>BEGIN$B$J$I$N%H%i%s%6%/%7%g%s3+;O%3%^%s%I$O!"(BPrimary$B%5!<%P$KAw$i$l$^$9!#(B
+ <li>$BB3$/(BSELECT$B$J$I!"(BPrimary/Standby$B$I$A$i$K$bAw$k$3$H$N$G$-$kLd$$9g$o$;$O!"(BPrimary$B$N%H%i%s%6%/%7%g%sFb$G$=$N$^$^<B9T$5$l$k$+!"(BStandby$B%5!<%P$G<B9T$5$l$^$9!#(B
+ <li><p>
+INSERT$B$J$I!"(BStandby$B$KAw$k$3$H$N$G$-$J$$Ld$$9g$o$;$,8=$o$l$?>l9g$O!"(BPrimary$B%5!<%P$G<B9T$5$l$^$9!#(B
+$B0J8e!"(BSELECT$B$J$I!"K\Mh(BStandby$B$KAw?.$7$F$b9=$o$J$$%3%^%s%I$b(BPrimary$B%5!<%P$G<B9T$5$l$^$9!#(B
+$B$3$l$O!"%H%i%s%6%/%7%g%s$NCf$G<B9T$5$l$?(BINSERT$B$J$I$NLd$$9g$o$;$N7k2L$r(BSELECT$B$,D>$A$K;2>H$G$-$k$h$&$K$9$k$?$a$G$9!#(B
+$B$3$N>uBV$O!"%H%i%s%6%/%7%g%s$,JD$8$k$+!"%"%\!<%H$9$k$^$GB3$-$^$9!#(B
+</p>
+</ul>
+</p>
+
+<p>
+$BLd$$9g$o$;$,!"3HD%Ld$$9g$o$;%b!<%I$G<B9T$5$l$k>l9g$O!"Ld$$9g$o$;$N(Bparse$BCJ3,$G!"Ld$$9g$o$;$,Ii2YJ,;62DG=$+$I$&$+$GAw?.@h$,7h$^$j$^$9!#$=$N:]$NH=CG%k!<%k$O!"DL>o$N(BSQL$B$HF1$8$G$9!#(B
+$B$?$H$($PLd$$9g$o$;$,(BINSERT$B$J$i$P!"(BPrimary$B%5!<%P$G<B9T$5$l$k!"$H$$$&6q9g$G$9!#(B
+parse$B$KB3$/(Bbind, describe, execute$B$bF1$8(BDB$B%N!<%I$G<B9T$5$l$^$9!#(B
+</p>
+
+<p>
+[$BCm(B: SELECT$B$,Ii2YJ,;6$5$l$F(B Standby $B%N!<%I$G(B parse$B$,<B9T$5$l$F$+$i99?7%/%(%j$,Mh$?>l9g$O!"$=$N(BSELECT$B$O(BPrimary$B%N!<%I$G<B9T$5$l$J$1$l$P$J$j$^$;$s!#$=$N$?$a!"F1$8(BSELECT$B$,:FEY(BPrimary$B%N!<%I$G%Q!<%9$5$l$k$3$H$K$J$j$^$9!#(B]
+</p>
+
+<p>
+$B:G8e$K!"(Bpgpool-II$B$N%Q!<%5$,9=J8%(%i!<$HH=CG$7$?Ld$$9g$o$;$O(BPrimary$B%N!<%I$@$1$KAw$i$l$^$9!#(B
+</p>
+
+<h1>$B%Q%i%l%k%b!<%I(B</h1>
 <p>
 $B%Q%i%l%k%/%(%j5!G=$,MxMQ$G$-$k%b!<%I$G$9!#%F!<%V%k$rJ,3d$5$;!"3F%N!<%I$K%G!<%?(B
 $B$r;}$?$;$k$3$H$,$G$-$^$9!#$^$?%l%W%j%1!<%7%g%s$dIi2YJ,;65!G=$bF1;~$K;H$&$3$H$,(B
@@ -1236,7 +1714,7 @@ PostgreSQL$B$N%F!<%V%k$N7A$GJ];}$7$^$9!#%7%9%F%`(BDB$B$O(Bpgpool$B$,F0:n$9$
 
 </dl>
 
-<h4><p>$B%7%9%F%`(BDB$B$N=i4|@_Dj(B</p></h4>
+<h2><p>$B%7%9%F%`(BDB$B$N=i4|@_Dj(B</p></h2>
 <p>
 $B%7%9%F%`(BDB$B$K%9%-!<%^$H%F!<%V%k$r:n@.$7$^$9!#=i4|@_DjMQ$N%9%/%j%W%H$,(B
 $prefix/share/system_db.sql$B$K$"$k$N$G$=$l$rMxMQ$7$^$9!#$?$@$7!"$3$N%9%/(B
@@ -1247,7 +1725,7 @@ $prefix/share/system_db.sql$B$K$"$k$N$G$=$l$rMxMQ$7$^$9!#$?$@$7!"$3$N%9%/(B
 psql -f $prefix/share/system_db.sql pgpool
 </p>
 
-<h4><p>dblink$B$N%$%s%9%H!<%k(B</p></h4>
+<h2><p>dblink$B$N%$%s%9%H!<%k(B</p></h2>
 <p>
 $B%Q%i%l%k%b!<%I$G$O(Bdblink$B$r;H$$$^$9!#(Bdblink$B$O(BPostgreSQL$B%=!<%9%U%!%$%k(B
 ($POSTGRES_SRC)
@@ -1264,7 +1742,7 @@ DB$B$K(Bdblink$B$r%$%s%9%H!<%k$7$F$/$@$5$$!#(B
 psql pgpool < $POSTGRES_SRC/contrib/dblink/dblink.sql
 </pre>
 
-<h4><p>$B%3%M%/%7%g%s?t$N@_Dj(B</p></h4>
+<h2><p>$B%3%M%/%7%g%s?t$N@_Dj(B</p></h2>
 <p>
 $B%Q%i%l%k%b!<%I$G$O!"%/%(%j$K$h$j%7%9%F%`(BDB$B$+$i(Bdblink$B7PM3$G(Bpgpool$B$K@\B3(B
 $B$9$k$N$G!"A[Dj$5$l$kF1;~@\B3?t0J>e$N%3%M%/%7%g%s$,I,MW$K$J$k>l9g$,$"$j(B
@@ -1278,7 +1756,7 @@ psql pgpool < $POSTGRES_SRC/contrib/dblink/dblink.sql
 num_init_children = $BA[Dj$5$l$kF1;~@\B3?t(B * ( 1 + $B%/%(%j$NCf$G;H$o$l$F$$$k%F!<%V%k$N:GBg?t(B)
 </pre>
 
-<h4><p>$B%G!<%?J,3d%k!<%k$NEPO?(B</p></h4>
+<h2><p>$B%G!<%?J,3d%k!<%k$NEPO?(B</p></h2>
 <p>
 $B%G!<%?J,3d$r9T$&%F!<%V%k$KBP$7$F$O!"%F!<%V%k>pJs$r$"$i$+$8$a(B pgpool_catalog.dist_def 
 $B$H$$$&%F!<%V%k$KEPO?$7$F$*$-$^$9!#(B
@@ -1365,7 +1843,7 @@ CREATE OR REPLACE FUNCTION pgpool_catalog.dist_def_accounts (val ANYELEMENT) RET
   END' LANGUAGE SQL;
 </pre>
 
-<h2><a name="hba"></a>$B%/%i%$%"%s%HG'>Z(B(HBA)$B$N$?$a$N(B pool_hba.conf $B@_DjJ}K!(B</h2>
+<h1><a name="hba"></a>$B%/%i%$%"%s%HG'>Z(B(HBA)$B$N$?$a$N(B pool_hba.conf $B@_DjJ}K!(B</h1>
 <p>
    PostgreSQL$B$N(Bpg_hba.conf$B$HF1$8$h$&$K(Bpgpool$B$G$b(Bpool_config.conf$B%U%!%$(B
    $B%k$r;H$C$?%/%i%$%"%s%HG'>Z$,%5%]!<%H$5$l$F$$$^$9!#(B
@@ -1394,9 +1872,10 @@ CREATE OR REPLACE FUNCTION pgpool_catalog.dist_def_accounts (val ANYELEMENT) RET
 <ul>
 <li>"hostssl"$B@\B3%?%$%W$O%5%]!<%H$5$l$^$;$s(B</li>
 <p>
-     $B8=:_(Bpgpool$B$O(BSSL$B@\B3$r%5%]!<%H$7$F$$$J$$$N$G(B"hostssl"$B$O;XDj$9$k$3(B
-     $B$H$,$G$-$^$;$s!#(B
+     pool_hba.conf$B$K(B"hostssl"$B$O;XDj$9$k$3$H$O$G$-$^$;$s$,!"(Bpgpool-II$B$O(B2.3$B0J9_$G(BSSL$B$r%5%]!<%H$7$F$$$^$9!#(B
+$B>\:Y$O(B<a href="#ssl">SSL</a>$B$r;2>H$7$F$/$@$5$$!#(B
 </p>
+
 <li>DATABASE$B%U%#!<%k%ICM$H$7$F(B"samegroup"$B$O%5%]!<%H$5$l$^$;$s(B</li>
 <p>
      pgpool$B$O%P%C%/%(%s%I%5!<%P$K$"$k%f!<%6>pJs$r;vA0$KCN$k;v$,$G$-$J(B
@@ -1413,12 +1892,15 @@ CREATE OR REPLACE FUNCTION pgpool_catalog.dist_def_accounts (val ANYELEMENT) RET
 <p>
      $B8=:_(Bpgpool$B$O(BIPv6$B$r%5%]!<%H$7$F$$$^$;$s!#(B
 </p>
-<li>"trust", "reject", "pam"$B0J30$N%a%=%C%I$O%5%]!<%H$5$l$^$;$s(B</li>
+<li>"trust", "reject", "pam", "md5"$B0J30$N%a%=%C%I$O%5%]!<%H$5$l$^$;$s(B</li>
 <p>
      $B$3$l$b>e5-$N(B"samegroup"$B$HF1$8M}M3$K$h$k$b$N$G$9!#(Bpgpool$B$O%P%C%/%((B
      $B%s%I$N%f!<%6(B/$B%Q%9%o!<%I>pJs$r;}$C$F$$$J$$$N$G!"%P%C%/%(%s%I$KJ]B8(B
      $B$5$l$F$$$k%Q%9%o!<%I$r;H$C$?G'>Z$r9T$&$3$H$,$G$-$^$;$s!#(B
 </p>
+<p>
+md5$B$K4X$7$F$O!"(Bpool_passwd$B$H$$$&%Q%9%o!<%I%U%!%$%k$rJ;MQ$9$k$3$H$K$h$C$FMxMQ$G$-$^$9!#(B
+$B>\:Y$O(B<a href="#md5">$BG'>Z!&%"%/%;%9@)8fJ}<0(B</a>$B$r;2>H$7$F$/$@$5$$!#(B
 </ul>
 </p>
 <p>
@@ -1478,17 +1960,18 @@ CREATE TABLE pgpool_catalog.query_cache (
 $B0J>e$G@_Dj$,=*$o$C$?$N$G!"3F(BDB$B%N!<%I$r5/F0$7!"I,MW$J$i$P%7%9%F%`(BDB$B$b5/F0(B
 $B$7$F$+$i(Bpgpool-II$B$r5/F0$7$^$9!#(B
 <pre>
-pgpool [-c][-f config_file][-a hba_file][-F pcp_config_file][-n][-d]
+pgpool [-c][-f config_file][-a hba_file][-F pcp_config_file][-n][-D][-d]
 </pre>
 </p>
 <p>
 <table>
-<tr><td>-c</td><td>$B%/%(%j%-%c%C%7%e$r>C5n$7$^$9(B</tr>
-<tr><td>-f config_file</td><td>pgpool-II$B$N@_Dj%U%!%$%k$r;XDj$7$^$9(B</tr>
-<tr><td>-a hba_file</td><td>HBA$BG'>Z@_Dj%U%!%$%k$r;XDj$7$^$9(B</tr>
-<tr><td>-F pcp_config_file</td><td>pcp$B$N@_Dj%U%!%$%k$r;XDj$7$^$9(B</tr>
-<tr><td>-n</td><td>$B%G!<%b%s%b!<%I$G5/F0$7$^$;$s(B($B@)8fC<Kv$r@Z$jN%$7$^$;$s(B</tr>
-<tr><td>-d</td><td>$B%G%P%C%0%b!<%I$G5/F0$7$^$9(B</tr>
+<tr><td>-c</td><td>$B%/%(%j%-%c%C%7%e$r>C5n$7$^$9(B</td></tr>
+<tr><td>-f config_file</td><td>pgpool-II$B$N@_Dj%U%!%$%k$r;XDj$7$^$9(B</td></tr>
+<tr><td>-a hba_file</td><td>HBA$BG'>Z@_Dj%U%!%$%k$r;XDj$7$^$9(B</td></tr>
+<tr><td>-F pcp_config_file</td><td>pcp$B$N@_Dj%U%!%$%k$r;XDj$7$^$9(B</td></tr>
+<tr><td>-n</td><td>$B%G!<%b%s%b!<%I$G5/F0$7$^$;$s(B($B@)8fC<Kv$r@Z$jN%$7$^$;$s(B</td></tr>
+<tr><td>-D</td><td>pgpool_status$B$r:o=|$7!"0JA0$N>uBV$rI|85$7$^$;$s(B</td></tr>
+<tr><td>-d</td><td>$B%G%P%C%0%b!<%I$G5/F0$7$^$9(B</td></tr>
 </table>
 </p>
 <p>
@@ -1545,9 +2028,143 @@ pgpool [-f config_file][-a hba_file][-F pcp_config_file] reload
 $B$^$?!"@_Dj$NJQ99$O$9$G$K@\B3Cf$N%;%C%7%g%s$K$OH?1G$5$l$^$;$s!#<!2s!"%/%i%$%"%s%H$,(Bpgpool-II$B$K@\B3$7$?$H$-$+$iH?1G$5$l$^$9!#(B
 </p>
 
+<h1><a name="show-commands"></a>SHOW$B%3%^%s%I(B</h1>
+<h2>$B35MW(B</h2>
+<p>
+pgpool-II$B$G$O!"(BSHOW$B%3%^%s%I$r;H$C$F>pJs$r;2>H$9$k$3$H$,$G$-$^$9!#(B
+SHOW$B$O(BSQL$B%3%^%s%I$G$9$,!"(Bpgpool-II$B$O0lIt$N(BSHOW$B%3%^%s%I$rFH<+$K2r<a$7$F!"(Bpgpool-II$B$,4IM}$9$k>pJs$rJV5Q$7$^$9!#(B
+$B0J2<$N$h$&$J$b$N$,$"$j$^$9!#(B
+<ul>
+  <li>pool_status $B9=@.>pJs(B</li>
+  <li>pool_nodes DB$B%N!<%I>pJs(B</li>
+  <li>pool_processes pgpool-II$B%W%m%;%9$NFbIt>pJs(B</li>
+  <li>pool_pools $B%3%M%/%7%g%s%W!<%k>pJs(B</li>
+  <li>pool_version pgpool-II$B$N%P!<%8%g%s(B</li>
+</ul>
+</p>
+<p>"pool_status" SQL $B$O0JA0$+$i$"$j$^$9$,!"B>$N(BSQL$B$O(Bpgpool-II 3.0$B$+$iDI2C$5$l$^$7$?!#(B
+
+<h2>pool_status</h2>
+<p>"SHOW pool_status" $B$O@_Dj%Q%i%a!<%?$NL>A0$HCM!"@bL@$rI=<($7$^$9!#=PNO$N0lIt$r<($7$^$9!#(B
+<pre>
+benchs2=# show pool_status;
+             item              |              value              |                           description                            
+-------------------------------+---------------------------------+------------------------------------------------------------------
+ listen_addresses              | 127.0.0.1                       | host name(s) or IP address(es) to listen to
+ port                          | 9999                            | pgpool accepting port number
+ socket_dir                    | /tmp                            | pgpool socket directory
+ num_init_children             | 5                               | # of children initially pre-forked
+ child_life_time               | 300                             | if idle for this seconds, child exits
+</pre>
+</p>
+<h2>pool_nodes</h2>
+<p>"SHOW pool_nodes"$B$O!"(BDB$B%N!<%I$N%j%9%H$rI=<($7$^$9!#(B
+$B%[%9%HL>!"%]!<%HHV9f!">uBV!"=E$_(B($B%m!<%I%P%i%s%9%b!<%I$G1?MQ$7$F$$$k$H$-$K$N$_0UL#$,$"$j$^$9(B)$B$,I=<($5$l$^$9!#(B
+$B>uBV(B(status)$B$N0UL#$K$D$$$F$O!"(B<a href="#pcp_node_info">pcp_node_info$B%j%U%!%l%s%9(B</a>$B$G@bL@$5$l$F$$$^$9!#(B
+<pre>
+benchs2=# show pool_nodes;
+  hostname   | port | status |     lb_weight     
+-------------+------+--------+-------------------
+ 127.0.0.1   | 5432 | 2      | 1073741823.500000
+ 192.168.1.7 | 5432 | 3      | 1073741823.500000
+(2 lignes)
+</pre>
+</p>
+<h2>pool_processes</h2>
+<p>"SHOW pool_processes"$B$O!"@\B3BT$A!"$"$k$$$O@\B3Cf(Bpgpool-II$B$N;R%W%m%;%9$N>uBV$rI=<($7$^$9!#(B
+</p>
+<p>
+6$B$D$N%+%i%`$,$"$j$^$9!#(B
+<ul>
+<li>pool_pid $B$O(Bpgpool-II$B%W%m%;%9$N%W%m%;%9(BID$B$G$9!#(B</li>
+<li>start_time$B$O$3$N%W%m%;%9$,5/F0$5$l$?;~9o$G$9(B(1970$BG/(B1$B7n(B1$BF|$+$i$N7P2aIC$GI=<($5$l$^$9(B)$B!#(B</li>
+<li>database$B$O$3$N%W%m%;%9$,@\B3$7$F$$$k%G!<%?%Y!<%9L>$G$9!#(B</li>
+<li>username$B$O$3$N%W%m%;%9$N@\B3$G;HMQ$7$F$$$k%f!<%6L>$G$9!#(B</li>
+<li>create_time is$B$O$3$N@\B3$,:n@.$5$l$?;~9o$G$9!#(B</li>
+<li>pool_counter $B$O$3$N@\B3$,;HMQ$5$l$?2s?t$G$9!#(B</li>
+</ul>
+</p>
+<p>$BJV5Q9T?t$O>o$K(Bnum_init_children$B$K$J$j$^$9!#(B
+$B$^$?!"%G!<%?%Y!<%9L>$J$I$,I=<($5$l$k$N$O!"$=$N%W%m%;%9$K%U%m%s%H%(%s%I$+$i$N@\B3$,$"$k>l9g$K8B$j$^$9!#(B</p>
+<pre>
+benchs2=# show pool_processes;
+ pool_pid | start_time | database  | username  | create_time | pool_counter
+----------+------------+-----------+-----------+-------------+--------------
+ 4318     | 1281433036 |           |           |             |
+ 4319     | 1281433036 |           |           |             |
+ 4320     | 1281433036 | benchs2   | guillaume | 1281433038  | 1
+ 4321     | 1281433036 |           |           |             |
+ 4322     | 1281433036 |           |           |             |
+(5 lines)
+</pre>
+<h2>pool_pools</h2>
+<p>"SHOW pool_pools"$B$O!"(Bpgpool-II$B$N%3%M%/%7%g%s%W!<%k$N>uBV$rI=<($7$^$9!#(B
+</p>
+<p>
+11$B$N%+%i%`$,$"$j$^$9!#(B
+<ul>
+<li>start_time$B$O$3$N%W%m%;%9$,5/F0$5$l$?;~9o$G$9(B(1970$BG/(B1$B7n(B1$BF|$+$i$N7P2aIC$GI=<($5$l$^$9(B)$B!#(B</li>
+<li>pool_pid $B$O(Bpgpool-II$B%W%m%;%9$N%W%m%;%9(BID$B$G$9!#(B</li>
+<li>pool_id $B$O%3%M%/%7%g%s%W!<%k(BID$B$G$9!#(B(0$B$+$i(Bmax_pool-1$B$NCM$G$9(B)</li>
+<li>backend_id $B$O(BPostgreSQL$B%P%C%/%(%s%I$N<1JL;R$G$9(B(0$B$+$i%P%C%/%(%s%I?t(B-1$B$NCM$G$9(B)</li>
+<li>database$B$O$3$N%W%m%;%9$,@\B3$7$F$$$k%G!<%?%Y!<%9L>$G$9!#(B</li>
+<li>username$B$O$3$N%W%m%;%9$N@\B3$G;HMQ$7$F$$$k%f!<%6L>$G$9!#(B</li>
+<li>create_time is$B$O$3$N@\B3$,:n@.$5$l$?;~9o$G$9!#(B</li>
+<li>majorversion $B$H(B minorversion $B$O$3$N@\B3$G;HMQ$5$l$F$$$k%W%m%H%3%k%P!<%8%g%sHV9f$G$9!#(B</li>
+<li>pool_counter $B$O$3$N@\B3$,;HMQ$5$l$?2s?t$G$9!#(B</li>
+<li>pool_backendpid $B$O(B PostgreSQL $B$N%P%C%/%(%s%I%W%m%;%9$N%W%m%;%9(BID$B$G$9!#(B</li>
+<li>pool_connected $B$O??56CM$G!"(B0$B$J$i%U%m%s%H%(%s%I$+$i$N@\B3L5$7!"(B1$B$J$i@\B3$"$j$rI=$7$^$9!#(B</li>
+</ul>
+</p>
+<p>$BJV5Q9T?t$O>o$K(Bnum_init_children*max_pool$B$K$J$j$^$9!#(B
+<pre>
+benchs2=# show pool_pools;
+
+ pool_pid | start_time | pool_id | backend_id | database | username  | create_time | majorversion | minorversion | pool_counter | pool_backendpid | pool_connected 
+----------+------------+---------+------------+----------+-----------+-------------+--------------+--------------+--------------+-----------------+----------------
+ 4318     | 1281433036 | 0       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4318     | 1281433036 | 1       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4318     | 1281433036 | 2       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4318     | 1281433036 | 3       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4319     | 1281433036 | 0       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4319     | 1281433036 | 1       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4319     | 1281433036 | 2       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4319     | 1281433036 | 3       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4320     | 1281433036 | 0       | 0          | benchs2  | guillaume | 1281433038  | 3            | 0            | 1            | 4327            | 1
+ 4320     | 1281433036 | 1       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 1
+ 4320     | 1281433036 | 2       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4320     | 1281433036 | 3       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4321     | 1281433036 | 0       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4321     | 1281433036 | 1       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4321     | 1281433036 | 2       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4321     | 1281433036 | 3       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4322     | 1281433036 | 0       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4322     | 1281433036 | 1       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4322     | 1281433036 | 2       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+ 4322     | 1281433036 | 3       | 0          |          |           | 0           | 0            | 0            | 0            | 0               | 0
+(20 lines)
+</pre>
+</p>
+<h2>pool_version</h2>
+<p>"SHOW pool_version" $B$O(Bpgpool-II$B$N%P!<%8%g%s>pJs$rI=<($7$^$9!#(B
+$BNc$r<($7$^$9!#(B
+<pre>
+benchs2=# show pool_version;
+      pool_version      
+------------------------
+ 3.0-dev (umiyameboshi)
+(1 line)
+</pre>
+</p>
+
 <h1><a name="online-recovery"></a>$B%*%s%i%$%s%j%+%P%j(B</h1>
 <h2> $B%*%s%i%$%s%j%+%P%j35MW(B</h2>
 <p>
+$B$3$N>O$G$O!"%l%W%j%1!<%7%g%s%b!<%I$GMxMQ$9$k>l9g$N%*%s%i%$%s%j%+%P%j5!G=(B
+   $B$K$D$$$F@bL@$7$^$9!#(B
+$B%^%9%?!?%9%l!<%V%b!<%I(B(Streaming Replication)$B$G$N%*%s%i%$%s%j%+%P%j$NMx(B
+   $BMQJ}K!$K$D$$$F$O!"(B<a href="#stream">Streaming Replication$B$X$NBP1~(B
+   </a>$B$r$4Mw2<$5$$!#(B
    $B%l%W%j%1!<%7%g%s%b!<%I$G(B pgpool $B$,F0:n$7$F$$$k>l9g!"%@%&%s$7$?%N!<(B
    $B%I$N%G!<%?$r:FF14|$5$;$?>e$G!"%N!<%I$rI|5"$5$;$k$3$H$,$G$-$^$9!#$3(B
    $B$N5!G=$r!V%*%s%i%$%s%j%+%P%j!W$H8F$S$^$9!#(B
@@ -1696,9 +2313,9 @@ C $B8@8l4X?t$N%b%8%e!<%k$r%$%s%9%H!<%k$7$?$i!"B3$$$F(B C $B8@8l4X?t$r8F$S$@(
 
 <h3>PITR $B$K$h$k%j%+%P%j(B</h3>
 <p>
-$B$3$3$G$O(B PostgreSQL $B$N(B PITR $B5!G=$r;H$C$F%j%+%P%j$r$9$k@_DjNc$r@bL@$7$^(B
-$B$9!#(BPITR $B$K$h$k%j%+%P%j$r$9$k>l9g$K$O$"$i$+$8$a(B PostgreSQL $B$N@_Dj$G%m(B
-$B%0$r%"!<%+%$%V$5$;$k$h$&$K$7$F$*$$$F$/$@$5$$!#(B
+$B$3$3$G$O(B PostgreSQL 8.2 $B0J9_$G(B PITR $B5!G=$r;H$C$F%j%+%P%j$r$9$k@_DjNc$r(B
+$B@bL@$7$^$9!#(BPITR $B$K$h$k%j%+%P%j$r$9$k>l9g$K$O$"$i$+$8$a(B PostgreSQL $B$N(B
+$B@_Dj$G%m%0$r%"!<%+%$%V$5$;$k$h$&$K$7$F$*$$$F$/$@$5$$!#(B
 </p>
 
 <p>
@@ -1733,7 +2350,17 @@ restore_command = 'scp master:/data/archive_log/%f %p'
 <p>
 $B%;%+%s%I%9%F!<%8$G$O:G?7$N>uBV$^$G(B PITR $B$K$h$k%j%+%P%j$r<B;\$G$-$k$h$&(B
 $B$K$9$k$?$a$K!"(Bpgpool_recovery_pitr $B%9%/%j%W%H$r(B$PGDATA $B$K%3%T!<$7$^$9!#(B
-$B$3$N%9%/%j%W%H$G$O(B XLOG $B$r6/@)E*$K%9%$%C%A$5$;$k$h$&$K$7$^$9!#(B
+$B$3$N%9%/%j%W%H$G$O%H%i%s%6%/%7%g%s%m%0$r6/@)E*$K@Z$jBX$($k$h$&$K$7$^$9!#(B
+$BDL>o!"%H%i%s%6%/%7%g%s%m%0$r@Z$jBX$($k$K$O!"(Bpg_switch_xlog $B4X?t$rMxMQ(B
+$B$7$^$9$,!"$3$N4X?t$O!"%"!<%+%$%V%m%0%U%!%$%k$,@8@.$5$l$kA0$K=*N;$7$F(B
+$B$7$^$&2DG=@-$,$"$j$^$9!#(B
+$B$=$3$G!"$h$j0BA4$K%*%s%i%$%s%j%+%P%j$r9T$&$?$a$K(B
+pgpool_switch_xlog $B4X?t$,MQ0U$5$l$F$$$^$9!#(B
+pgpool_switch_xlog $B4X?t$N4pK\F0:n$O(B pg_switch_xlog $B4X?t$HF1$8$G$9$,!"(B
+$B%H%i%s%6%/%7%g%s%m%0$N@Z$jBX$($K$h$k%"!<%+%$%V%m%0%U%!%$%k$N@8@.$r(B
+$BBT$C$F$+$i=*N;$7$^$9!#(B
+$B$3$N4X?t$O!"A0=R$N!V(BC$B8@8l4X?t$N%$%s%9%H!<%k!W$r<B;\$9$k$H%$%s%9%H!<%k(B
+$B$5$l!"0z?t$K$O%"!<%+%$%V%m%0$N=PNO@h%G%#%l%/%H%j$r;XDj$7$^$9!#(B
 </p>
 <p>
 <pre>
@@ -1744,6 +2371,7 @@ datadir=$1		# master dabatase cluster
 DEST=$2			# hostname of the DB node to be recovered
 DESTDIR=$3		# database cluster of the DB node to be recovered
 port=5432		# PostgreSQL port number
+archdir=/data/archive_log	# archive log directory
 
 # Force to flush current value of sequences to xlog 
 psql -p $port -t -c 'SELECT datname FROM pg_database WHERE NOT datistemplate AND datallowconn' template1|
@@ -1754,7 +2382,7 @@ do
   fi
 done
 
-psql -p $port -c 'SELECT pg_switch_xlog()' postgres
+psql -p $port -c "SELECT pgpool_switch_xlog('$archdir')" template1
 </pre>
 </p>
 
@@ -1815,11 +2443,12 @@ ssh -T $DEST $PGCTL -w -D $DESTDIR start 2>/dev/null 1>/dev/null < /dev/null &
 
 <h3>rsync $B$K$h$k%j%+%P%j(B </h3>
 <p>
-7.4 $B0JA0$N>l9g$O(B PITR $B5!G=$,$"$j$^$;$s!#$=$3$G(B PITR $B$r;H$o$:$K(B rsync
-$B$r;H$C$?%j%+%P%jJ}K!$r@bL@$7$^$9!#(Bsample $B%G%#%l%/%H%j$K(B
-pgpool_recovery $B$H$$$&%U%!%$%k$,$"$j$^$9!#%^%9%?$+$iI|5"$5$;$k%N!<%I$X(B
-$B$N%G!<%?$NJ*M}%3%T!<$r9T$&%9%/%j%W%H$G$9!#(Bpgpool $B$+$i$O0J2<$N7A<0$G%9(B
-$B%/%j%W%H$r<B9T$7$^$9!#(B
+7.4 $B0JA0$N>l9g$O(B PITR $B5!G=$,$"$j$^$;$s!#$^$?!"(B8.0 $B$H(B 8.1 $B$N>l9g$O(B
+$B%H%i%s%6%/%7%g%s%m%0$r6/@)E*$K@Z$jBX$($k4X?t$,MQ0U$5$l$F$$$^$;$s!#(B
+$B$=$3$G(B PITR $B$r;H$o$:$K(Brsync $B$r;H$C$?%j%+%P%jJ}K!$r@bL@$7$^$9!#(B
+sample $B%G%#%l%/%H%j$K(B pgpool_recovery $B$H$$$&%U%!%$%k$,$"$j$^$9!#(B
+$B%^%9%?$+$iI|5"$5$;$k%N!<%I$X$N%G!<%?$NJ*M}%3%T!<$r9T$&%9%/%j%W%H$G$9!#(B
+pgpool $B$+$i$O0J2<$N7A<0$G%9%/%j%W%H$r<B9T$7$^$9!#(B
 </p>
 
 <pre>
@@ -1838,7 +2467,7 @@ rsync $B$r;H$&>l9g$O!"%Q%9%U%l!<%:L5$7$G(B ssh $B7PM3$G%m%0%$%s$G$-$k$h$&$K(
 <p>
 rsync$B$K4X$9$kCm5-(B:
 <ul>
-
+ <li>-c (or --checksum) $B%*%W%7%g%s$rIU$1$J$$$H!"%U%!%$%k$,3N<B$KE>Aw$5$l$J$$>l9g$,$"$j$^$9!#(B
  <li>-z (or --compress)$B%*%W%7%g%s$ODcB.$J%M%C%H%o!<%/$G$O8z2L$,$"$j$^$9$,!"(B
 	  100M$B0J>e$N9bB.$J%M%C%H%o!<%/$G$O$+$($C$F(BCPU$BIi2Y$rA}$d$7!"7k2LE*$KCY$/$J$k$3$H$,$"$j$^$9!#(B
 	  $B9bB.%M%C%H%o!<%/$G$O!"$3$N%*%W%7%g%s$r;HMQ$7$J$$$3$H$r$*4+$a$7$^$9!#(B
@@ -1870,16 +2499,332 @@ pgpool $B4IM}%D!<%k$+$i<B9T$7$F$/$@$5$$!#(B
 _PGPOOL2_PCP_TIMEOUT $B$rBg$-$/$7$F$/$@$5$$!#(B
 </p>
 
+<h2>$B%*%s%i%$%s%j%+%P%j$rMxMQ$7$?(BPostgreSQL$B$N%^%$%J!<%P!<%8%g%s%"%C%W(B</h2>
+<h3>$B%l%W%j%1!<%7%g%s%b!<%I$N>l9g(B</h3>
+<p>
+$B%l%W%j%1!<%7%g%s%b!<%I$G(Bpgpool-II$B$,F0:n$7$F$$$k>l9g$O!"%*%s%i%$%s$G3F%N!<%I$N(BPostgreSQL$B$r%P!<%8%g%s%"%C%W$G$-$^$9!#(B
+$B$?$@$7!"%N!<%I$N@Z$jN%$7;~$HDI2C;~$K!"(Bpgpool-II$B$K@\B3$7$F$$$k$9$Y$F$N%;%C%7%g%s$,@ZCG$5$l$k$N$GCm0U$7$F$/$@$5$$!#(B
+$B$^$?!"%*%s%i%$%s%j%+%P%j$,MxMQ$G$-$k%P!<%8%g%s%"%C%W$O%^%$%J!<%P!<%8%g%s%"%C%W$N$_$G!"%@%s%W(B/$B%j%9%H%"$,ITMW$J%j%j!<%9$K8B$j$^$9!#(B
+</p>
+
+<p>
+$B$O$8$a$K!">e5-$N!V%*%s%i%$%s%j%+%P%j$N35MW!W$r;29M$K3F%N!<%I$G%*%s%i%$%s%j%+%P%j$,MxMQ$G$-$k$h$&$K=`Hw$7$^$9!#(B
+</p>
+
+<p>
+PostgreSQL$B$N%P!<%8%g%s%"%C%W$O!"%^%9%?0J30$N%N!<%I$+$i9T$$!":G8e$K%^%9%?%N!<%I$r%P!<%8%g%s%"%C%W$7$^$9!#(B
+$B$=$3$G!"$^$:%P!<%8%g%s%"%C%W$r9T$&%^%9%?0J30$N#1$D$N%N!<%I$N(BPostgreSQL$B$rDd;_$7$^$9!#(B
+pgpool-II$B$,(BPostgreSQL$B$NDd;_$r8!CN$9$k$H!"0J2<$N$h$&$J%m%0$r=PNO$7$F=LB`1?E>$K0\9T$7$^$9!#(B
+$B$=$N:]!"(Bpgpool-II$B$K@\B3$7$F$$$k$9$Y$F$N%;%C%7%g%s$O0lC6@ZCG$5$l$^$9!#(B
+<pre>
+2010-07-27 16:32:29 LOG:   pid 10215: set 1 th backend down status
+2010-07-27 16:32:29 LOG:   pid 10215: starting degeneration. shutdown host localhost(5433)
+2010-07-27 16:32:29 LOG:   pid 10215: failover_handler: set new master node: 0
+2010-07-27 16:32:29 LOG:   pid 10215: failover done. shutdown host localhost(5433)
+</pre>
+</p>
+
+<p>
+$BDd;_$7$?%N!<%I$N(BPostgreSQL$B$r%P!<%8%g%s%"%C%W$7$^$9!#(B
+$B%P!<%8%g%s%"%C%W$O!"?7$7$$%P!<%8%g%s$N(BPostgreSQL$B$r8E$$%P!<%8%g%s$N%$%s%9%H!<%k@h$K>e=q$-$7$F$b9=$$$^$;$s$,!"LdBj$,5/$-$?;~$K85$N%P!<%8%g%s$KLa$;$k$h$&$K%$%s%9%H!<%k@h$rJQ$($F$*$/$3$H$r$*4+$a$7$^$9!#(B
+</p>
+
+<p>
+$B?7$7$$%P!<%8%g%s$N(BPostgreSQL$B$r8E$$%P!<%8%g%s$HJL$N>l=j$K%$%s%9%H!<%k$7$?>l9g!"%j%+%P%j%9%/%j%W%H$rJT=8$9$k$3$H$J$/$=$N$^$^;HMQ$9$k$K$O!"%7%s%\%j%C%/%j%s%/$J$I$r;HMQ$7$F%$%s%9%H!<%k@h$N%Q%9$r0JA0$H9g$o$;$kI,MW$,$"$j$^$9!#(B
+$B>e=q$-%$%s%9%H!<%k$7$?>l9g$O0J2<$N(BC$B8@8l4X?t$r%$%s%9%H!<%k$9$k$^$G$NA`:n$OITMW$G$9!#(B
+$B$9$0$K%*%s%i%$%s%j%+%P%j$,<B9T$G$-$^$9!#(B
+</p>
+
+<p>
+$B8E$$%P!<%8%g%s$N(BPostgreSQL$B$N%$%s%9%H!<%k@h%G%#%l%/%H%jL>$rJQ99$7$^$9!#(B
+$B0J2<$O!"(BPostgreSQL$B$,(B/usr/local/pgsql$B$K%$%s%9%H!<%k$5$l$F$$$?$H2>Dj$7$?0lNc$G$9!#(B
+<pre>
+$ mv /usr/local/pgsql /usr/local/pgsql-old
+</pre>
+</p>
+
+<p>
+$B?7$7$$%P!<%8%g%s$N(BPostgreSQL$B$N%$%s%9%H!<%k@h$K%7%s%\%j%C%/%j%s%/$r:n@.$7$^$9!#(B
+$B$3$l$K$h$j!":#$^$G$I$*$j$N%Q%9$G?7$7$$%P!<%8%g%s$N(BPostgreSQL$B$,;HMQ$G$-$k$h$&$K$J$j$^$9!#(B
+$B0J2<$O!"?7$7$$%P!<%8%g%s$N(BPostgreSQL$B$,(B/usr/local/pgsql-new$B$K%$%s%9%H!<%k$5$l$F$$$k$H2>Dj$7$?0lNc$G$9!#(B
+<pre>
+$ ln -s /usr/local/pgsql-new /usr/local/pgsql
+</pre>
+</p>
+
+<p>
+$B%G!<%?%Y!<%9%/%i%9%?%G%#%l%/%H%j$,(BPostgreSQL$B$N%$%s%9%H!<%k@h%G%#%l%/%H%j$N2<0L$K$"$k>l9g$O!"F1$8%Q%9$G%G!<%?%Y!<%9%/%i%9%?$K%"%/%;%9$G$-$k$h$&$K%7%s%\%j%C%/%j%s%/$r:n@.$9$k$+%3%T!<$7$^$9!#(B
+$B0J2<$O!"%7%s%\%j%C%/%j%s%/$r:n@.$9$kNc$G$9!#(B
+<pre>
+$ ln -s /usr/local/pgsql-old/data /usr/local/pgsql/data
+</pre>
+</p>
+
+<p>
+$B?7$7$$%P!<%8%g%s$N(BPostgreSQL$B$K!"%*%s%i%$%s%j%+%P%jMQ$N4X?t$r!V(BC$B8@8l4X?t$N%$%s%9%H!<%k!W$r;29M$K%$%s%9%H!<%k$7$^$9!#(B
+$B%*%s%i%$%s%j%+%P%j$O!"%G!<%?%Y!<%9%/%i%9%?$r%3%T!<$7$^$9$N$G!":G8e$N(Bpsql$B$r;HMQ$7$?4X?t$N:n@.$OITMW$G$9!#(B
+make install$B$r<B9T$7$F$/$@$5$$!#(B
+</p>
+
+<p>
+$B:G8e$K%*%s%i%$%s%j%+%P%j$r<B9T$7$F!"#1$D$N%N!<%I$N%P!<%8%g%s%"%C%W$,40N;$7$^$9!#(B
+$B%*%s%i%$%s%j%+%P%j$O!"(Bpcp_recovery_node$B%3%^%s%I$r<B9T$9$k$+(BpgpoolAdmin$B$G9T$$$^$9!#(B
+</p>
+
+<p>
+$B0J>e$N<j=g$r%^%9%?0J30$N%N!<%I$G7+$jJV$7!":G8e$K%^%9%?%N!<%I$G9T$($P!"A4BN$N(BPostgreSQL$B$N%^%$%J!<%P!<%8%g%s%"%C%W$O40N;$G$9!#(B
+</p>
+
+<h3>Streaming Replication$B$rMxMQ$7$F$$$k>l9g(B</h3>
+<p>
+$B%^%9%?!<%9%l!<%V%b!<%I$G(BStreaming Replication$B$rMxMQ$7$F$$$k>l9g$O!"%*%s%i%$%s$G%9%?%s%P%$$N(BPostgreSQL$B$r%^%$%J!<%P!<%8%g%s%"%C%W$G$-$^$9!#(B
+</p>
+
+<p>
+$B%9%?%s%P%$$N(BPostgreSQL$B$r%^%$%J!<%P!<%8%g%s%"%C%W$9$k<j=g$O!">e5-$N%l%W%j%1!<%7%g%s%b!<%I$N<j=g$HF1$8$G$9!#(B
+$B$?$@$7!"(Brecovery_1st_stage_command$B$H(Brecovery_2nd_stage_command$B$N@_Dj$J$I$O!"!V(BStreaming Replication$B$G$N%*%s%i%$%s%j%+%P%j!W$r;29M$K$7$F$/$@$5$$!#(B
+</p>
+
+<p>
+$B%W%i%$%^%j$N(BPostgreSQL$B$N%^%$%J!<%P!<%8%g%s%"%C%W$O!"%*%s%i%$%s$G$O$G$-$^$;$s!#(B
+pgpool-II$B$NDd;_$,I,MW$K$J$j$^$9!#(B
+$B%W%i%$%^%j$N(BPostgreSQL$B$b%P!<%8%g%s%"%C%W$NJ}K!<+BN$O!"%9%?%s%P%$$HF1MM$G$9!#(B
+$B%W%i%$%^%j$N(BPostgreSQL$B$N%P!<%8%g%s%"%C%W$O0J2<$N<j=g$G9T$$$^$9!#(B
+<ol>
+<li>pgpool-II$B$rDd;_(B
+<li>$B%W%i%$%^%j$N(BPostgreSQL$B$rDd;_(B
+<li>$B%W%i%$%^%j$N(BPostgreSQL$B$r%P!<%8%g%s%"%C%W(B
+<li>$B%W%i%$%^%j$N(BPostgreSQL$B$r5/F0(B
+<li>pgpool-II$B$r5/F0(B
+</ol>
+</p>
+
+<h1><a name="backup"></a>$B%P%C%/%"%C%W(B</h1>
+<p>
+$B%P%C%/%(%s%I$H%7%9%F%`(BDB$B$N(BPostgreSQL$B$N%P%C%/%"%C%W$O!"C1BN$N(BPostgreSQL$B$HF1MM$K!"J*M}%P%C%/%"%C%W!"O@M}%P%C%/%"%C%W(B(pg_dump, pg_dumpall)$B!"(BPITR$B$,;HMQ$G$-$^$9!#(B
+$B$?$@$7!"O@M}%P%C%/%"%C%W$H(BPITR$B$NA`:n$O!"(Bpgpool-II$B$r7PM3$;$:$K(BPostgreSQL$B$KBP$7$FD>@\9T$C$F$/$@$5$$!#(B
+$B$3$l$O!"(Bload_balance_mode$B$d(Breplicate_select$B$J$I$N@_Dj$K$h$k%P%C%/%"%C%W$N<:GT$rHr$1$k$?$a$G$9!#(B
+</p>
+
+<h2>$B%l%W%j%1!<%7%g%s%b!<%I!"%^%9%?!<%9%l!<%V%b!<%I(B</h2>
+<p>
+$B%l%W%j%1!<%7%g%s%b!<%I$H%^%9%?!<%9%l!<%V%b!<%I$G(Bpgpool-II$B$,F0:n$7$F$$$k>l9g$O!"%/%i%9%?$r9=@.$7$F$$$k$$$:$l$+$N%N!<%I$G%P%C%/%"%C%W$r9T$$$^$9!#(B
+</p>
+
+<p>
+$B%^%9%?!<%9%l!<%V%b!<%I$GHsF14|$N%l%W%j%1!<%7%g%s$r9T$C$F$$$k>l9g$G!"$+$D!":G?7$N%P%C%/%"%C%W$r<hF@$7$?$$>l9g$O!"%^%9%?%N!<%I$G%P%C%/%"%C%W$7$F$/$@$5$$!#(B
+</p>
+
+<p>
+$B%P%C%/%"%C%W;~$NCm0UE@$H$7$F!"(BPostgreSQL$B$KBP$7$F(Bpg_dump$B%3%^%s%I$J$I$r<B9T$9$k$H!"(BACCESS SHARE$B%b!<%I$N%m%C%/$,$+$+$j$^$9!#(B
+$B$=$N$?$a!"(BACCESS SHARE$B%b!<%I$H6%9g$9$k(BACCESS EXCLUSIVE$B%m%C%/$,I,MW$K$J$k%3%^%s%I!J(BALTER TABLE$B!"(BDROP TABLE$B!"(BTRUNCATE$B!"(BREINDEX$B!"(BCLUSTER$B$*$h$S(BVACUUM FULL$B$J$I!K$O!"%m%C%/BT$A$,H/@8$7$^$9!#(B
+$B$3$l$O!"HsF14|$N%l%W%j%1!<%7%g%s$G!"%9%l!<%V%N!<%I$KBP$7$F%P%C%/%"%C%W$r9T$C$F$$$k>l9g$b!"%^%9%?$,1F6A$r<u$1$k$3$H$,$"$j$^$9$N$GCm0U$7$F$/$@$5$$!#(B
+</p>
+
+<h2>$B%Q%i%l%k%b!<%I(B</h2>
+<p>
+$B%Q%i%l%k%b!<%I$G(Bpgpool-II$B$,F0:n$7$F$$$k>l9g!"%/%i%9%?A4BN$N%G!<%?$,0l4S@-$N$"$k>uBV$G%P%C%/%"%C%W$r<hF@$9$k$K$O!"%"%W%j%1!<%7%g%s!"$^$?$O(Bpgpool-II$B$N0l;~E*$JDd;_$,I,MW$K$J$j$^$9!#(B
+</p>
+
+<p>
+$BO@M}%P%C%/%"%C%W$rMxMQ$9$k>l9g$O!"%"%W%j%1!<%7%g%s!"$^$?$O(Bpgpool-II$B$rDd;_$7!"$9$Y$F$N%N!<%I$G(Bpg_dump, pg_dumpall$B%3%^%s%I$r<B9T$7$^$9!#(B
+$B$=$7$F!"$9$Y$F$N%N!<%I$G%@%s%W$,=*N;$7$?$i!"%"%W%j%1!<%7%g%s!"$^$?$O(Bpgpool-II$B$r5/F0$7$F$/$@$5$$!#(B
+</p>
+
+<p>
+PITR$B$rMxMQ$9$k>l9g$O!"$^$:3F%N!<%I$N%7%9%F%`$N;~9o$,$[$\0lCW$7$F$$$k$3$H$r3NG'$7$F$/$@$5$$!#(B
+$B$=$7$F!";vA0$K3F%N!<%I$G%"!<%+%$%V%m%0$N@_Dj$r9T$$!"%Y!<%9%P%C%/%"%C%W$r<hF@$7$^$9!#(B
+$B3F%N!<%I$r8DJL$K%j%9%H%"$G$-$k>uBV$K$J$C$?$i!"%"%W%j%1!<%7%g%s!"$^$?$O(Bpgpool-II$B$r0l;~E*$KDd;_$7$^$9!#(B
+$BDd;_8e!"$=$N;~9o$H<!$K5/F0$7$?;~9o$r5-O?$7$^$9!#(B
+$B$3$N0l;~E*$JDd;_$K$h$C$F!"%/%i%9%?A4BN$N%G!<%?$,0l4S@-$N$"$k>uBV$rJ]$C$?4|4V$,$G$-$^$9!#(B
+$B%Y!<%9%P%C%/%"%C%W$H%"!<%+%$%V%m%0$r;HMQ$7$F3F%N!<%I$r%j%9%H%"$9$k>l9g$O!"0l;~Dd;_4|4V$N??$sCf$"$?$j$N;~9o$r(Brecovery.conf$B$N(Brecovery_target_time$B$K;XDj$7$?$&$($G!"%j%+%P%j$r9T$C$F$/$@$5$$!#(B
+</p>
+
+<h2>$B%7%9%F%`(BDB$B$N%P%C%/%"%C%W(B</h2>
+<p>
+$B%Q%i%l%k%/%(%j%b!<%I!"$^$?$O%/%(%j%-%c%C%7%e$r;HMQ$7$F$$$k>l9g$O!"%7%9%F%`(BDB$B$b%P%C%/%"%C%W$9$kI,MW$,$"$j$^$9!#(B
+pgpool.conf$B$N(Bsystem_db_dbname$B$K@_Dj$7$?%G!<%?%Y!<%9$r%P%C%/%"%C%W$7$F$/$@$5$$!#(B
+</p>
+
+<h1><a name="deploy"></a>pgpool-II$B$NG[CV$K$D$$$F(B</a></h1>
+<p>
+pgpool-II$B$O!"FHN)$7$?%5!<%P$KG[CV$9$k$3$H$b$G$-$^$9$7!"%"%W%j%1!<%7%g%s%5!<%P$HF15o$5$;$k$3$H$b$G$-$^$9$7!"$=$NB>$NG[CV$b9M$($i$l$^$9!#(B
+$B$3$3$G$O$=$l$>$l$NG[CVJ}K!$r>R2p$7!"$=$l$>$l$NFCD'!"%a%j%C%H!"%G%a%j%C%H$r8!F$$7$^$9!#(B
+</p>
+
+<p>
+<ul>
+<dt>$B@lMQ$N%5!<%P$KG[CV(B
+<dd>
+<p>
+pgpool-II$B$rJ*M}E*$KFHN)$7$?@lMQ$N%5!<%P$KG[CV$9$kJ}K!$G$9!#(B
+$BJ,$+$j$d$9$$J}K!$G$9$7!"B>$N%5!<%P%=%U%H%&%'%"$N1F6A$r<u$1$J$$$N$G(Bpgpool-II$B$r$b$C$H$b0BA4$K1?1D$G$-$^$9$,!"%5!<%PAuCV$r(B1$BBfM>7W$KA}$d$9I,MW$,$"$k$N$,7gE@$G$9!#(B
+$B$^$?!"$=$N%5!<%P$,C10l>c32E@$K$J$j$^$9(B(pgpool-II$B$,C10l>c32E@$K$J$k$3$H$r2sHr$9$k$K$O!"8e=R$N(Bpgpool-HA$B$rJ;MQ$7$^$9(B)$B!#(B
+</p>
+
+<dt>Web$B%5!<%P$d%"%W%j%1!<%7%g%s%5!<%P$HF15o(B
+<dd>
+<p>
+Apache$B!"(BJBoss$B!"(BTomcat$B$J$I$N(BWeb$B%5!<%P$d%"%W%j%1!<%7%g%s%5!<%P$,2TF/$7$F$$$k%5!<%P$K(Bpgpool-II$B$rF15o$5$;$kJ}K!$G$9!#(B
+$B$3$NJ}K!$G$O!"(BWeb$B%5!<%P$d%"%W%j%1!<%7%g%s%5!<%P$H(Bpgpool-II$B$NDL?.$,%m!<%+%k%^%7%sFb$K$J$k$N$G!"%=%1%C%HDL?.$,%^%7%s4V$GDL?.$9$k$h$j$b9bB.$K$J$k%a%j%C%H$,$"$j$^$9!#(B
+$B$^$?!"J#?t$N(BWeb$B%5!<%P!?%"%W%j%1!<%7%g%s%5!<%P$,$"$l$P!"<+A3$HC10l>c32E@$r2sHr$G$-$k$h$&$K$J$j$^$9!#(B
+($B$3$N>l9g!"J#?t$N(Bpgpool-II$B$N@_Dj$OF1$8$K$7$F$/$@$5$$(B)$B!#(B
+$B$J$*!"J#?t$N(Bpgpool-II$B$,F0:n$7$F$$$k%1!<%9$G$O0J2<$NE@$KCm0U$7$F$/$@$5$$!#(B
+</p>
+<ul>
+ <li>pgpool-II$B$H(BDB$B%5!<%P$N4V$N%M%C%H%o!<%/$,IT0BDj$@$H!"(Bpgpool-II$B$+$i8+$F(BDB$B%N!<%I(B#1$B$,%@%&%s!"B>$N(Bpgpool-II$B$+$i8+$F@5>o!"$H$$$&$h$&$J>uBV$K$J$C$F$7$^$&$3$H$,$"$j$^$9!#(B
+$B%M%C%H%o!<%/$rFs=E2=$9$k$J$I$7$F!"%M%C%H%o!<%/>c32$,5/$-$J$$$h$&$K$7$F$/$@$5$$!#(B
+<li>$B%l%W%j%1!<%7%g%s%b!<%I$G!"%*%s%i%$%s%j%+%P%j<B9TCf$O!"0l$D$N(Bpgpool-II$B$@$1;D$7$FB>$N(Bpgpool-II$B$rMn$7$F$/$@$5$$!#(B
+$B$5$b$J$$$H!"%j%+%P%j8e$N7k2L$K@09g@-$,$J$/$J$k2DG=@-$,$"$j$^$9!#(B
+$B%^%9%?!<!?%9%l!<%V%b!<%I(B+Streaming Replication$B%b!<%I$G$O!"F1;~$KJ#?t$N(Bpgpool-II$B$G%*%s%i%$%s%j%+%P%j$r<B9T$7$J$$8B$j!"LdBj$"$j$^$;$s!#(B
+</ul>
+</p>
+
+<dt>DB$B%5!<%P$HF15o(B
+<dd>
+<p>
+PostgreSQL$B$N2TF/$7$F$$$k(BDB$B%5%P$HF15o$5$;$kJ}K!$G$9!#(B
+$B$3$NJ}K!$G$O!"(Bpgpool-II$B$,C10l>c32E@$K$J$k$3$H$,$J$/!"M>7W$J%5!<%P$rDI2C$9$kI,MW$b$J$$E@$,M%$l$F$$$^$9$,!"%"%W%j%1!<%7%g%s$,$I$N(BDB$B%5!<%P$K@\B3$9$k$N$+$r<+$iH=CG$9$kI,MW$,$"$k$N$,7gE@$G$9!#(B
+$B$3$NLdBj$r2r7h$9$k$K$O!"(Bpgpool-HA$B$HAH$_9g$o$;$F2>A[(BIP$B$rMxMQ$7$^$9!#(B
+</ul>
+</p>
+
+<h2>pgpool-HA$B$K$D$$$F(B</h2>
+<p>
+pgpool-HA$B$O!"(Bheartbeat$B$J$I$rMxMQ$7$F(Bpgpool-II$B$rFs=E2=$7!"(Bpgpool-II$B<+BN$N2DMQ@-$r>e$2$k%=%U%H%&%'%"$G$9!#(B
+pgpool-II$B$HF1MM!"(Bpgpool$B%W%m%8%'%/%H$N%5%V%W%m%8%'%/%H$G$"$j!"(Bpgpool$B$N3+H/%5%$%H$G(BOSS$B$H$7$F8x3+$5$l$F$$$^$9!#(B
+
+<h1><a name="troubleshooting"></a>$B%H%i%V%k%7%e!<%F%#%s%0(B</h1>
+<p>
+$B$3$N>O$G$O!"(Bpgpool-II$B$r1?MQCf$KD>LL$7$d$9$$>c32$H!"$=$NBP:vJ}K!$r%1!<%9JL$K@bL@$7$^$9!#(B
+</p>
+<p>
+<ul>
+
+<dt>health check failed
+<dd>
+<p>
+$B%X%k%9%A%'%C%/$G(Bpgpool-II$B$,(BDB$B%N!<%I$N>c32$r8!=P$7$^$7$?!#(B
+</p>
+<p>
+<pre>
+2010-07-23 16:42:57 ERROR: pid 20031: health check failed. 1 th host foo at port 5432 is down
+2010-07-23 16:42:57 LOG:   pid 20031: set 1 th backend down status
+2010-07-23 16:42:57 LOG:   pid 20031: starting degeneration. shutdown host foot(5432)
+2010-07-23 16:42:58 LOG:   pid 20031: failover_handler: set new master node: 0
+2010-07-23 16:42:58 LOG:   pid 20031: failover done. shutdown host foo(5432)
+</pre>
+</p>
+<p>
+$B$3$N%m%0$O!"(BDB$B%N!<%I(B1($B%[%9%HL>(B foo)$B$,%@%&%s$7$F@Z$jN%$5$l!"?7$7$/(BDB$B%N!<%I(B0$B$,%^%9%?$H$7$F07$o$l=P$7$?$3$H$r<($7$F$$$^$9!#(B
+DB$B%N!<%I(B1$B$r%A%'%C%/$7!"0[>o860x$r<h$j=|$$$?8e$K!"2DG=$G$"$l$P%*%s%i%$%s%j%+%P%j5!G=$r;H$C$F(BDB$B%N!<%I(B1$B$rI|5"$5$;$F$/$@$5$$!#(B
+
+<dt>failed to read kind from frontend
+<dd>
+<p>
+<pre>
+2010-07-26 18:43:24 LOG:   pid 24161: ProcessFrontendResponse: failed to read kind from frontend. frontend abnormally exited
+</pre>
+<p>
+pgpool-II$B$+$i8+$F%/%i%$%"%s%H$,FMA3%;%C%7%g%s$r@ZCG$7$?:]$K$3$N$h$&$J%m%0$,;D$j$^$9!#(B
+$B860x$H$7$F$O!"%"%W%j%1!<%7%g%s$N%P%0!"%"%W%j%1!<%7%g%s$,6/@)=*N;$5$l$?!"$d%M%C%H%o!<%/$N0l;~E*$J>c32$,9M$($i$l$^$9!#(B
+$B$3$N%m%0$,=P$F$b!"(BDB$B$,2u$l$k$H$+0l4S@-$,$J$/$J$k$h$&$JLdBj$O5/$-$^$;$s$,!"(B
+$B7QB3$7$F$3$N%m%0$,=PNO$5$l$k$h$&$G$"$l$P!"%"%W%j%1!<%7%g%s$d%M%C%H%o!<%/$N>c32$rD4::$9$k$3$H$r$*$9$9$a$7$^$9!#(B
+</p>
+
+<dt>kind mismatch$B%(%i!<(B
+<dd>
+<p>
+$B%l%W%j%1!<%7%g%s%b!<%I$G1?MQ$7$F$$$k>l9g$K=P$k$3$H$,$"$k%(%i!<$G$9!#(B
+</p>
+<pre>
+2010-07-22 14:18:32 ERROR: pid 9966: kind mismatch among backends. Possible last query was: "FETCH ALL FROM c;" kind details are: 0[T] 1[E: cursor "c" does not exist]
+</pre>
+<p>
+pgpool-II$B$O!"(BSQL$B%3%^%s%I$r3F(BDB$B%N!<%I$KAw?.$7$?$i!"3F(BDB$B%N!<%I$+$iF1$8%l%9%]%s%9$,JV$C$F$/$k$3$H$r4|BT$7$^$9!#(B
+$B$3$N%(%i!<$O!"0[$J$k%l%9%]%s%9$,JV$C$F$-$?$3$H$r<($7$^$9!#(B
+Possible last query was:$B$N$"$H$K!"$3$N%(%i!<$rJV$9860x$H$J$C$?Ld$$9g$o$;$N(BSQL$BJ8$,I=<($5$l$^$9!#(B
+$B$=$N$"$H$G!"3F(BDB$B%N!<%I$+$i$N%l%9%]%s%9$N<oN`$H!"%l%9%]%s%9$,%(%i!<$N>l9g$O!"(BPostgreSQL$B$N%(%i!<%a%C%;!<%8$,I=<($5$l$^$9!#(B
+$B$3$3$G$O!"(B"0[T]"$B$K$h$j!"(B0$BHVL\$N(BDB$B%N!<%I$,(B"T"($B9T>pJs$N3+;O(B)$B$H$$$&1~Ez$rJV$7$?$3$H!"0lJ}(B"1[E"$B$G!"(BDB$B%N!<%I(B1$B$,%(%i!<$rJV$7$?$H$3$H!"$=$N%(%i!<%a%C%;!<%8$O!V(Bcursor "c" does not exist$B!W$G$"$C$?$3$H$,$o$+$j$^$9!#(B
+<p>
+$BCm0U(B: $B$3$N%(%i!<$O!"%^%9%?!<%9%l!<%V%b!<%I$G$b=P$k$3$H$,$"$j$^$9!#(B
+$B$?$H$($P!"(BSET$B%3%^%s%I$O!"3F%;%C%7%g%s$N>uBV$rF1$8$K$9$k$?$a$K!"4pK\E*$K$9$Y$F$N(BDB$B%N!<%I$KAw?.$5$l$k$+$i$G$9!#(B
+</p>
+<p>
+$B%G!<%?%Y!<%9$rD4$Y$F860x$rFCDj$7!"$b$7(BDB$B$NF14|$,Jx$l$F$$$k$h$&$G$"$l$P!"%*%s%i%$%s%j%+%P%j$r;H$C$F@5$7$$%G!<%?$HF14|$5$;$F$/$@$5$$!#(B
+</p>
+
+<p>
+<dt>pgpool detected difference of the number of inserted, updated or deleted tuples
+<dd>
+<p>
+$B%l%W%j%1!<%7%g%s%b!<%I$K$*$$$F!"(Bpgpool-II$B$,!"(BDB$B%N!<%I4V$G(BINSERT/UPDATE/DELETE$B$,JV$97k2L9T$N0c$$$r8!=P$7$^$7$?!#(B
+</p>
+<p>
+<pre>
+2010-07-22 11:49:28 ERROR: pid 30710: pgpool detected difference of the number of inserted, updated or deleted tuples. Possible last query was: "update t1 set i = 1;"
+2010-07-22 11:49:28 LOG:   pid 30710: ReadyForQuery: Degenerate backends: 1
+2010-07-22 11:49:28 LOG:   pid 30710: ReadyForQuery: Affected tuples are: 0 1
+</pre>
+<p>
+$B$3$NNc$G$O!"(Bupdate t1 set i = 1$B$K$h$C$F99?7$5$l$?9T?t$,!"(BDB$B%N!<%I$G0[$J$C$F$$$^$9!#(B
+$B$^$?!"<!$N9T$G$O!"(BDB$B%N!<%I(B1$B$r@Z$jN%$7$?$3$H!"99$K(BDB$B%N!<%I(B0$B$G$N7k2L9T?t$,(B0$B$@$C$?$N$KBP$7$F!"(BDB$B%N!<%I(B1$B$G$O!"(B1$B9T$@$C$?$3$H$rI=$7$F$$$^$9!#(B
+</p>
+<p>
+$B@5$7$/$J$$%G!<%?$r;}$C$F$$$k$H;W$o$l$k(BDB$B%N!<%I$rDd;_$7!"%*%s%i%$%s%j%+%P%j$r;H$C$F@5$7$$%G!<%?$HF14|$5$;$F$/$@$5$$!#(B
+</ul>
 
 <h1>$B@)8B;v9`(B<a name="restriction"></a></h1>
 <p>
-<h2>$BG'>Z!&%"%/%;%9@)8fJ}<0(B</h2>
+<h2>PostgreSQL$B$N5!G=(B</h2>
+<p>
+<ul>
+<li>pg_terminate_backend()$B$G%P%C%/%(%s%I$r=*N;$5$;$k$H%U%'%$%k%*!<%P$7$F$7$^$$$^$9!#(B
+$B$3$l$O!"(BPostgreSQL$B$,(Bpostmaster$B$r%7%c%C%H%@%&%s$7$?$H$-$HF1$8%a%C%;!<%8$r(Bpgpool$B$KAw$k$?$a$G$9!#(B
+$B:#$N$H$3$mBP1~J}K!$O$J$$$N$G!"$3$N4X?t$r;H$o$J$$$h$&$K$7$F$/$@$5$$!#(B
+</ul>
+
+<h2><a name="md5"></a>$BG'>Z!&%"%/%;%9@)8fJ}<0(B</h2>
 <p>
 <ul>
 <li>$B%l%W%j%1!<%7%g%s%b!<%I$^$?%^%9%?(B/$B%9%l!<%V%b!<%I;~$K$O(Btrust, reject, clear
-     text password, pam, $BG'>ZJ}<0$@$1$,MxMQ$G$-$^$9!#(Bmd5$BG'>Z!"(Bcrypt$BG'>Z$J$I$NG'>ZJ}<0$OMxMQ$G$-$^$;$s!#(B
+     text password, pam, $BG'>ZJ}<0$@$1$,MxMQ$G$-$^$9!#(B
+crypt$BG'>Z$OMxMQ$G$-$^$;$s!#(B
+md5$BG'>Z$K4X$7$F$O!"(BPostgreSQL$B$K3:Ev%f!<%6$r(Bmd5$BG'>ZIU$G(BPostgreSQL$B$KEPO?$7!"<!$K(Bpgpool$B$KIUB0$9$k(Bpg_md5$B%3%^%s%I$r;H$C$F!"(Bpool_passwd$B$H$$$&G'>Z%U%!%$%k$r:n@.$9$k$3$H$K$h$jMxMQ$G$-$k$h$&$K$J$j$^$9!#(B
+<ol>
+<li>DB$B%f!<%6$N%"%+%&%s%H$G%m%0%$%s$7!"(B"pg_md5 --md5auth $B%Q%9%o!<%I(B" $B$r<B9T$7$^$9!#(B
+<li>md5$B$K$h$j0E9f2=$5$l$?%Q%9%o!<%I$,(Bpool_passwd$B$KEPO?$5$l$^$9!#(B
+pool_passwd$B$,$^$@B8:_$7$J$1$l$P!"(Bpgpool.conf$B$HF1$8%G%#%l%/%H%jFb$K:n@.$5$l$^$9!#(B
+<li>pool_passwd$B$N%U%)!<%^%C%H$O!"(B"$B%f!<%6L>(B:$B%Q%9%o!<%I(B"$B$H$J$C$F$$$^$9!#(B
+<li>pool_hba.conf$B$K(Bmd5$BG'>Z$N%(%s%H%j$r:n@.$7$^$9!#(B
+pool_hba.conf$B$K$D$$$F$O!"(B<a href="#hba">$B%/%i%$%"%s%HG'>Z(B(HBA)$B$N$?$a$N(Bpool_hba.conf$B@_DjJ}K!(B</a>
+$B$r;2>H$7$F$/$@$5$$!#(B
+<li>$BCm0U;v9`(B: pool_passwd$B$KEPO?$9$k%Q%9%o!<%I$O!"(BPostgreSQL$B$KEPO?$7$?%Q%9%o!<%I$H40A4$KF1$8$G$J$1$l$P$J$j$^$;$s!#(B
+</ol>
+
 <li>$B$=$l0J30$N%b!<%I$G$O!"(Btrust, reject, clear text password, pam, crypt, md5$BG'>ZJ}<0$@$1$,MxMQ$G$-$^$9!#(B
 </ul>
+</p>
+
+<h2>$B0l;~%F!<%V%k$N07$$(B</h2>
+<p>
+$B@)8BBP>](B:$B%^%9%?!<%9%l!<%V%b!<%I(B
+</p>
+
+<p>
+$B0l;~%F!<%V%k$N:n@.!"99?7$O>o$K%^%9%?(B(primary)$B$G9T$J$o$l$^$9!#(B
+$B0l;~%F!<%V%k$N8!:w$b!"(Bpgpool-II 3.0$B0J9_$G$O!"%^%9%?$G9T$J$o$l$k$N$G!"0l;~%F!<%V%k$r;H$C$F$$$k$+$I$&$+$r0U<1$9$kI,MW$O$"$j$^$;$s!#(B
+$B$?$@$7!"J8;zNs$H$7$F0l;~%F!<%V%kL>$r(BSELECT$B$NCf$G;H$C$F$$$k>l9g$O0l;~%F!<%V%k$+$I$&$+$N3NG'$N$7$h$&$,$J$$$N$G!"Ii2YJ,;6$5$l$F$7$^$$!"$=$N0l;~%F!<%V%k$,8+$D$+$i$J$$$+!"$b$7$/$OF1$8L>A0$NJL$N%F!<%V%k$r8!:w$7$F$7$^$&$3$H$K$J$j$^$9!#(B
+$B$=$N$h$&$JLd$$9g$o$;$OHr$1$k$+!"(B/*NO LOADB ALNCE*/$B$N%3%a%s%H$rA^F~$7$F$/$@$5$$!#(B
+</p>
+<p>
+<pre>
+SELECT 't1'::regclass::oid;
+</pre>
+</p>
+<p>
+$B$A$J$_$K!"(Bpsql$B$N(B\d$B%3%^%s%I$N$h$&$K!"%7%9%F%`%+%?%m%0$rLd$$9g$o$;$kCf$GJ8;zNs$H$7$F$N%F!<%V%kL>$r;H$C$F$$$k>l9g$O!"(Bpgpool-II 3.0$B0J9_$G$O%^%9%?$G8!:w$,9T$J$o$l$k$N$G!"LdBj$K$J$j$^$;$s!#(B
+$B$J$<$J$i!"%7%9%F%`%+%?%m%0$X$N8!:w$O>o$K%^%9%?$G9T$J$o$l$k$+$i$G$9!#(B
 </p>
 
 <h2>$B%l%W%j%1!<%7%g%s%b!<%I$GCm0U$,I,MW$J4X?t$J$I(B</h2>
@@ -1905,6 +2850,13 @@ CREATE TABLE rel1(
 )
 </pre>
 $B$N$h$&$J$b$N$b8=:_$N%?%$%`%9%?%s%W$H$7$F=q$-49$($r9T$$$^$9!#(B
+$B$J$*!"Ns$NDj5A$,!"(B
+<pre>
+foo bigint default (date_part('epoch'::text,('now'::text)::timestamp(3) with time zone) * (1000)::double precision)
+</pre>
+$B$N$h$&$K!"%G!<%?7?$,F|IU!";~9o0J30$K$J$C$F$$$k>l9g$O=q$-49$($O9T$J$$$^$;(B
+$B$s!#(B
+
 <li>INSERT ... SELECT$B$G$O!"Ns$N(BDEFAULT$B$KBP$9$k=q$-49$($r9T$$$^$;$s!#Nc$($P!"(B
 <pre>
 CREATE TABLE rel1(
@@ -1966,7 +2918,7 @@ DB $B$N%5!<%P%(%s%3!<%G%#%s%0$r0lCW$5$;$k$h$&$K$7$F$/$@$5$$!#(B
 </p>
 <p>
 $B$J$*!"(Bpsql $B$r;H$C$F(B pgpool $B$K@\B3$7$?>l9g$O!"(Bpsql $BFbIt$G%^%k%A%9%F!<%H(B
-$B%a%s%H$rJ,2r$7!"(B1 $B$D$:$DAw?.$7$^$9!#(B
+$B%a%s%H$rJ,2r$7!"(B1 $B$D$:$DAw?.$9$k$N$G!"<B:]$K$OLdBj$K$J$j$^$;$s!#(B
 </p>
 
 <h3>$B3HD%Ld$$9g$o$;%W%m%H%3%k(B</h3>
@@ -2202,7 +3154,7 @@ OR $B>r7o$J$I$H$$$C$?$b$N$K$OBP1~$7$F$$$^$;$s!#(B
 <h3>libpq</h3>
 <p>
 pgpool-II $B$G$O(B libpq $B$r%j%s%/$7$^$9!#(Blibpq $B$N%P!<%8%g%s$O(B 2.0 $B$N>l9g!"(B
-configure $B$K<:GT$7$^$9!#I,$:(B libpq 3.0 (PostgreSQL 7.4) $B$r%j%s%/$9$k$h(B
+configure $B$K<:GT$7$^$9!#I,$:(B libpq 3.0 $B0J9_(B(PostgreSQL 7.4$B0J9_(B) $B$r%j%s%/$9$k$h(B
 $B$&$K$7$F$/$@$5$$!#$^$?!"(BSystemDB $B$N%P!<%8%g%s$b(B PostgreSQL 7.4 $B0J9_$,(B
 $BI,?\$K$J$j$^$9!#(B
 </p>
@@ -2248,7 +3200,7 @@ configure $B$K<:GT$7$^$9!#I,$:(B libpq 3.0 (PostgreSQL 7.4) $B$r%j%s%/$9$k$h
 		$BEz$,$J$$>l9g$O%3%M%/%7%g%s$r@ZCG$7$F=*N;$7$^$9!#$J$*!"(B
 		$B$3$N%*%W%7%g%s$O(B 2.1 $B$+$i$OL5;k$9$k$h$&$K$J$C$F$$$^$9!#(B
     $BBhFs0z?t(B	- pgpool-II$B$,2TF0$7$F$$$k%[%9%HL>(B
-    $BBh;00z?t(B	- pgpool-II$B$,<u$1IU$1$F$$$k%]!<%HHV9f(B
+    $BBh;00z?t(B	- PCP$B%]!<%HHV9f(B
     $BBh;M0z?t(B	- PCP$B%f!<%6L>(B
     $BBh8^0z?t(B	- PCP$B%Q%9%o!<%I(B
 
@@ -2280,7 +3232,7 @@ configure $B$K<:GT$7$^$9!#I,$:(B libpq 3.0 (PostgreSQL 7.4) $B$r%j%s%/$9$k$h
 </p>
 
 
-<h3>pcp_node_info</h3>
+<h3><a name="pcp_node_info"></a>pcp_node_info</h3>
 <pre>
    $B=q<0!'(B
 	pcp_node_info  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
@@ -2342,7 +3294,8 @@ configure $B$K<:GT$7$^$9!#I,$:(B libpq 3.0 (PostgreSQL 7.4) $B$r%j%s%/$9$k$h
 <pre>
    ex)
    $ pcp_proc_info 10 localhost 9898 postgres hogehoge 3815
-   postgres_db postgres 1150769932 1150767351 3 0 1
+   postgres_db postgres 1150769932 1150767351 3 0 1 14067 1
+   postgres_db postgres 1150769932 1150767351 3 0 1 14068 1
 
    $B7k2L$O0J2<$N=g$NDL$j$G$9!#(B
    1. $B@\B3$7$F$$$k%G!<%?%Y!<%9L>(B
@@ -2352,6 +3305,8 @@ configure $B$K<:GT$7$^$9!#I,$:(B libpq 3.0 (PostgreSQL 7.4) $B$r%j%s%/$9$k$h
    5. $B%W%m%H%3%k%a%8%c!<%P!<%8%g%s(B
    6. $B%W%m%H%3%k%^%$%J!<%P!<%8%g%s(B
    7. $B%3%M%/%7%g%s;HMQ2s?t(B
+   8. PostgreSQL$B%P%C%/%(%s%I%W%m%;%9(BID
+   9. $B%U%m%s%H%(%s%I$+$i@\B3$,$"$k>l9g$O(B1$B!"$=$&$G$J$1$l$P(B0
 
    $B%3%M%/%7%g%s$,%P%C%/%(%s%I$KBP$7$FD%$i$l$F$$$J$$>l9g!"%G!<%?$OI=<($5$l$^$;$s!#(B
    $B%3%M%/%7%g%s>pJs$,J#?t$"$k>l9g!"J#?t9T$K(B1$B9T(B1$B%3%M%/%7%g%s>pJs$GI=<($5$l$^$9!#(B
@@ -2408,9 +3363,11 @@ configure $B$K<:GT$7$^$9!#I,$:(B libpq 3.0 (PostgreSQL 7.4) $B$r%j%s%/$9$k$h
 <p>
 <pre>
    $B=q<0!'(B
-	pcp_detach_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
+	pcp_detach_node  [-g] _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
 
    pgpool-II$B$N%N!<%I$r@Z$jN%$7$^$9!#(B
+-g$B$r;XDj$9$k$H!"$9$Y$F$N%/%i%$%"%s%H$,@\B3$r=*N;$9$k$^$G%N!<%I$rI|5"$7$^$;$s!#(B
+($B$?$@$7!"(Bclient_idle_limit_in_recovery $B$,(B -1 $B$"$k$$$O!"(Brecovery_timeout $B$,@_Dj$5$l$F$$$k>l9g$r=|$/(B)
 </pre>
 </p>
 
@@ -2811,7 +3768,263 @@ pgpool-II$B$N%A%e!<%H%j%"%k$O(B<a href="tutorial-ja.html">$B$3$3(B<a/>$B$K$
 
 <h1>$B%j%j!<%9%N!<%H(B<a name="release"></a></h1>
 
+<h2>3.0.4 (umiyameboshi) 2011/06/01</h2>
+<h3>$B35MW(B</h3>
+<p>
+$B$3$N%P!<%8%g%s$G$O!"(B3.0.3$B$K$*$1$kMM!9$J%P%0$,=$@5$5$l$F$$$^$9!#(B
+</p>
+
+<h3>$B8_49@-$N$J$$JQ99(B</h3>
+<p>
+<ul>
+ <li>$B%9%H%j!<%_%s%0%l%W%j%1!<%7%g%s$K$*$$$F!"(Bdelay_threshold$B$,(B0$B$^$?$O%X%k%9%A%'%C%/$,L58z$J$i$P!"CY1d%A%'%C%/$O<B;\$5$l$^$;$s!#$3$l$O(Bpgpool-II$B%^%K%e%"%kDL$j$NF0:n$G$9$,!"$3$l$^$G$O%X%k%9%A%'%C%/$,L58z$N>l9g$bCY1d%A%'%C%/$,<B;\$5$l$F$$$^$7$?(B(Guillaume Lelarge)
+</ul>
+</p>
+
+<h3>$B%P%0=$@5(B</h3>
+<p>
+<ul>
+ <li>pgpool-regclass()$B$r(BPostgreSQL 8.0$B0J9_$G%3%s%Q%$%k$G$-$k$h$&$K=$@5$7$^$7$?!#(B7.4$B$O$^$@%(%i!<$,=P$^$9(B(Tatsuo) 
+ <li>$B%9%H%j!<%_%s%0%l%W%j%1!<%7%g%s9=@.$G(B/*NO LOAD BALANCE*/$B%3%a%s%H$r;HMQ$7$?$H$-$K%O%s%0%"%C%W$9$k2DG=@-$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>Flush(H)$B%a%C%;!<%8$d(BCloseComplete(C)$B%a%C%;!<%8$r<u?.$7$?$H$-$N%O%s%0%"%C%W$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>pgpool-II$B$,%P%C%/%(%s%I$K@\B38e!"(BRedyForQuery(Z)$B%a%C%;!<%8$r<u?.$9$k%?%$%_%s%0$K$h$C$F5/$3$jF@$k%O%s%0%"%C%W$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>recovery_1st_stage_command$B$H(Brecovery_2nd_stage_command$B%Q%i%a!<%?$N@bL@$rDI2C$7$^$7$?(B(Tatsuo)
+ <li>pgpool-II$BFbIt$G;HMQ$9$k%7%9%F%`%+%?%m%0%-%c%C%7%e$N%5%$%:$r(B32$B$+$i(B128$B$KA}$d$7$^$7$?!#$3$l$O(B&quot;unnamed prepared statement does not exist&quot;$B%(%i!<$r7Z8:$9$k8z2L$,$"$j$^$9(B(Tatsuo, Kitagawa)
+ <li>pcp_connect()$B4X?t$GFs=E(Bfree()$B$r9T$&%P%0$r=$@5$7$^$7$?!#%Q%C%A$O(BJehan-Guillaume (ioguix) de Rorthais$B$5$s$+$iD:$-$^$7$?(B(Tatsuo)
+ <li>PQfinish()$B4X?t$r8m$C$F;HMQ$7$F$$$k(Bstart_recoery()$B$N%P%0$r=$@5$7$^$7$?(B(Tatsuo)
+ <li>$B%/%i%$%"%s%H$N%"%$%I%k;~4V$,(Bclient_idle_limit$B$KC#$7$?$H$-$K!"%U%m%s%H%(%s%I$KAw?.$5$l$k@5$7$/$J$$%(%i!<%a%C%;!<%8$r=$@5$7$^$7$?(B(Tatsuo)
+ <li>pool_status$B$N!V(Bbackend status$B!WJQ?t$NL>A0$r@5$7$/=$@5$7$^$7$?!#%9%Z!<%9$r(B'_'$B$KCV$-49$($^$7$?(B(Guillaume Lelarge)
+ <li>md5$BG'>ZJ}<0$r:NMQ$7$F%G!<%b%s$H$7$F<B9T$7$?$H$-$N%O%s%0%"%C%W$r=$@5$7$^$7$?!#%Q%C%A$O!"(BNicolas Thauvin$B$5$s$+$iD:$-$^$7$?(B(Tatsuo)
+ <li>$B3HD%Ld$$9g$o$;%W%m%H%3%k$G(BSQL$BJ8$,=PNO$5$l$k$h$&$K!"(Blog_per_node_statement$B$r=$@5$7$^$7$?!#$3$l$O0JA0$OF0:n$7$F$$$^$7$?$,!"(B3.0$B$GF0:n$7$J$/$J$C$F$$$^$7$?(B(Kitagawa)
+</ul>
+</p>
+
+<h3>$B2~NI(B</h3>
+<p>
+<ul>
+ <li>$B%5%s%W%k$N@_Dj%U%!%$%k$N(Bblack_function_list$B$K(Bcurrval()$B$H(Blastval()$B$rDI2C$7$^$7$?!#$b$7$=$l$i$,%m!<%I%P%i%s%9$5$l$k$H!"(Bnextval()$B$d(Bsetval()$B$N7k2L$,%9%l!<%V$KH?1G$5$l$kA0$K(Bcurrval()$B$^$?$O(Blastval()$B$,8F$P$l$k$3$H$,$"$j$^$9(B(Tatsuo)
+</ul>
+</p>
+
+<h2>3.0.3 (umiyameboshi) 2011/02/23</h2>
+<h3>$B35MW(B</h3>
+<p>
+$B$3$N%P!<%8%g%s$G$O!"(B3.0.1$B$K$*$1$kMM!9$J%P%0$,=$@5$5$l$F$$$^$9(B(pgpool-II 3.0.2$B$N%j%j!<%9$O%Q%C%1!<%8%s%0$NLdBj$G%-%c%s%;%k$5$l$^$7$?(B)$B!#(B
+</p>
+
+<h3>$B8_49@-$N$J$$JQ99(B</h3>
+<p>
+<ul>
+ <li>$B%9%H%j!<%_%s%0%l%W%j%1!<%7%g%s%b!<%I$r;HMQ$9$k>l9g$K!"(BPostgreSQL$B%5!<%P$K(BC$B4X?t!V(Bpgpool_walrecrunning()$B!W$r%$%s%9%H!<%k$9$k$3$H$,?d>)$5$l$^$9(B($B8e=R(B)$B!#$3$N>l9g!"?7$7$$JQ?t!V(B%P$B!W$,%*%s%i%$%s%j%+%P%j$N%9%/%j%W%H$GMxMQ$G$-$k$h$&$K$J$j$^$9!#$3$N4X?t$r%$%s%9%H!<%k$7$J$$>l9g$O!"=>Mh$HF1$8F0:n$K$J$j$^$9(B(Tatsuo)
+ <li>raw$B%b!<%I$G(BDB$B%N!<%I$,$R$H$D$@$1$N>l9g!"(BDB$B%N!<%I$KLdBj$,H/@8$9$k$H%@%&%s>uBV$K$J$j$^$9$,!"(BDB$B%N!<%I$,I|5l$7$?$i(Bpgpool$B$N:F5/F0$J$7$K(BDB$B%N!<%I$r;HMQ$G$-$k$h$&$K$7$^$7$?!#$3$NJQ99$O(B3.0$B$K4^$^$l$F$$$^$7$?$,!"F0:n$7$F$$$^$;$s$G$7$?(B(Tatsuo, Kitagawa)
+</ul>
+</p>
+
+<h3>$B%P%0=$@5(B</h3>
+<p>
+<ul>
+ <li>$B%Q%9%o!<%IG'>Z$K$*$1$k0\?"@-$rB;$J$&%3!<%I$r=$@5$7$^$7$?!#$3$l$O(BFreeBSD$B%f!<%6$+$i$N%P%0Js9p$K4p$E$-$^$9(B(Tatsuo)
+ <li>insert_lock$B$,%f!<%6%F!<%V%k$NA49T$r%m%C%/$9$k%P%0$r=$@5$7$^$7$?(B(Tatsuo, Kitagawa)
+ <li>$B%f!<%6L>$ND9$5$,(B32$B%P%$%H$N$H$-$K(Bpgpool$B;R%W%m%;%9$,%/%i%C%7%e$9$k%Q%9%o!<%IG'>Z$N%P%0$r=$@5$7$^$7$?(B(Tatsuo)
+ <li>raw$B%b!<%I$^$?$O%P%C%/%(%s%I%N!<%I?t$,(B1$B$N$H$-$K!"(Bpgpool$B;R%W%m%;%9$,%/%i%C%7%e$9$k(Bmd5$BG'>Z$N%P%0$r=$@5$7$^$7$?!#%Q%C%A$O(BRob Shepherd$B$5$s$+$iD:$-$^$7$?(B(Tatsuo)
+ <li>$B0JA0$+$i$"$C$?G[Ns$HJ#9g7?$KBP$9$k%?%$%`%9%?%s%W=q$-49$($N%P%0$r=$@5$7$^$7$?!#%Q%C%A$O(BAkio Ishida$B$5$s$+$iD:$-$^$7$?(B(Tatsuo)
+ <li>debug_level$B%Q%i%a!<%?$,F0:n$7$J$$%P%0$r=$@5$7$^$7$?!#%Q%C%A$O(BGilles Darold$B$5$s$+$iD:$-$^$7$?(B(Tatsuo)
+ <li>$B%U%'%$%k%*!<%P!<Cf$K5/$3$j$&$k(Bpgpool$B;R%W%m%;%9$N%/%i%C%7%e$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>$B%f!<%6$,%9%-!<%^L>$NIU$$$?4X?t$r8F$s$@$H$-$K(Bwhite/black_function_list$B$,@5$7$/F0:n$9$k$h$&$K=$@5$7$^$7$?(B(Tatsuo)
+ <li>$B%3%M%/%7%g%s%-%c%C%7%e$K$h$C$F(BDROP DATABASE$B$,<:GT$9$k%P%0$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>raw$B%b!<%I$G%U%'%$%k%*!<%P$,<:GT$9$k%P%0$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>1$B%;%C%7%g%s$G4J0WLd$$9g$o$;%W%m%H%3%k$H3HD%Ld$$9g$o$;%W%m%H%3%k$NN>J}$,;H$o$l$?$H$-$K5/$3$j$&$k(Bpgpool$B;R%W%m%;%9$N=*N;$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>$B3HD%Ld$$9g$o$;%W%m%H%3%k$r;HMQCf$K%(%i!<$,H/@8$9$k$H5/$3$j$&$k%O%s%0%"%C%W$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>PG_TRY/CATCH$B$r;HMQ$7$J$$$h$&$K(Bpgpool-regclass()$B$r=$@5$7$^$7$?!#(BPG_TRY/CATCH$B$O!";~!9%P%C%/%(%s%I$,!V(BPANIC:  ERRORDATA_STACK_SIZE exceeded.$B!W$H$$$&%a%C%;!<%8$H$H$b$K=*N;$9$k$N$G0BA4$G$J$$$h$&$K8+$($^$9(B(Tatsuo)
+ <li>JDBC$B%I%i%$%P$,%^%9%?%N!<%I$K2?EY$b(BBEGIN$B$rH/9T$9$k%m!<%I%P%i%s%9$N%P%0$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>failback_command$B$H(Bfail_over_on_backend_error$B$,@5$7$$CM$rI=<($9$k$h$&$K(Bpool_status$B$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>pool_status$B$+$i(Brecovery_password$B$H(Bsystem_db_password$B$r:o=|$7$^$7$?(B(Kitagawa)
+ <li>$B%9%H%j!<%_%s%0%l%W%j%1!<%7%g%s%b!<%I$G%U%'%$%k%*!<%P$r<B9TCf$K!"%P%C%/%(%s%I$N%m%0$K!V(Bunexpected EOF on client connection$B!W$,=P$J$$$h$&$K=$@5$7$^$7$?(B(Tatsuo)
+ <li>$B%P%C%/%(%s%I$,$9$Y$F%@%&%s$7$?>l9g$KH/@8$9$k(Bpgpool$B$N%/%i%C%7%e$r=$@5$7$^$7$?(B(Tatsuo)
+ <li>$B%l%W%j%1!<%7%g%sCY1d%A%'%C%/$,%P%C%/%(%s%I$H$N1JB3E*$J@\B3$r9T$o$J$$$h$&$K=$@5$7$^$7$?!#$3$l$O!"%l%W%j%1!<%7%g%sCY1d%A%'%C%/$N4V$G(BDB$B%N!<%I$N%@%&%s$H%"%C%W$,5/$-$?>l9g$K1JB3E*$J@\B3$,IT@5$K$J$k2DG=@-$,$"$k$?$a$G$9(B(Tatsuo)
+ <li>$B1Q8l%I%-%e%a%s%H$r=q$-D>$7$F%l%S%e!<$7$^$7$?(B(Marc Cousin, Gleu)
+ <li>$B0J2<$N>r7o$rK~$?$9$H$-(B SELECT $B%/%(%j$,%^%9%?%N!<%I$KAw?.$5$l$J$$%P%0$r=$@5$7$^$7$?(B(Kitagawa)
+ <ul>
+  <li>$B%^%9%?!<%9%l!<%V%b!<%I$G$"$k(B
+  <li>$B3HD%Ld$$9g$o$;%W%m%H%3%k$r;HMQ$7$F$$$k(B
+  <li>$BL@<(E*$K%H%i%s%6%/%7%g%s$r3+;O$7$F$$$k(B
+  <li>$B99?7%/%(%j$r<B9T$7$?8e$G$"$k(B
+ </ul>
+ <li>$B%9%H%j!<%_%s%0%l%W%j%1!<%7%g%s%b!<%IMxMQ;~$N%*%s%i%$%s%j%+%P%j$K$*$$$F!"0J2<$N%7%J%j%*$,$&$^$/F0:n$7$J$$LdBj$r=$@5$7$^$7$?!#0J2<$N%7%J%j%*$G$O!"%N!<%I(B0$B$r:G=i$N%W%i%$%^%j%5!<%P!"%N!<%I(B1$B$r:G=i$N%9%?%s%P%$%5!<%P$H$7$^$9!#(B
+	  <p>
+	  <ol>
+	   <li>$B%N!<%I(B0$B%W%i%$%^%j%5!<%P$,%@%&%s$7!"%N!<%I(B1$B%9%?%s%P%$%5!<%P$,?7$7$$%W%i%$%^%j%5!<%P$K$J$k(B
+	   <li>$B%N!<%I(B0$B$N5l%W%i%$%^%j%5!<%P$O!"%*%s%i%$%s%j%+%P%j$G?7%9%?%s%P%$%5!<%P$K$J$k(B
+	   <li>$B$3$N$H$-(Bpgpool-II$B$O!"%N!<%I(B0$B$N?7%9%?%s%P%$%5!<%P$r!"%W%i%$%^%j%5!<%P$H$_$J$7$F$7$^$&(B
+	  </ol>
+	  </p>
+	  $B$3$l$O!"@8$-$F$$$k%N!<%IHV9f$N0lHV<c$$%5!<%P$r%W%i%$%^%j%5!<%P$H8+$J$7$F$$$?$?$a$G$9!#(B
+	  pgpool-II 3.0.3$B$G$O!"(Bpgpool_walrecrunning()$B$r;H$C$F!"<B:]$K$=$N%N!<%I$,%W%i%$%^%j%5!<%P$+$I$&$+H=Dj$9$k$?$a!"$3$N$h$&$JLdBj$O5/$-$^$;$s!#(B
+$B$3$N5!G=$r$&$^$/;H$&$?$a$K!"%*%s%i%$%s%j%+%P%j$N%9%/%j%W%H$G(B%P($B8E$$%W%i%$%^%j%N!<%IHV9f(B)$B$,MxMQ$G$-$k$h$&$K$J$C$F$$$^$9!#(B
+$B$J$*!"(Bpgpool_walrecrunning()$B$,%$%s%9%H!<%k$5$l$F$$$J$$>l9g$O!">e$NLdBj$O2r>C$5$l$:!"(B3.0.1$B$HF1MM$NF0:n$K$J$j$^$9!#(B
+</ul>
+</p>
+
+<h3>$B2~NI(B</h3>
+<p>
+<ul>
+ <li>$B%9%F!<%?%9%U%!%$%k$rFI$s$G$$$k$H$-$K!"FCDj$N%P%C%/%(%s%I$,%@%&%s>uBV$J$i$P%m%0$r=PNO$9$k$h$&$K$7$^$7$?(B(Tatsuo)
+ <li>pgpool$B$,<B9T$7$?%/%(%j$G%(%i!<$,H/@8$7$?>l9g$K!"%(%i!<%a%C%;!<%8$r=PNO$9$k$h$&$K$7$^$7$?(B(Tatsuo)
+ <li>sql$B%G%#%l%/%H%j$K<gMW$J(BMakefile$B$rDI2C$7$^$7$?(B(Tatsuo)
+</ul>
+</p>
+
+<h2>3.0.2 (umiyameboshi) 2011/02/17</h2>
+<h3>$B35MW(B</h3>
+<p>
+$B$3$N%P!<%8%g%s$OLdBj$,$"$C$?$?$a$K!"%j%j!<%9$,<h$j>C$5$l$^$7$?!#(B
+</p>
+
+<h2>3.0.1 (umiyameboshi) 2010/10/19</h2>
+<h3>$B35MW(B</h3>
+<p>
+$B$3$N%P!<%8%g%s$G$O!"(B3.0$B$K$*$1$kMM!9$J%P%0$,=$@5$5$l$F$$$^$9!#(B
+</p>
+
+<h3>$B%P%0=$@5(B</h3>
+<p>
+<ul>
+ <li>$BG'>Z$5$l$k%5!<%P$,J#?t$"$k>l9g$K%/%i%C%7%e$9$k(Bmd5$BG'>Z$N%P%0$r=$@5$7$^$7$?(B(Tatsuo)
+ <li>$B3HD%Ld$$9g$o$;%W%m%H%3%k$K$*$$$F!"9=J8%(%i!<$N%/%(%j$r<B9T$7$?$H$-$K;R%W%m%;%9$,%/%i%C%7%e$9$k%P%0$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>$B%]!<%?%k>pJs$N%O%s%I%j%s%0$K$*$1$k;R%W%m%;%9$,=*N;$9$k%P%0$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>$B3HD%Ld$$9g$o$;%W%m%H%3%k$K$*$$$F!"$R$H$D$N%N!<%I$KAw?.$5$l$?%/%(%j$,%(%i!<$r5/$3$7$?$H$-$K%O%s%0%"%C%W$9$k%P%0$r=$@5$7$^$7$?(B(Kitagawa)
+ <li>$B1Q8l%I%-%e%a%s%H$N8m?"$r=$@5$7$^$7$?!#(BAsaf Ohaion$B$5$s$N%Q%C%A$r<h$j9~$_$^$7$?(B(Tatsuo)
+</ul>
+</p>
+
+<h2>3.0 (umiyameboshi) 2010/09/10</h2>
+<h3>$B35MW(B</h3>
+<p>
+$B$3$N%P!<%8%g%s$O(B3.0$B7ONs$N:G=i$NHG$G!"(B2.2$B7O$d(B2.3$B7O$+$i$N!V%a%8%c!<%P!<%8%g%s%"%C%W!W$K$"$?$j$^$9!#(B
+PostgreSQL 9.0$B$N?75!G=$G$"$k(BStreaming Replication/Hot Standby$B9=@.$KBP1~$9$k$J$I!"B?$/$N5!G=$,DI2C$5$l$k$H6&$K!"FbIt9=B$$,@0M}$5$l$F8+DL$7$,NI$/$J$C$FJ]<i@-$,8~>e$7$F$$$^$9!#(B
+</p>
+<p>
+$B%^%9%?!<%9%l!<%V%b!<%IA4HL$GB?$/$N2~A1$,$J$5$l$F$$$^$9!#(B
+<ul>
+ <li>$BL@<(E*$J%H%i%s%6%/%7%g%sFb$N(BSELECT$B$,Ii2YJ,;6$G$-$k$h$&$K$J$j$^$7$?(B
+ <li>$BITI,MW$J(BDB$B%N!<%I$K(Bparse/bind$B%a%C%;!<%8$,Aw$i$l$J$/$J$j%m%C%/6%9g$,8:$j$^$7$?(B
+ <li>$BITI,MW$JFbIt%H%i%s%6%/%7%g%s$N5/F0$,$J$/$J$j!"%*!<%P%X%C%I$,7Z8:$7$F$$$^$9(B
+ <li>$B0l;~%F!<%V%k$r0U<1$;$:$K0BA4$K;H$($k$h$&$K$J$j$^$7$?(B
+ <li>$B=q$-9~$_$rH<$&4X?t8F$S=P$7$r9T$J$&(BSELECT$B$r%^%9%?!<(B(primay)$B$G$N$_<B9T$9$k$h$&$K@)8f$G$-$k$h$&$K$J$j$^$7$?(B
+</ul>
+</p>
+<p>
+$B%l%W%j%1!<%7%g%s%b!<%I$K$*$$$F$b!"=q$-9~$_$rH<$&4X?t8F$S=P$7$r9T$J$&(BSELECT$B$rIi2YJ,;6$9$k$+$I$&$+$N@)8f$G$-$k$h$&$K$J$k$J$I$N2~NI$,2C$($i$l$F$$$^$9!#(B
+</p>
+
+<h3>$B?75!G=(B</h3>
+<p>
+<ul>
+ <li>PostgreSQL 9.0$B$N?75!G=$G$"$k(BStreaming Replication/Hot Standby(SR+HS)$B9=@.$KBP1~$7$^$7$?(B(Tatsuo, Kitagawa)$B!#(B
+pgpool-II$B$O4pK\E*$K$O(Bmaster/slave mode$B$H$7$FF0:n$7$^$9$,!"$=$N:]$K(B "master_slave_sub_mode" $B$H$$$&?7$7$$@_Dj9`L\$K(B"stream"$B$r@_Dj$9$k$3$H$K$h$j!"(BSR+HS$B9=@.$K:GE,$JF0:n$r$7$^$9!#(B
+$B$?$H$($P!"99?7%/%(%j$O(BPrimary$B%5!<%P$K$N$_Aw?.$7!"(BSELECT$B$O(BPrimary$B$H(BStandby$B%5!<%P$KIi2YJ,;6$9$k$3$H$,2DG=$G$9!#(B
+$B$=$N$[$+!"(BStandby$B%5!<%P$r%*%s%i%$%s%j%+%P%j$GI|5l$7$?$j!"(BPrimary$B$H(BStandby$B$N%l%W%j%1!<%7%g%sF14|$r4F;k$7!"CY$l$,Bg$-$$$h$&$J$i(BPrimary$B$K$N$_(BSELECT$B$rAw?.$5$;$k$h$&$K$9$k$3$H$b2DG=$G$9!#(B
+$B>\:Y$O(B<a href="#stream">Streaming Replication$B$X$NBP1~(B"</a>$B$r$4Mw2<$5$$!#(B
+</p>
+
+<ul>
+ <li>$B%*%s%i%$%s%j%+%P%j$,(BStreaming Replication$BBP1~$GF0:n$7$F$$$k(Bmaster/slave$B%b!<%I$KBP1~$7$^$7$?(B(Tatsuo)
+
+ <li>Streaming Replication$B%b!<%IMQ$N?7$7$$@_Dj9`L\(B "delay_threshold" $B$,DI2C$5$l!"%l%W%j%1!<%7%g%s$NCY$l$,4F;k$G$-$k$h$&$K$J$j$^$7$?!#(B
+$BCY1d$,B?$$>l9g$K$O!"Ii2YJ,;6$7$J$$$h$&$K$9$k$3$H$,$G$-$^$9(B(Tatsuo)
+
+ <li>show pool_status$B$G!"(BStreaming Replication$B$K$*$1$k%l%W%j%1!<%7%g%s$NCY1d$,3NG'$G$-$k$h$&$K$J$j$^$7$?(B(Tatsuo)
+
+ <li>Streaming Replication$B$K$*$1$k%l%W%j%1!<%7%g%s$NCY1d$N%m%0$r@)8f$9$k?7$7$$@_Dj9`L\(B"log_standby_delay"$B$,DI2C$5$l$^$7$?(B(Tatsuo)
+
+</ul>
+
+ <li>insert_lock$B$,M-8z$G!"%F!<%V%k$K%7%j%"%k7?$,4^$^$l$F$$$k>l9g!"%F!<%V%k%m%C%/$G$O$J$/!"3:Ev%7!<%1%s%9$r9T%m%C%/$9$k$h$&$K$7$^$7$?!#(B
+$B0JA0$O%F!<%V%k%m%C%/$r$7$F$$$^$7$?$,!"(Bauto vacuum$B$H%m%C%/$,>WFM$7$?$j$7$F@-G=$,Dc2<$9$kLdBj$,$"$j$^$7$?(B(Tatsuo)
+
+ <li>$B?7$7$$(B"SHOW"$B%3%^%s%I$,DI2C$5$l$^$7$?!#$9$J$o$A!"(Bpool_nodes, pool_processes, pool_pools, pool_version$B$G$9(B(Guillaume Lelarge)
+
+ <li>pcp_proc_info$B%3%^%s%I$N=PNO7k2L$K!"(BPostgreSQL$B%P%C%/%(%s%I%W%m%;%9$N%W%m%;%9(BID$B$H%U%m%s%H%(%s%I$+$i$N@\B3$,$"$k$+$I$&$+$,DI2C$5$l$^$7$?(B(Tatsuo)
+
+ <li>$B4X?t8F$S=P$7$rH<$&(BSELECT$B$r@)8f$9$k@_Dj9`L\(Bwhite_function_list$B$H(Bback_function_list$B$,DI2C$5$l$^$7$?(B(Tatsuo)
+
+ <li>$B%^%9%?!<%9%l!<%V%b!<%I$K$*$$$F!"%7%9%F%`%+%?%m%0$r8!:w$9$k(BSELECT$B$O!"@09g@-$rJ]$D$?$a$K>o$K%^%9%?!<(B(primary)$B$G<B9T$5$l$k$h$&$K$J$j$^$7$?(B(Tatsuo)
+
+ <li>$B%^%9%?!<%9%l!<%V%b!<%I$K$*$$$F!"0l;~%F!<%V%k$r8!:w$9$k(BSELECT$B$O!"@09g@-$rJ]$D$?$a$K>o$K%^%9%?!<(B(primary)$B$G<B9T$5$l$k$h$&$K$J$j$^$7$?(B(Tatsuo)
+
+ <li>$B%^%9%?%9%l!<%V%b!<%I$G!"L@<(E*$J%H%i%s%6%/%7%g%sFb$G<B9T$5$l$J$$99?7%/%(%j$K$*$$$F!"<+F0E*$K%H%i%s%6%/%7%g%s$r3+;O$9$k$3$H$r;_$a$^$7$?!#$3$l$OITI,MW$G$7$?!#$3$l$K$h$C$F!"%Q%U%)!<%^%s%9$,8~>e$7$F$$$^$9(B(Tatsuo)
+
+ <li>$B%^%9%?%9%l!<%V%b!<%I$G!"L@<(E*$J%H%i%s%6%/%7%g%sFb$G<B9T$5$l$k(BSELECT$B%3%^%s%I$,Ii2YJ,;6$G$-$k$h$&$K$J$j$^$7$?(B(Tatsuo, Kitagawa)
+
+ <li>$B%^%9%?%9%l!<%V%b!<%I$G!"I,MW$J(BDB$B%N!<%I$K$N$_%3%^%s%I$,Aw$i$l$k$h$&$K$J$j$^$7$?!#(B
+$B$3$l$K$h$j!"$?$H$($P%Q!<%9%3%^%s%I$,ITI,MW$J(BDB$B%N!<%I$K$*$$$F$b%m%C%/$r<h$C$F$7$^$&$h$&$J$3$H$,$J$/$J$j$^$7$?(B(Tatsuo, Kitagawa)
+
+ <li>pgpool$B$N5/F0;~$K!"%9%F!<%?%9%U%!%$%k$rL5;k$9$k%*%W%7%g%s$,DI2C$5$l$^$7$?(B(Tatsuo)
+
+ <li>PostgreSQL 9.0$B$N(BVACUUM$B$N?7$7$$=q<0$r(Bpgpool-II$B$N%Q!<%5$,%5%]!<%H$7$^$7$?(B(Tatsuo)
+
+ <li>$B%U%'%$%k%*!<%P(B/$B%U%'%$%k%P%C%/%3%^%s%I$G!"(B"%H"$B$H$$$&FC<lJQ?t$,MxMQ$G$-$k$h$&$K$J$j$^$7$?!#(B
+$B$3$l$O!"?7$7$$%^%9%?!<%N!<%I$N%[%9%HL>$rI=$7$^$9(B(Tatsuo)
+
+ <li>failover_if_affected_tuples_mismatch $B$H$$$&@_Dj9`L\$,DI2C$5$l$^$7$?(B(Tatsuo)
+$B=>Mh!"%l%W%j%1!<%7%g%s%b!<%I$G(BINSERT/UPDATE/DELETE$B$N7k2L9T?t$,0[$J$k$H!"%H%i%s%6%/%7%g%s$r%"%\!<%H$7$F%;%C%7%g%s$r6/@)@ZCG$7$F$$$^$7$?!#(B
+failover_if_affected_tuples_mismatch $B$r(B true$B$K@_Dj$9$k$H!"$3$N8=>]$,5/$-$?$H$-$K!"IT0lCW$N$"$C$?(BDB$B%N!<%I$r@Z$jJ|$7$F=LB`1?E>$KF~$k$h$&$K$J$j$^$9!#(B
+
+ <li>$B%l%W%j%1!<%7%g%s%b!<%I$G(BDB$B%N!<%I4V$G(BINSERT/UPDATE/DELETE$B$N7k2L9T?t$NIT0lCW$,8!=P$5$l$?:]$K!"3F(BDB$B%N!<%I$K$*$1$k7k2L9T?t$,%m%0$K5-O?$5$l$k$h$&$K$J$j$^$7$?(B(Tatsuo)
+
+ <li>$B%l%W%j%1!<%7%g%s%b!<%I$H%^%9%?%9%l!<%V%b!<%I$G!"(Bmd5$BG'>Z$,%5%]!<%H$5$l$^$7$?(B(Tatsuo)
+
+ <li>$B%*%s%i%$%s%j%+%P%j$G!"6/@)E*$K%U%m%s%H%(%s%I$X$N@\B3$r@ZCG$7$FD>$A$K%;%+%s%I%9%F!<%8$KF~$k$3$H$,$G$-$k$h$&$K$J$j$^$7$?!#$=$N$?$a$K$O!"(Bclient_idle_limit_in_recovery $B$K(B -1 $B$r@_Dj$7$^$9(B(Tatsuo)
+
+ <li>RAW$B%b!<%I$K$*$$$F!"(BDB$B%N!<%I$,(B1$B8D$@$1$7$+B8:_$7$J$$>uBV$G(BDB$B$,%(%i!<$r5/$7$?$?$a$K(BDB$B%N!<%I$r@Z$jJ|$7$?$"$H$G(BDB$B%N!<%I$,2sI|$7$?>l9g$K!"(Bpgpool-II$B$r:F5/F0$9$k$3$H$K$J$7$K(BDB$B%N!<%I$rMxMQ$G$-$k$h$&$K$J$j$^$7$?(B(Tatsuo)
+
+ <li>pcp$B%3%^%s%I$K$*$$$F!"%m%s%0%*%W%7%g%s$,%5%]!<%H$5$l$^$7$?(B(Guillaume Lelarge)
+
+ <li>debug_level $B$H$$$&@_Dj9`L\$,DI2C$5$l!"(Bpgpool.conf$B$N:FFI$_9~$_$K$h$C$F%G%P%C%0%a%C%;!<%8$N=PNO$r%*%s!?%*%U$G$-$k$h$&$K$J$j$^$7$?(B(Tatsuo)
+
+ <li>pgpool.conf$B$G!"(Bpostgresql.conf$B$HF1$8??56CMI=8=$,MxMQ$G$-$k$h$&$K$J$j$^$7$?!#=>Mh$O!"(Btrue/false, 1/0$B$7$+;H$($^$;$s$G$7$?(B(Kitagawa)
+
+ <li>$B%*%s%i%$%s%j%+%P%j$N%;%+%s%I%9%F!<%8$r$h$j0BA4$K<B9T$9$k$?$a$K!"(BC$B8@8l4X?t(Bpgpool_switch_xlog$B$rDI2C$7$^$7$?(B(Kitagawa)
+
+ <li>$B0[$J$k%9%-!<%^$KF1$8L>A0$N%F!<%V%k$,B8:_$9$k>l9g$K5/$-$kIT6q9g$r2sHr$9$k$?$a$K!"(BC$B8@8l4X?t(Bpgpool_regclass$B$rDI2C$7$^$7$?(B(Tatsuo)
+
+</ul>
+</p>
+
+<h3>$B8_49@-$N$J$$JQ99(B</h3>
+<p>
+<ul>
+<li>replicate_select$B$H(Bload_balance_mode$B$r6&$K(Btrue$B$K@_Dj$7$?>l9g!"%H%i%s%6%/%7%g%s%V%m%C%/$N30B&$G<B9T$5$l$k(BSELECT$BJ8$O!"(Breplicate_select$B$K=>$&$h$&$K$J$j$^$7$?!#0JA0$O!"(Bload_balance_mode$B$K=>$&$h$&$K$J$C$F$$$^$7$?!#$b$7%/%i%$%"%s%H$,$3$NF0:n$rMxMQ$7$F$$$k>l9g$O!"(Breplicate_select$B$r(Bfalse$B$K$7$F(Bback_function_list$B$r@_Dj$9$k$3$H$GF1$8F0:n$r<B8=$G$-$^$9!#(B</li>
+</ul>
+</p>
+
+<p>
+<h3>$B%P%0=$@5(B</h3>
+</p>
+<p>
+<ul>
+
+ <li>$B7?$,;~9o%G!<%?0J30$NNs$N>l9g!"%G%U%)%k%HCM$K(Bnow()$B$,4^$^$l$F$$$F$b=q$-49$($r9T$J$o$J$$$h$&$K$7$^$7$?!#(B
+$B:#$^$G$OL5>r7o$K=q$-49$($r9T$J$C$F$$$?$?$a!"=q$-49$($N7k2L!"(BINSERT$BJ8$J$I$,%(%i!<$K$J$C$F$$$^$7$?(B(Tatsuo)
+
+ <li>$B%?%$%`%9%?%s%W$N=q$-49$(=hM}BP>]$H$J$k%F!<%V%k$N%9%-!<%^$,L5;k$5$l$J$$$h$&$K$7$^$7$?!#(B
+$B$?$@$7!"$3$N5!G=$rM-8z$K$9$k$?$a$K$O!"IUB0$N%f!<%6Dj5A4X?t(B"pgpool_regclass"$B$N%$%s%9%H!<%k$,I,MW$G$9!#(B
+$B$3$N4X?t$,%$%s%9%H!<%k$5$l$F$$$J$$>l9g$O!"0MA3$H$7$F%9%-!<%^$,L5;k$5$l$F$7$^$$$^$9(B(Tatsuo)
+
+ <li>pcp$B%3%^%s%I$N%?%$%`%"%&%H$N07$$$K$*$1$k%P%0$,=$@5$5$l$^$7$?(B(Tatsuo)
+
+ <li>SSL$B$,M-8z$J>uBV$G!"BgNL$N%G!<%?DL?.$,5/$k$H%O%s%0$9$kLdBj$,=$@5$5$l$^$7$?(B(Tatsuo)
+
+ <li>DB$B%N!<%I$,(B1$B8D$@$1$7$+B8:_$7$J$$>uBV$G(BDB$B$,%(%i!<$r5/$7$?$?:]$K!"4V0c$C$?(BDB$B%N!<%I$,%U%'%$%k%*!<%P$9$k%P%0$r=$@5$7$^$7$?(B(Tatsuo)
+
+ <li>$B%*%s%i%$%s%j%+%P%j;~$N(Bpostmaster$B$N5/F0%A%'%C%/$K$*$1$k%P%0$r=$@5$7$^$7$?!#(B
+$B:#$^$G$O(Bpostmaster$B$X$N:G=i$N@\B3$,<:GT$9$k$H!"@\B3$rL58B$K7+$jJV$9$h$&$K$J$C$F$$$^$7$?(B(Tatsuo)
+
+</ul>
+</p>
+
 <h2>2.3.3 (tomiteboshi) 2010/04/23</h2>
+<h3>$B35MW(B</h3>
 <p>$B$3$N%P!<%8%g%s$G$O!"(B2.3.2.2 $B0JA0$N?'!9$J%P%0$,=$@5$5$l$F$$$^$9!#(B</p>
 
 <h3>$B8_49@-$N$J$$JQ99(B</h3>
@@ -2880,7 +4093,6 @@ pgpool $B$,%P%C%/%(%s%I$N1~Ez$rBT$AB3$1$J$/$J$j$^$9!#(B
 <li>connect_inet_domain_socket_by_port() $B$G%(%i!<%a%C%;!<%8$r=PNO$9$k:]$K!"(B
 strerror() $B$G$O$J$/(B hstrerror() $B$r;H$&$h$&$K=$@5$7$^$7$?!#(B (Tatsuo)</li>
 </ul>
-
 
 <h2>2.3.2.2 (tomiteboshi) 2010/02/22</h2>
 <h3>$B35MW(B</h3>
@@ -2981,7 +4193,7 @@ strerror() $B$G$O$J$/(B hstrerror() $B$r;H$&$h$&$K=$@5$7$^$7$?!#(B (Tatsuo)<
 $B$3$N%P!<%8%g%s$G$O!"%l%W%j%1!<%7%g%s5!G=$K2~NI$,2C$($i$l!";~9o%G!<%?(B(CURRENT_TIMESTAMP, CURRENT_DATE, now()$B$J$I(B)$B$r@5$7$/07$&$3$H$,$G$-$k$h$&$K$J$j$^$7$?!#(B
 $B$^$?!"F1;~@\B3?t$,(B1(num_init_children$B$,(B1)$B$N$H$-$N%l%W%j%1!<%7%g%s@-G=8~>e$7$F$$$^$9!#(B
 $B$^$?!"(Bpgpool-II$B:F5/F0;~$KA02s$N(BDB$B%N!<%I$N%@%&%s>uBV$r5-O?$7!"ITMQ0U$KI|5l%N!<%I$K%G!<%?$r=q$-9~$s$G%G!<%?$NIT@09g$,5/$-$k$3$H$rKI$0$3$H$,$G$-$k$h$&$K$J$j$^$7$?!#(B
-$B$=$N$[$+!"%/%(%j%m%0$,2~NI$5$l$F(BDB$B%N!<%IC10L$N>u67$,GD0.$7$d$9$/$J$j!"$^$?%U%!%$%k%*!<%P$N5sF0$,:Y$+$/@)8f$G$-$k$h$&$K$J$j$^$7$?!#(B
+$B$=$N$[$+!"%/%(%j%m%0$,2~NI$5$l$F(BDB$B%N!<%IC10L$N>u67$,GD0.$7$d$9$/$J$j!"$^$?%U%'%$%k%*!<%P$N5sF0$,:Y$+$/@)8f$G$-$k$h$&$K$J$j$^$7$?!#(B
 $B$J$*!"(Bpgpool-II 2.3$B$K$O!"(Bpgpool-II 2.2.1$B$+$i(B2.2.6$B$^$G$N$9$Y$F$N%P%0=$@5!"2~NI$,4^$^$l$F$$$^$9!#(B
 </p>
 
@@ -3008,27 +4220,7 @@ log_statement$B$H;w$F$$$^$9$,!"(BDB$B%N!<%IC10L$G%m%0$,=PNO$5$l$k$N$G!"%l%W%j
 <li>$B;~9o%G!<%?$N%F%9%H$,DI2C$5$l$^$7$?(B(Akio Ishida)
 </ul>
 
-<hr>
-
-<h2>2.2.7 (urukiboshi) 2010/04/15</h2>
-<h3>$B35MW(B</h3>
-<p>
-$B$3$N%P!<%8%g%s$G$O!"(Bkind mismatch$B%(%i!<$,5/$-$?:]$N%(%i!<%a%C%;!<%8$,2~A1$5$l$F$$$^$9!#(B
-$B$^$?!"(B2.2.6$B0JA0$N?'!9$J%P%0$,=$@5$5$l$F$$$^$9!#(B
 </p>
-<h3>$B%P%0=$@5(B</h3>
-<ul>
-<li>$B%^%9%?!<!?%9%l!<%V%b!<%I!"(Braw$B%b!<%I!"$^$?$O%3%M%/%7%g%s%W!<%k%b!<%I$K$*$$$F!"3HD%%W%m%H%3%k$r;HMQ$7$F$$$k:]$K;~!9%O%s%0%"%C%W$9$k%P%0$r=$@5$7$^$7$?!#$3$l$O!"(B2.3$B7O$+$i$N%P%C%/%Q%C%A$G$9(B(Kitagawa)
-<li>pgpool$B;R%W%m%;%9$,(Bsegfault$B$r5/$3$9(Bpgpool-II 1.0$B$+$iD9$$4VB8:_$7$?%P%0$r=$@5$7$^$7$?!#(B
-$B$3$l$O!"?F%W%m%;%9$,(Bshmem$B%5%$%:$N7W;;$r4V0c$($F$$$?$3$H$K5/0x$7$^$9!#%P%02r@O(B(Kitagawa)$B!"%Q%C%A:n@.(B(Tatsuo)
-<li>$B%^%9%?!<!?%9%l!<%V%b!<%I$K$*$$$F!"L@<(E*$J%H%i%s%6%/%7%g%s$GA`:n$7$?>l9g$O!"(BParse$B!"(BBind$B!"(BDescribe$B!"$=$7$F(BClose$B%a%C%;!<%8$r%^%9%?!<%N!<%I$N$_$KAw$k$h$&$K$7$^$7$?(B(Tatsuo)
-<li>postmaster$B$,=*N;$9$k:]$K!"%m%0$r=PNO$9$k$h$&$K$7$^$7$?(B(Tatsuo)
-<li>make_persistent_db_connection$B4X?t$N%a%b%j%j!<%/$r=$@5$7$^$7$?(B(Xavier Noguer)
-<li>$B%^%9%?!<!?%9%l!<%V%b!<%I$G$O!"(BDEALLOCATE$B$N6/@)E*$J%l%W%j%1!<%7%g%s$r$7$J$$$h$&$K$7$^$7$?!#(B
-pgpool$B$O(BParse$B$r$9$Y$F$N%N!<%I$G<B9T$7$J$$$?$a!"$3$l$OL50UL#$GLdBj(B(DEALLOCATE$B<B9T;~$N(Bkind mismatch)$B$r0z$-5/$3$7$F$$$^$7$?(B(Tatsuo)
-<li>18$B$h$jB?$$(BDB$B%N!<%I$G(Bshow pool_status$B$r<B9T$7$?$H$-$K%/%i%C%7%e$9$k%P%0$r=$@5$7$^$7$?(B(Tatsuo)
-<li>kind mismatch$B%a%C%;!<%8$r2~A1$7$^$7$?!#(Bkind$B$,(BERROR$B!"$^$?$O(BNOTICE$B$N>l9g$O!"2?$,5/$-$F$$$k$+%f!<%6!<$,$o$+$j$d$9$$$h$&$K(BERROR/NOTICE$B%a%C%;!<%8$r=PNO$7$^$9(B(Tatsuo)
-</ul>
 
 <h2>2.2.6 (urukiboshi) 2009/12/01</h2>
 <h3>$B35MW(B</h3>
@@ -3080,7 +4272,7 @@ INSERT/UPDATE/DELETE$B$O<+F0E*$K%^%9%?$N$_$KAw$i$l$^$9!#(BSELECT$B$K4X$7$F$OL
  <li>pgpool-II 2.2.3$B$G%P!<%8%g%s(B2$B%W%m%H%3%k$N%/%i%$%"%s%H$,F0$+$J$/$J$C$F$7$^$C$F$$$?$N$r=$@5$7$^$7$?!#(B
 	  $B$^$?!";~4V$N$+$+$k%/%(%j$rBT$C$F$$$k4V$K%U%m%s%H%(%s%I$,0[>o=*N;$7$?$3$H$r8!CN$9$k4V3V$r(B1$BIC$+$i(B30$BIC$KJQ99$7$^$7$?!#$3$N%A%'%C%/$O!"(B2.2.4$B$G$O%W%m%H%3%k%P!<%8%g%s$,(B3$B$N$H$-$N$_M-8z$G$9(B(Tatsuo)
  <li>$B;R%W%m%;%9$r5/F0$9$kA0$K%7%0%J%k$N%V%m%C%/$d%O%s%I%i$N@_Dj$r9T$J$&$h$&$K$7$^$7$?!#(B
-$B$3$l$O!"(Bpgpool-II$B$r5/F0$7$?D>8e$K%U%!%$%k%*!<%P$J$I$N;v>]$,H/@8$7$F;R%W%m%;%9$+$i?F%W%m%;%9$K%7%0%J%k$,Aw$i$l$k$H!"(Bpgpool-II$B$N?F%W%m%;%9$,;`$s$G$7$^$&$3$H$,$"$k$+$i$G$9(B(Tatsuo)
+$B$3$l$O!"(Bpgpool-II$B$r5/F0$7$?D>8e$K%U%'%$%k%*!<%P$J$I$N;v>]$,H/@8$7$F;R%W%m%;%9$+$i?F%W%m%;%9$K%7%0%J%k$,Aw$i$l$k$H!"(Bpgpool-II$B$N?F%W%m%;%9$,;`$s$G$7$^$&$3$H$,$"$k$+$i$G$9(B(Tatsuo)
 </ul>
 </p>
 
@@ -3563,7 +4755,7 @@ INSERT/UPDATE/DELETE$B$O<+F0E*$K%^%9%?$N$_$KAw$i$l$^$9!#(BSELECT$B$K4X$7$F$OL
 <div class="copyright">
 <hr>
 <copyright>
-Copyright &copy; 2003 &ndash; 2008 PgPool Global Development Group
+Copyright &copy; 2003 &ndash; 2011 pgpool Global Development Group
 </copyright>
 </div>
 </body>

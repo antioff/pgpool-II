@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_rewrite_query.c,v 1.15 2010/03/19 12:24:43 kitagawa Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_rewrite_query.c,v 1.20 2010/08/17 09:23:18 kitagawa Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2009	PgPool Global Development Group
+ * Copyright (c) 2003-2010	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -23,11 +23,14 @@
  */
 
 #include "pool.h"
+#include "pool_config.h"
+#include "pool_rewrite_query.h"
+#include "pool_proto_modules.h"
+#include "pool_session_context.h"
+
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include "pool_rewrite_query.h"
-
 
 static int getInsertRule(ListCell *lc,List *list_t ,DistDefInfo *info, int div_key_num);
 static void examInsertStmt(Node *node,POOL_CONNECTION_POOL *backend,RewriteQuery *message);
@@ -386,7 +389,7 @@ RewriteQuery *rewrite_query_stmt(Node *node,POOL_CONNECTION *frontend,POOL_CONNE
 			}
 			else
 			{
-				if(TSTATE(backend) == 'T' &&
+				if(TSTATE(backend, MASTER_NODE_ID) == 'T' &&
 				   message->r_code == SELECT_RELATION_ERROR)
 				{
 					/*
@@ -437,7 +440,7 @@ RewriteQuery *rewrite_query_stmt(Node *node,POOL_CONNECTION *frontend,POOL_CONNE
 										message->rewrite_query, "", __FILE__,
 										__LINE__);
 
-				if(TSTATE(backend) == 'T')
+				if(TSTATE(backend, MASTER_NODE_ID) == 'T')
 				{
 					/* In Transaction, send the invalid message to backend to abort this transaction */
 					pool_debug("rewrite_query_stmt(insert): Inside transaction. Abort transaction");
@@ -646,4 +649,69 @@ RewriteQuery *is_parallel_query(Node *node, POOL_CONNECTION_POOL *backend)
 	}
 
 	return &message;
+}
+
+POOL_STATUS pool_do_parallel_query(POOL_CONNECTION *frontend,
+								   POOL_CONNECTION_POOL *backend,
+								   Node *node, bool *parallel, char **string, int *len)
+{
+	/* The Query is analyzed first in a parallel mode(in_parallel_query),
+	 * and, next, the Query is rewritten(rewrite_query_stmt).
+	 */
+
+	/* analyze the query */
+	RewriteQuery *r_query = is_parallel_query(node,backend);
+
+	if(r_query->is_loadbalance)
+	{
+        /* Usual processing of pgpool is done by using the rewritten Query
+         * if judged a possible load-balancing as a result of analyzing
+         * the Query.
+         * Of course, the load is distributed only for load_balance_mode=true.
+         */
+		if(r_query->r_code ==  SEND_LOADBALANCE_ENGINE)
+		{
+			/* use rewritten query */
+			*string = r_query->rewrite_query;
+			/* change query length */
+			*len = strlen(*string)+1;
+		}
+		pool_debug("SimpleQuery: loadbalance_query =%s",*string);
+	}
+	else if (r_query->is_parallel)
+	{
+		/*
+		 * For the Query that the parallel processing is possible.
+		 * Call parallel exe engine and return status to the upper layer.
+		 */
+		POOL_STATUS stats = pool_parallel_exec(frontend,backend,r_query->rewrite_query, node,true);
+		free_parser();
+		pool_unset_query_in_progress();
+		return stats;
+	}
+	else if(!r_query->is_pg_catalog)
+	{
+		/* rewrite query and execute */
+		r_query = rewrite_query_stmt(node,frontend,backend,r_query);
+		if(r_query->type == T_InsertStmt)
+		{
+			free_parser();
+
+			if(r_query->r_code != INSERT_DIST_NO_RULE) {
+				pool_unset_query_in_progress();
+				pool_set_skip_reading_from_backends();
+				return r_query->status;
+			}
+		}
+		else if(r_query->type == T_SelectStmt)
+		{
+			free_parser();
+			pool_unset_query_in_progress();
+			pool_set_skip_reading_from_backends();
+			return r_query->status;
+		}
+	}
+
+	*parallel = false;
+	return POOL_CONTINUE;
 }

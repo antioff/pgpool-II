@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_connection_pool.c,v 1.22 2010/04/13 04:14:08 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_connection_pool.c,v 1.30.2.1 2011/01/07 01:24:17 kitagawa Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -43,7 +43,11 @@
 #include <stdlib.h>
 
 #include "pool.h"
+#include "pool_stream.h"
+#include "pool_config.h"
+#include "pool_process_context.h"
 
+static int pool_index;	/* Active pool index */
 POOL_CONNECTION_POOL *pool_connection_pool;	/* connection pool */
 volatile sig_atomic_t backend_timer_expired = 0; /* flag for connection closed timer is expired */
 
@@ -68,7 +72,7 @@ int pool_init_cp(void)
 
 	for (i = 0; i < pool_config->max_pool; i++)
 	{
-		pool_connection_pool[i].info = &(MY_PROCESS_INFO.connection_info[i]);
+		pool_connection_pool[i].info = pool_coninfo(pool_get_process_context()->proc_id, i, 0);
 		memset(pool_connection_pool[i].info, 0, sizeof(ConnectionInfo) * MAX_NUM_BACKENDS);
 	}
 	return 0;
@@ -85,7 +89,7 @@ POOL_CONNECTION_POOL *pool_get_cp(char *user, char *database, int protoMajor, in
 	int	oldmask;
 #endif
 
-	int i, j, freed = 0;
+	int i, freed = 0;
 	ConnectionInfo *info;
 
 	POOL_CONNECTION_POOL *p = pool_connection_pool;
@@ -108,10 +112,14 @@ POOL_CONNECTION_POOL *pool_get_cp(char *user, char *database, int protoMajor, in
 			strcmp(MASTER_CONNECTION(p)->sp->database, database) == 0)
 		{
 			int sock_broken = 0;
+			int j;
 
 			/* mark this connection is under use */
 			MASTER_CONNECTION(p)->closetime = 0;
-			p->info->counter++;
+			for (j=0;j<NUM_BACKENDS;j++)
+			{
+				p->info[j].counter++;
+			}
 			POOL_SETMASK(&oldmask);
 
 			if (check_socket)
@@ -160,6 +168,7 @@ POOL_CONNECTION_POOL *pool_get_cp(char *user, char *database, int protoMajor, in
 				}
 			}
 			POOL_SETMASK(&oldmask);
+			pool_index = i;
 			return p;
 		}
 		p++;
@@ -213,6 +222,7 @@ POOL_CONNECTION_POOL *pool_create_cp(void)
 	int i, freed = 0;
 	time_t closetime;
 	POOL_CONNECTION_POOL *oldestp;
+	POOL_CONNECTION_POOL *ret;
 	ConnectionInfo *info;
 
 	POOL_CONNECTION_POOL *p = pool_connection_pool;
@@ -226,7 +236,12 @@ POOL_CONNECTION_POOL *pool_create_cp(void)
 	for (i=0;i<pool_config->max_pool;i++)
 	{
 		if (MASTER_CONNECTION(p) == NULL)
-			return new_connection(p);
+		{
+			ret = new_connection(p);
+			if (ret)
+				pool_index = i;
+			return ret;
+		}
 		p++;
 	}
 
@@ -237,6 +252,8 @@ POOL_CONNECTION_POOL *pool_create_cp(void)
 	 */
 	oldestp = p = pool_connection_pool;
 	closetime = MASTER_CONNECTION(p)->closetime;
+	pool_index = 0;
+
 	for (i=0;i<pool_config->max_pool;i++)
 	{
 		pool_debug("user: %s database: %s closetime: %ld",
@@ -247,6 +264,7 @@ POOL_CONNECTION_POOL *pool_create_cp(void)
 		{
 			closetime = MASTER_CONNECTION(p)->closetime;
 			oldestp = p;
+			pool_index = i;
 		}
 		p++;
 	}
@@ -279,7 +297,8 @@ POOL_CONNECTION_POOL *pool_create_cp(void)
 	p->info = info;
 	memset(p->info, 0, sizeof(ConnectionInfo) * MAX_NUM_BACKENDS);
 
-	return new_connection(p);
+	ret = new_connection(p);
+	return ret;
 }
 
 /*
@@ -453,7 +472,7 @@ int connect_unix_domain_socket_by_port(int port, char *socket_dir, bool retry)
 	}
 
 	memset((char *) &addr, 0, sizeof(addr));
-	((struct sockaddr *)&addr)->sa_family = AF_UNIX;
+	addr.sun_family = AF_UNIX;
 	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/.s.PGSQL.%d", socket_dir, port);
 	len = sizeof(struct sockaddr_un);
 
@@ -510,7 +529,7 @@ int connect_inet_domain_socket_by_port(char *host, int port, bool retry)
 	}
 
 	memset((char *) &addr, 0, sizeof(addr));
-	((struct sockaddr *)&addr)->sa_family = AF_INET;
+	addr.sin_family = AF_INET;
 
 	addr.sin_port = htons(port);
 	len = sizeof(struct sockaddr_in);
@@ -572,6 +591,7 @@ static POOL_CONNECTION_POOL_SLOT *create_cp(POOL_CONNECTION_POOL_SLOT *cp, int s
 		return NULL;
 	}
 
+	cp->sp = NULL;
 	cp->con = pool_open(fd);
 	cp->closetime = 0;
 	return cp;
@@ -615,6 +635,7 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 			child_exit(1);
 		}
 
+		p->info[i].create_time = time(NULL);
 		p->slots[i] = s;
 
 		if (pool_init_params(&s->con->params))
@@ -628,7 +649,6 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 
 	if (active_backend_count > 0)
 	{
-		p->info->create_time = time(NULL);
 		return p;
 	}
 
@@ -664,4 +684,12 @@ static int check_socket_status(int fd)
 	}
 
 	return -1;
+}
+
+/*
+ * Return current used index (i.e. frontend connected)
+ */
+int pool_pool_index(void)
+{
+	return pool_index;
 }

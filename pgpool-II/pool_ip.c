@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_ip.c,v 1.3 2009/08/22 04:04:21 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pool_ip.c,v 1.5 2010/06/01 09:02:59 t-ishii Exp $
  *
  * This file was imported from PostgreSQL 8.0.8 source code.
  * See below for the copyright and description.
@@ -9,7 +9,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Portions Copyright (c) 2003-2008	PgPool Global Development Group
+ * Portions Copyright (c) 2003-2010	PgPool Global Development Group
  * Portions Copyright (c) 1996-2005, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -47,9 +47,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/un.h>
+
 #include "pool.h"
 #include "pool_ip.h"
-
+#include "pool_config.h"
 
 static int rangeSockAddrAF_INET(const struct sockaddr_in * addr,
 					 const struct sockaddr_in * netaddr,
@@ -451,6 +452,7 @@ SockAddr_cidr_mask(struct sockaddr_storage * mask, char *numbits, int family)
 						& 0xffffffffUL;
 				else
 					maskl = 0;
+				memset(&mask4, 0, sizeof(mask4));
 				mask4.sin_addr.s_addr = htonl(maskl);
 				memcpy(mask, &mask4, sizeof(mask4));
 				break;

@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp_proc_info.c,v 1.3 2008/12/31 10:25:40 t-ishii Exp $
+ * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp_proc_info.c,v 1.12 2010/08/22 08:24:02 gleu Exp $
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -24,6 +24,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef HAVE_GETOPT_H
+#include <getopt.h>
+#else
+#include "getopt_long.h"
+#endif
+#include <time.h>
 
 #include "pcp.h"
 
@@ -42,11 +48,24 @@ main(int argc, char **argv)
 	ProcessInfo *process_info;
 	int array_size;
 	int ch;
+	int	optindex;
+    bool verbose = false;
 
-	while ((ch = getopt(argc, argv, "hd")) != -1) {
+	static struct option long_options[] = {
+		{"debug", no_argument, NULL, 'd'},
+		{"help", no_argument, NULL, 'h'},
+		{"verbose", no_argument, NULL, 'v'},
+		{NULL, 0, NULL, 0}
+	};
+	
+    while ((ch = getopt_long(argc, argv, "hdv", long_options, &optindex)) != -1) {
 		switch (ch) {
 		case 'd':
 			pcp_enable_debug();
+			break;
+
+		case 'v':
+			verbose = true;
 			break;
 
 		case 'h':
@@ -128,20 +147,40 @@ main(int argc, char **argv)
 		myexit(errorcode);
 	} else {
 		int i;
+        char strcreatetime[128];
+        char strstarttime[128];
+	    strftime(strstarttime, 128, "%Y-%m-%d %H:%M:%S", localtime(&process_info->start_time));
 		for (i = 0; i < array_size; i++)
 		{
 			if (process_info->connection_info[i].database[0] == '\0')
 				continue;
 			
-			printf("%s %s %ld %ld %d %d %d\n",
-				   process_info->connection_info[i].database,
-				   process_info->connection_info[i].user,
-				   process_info->start_time,
-				   process_info->connection_info[i].create_time,
-				   process_info->connection_info[i].major,
-				   process_info->connection_info[i].minor,
-				   process_info->connection_info[i].counter);
-		}
+	        strftime(strcreatetime, 128, "%Y-%m-%d %H:%M:%S", localtime(&process_info->connection_info[i].create_time));
+            if (verbose)
+            {
+		    	printf("Database     : %s\nUsername     : %s\nStart time   : %s\nCreation time: %s\nMajor        : %d\nMinor        : %d\nCounter      : %d\nPID          : %d\nConnected    : %d\n",
+		    		   process_info->connection_info[i].database,
+		    		   process_info->connection_info[i].user,
+		    		   strstarttime,
+		    		   strcreatetime,
+		    		   process_info->connection_info[i].major,
+		    		   process_info->connection_info[i].minor,
+		    		   process_info->connection_info[i].counter,
+		    		   process_info->connection_info[i].pid,
+		    		   process_info->connection_info[i].connected);
+            } else {
+		    	printf("%s %s %s %s %d %d %d %d %d\n",
+		    		   process_info->connection_info[i].database,
+		    		   process_info->connection_info[i].user,
+		    		   strstarttime,
+		    		   strcreatetime,
+		    		   process_info->connection_info[i].major,
+		    		   process_info->connection_info[i].minor,
+		    		   process_info->connection_info[i].counter,
+		    		   process_info->connection_info[i].pid,
+		    		   process_info->connection_info[i].connected);
+		    }
+        }
 		free(process_info);
 	}
 
@@ -155,15 +194,17 @@ usage(void)
 {
 	fprintf(stderr, "pcp_proc_info - display a pgpool-II child process' information\n\n");
 	fprintf(stderr, "Usage: pcp_proc_info [-d] timeout hostname port# username password PID\n");
-	fprintf(stderr, "Usage: pcp_proc_info -h\n\n");
-	fprintf(stderr, "  -d       - enable debug message (optional)\n");
-	fprintf(stderr, "  timeout  - connection timeout value in seconds. command exits on timeout\n");
-	fprintf(stderr, "  hostname - pgpool-II hostname\n");
-	fprintf(stderr, "  port#    - pgpool-II port number\n");
-	fprintf(stderr, "  username - username for PCP authentication\n");
-	fprintf(stderr, "  password - password for PCP authentication\n");
-	fprintf(stderr, "  PID      - PID of a child process to get information for\n");
-	fprintf(stderr, "  -h       - print this help\n");
+	fprintf(stderr, "  -d, --debug    : enable debug message (optional)\n");
+	fprintf(stderr, "  timeout        : connection timeout value in seconds. command exits on timeout\n");
+	fprintf(stderr, "  hostname       : pgpool-II hostname\n");
+	fprintf(stderr, "  port#          : PCP port number\n");
+	fprintf(stderr, "  username       : username for PCP authentication\n");
+	fprintf(stderr, "  password       : password for PCP authentication\n");
+	fprintf(stderr, "  PID            : PID of a child process to get information for\n\n");
+	fprintf(stderr, "Usage: pcp_proc_info [options]\n");
+    fprintf(stderr, "  Options available are:\n");
+	fprintf(stderr, "  -h, --help     : print this help\n");
+	fprintf(stderr, "  -v, --verbose  : display one line per information with a header\n");
 }
 
 static void
