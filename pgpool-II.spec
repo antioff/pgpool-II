@@ -95,6 +95,9 @@ header files for %name.
 lib files for %name.
 
 %changelog
+* Wed Nov 09 2011 Alexander V Openkin <open@altlinux.ru> 3.0.4-alt2
+- spec updates 
+
 * Thu Jul 28 2011 Alexander V Openkin <open@altlinux.ru> 3.0.4-alt1
 - 3.0.4 release 
 
