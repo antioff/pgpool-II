@@ -16,7 +16,7 @@ Source:		%name-%version.tar.gz
 Source1:    pgpool.init
 Source2:	pgpool.conf
 
-BuildRequires: flex gcc-c++ postgresql9.0-devel
+BuildRequires: flex gcc-c++ postgresql-devel
 
 
 %package        devel
