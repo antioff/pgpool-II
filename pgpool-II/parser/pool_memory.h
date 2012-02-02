@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/parser/pool_memory.h,v 1.6 2009/07/30 14:44:21 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii

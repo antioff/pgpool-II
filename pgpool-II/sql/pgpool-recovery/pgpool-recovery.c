@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/sql/pgpool-recovery/pgpool-recovery.c,v 1.9 2010/08/23 04:42:31 kitagawa Exp $
+ * $Header$
  *
  * pgpool-recovery: exec online recovery script from SELECT statement.
  *

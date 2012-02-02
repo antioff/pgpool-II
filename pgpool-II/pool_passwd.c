@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_passwd.c,v 1.1.2.1 2010/11/28 11:04:37 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -151,6 +151,12 @@ char *pool_get_passwd(char *username)
 	static char passwd[POOL_PASSWD_LEN+1];
 	char *p;
 	int readlen;
+
+	if (!username)
+	{
+		pool_error("pool_get_passwd: username is NULL");
+		return NULL;
+	}
 
 	if (!passwd_fd)
 	{

@@ -6,8 +6,8 @@
 %define		PGSQL   pgsql
 
 Name:		pgpool-II 
-Version:	3.0.4
-Release:    	alt2
+Version:	3.1.2
+Release:    	alt1
 Summary:	pgpool is a connection pool/replication server for PostgreSQL	
 License: 	BSD
 Group: 		Databases
@@ -31,9 +31,10 @@ Group:          Databases
 
 %prep
 %setup -q
+%autoreconf
 
 %build
-%configure	--includedir=/usr/include/pgsql
+%configure   --includedir=/usr/include/pgsql 
 %make_build
 
 %install
@@ -95,8 +96,8 @@ header files for %name.
 lib files for %name.
 
 %changelog
-* Wed Nov 09 2011 Alexander V Openkin <open@altlinux.ru> 3.0.4-alt2
-- spec updates 
+* Thu Feb 02 2012 Alexander V Openkin <open@altlinux.ru> 3.1.2-alt1
+- 3.1.2 release 
 
 * Thu Jul 28 2011 Alexander V Openkin <open@altlinux.ru> 3.0.4-alt1
 - 3.0.4 release 

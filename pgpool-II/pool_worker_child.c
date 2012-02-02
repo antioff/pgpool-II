@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_worker_child.c,v 1.6.2.2 2011/05/23 19:42:52 gleu Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -63,6 +63,7 @@ extern char **myargv;
 char remote_ps_data[NI_MAXHOST];		/* used for set_ps_display */
 static POOL_CONNECTION_POOL_SLOT	*slots[MAX_NUM_BACKENDS];
 static volatile sig_atomic_t reload_config_request = 0;
+static volatile sig_atomic_t restart_request = 0;
 
 static void establish_persistent_connection(void);
 static void discard_persistent_connection(void);
@@ -78,6 +79,10 @@ static void reload_config(void);
 		{ \
 			reload_config(); \
 			reload_config_request = 0; \
+		} else if (restart_request) \
+		{ \
+		  pool_log("worker process received restart request"); \
+		  exit(1); \
 		} \
     } while (0)
 
@@ -99,9 +104,12 @@ void do_worker_child(void)
 	signal(SIGHUP, reload_config_handler);
 	signal(SIGQUIT, my_signal_handler);
 	signal(SIGCHLD, SIG_IGN);
-	signal(SIGUSR1, SIG_IGN);
+	signal(SIGUSR1, my_signal_handler);
 	signal(SIGUSR2, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
+
+	/* Initialize my backend status */
+	pool_initialize_private_backend_status();
 
 	/* Initialize per process context */
 	pool_init_process_context();
@@ -110,7 +118,7 @@ void do_worker_child(void)
 	{
 		CHECK_REQUEST;
 
-		if (pool_config->health_check_period <= 0)
+		if (pool_config->sr_check_period <= 0)
 		{
 			sleep(30);
 		}
@@ -119,7 +127,7 @@ void do_worker_child(void)
 		 * If streaming replication mode, do time lag checking
 		 */
 
-		if (pool_config->health_check_period > 0 && MASTER_SLAVE && !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP))
+		if (pool_config->sr_check_period > 0 && MASTER_SLAVE && !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP))
 		{
 			/* Check and establish persistent connections to the backend */
 			establish_persistent_connection();
@@ -130,7 +138,7 @@ void do_worker_child(void)
 			/* Discard persistent connections */
 			discard_persistent_connection();
 		}
-		sleep(pool_config->health_check_period);
+		sleep(pool_config->sr_check_period);
 	}
 	exit(0);
 }
@@ -155,8 +163,8 @@ static void establish_persistent_connection(void)
 			s = make_persistent_db_connection(bkinfo->backend_hostname, 
 											  bkinfo->backend_port,
 											  "postgres",
-											  pool_config->health_check_user,
-											  "");
+											  pool_config->sr_check_user,
+											  pool_config->sr_check_password);
 			if (s)
 				slots[i] = s;
 			else
@@ -223,7 +231,9 @@ static void check_replication_time_lag(void)
 
 		if (!slots[i])
 		{
-			pool_error("check_replication_time_lag: DB node is valid but no persistent connection");
+			pool_debug("check_replication_time_lag: DB node is valid but no persistent connection");
+			pool_error("check_replication_time_lag: could not connect to DB node %d, check sr_check_user and sr_check_password", i);
+
 			return;
 		}
 
@@ -233,7 +243,7 @@ static void check_replication_time_lag(void)
 		}
 		else
 		{
-			query = "SELECT pg_last_xlog_receive_location()";
+			query = "SELECT pg_last_xlog_replay_location()";
 		}
 
 		sts = do_query(slots[i]->con, query, &res, PROTO_MAJOR_V3);
@@ -307,6 +317,12 @@ static void check_replication_time_lag(void)
  */
 static long text_to_lsn(char *text)
 {
+/*
+ * WAL segment size in bytes.  XXX We should fetch this from
+ * PostgreSQL, rather than having fixed value.
+ */
+#define WALSEGMENTSIZE 16 * 1024 * 1024
+
 	unsigned int xlogid;
 	unsigned int xrecoff;
 	unsigned long long int lsn;
@@ -316,7 +332,10 @@ static long text_to_lsn(char *text)
 		pool_error("text_to_lsn: wrong log location format: %s", text);
 		return 0;
 	}
-	lsn = xlogid * 16 * 1024 * 1024 * 255 + xrecoff;
+	lsn = xlogid * ((unsigned long long int)0xffffffff - WALSEGMENTSIZE) + xrecoff;
+#ifdef DEBUG
+	pool_log("lsn: %X %X %llX", xlogid, xrecoff, lsn);
+#endif
 	return lsn;
 }
 
@@ -330,6 +349,13 @@ static RETSIGTYPE my_signal_handler(int sig)
 		case SIGINT:
 		case SIGQUIT:
 			exit(0);
+			break;
+
+			/* Failback or new node added */
+		case SIGUSR1:
+			restart_request = 1;
+			break;
+
 		default:
 			exit(1);
 			break;

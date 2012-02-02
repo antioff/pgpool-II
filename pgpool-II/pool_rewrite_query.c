@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_rewrite_query.c,v 1.20 2010/08/17 09:23:18 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -676,7 +676,7 @@ POOL_STATUS pool_do_parallel_query(POOL_CONNECTION *frontend,
 			/* change query length */
 			*len = strlen(*string)+1;
 		}
-		pool_debug("SimpleQuery: loadbalance_query =%s",*string);
+		pool_debug("pool_do_parallel_query: load balancing query: %s",*string);
 	}
 	else if (r_query->is_parallel)
 	{
@@ -685,7 +685,6 @@ POOL_STATUS pool_do_parallel_query(POOL_CONNECTION *frontend,
 		 * Call parallel exe engine and return status to the upper layer.
 		 */
 		POOL_STATUS stats = pool_parallel_exec(frontend,backend,r_query->rewrite_query, node,true);
-		free_parser();
 		pool_unset_query_in_progress();
 		return stats;
 	}
@@ -695,7 +694,7 @@ POOL_STATUS pool_do_parallel_query(POOL_CONNECTION *frontend,
 		r_query = rewrite_query_stmt(node,frontend,backend,r_query);
 		if(r_query->type == T_InsertStmt)
 		{
-			free_parser();
+			/* free_parser(); */
 
 			if(r_query->r_code != INSERT_DIST_NO_RULE) {
 				pool_unset_query_in_progress();
@@ -705,7 +704,6 @@ POOL_STATUS pool_do_parallel_query(POOL_CONNECTION *frontend,
 		}
 		else if(r_query->type == T_SelectStmt)
 		{
-			free_parser();
 			pool_unset_query_in_progress();
 			pool_set_skip_reading_from_backends();
 			return r_query->status;

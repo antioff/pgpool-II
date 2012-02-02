@@ -1,12 +1,12 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_config.l,v 1.48 2010/08/17 02:09:00 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -136,7 +136,7 @@ int pool_init_config(void)
 	pool_config->pcp_port = 9898;
 	pool_config->socket_dir = DEFAULT_SOCKET_DIR;
 	pool_config->pcp_socket_dir = DEFAULT_SOCKET_DIR;
-	pool_config->backend_socket_dir = DEFAULT_SOCKET_DIR;
+	pool_config->backend_socket_dir = NULL;
 	pool_config->pcp_timeout = 10;
 	pool_config->num_init_children = 32;
 	pool_config->max_pool = 4;
@@ -146,6 +146,10 @@ int pool_init_config(void)
 	pool_config->child_max_connections = 0;
 	pool_config->authentication_timeout = 60;
 	pool_config->logdir = DEFAULT_LOGDIR;
+        pool_config->logsyslog = 0;
+        pool_config->log_destination = "stderr";
+        pool_config->syslog_facility = LOG_LOCAL0;
+        pool_config->syslog_ident = "pgpool";
 	pool_config->pid_file_name = DEFAULT_PID_FILE_NAME;
  	pool_config->log_statement = 0;
  	pool_config->log_per_node_statement = 0;
@@ -174,7 +178,12 @@ int pool_init_config(void)
 	pool_config->health_check_timeout = 20;
 	pool_config->health_check_period = 0;
 	pool_config->health_check_user = "nobody";
+	pool_config->health_check_password = "";
+	pool_config->sr_check_period = 0;
+	pool_config->sr_check_user = "nobody";
+	pool_config->sr_check_password = "";
 	pool_config->failover_command = "";
+	pool_config->follow_master_command = "";
 	pool_config->failback_command = "";
 	pool_config->fail_over_on_backend_error = 1;
 	pool_config->insert_lock = 1;
@@ -201,6 +210,10 @@ int pool_init_config(void)
 	pool_config->ssl_ca_cert = "";
 	pool_config->ssl_ca_cert_dir = "";
 	pool_config->debug_level = 0;
+	pool_config->relcache_expire = 0;
+	pool_config->lists_patterns = NULL;
+	pool_config->pattc = 0;
+	pool_config->current_pattern_size = 0;
 
 	res = gethostname(localhostname,sizeof(localhostname));
 	if(res !=0 )
@@ -216,6 +229,98 @@ int pool_init_config(void)
 	return 0;
 }
 
+/* 
+ * Add regex expression to patterns array
+ * The supported type are: black_function_list and white_function_list
+ * Return 0 on error, 1 on success
+ */
+int add_regex_pattern(char *type, char *s)
+{
+	int regex_flags = REG_NOSUB;
+	RegPattern currItem;
+	/* force case insensitive pattern matching */
+	regex_flags |= REG_ICASE;
+	/* Add extended regex search */
+	regex_flags |= REG_EXTENDED;
+	/* Fill the pattern type */
+	if (strcmp(type, "black_function_list") == 0)
+	{
+		currItem.type = BLACKLIST;
+	}
+	else if (strcmp(type, "white_function_list") == 0)
+	{
+		currItem.type = WHITELIST;
+	}
+	else
+	{
+		pool_error("add_to_patterns: bad pattern type %s", type);
+		return 0;
+	}
+	/* Fill the pattern flag */
+	currItem.flag = regex_flags;
+
+	/* Fill pattern array */
+	currItem.pattern = malloc(sizeof(char)*(strlen(s)+3));
+	if (currItem.pattern == NULL)
+	{
+		pool_error("add_to_patterns: unable to allocate new pattern");
+		return 0;
+	}
+	/* Force exact matching of function name with ^ and $ on the regex
+	   if required to prevent partial matching. It also allow backward
+	   compatibility.
+	 */
+	if (strncmp(s, "^", 1) != 0) {
+		strncpy(currItem.pattern, "^", 2);
+		strncat(currItem.pattern, s, strlen(s) + 1);
+	} else {
+		strncpy(currItem.pattern, s, strlen(s) + 1);
+	}
+	if (s[strlen(s)-1] != '$') {
+		strncat(currItem.pattern, "$", 2);
+	}
+	pool_debug("add_to_patterns: regex pattern: %s", currItem.pattern);
+	/* compile our regex */
+	if (regcomp(&currItem.regexv, currItem.pattern, currItem.flag) != 0)
+	{
+		pool_error("add_to_patterns: invalid regex pattern: %s", currItem.pattern);
+	}
+	else
+	{
+		if (growPatternArray(currItem) < 0)
+		{
+			pool_error("add_to_patterns: unable to allocate new pattern");
+			return 0;
+		}
+	}
+	return 1;
+}
+
+/* 
+ * Dynamically grow the regex pattern array
+ * The array start with PATTERN_ARR_SIZE storage place, if required
+ * it will grow of PATTERN_ARR_SIZE more each time.
+ */
+int growPatternArray (RegPattern item)
+{
+	void *_tmp = NULL;
+	if (pool_config->pattc == pool_config->current_pattern_size)
+	{
+		pool_config->current_pattern_size += PATTERN_ARR_SIZE;
+		_tmp = realloc(pool_config->lists_patterns, (pool_config->current_pattern_size * sizeof(RegPattern)));
+		if (!_tmp)
+		{
+			return(-1);
+		}
+
+		pool_config->lists_patterns = (RegPattern*)_tmp;
+	}
+	pool_config->lists_patterns[pool_config->pattc] = item;
+	pool_config->pattc++;
+
+	return(pool_config->pattc);
+}
+
 int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 {
 	FILE *fd;
@@ -223,6 +328,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 	char key[1024];
 	double total_weight;
 	int i;
+    bool log_destination_changed = false;
 
 #define PARSE_ERROR()		pool_error("pool_config: parse error at line %d '%s'", Lineno, yytext)
 
@@ -239,8 +345,13 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 	yyin = fd;
 	Lineno = 1;
 
-	while ((token = yylex()))
+	for(;;)
 	{
+		token = yylex();
+		if (token == 0)
+		{
+			break; 	 
+		}
 		if (token == POOL_PARSE_ERROR)
 		{
 			PARSE_ERROR();
@@ -257,7 +368,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			return(-1);
 		}
 
-		strncpy(key, yytext, sizeof(key));
+		strlcpy(key, yytext, sizeof(key));
 
 		pool_debug("key: %s", key);
 
@@ -483,6 +594,64 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->logdir = str;
 		}
+		else if (!strcmp(key, "log_destination") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+            log_destination_changed = pool_config->log_destination != str;
+			pool_config->log_destination = str;
+		}
+		else if (!strcmp(key, "syslog_facility") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->syslog_facility = set_syslog_facility(str);
+		}
+		else if (!strcmp(key, "syslog_ident") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+            log_destination_changed = log_destination_changed || pool_config->syslog_ident != str;
+			pool_config->syslog_ident = str;
+		}
 		else if (!strcmp(key, "pid_file_name") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
@@ -562,6 +731,8 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		else if (!strcmp(key, "backend_socket_dir") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
+			
+			pool_log("pool_config: backend_socket_dir is deprecated, please use backend_hostname");
 
 			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
 			{
@@ -587,9 +758,9 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				fclose(fd);
 				return(-1);
 			}
-			pool_config->replication_mode = pool_config->replication_enabled = v;
+			pool_config->replication_mode = v;
 
-			if (pool_config->master_slave_enabled && pool_config->replication_enabled)
+			if (pool_config->master_slave_mode && pool_config->replication_mode)
 			{
 				pool_error("pool_config: replication_mode and master_slave_mode cannot be enabled at the same time");
 				fclose(fd);
@@ -701,6 +872,10 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				fclose(fd);
 				return(-1);
 			}
+			for (i=0;i<pool_config->num_white_function_list;i++)
+			{
+				add_regex_pattern("white_function_list", pool_config->white_function_list[i]);
+			}
 		}
 
 		else if (!strcmp(key, "black_function_list") &&
@@ -728,6 +903,10 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				fclose(fd);
 				return(-1);
 			}
+			for (i=0;i<pool_config->num_black_function_list;i++)
+			{
+				add_regex_pattern("black_function_list", pool_config->black_function_list[i]);
+			}
 		}
 
 		else if (!strcmp(key, "print_timestamp") && CHECK_CONTEXT(INIT_CONFIG, context))
@@ -753,9 +932,9 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				fclose(fd);
 				return(-1);
 			}
-			pool_config->master_slave_mode = pool_config->master_slave_enabled = v;
+			pool_config->master_slave_mode = v;
 
-			if (pool_config->master_slave_enabled && pool_config->replication_enabled)
+			if (pool_config->master_slave_mode && pool_config->replication_mode)
 			{
 				pool_error("pool_config: replication_mode and master_slave_mode cannot be enabled at the same time");
 				fclose(fd);
@@ -890,6 +1069,80 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_config->health_check_user = str;
 		}
 
+		else if (!strcmp(key, "health_check_password") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->health_check_password = str;
+		}
+
+		else if (!strcmp(key, "sr_check_period") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v < 0)
+			{
+				pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->sr_check_period = v;
+		}
+
+		else if (!strcmp(key, "sr_check_user") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->sr_check_user = str;
+		}
+
+		else if (!strcmp(key, "sr_check_password") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->sr_check_password = str;
+		}
+
 		else if (!strcmp(key, "failover_command") &&
 				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
 		{
@@ -908,6 +1161,26 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				return(-1);
 			}
 			pool_config->failover_command = str;
+		}
+
+		else if (!strcmp(key, "follow_master_command") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->follow_master_command = str;
 		}
 
 		else if (!strcmp(key, "failback_command") &&
@@ -1257,7 +1530,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			if (context == INIT_CONFIG ||
 				(context == RELOAD_CONFIG && BACKEND_INFO(slot).backend_status == CON_UNUSED))
-				strncpy(BACKEND_INFO(slot).backend_hostname, str, MAX_DB_HOST_NAMELEN);
+				strlcpy(BACKEND_INFO(slot).backend_hostname, str, MAX_DB_HOST_NAMELEN);
 		}
 
 		else if (!strncmp(key, "backend_port", 12) &&
@@ -1316,8 +1589,8 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 
 			if (context == INIT_CONFIG || context == RELOAD_CONFIG)
 			{
-				double old_v = pool_config->backend_desc->backend_info[slot].unnormalized_weight;
-				pool_config->backend_desc->backend_info[slot].unnormalized_weight = v;
+				double old_v = BACKEND_INFO(slot).unnormalized_weight;
+				BACKEND_INFO(slot).unnormalized_weight = v;
 
 				/*
 				 * Log weight change event only when context is
@@ -1355,8 +1628,84 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			status = BACKEND_INFO(slot).backend_status;
 			if (context == INIT_CONFIG ||
 				(context == RELOAD_CONFIG && (status == CON_UNUSED || status == CON_DOWN)))
-				strncpy(BACKEND_INFO(slot).backend_data_directory, str, MAX_PATH_LENGTH);
+				strlcpy(BACKEND_INFO(slot).backend_data_directory, str, MAX_PATH_LENGTH);
 		}
+		else if (!strncmp(key, "backend_flag", 12) &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
+				 mypid == getpid()) /* this parameter must be modified by parent pid */
+		{
+			char *str;
+			char **flags;
+			int n;
+			int i;
+			int slot;
+			unsigned short flag = 0;
+			bool allow_to_failover_is_specified = 0;
+			bool disallow_to_failover_is_specified = 0;
+
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				pool_error("pool_config: extract_string failed: %s", yytext);
+				fclose(fd);
+				return(-1);
+			}
+
+			flags = extract_string_tokens(str, "|", &n);
+			if (!flags || n < 0)
+			{
+				pool_debug("pool_config: unable to get backend flags");
+				fclose(fd);
+				return(-1);
+			}
+
+			for (i=0;i<n;i++)
+			{
+				if (!strcmp(flags[i], "ALLOW_TO_FAILOVER"))
+				{
+					if (disallow_to_failover_is_specified)
+					{
+						pool_error("pool_config: cannot set ALLOW_TO_FAILOVER and DISALLOW_TO_FAILOVER at the same time");
+						fclose(fd);
+						return(-1);
+					}
+					flag &= ~POOL_FAILOVER;
+					allow_to_failover_is_specified = true;
+					pool_debug("pool_config: allow_to_failover on");
+				}
+
+				else if (!strcmp(flags[i], "DISALLOW_TO_FAILOVER"))
+				{
+					if (allow_to_failover_is_specified)
+					{
+						pool_error("pool_config: cannot set ALLOW_TO_FAILOVER and DISALLOW_TO_FAILOVER at the same time");
+						fclose(fd);
+						return(-1);
+					}
+					flag |= POOL_FAILOVER;
+					disallow_to_failover_is_specified = true;
+					pool_debug("pool_config: disallow_to_failover on");
+				}
+
+				else
+				{
+					pool_error("pool_config: invalid backend flag:%s", flags[i]);
+				}
+			}
+
+			slot = atoi(key + 12);
+			if (slot < 0 || slot >= MAX_CONNECTION_SLOTS)
+			{
+				pool_error("pool_config: slot number %s for flag out of range", key);
+				fclose(fd);
+				return(-1);
+			}
+
+			BACKEND_INFO(slot).flag = flag;
+
+			pool_debug("pool_config: slot number %d flag: %04x", slot, flag);
+		}
+
        	else if (!strcmp(key, "log_statement") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
 		{
 			int v = eval_logical(yytext);
@@ -1508,9 +1857,38 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->debug_level = v;
 		}
+
+		else if (!strcmp(key, "relcache_expire") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v < 0)
+			{
+				pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->relcache_expire = v;
+		}
+
 	}
 
 	fclose(fd);
+
+    if (log_destination_changed)
+    {
+        // log_destination has changed, we need to open syslog or close it
+		if (!strcmp(pool_config->log_destination, "stderr"))
+        {
+	        closelog();
+    	   	pool_config->logsyslog = 0;
+        }
+        else
+        {
+    	   	openlog(pool_config->syslog_ident, LOG_PID|LOG_NDELAY|LOG_NOWAIT, pool_config->syslog_facility);
+    	   	pool_config->logsyslog = 1;
+        }
+    }
 
 	pool_config->backend_desc->num_backends = 0;
 	total_weight = 0.0;
@@ -1527,7 +1905,22 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		{
 			total_weight += BACKEND_INFO(i).unnormalized_weight;
 			pool_config->backend_desc->num_backends = i+1;
-		}
+			
+			/* intialize backend_hostname with a default socket path if empty */
+			if (*(BACKEND_INFO(i).backend_hostname) == '\0') 
+			{
+				if (pool_config->backend_socket_dir == NULL)
+				{
+					pool_debug("pool_config: empty backend_hostname%d, use PostgreSQL's default unix socket path (%s)", i, DEFAULT_SOCKET_DIR);
+					strlcpy(BACKEND_INFO(i).backend_hostname, DEFAULT_SOCKET_DIR, MAX_DB_HOST_NAMELEN);
+				}
+				else /* DEPRECATED. backward compatibility with older version. Use backend_socket_dir*/ 
+				{
+					pool_debug("pool_config: empty backend_hostname%d, use backend_socket_dir as unix socket path (%s)", i, pool_config->backend_socket_dir);
+					strlcpy(BACKEND_INFO(i).backend_hostname, pool_config->backend_socket_dir, MAX_DB_HOST_NAMELEN);
+				}
+			}
+		}	
 	}
 
 	pool_debug("num_backends: %d total_weight: %f",
@@ -1544,11 +1937,12 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		print_host_entry(i);
 #endif
 
-		if (pool_config->backend_desc->backend_info[i].backend_port != 0)
+		if (BACKEND_INFO(i).backend_port != 0)
 		{
-			pool_config->backend_desc->backend_info[i].backend_weight =
-				(RAND_MAX) * pool_config->backend_desc->backend_info[i].unnormalized_weight / total_weight;
-			pool_debug("backend %d weight: %f", i, pool_config->backend_desc->backend_info[i].backend_weight);
+			BACKEND_INFO(i).backend_weight =
+				(RAND_MAX) * BACKEND_INFO(i).unnormalized_weight / total_weight;
+			pool_debug("backend %d weight: %f", i, BACKEND_INFO(i).backend_weight);
+			pool_debug("backend %d flag: %04x", i, BACKEND_INFO(i).flag);
 		}
 	}
 
@@ -1607,7 +2001,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				pool_error("failed to get systemdb info");
 				return(-1);
 			}
-			if (!pool_config->replication_enabled && !pool_config->load_balance_mode)
+			if (!pool_config->replication_mode && !pool_config->load_balance_mode)
 			{
 				pool_error("pool_config: parallel_mode requires replication_mode or load_balance_mode turned on");
 				return(-1);
@@ -1814,3 +2208,57 @@ static void print_host_entry(int slot)
 }
 #endif
 
+/* Use to set the syslog facility level if logsyslog is activated */
+int set_syslog_facility(char *value)
+{
+   int facility = LOG_LOCAL0;
+
+   if (value == NULL)
+     return facility;
+
+   if (strncmp(value, "LOCAL", 5) == 0 && strlen(value) == 6) {
+	  switch (value[5]) {
+	  case '0':
+	       facility = LOG_LOCAL0;
+	       break;
+	  case '1':
+	       facility = LOG_LOCAL1;
+	       break;
+	  case '2':
+	       facility = LOG_LOCAL2;
+	       break;
+	  case '3':
+	       facility = LOG_LOCAL3;
+	       break;
+	  case '4':
+	       facility = LOG_LOCAL4;
+	       break;
+	  case '5':
+	       facility = LOG_LOCAL5;
+	       break;
+	  case '6':
+	       facility = LOG_LOCAL6;
+	       break;
+	  case '7':
+	       facility = LOG_LOCAL7;
+	       break;
+	  }
+     }
+     return facility;
+}
+
+/*
+ * Translate binary form of backend flag to string.
+ * The returned data is in static buffer, and it will be destroyed
+ * at the next call to this function.
+ */
+char *pool_flag_to_str(unsigned short flag)
+{
+	static char buf[1024];		/* should be large enough */
+
+	if (POOL_ALLOW_TO_FAILOVER(flag))
+		snprintf(buf, sizeof(buf), "ALLOW_TO_FAILOVER");
+	else if (POOL_DISALLOW_TO_FAILOVER(flag))
+		snprintf(buf, sizeof(buf), "DISALLOW_TO_FAILOVER");
+	return buf;
+}

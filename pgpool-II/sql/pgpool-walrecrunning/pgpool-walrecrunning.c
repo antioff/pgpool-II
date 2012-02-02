@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/sql/pgpool-walrecrunning/pgpool-walrecrunning.c,v 1.1.2.3 2011/02/18 03:10:43 kitagawa Exp $
+ * $Header$
  *
  * Copyright (c) 2003-2011	PgPool Global Development Group
  *

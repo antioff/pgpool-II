@@ -1,4 +1,4 @@
-# $Header: /cvsroot/pgpool/pgpool-II/sql/Makefile,v 1.1.2.2 2011/02/17 11:14:04 t-ishii Exp $
+# $Header$
 #
 # pgpool: a language independent connection pool server for PostgreSQL
 # written by Tatsuo Ishii

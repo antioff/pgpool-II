@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/parser/pool_string.h,v 1.4 2008/01/29 01:56:39 y-asaba Exp $
+ * $Header$
  *
  * Copyright (c) 2006-2008, pgpool Global Development Group
  *

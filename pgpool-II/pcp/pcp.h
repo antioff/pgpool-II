@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp.h,v 1.5 2010/08/05 08:08:44 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -49,22 +49,6 @@ typedef enum {
  * --------------------------------
  */
 extern struct timeval pcp_timeout;
-extern int pcp_connect(char *hostname, int port, char *username, char *password);
-extern void pcp_disconnect(void);
-extern int pcp_terminate_pgpool(char mode);
-extern int pcp_node_count(void);
-extern BackendInfo *pcp_node_info(int nid);
-extern int *pcp_process_count(int *process_count);
-extern ProcessInfo *pcp_process_info(int pid, int *array_size);
-extern SystemDBInfo *pcp_systemdb_info(void);
-extern void free_systemdb_info(SystemDBInfo * si);
-extern int pcp_detach_node(int nid);
-extern int pcp_detach_node_gracefully(int nid);
-extern int pcp_attach_node(int nid);
-extern void pcp_set_timeout(long sec);
-extern int pcp_recovery_node(int nid);
-extern void pcp_enable_debug(void);
-extern void pcp_disable_debug(void);
 
 /* ------------------------------
  * pcp_error.c

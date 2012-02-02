@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_connection_pool.c,v 1.30.2.1 2011/01/07 01:24:17 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -449,7 +449,7 @@ int connect_unix_domain_socket(int slot, bool retry)
 	char *socket_dir;
 
 	port = pool_config->backend_desc->backend_info[slot].backend_port;
-	socket_dir = pool_config->backend_socket_dir;
+	socket_dir = pool_config->backend_desc->backend_info[slot].backend_hostname;
 
 	return connect_unix_domain_socket_by_port(port, socket_dir, retry);
 }
@@ -467,7 +467,7 @@ int connect_unix_domain_socket_by_port(int port, char *socket_dir, bool retry)
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (fd == -1)
 	{
-		pool_error("connect_unix_domain_socket_by_port: setsockopt() failed: %s", strerror(errno));
+		pool_error("connect_unix_domain_socket_by_port: socket() failed: %s", strerror(errno));
 		return -1;
 	}
 
@@ -576,7 +576,7 @@ static POOL_CONNECTION_POOL_SLOT *create_cp(POOL_CONNECTION_POOL_SLOT *cp, int s
 	BackendInfo *b = &pool_config->backend_desc->backend_info[slot];
 	int fd;
 
-	if (*b->backend_hostname == '\0')
+	if (*b->backend_hostname == '/')
 	{
 		fd = connect_unix_domain_socket(slot, TRUE);
 	}

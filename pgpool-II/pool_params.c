@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_params.c,v 1.4 2009/08/22 04:04:21 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "pool.h"
+#include "parser/parser.h"
 
 #define MAX_PARAM_ITEMS 128
 
@@ -147,6 +148,7 @@ int pool_add_param(ParamStatus *params, char *name, char *value)
 		}
 		params->num++;
     }
+	parser_set_param(name, value);
 	return 0;
 }
 

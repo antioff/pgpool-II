@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_session_context.h,v 1.20.2.1 2011/01/28 04:46:37 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
@@ -38,7 +38,9 @@
  */
 typedef enum {
 	POOL_UNKNOWN,				/* Unknown. Need to ask backend */
+	POOL_READ_UNCOMMITTED,		/* Read uncommitted */
 	POOL_READ_COMMITTED,		/* Read committed */
+	POOL_REPEATABLE_READ,		/* Rpeatable read */
 	POOL_SERIALIZABLE			/* Serializable */
 } POOL_TRANSACTION_ISOLATION;
 #ifdef NOT_USED

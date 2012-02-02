@@ -1,4 +1,4 @@
--- $Header: /cvsroot/pgpool/pgpool-II/sample/replicate_def_pgbench.sql,v 1.2 2008/04/09 07:03:15 y-asaba Exp $
+-- $Header$
 
 INSERT INTO pgpool_catalog.replicate_def VALUES (
     'bench_parallel',

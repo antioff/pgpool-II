@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/child.c,v 1.65.2.3 2011/02/23 03:49:07 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -129,6 +129,9 @@ void do_child(int unix_fd, int inet_fd)
 	}
 #endif
 
+	/* Initialize my backend status */
+	pool_initialize_private_backend_status();
+
 	/* Initialize per process context */
 	pool_init_process_context();
 
@@ -156,6 +159,17 @@ void do_child(int unix_fd, int inet_fd)
 
 		/* pgpool stop request already sent? */
 		check_stop_request();
+
+		/* Check if restart request is set because of failback event
+		 * happend.  If so, exit myself with exit code 1 to be
+		 * restarted by pgpool parent.
+		 */
+		if (pool_get_my_process_info()->need_to_restart)
+		{
+			pool_log("do_child: failback event found. restart myself.");
+			pool_get_my_process_info()->need_to_restart = 0;
+			child_exit(1);
+		}
 
 		accepted = 0;
 
@@ -250,6 +264,18 @@ void do_child(int unix_fd, int inet_fd)
 		 * connection which can be reused by this frontend.
 		 * Authentication is also done in this step.
 		 */
+
+		/* Check if restart request is set because of failback event
+		 * happend.  If so, close idle connections to backend and make
+		 * a new copy of backend status.
+		 */
+		if (pool_get_my_process_info()->need_to_restart)
+		{
+			pool_log("do_child: failback event found. discard existing connections");
+			pool_get_my_process_info()->need_to_restart = 0;
+			close_idle_connection(0);
+			pool_initialize_private_backend_status();
+		}
 
 		/*
 		 * if there's no connection associated with user and database,
@@ -762,7 +788,9 @@ static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *time
 }
 
 /*
-* read startup packet
+* Read startup packet
+*
+* Read the startup packet and parse the contents.
 */
 static StartupPacket *read_startup_packet(POOL_CONNECTION *cp)
 {
@@ -889,6 +917,24 @@ static StartupPacket *read_startup_packet(POOL_CONNECTION *cp)
 						return NULL;
 					}
 				}
+
+				/*
+				 * From 9.0, the start up packet may include
+				 * application name. After receiving such that packet,
+				 * backend sends parameter status of application_name.
+				 * Upon reusing connection to backend, we need to
+				 * emulate this behavior of backend. So we remember
+				 * this and send parameter status packet to frontend
+				 * instead of backend in
+				 * connect_using_existing_connection().
+				 */
+				else if (!strcmp("application_name", p))
+				{
+					p += (strlen(p) + 1);
+					sp->application_name = p;
+					pool_debug("read_startup_packet: application_name: %s", p);
+				}
+
 				p += (strlen(p) + 1);
 			}
 			break;
@@ -951,7 +997,7 @@ static bool connect_using_existing_connection(POOL_CONNECTION *frontend,
 {
 	int i, freed = 0;
 	/*
-	 * save startup packet info
+	 * Save startup packet info
 	 */
 	for (i = 0; i < NUM_BACKENDS; i++)
 	{
@@ -966,7 +1012,7 @@ static bool connect_using_existing_connection(POOL_CONNECTION *frontend,
 		}
 	}
 
-	/* reuse existing connection to backend */
+	/* Reuse existing connection to backend */
 
 	if (pool_do_reauth(frontend, backend))
 	{
@@ -977,6 +1023,32 @@ static bool connect_using_existing_connection(POOL_CONNECTION *frontend,
 
 	if (MAJOR(backend) == 3)
 	{
+		char command_buf[1024];
+
+		/* If we have received application_name in the start up
+		 * packet, we send SET command to backend. Also we add or
+		 * replace existing application_name data.
+		 */
+		if (sp->application_name)
+		{
+			snprintf(command_buf, sizeof(command_buf), "SET application_name TO '%s'", sp->application_name);
+
+			for (i=0;i<NUM_BACKENDS;i++)
+			{
+				if (VALID_BACKEND(i))
+					if (do_command(frontend, CONNECTION(backend, i),
+							   command_buf, MAJOR(backend),
+								   MASTER_CONNECTION(backend)->pid,
+								   MASTER_CONNECTION(backend)->key, 0) != POOL_CONTINUE)
+					{
+						pool_error("connect_using_existing_connection: do_command failed. command: %s", command_buf);
+						return false;
+					}
+			}
+
+			pool_add_param(&MASTER(backend)->params, "application_name", sp->application_name);
+		}
+
 		if (send_params(frontend, backend))
 		{
 			pool_close(frontend);
@@ -985,7 +1057,7 @@ static bool connect_using_existing_connection(POOL_CONNECTION *frontend,
 		}
 	}
 
-	/* send ReadyForQuery to frontend */
+	/* Send ReadyForQuery to frontend */
 	pool_write(frontend, "Z", 1);
 
 	if (MAJOR(backend) == 3)
@@ -1057,7 +1129,7 @@ void cancel_request(CancelPacket *sp)
 		if (!VALID_BACKEND(i))
 			continue;
 
-		if (*(BACKEND_INFO(i).backend_hostname) == '\0')
+		if (*(BACKEND_INFO(i).backend_hostname) == '/')
 			fd = connect_unix_domain_socket(i, TRUE);
 		else
 			fd = connect_inet_domain_socket(i, TRUE);
@@ -1371,9 +1443,9 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	/*
 	 * create socket
 	 */
-	if (*hostname == '\0')
+	if (*hostname == '/')
 	{
-		fd = connect_unix_domain_socket_by_port(port, pool_config->backend_socket_dir, TRUE);
+		fd = connect_unix_domain_socket_by_port(port, hostname, TRUE);
 	}
 	else
 	{
@@ -1496,6 +1568,7 @@ void discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT *cp)
 	free(cp->sp->startup_packet);
 	free(cp->sp->database);
 	free(cp->sp->user);
+	free(cp->sp);
 	free(cp);
 }
 
@@ -1874,5 +1947,24 @@ static void init_system_db_connection(void)
 		{
 			pool_error("Could not make persistent system DB connection");
 		}
+	}
+}
+
+/*
+ * Initialize my backend status.
+ * We copy the backend status to private area so that
+ * they are not changed while I am alive.
+ */
+void pool_initialize_private_backend_status(void)
+{
+	int i;
+
+	pool_debug("pool_initialize_private_backend_status: initialize backend status");
+
+	for (i=0;i<MAX_NUM_BACKENDS;i++)
+	{
+		private_backend_status[i] = BACKEND_INFO(i).backend_status;
+		/* my_backend_status is referred to by VALID_BACKEND macro. */
+		my_backend_status[i] = &private_backend_status[i];
 	}
 }

@@ -1,4 +1,4 @@
--- $Header: /cvsroot/pgpool/pgpool-II/sql/system_db.sql,v 1.3 2008/04/09 07:01:27 y-asaba Exp $
+-- $Header$
 
 DROP TABLE pgpool_catalog.dist_def;
 DROP TABLE pgpool_catalog.replicate_def;

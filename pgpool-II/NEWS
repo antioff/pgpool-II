@@ -1,3 +1,265 @@
+3.1.2 (hatsuiboshi) 2012/01/31
+
+	  * Version 3.1.2
+
+	  This is a bugfix release against pgpool-II 3.1.1.
+
+	  * Bug fixes
+
+      - Fix to recognize READ UNCOMMITTED and REPEATABLE READ of transaction
+        isolation levels. (Tatsuo Ishii)
+
+      - Fix infinite loop reported in this thread (Tatsuo Ishii):
+        http://www.pgpool.net/pipermail/pgpool-general/2011-December/000099.html
+
+        It was not considered the case that, when received buffer in primary was
+        empty but the one in a standby was not, the standby spontaneously sent
+        packet to pgpool.
+        This could happen when, for example, reloading postgresql.conf.
+        The fix is that such buffer in standby is discarded.
+
+3.1.1 (hatsuiboshi) 2011/12/06
+
+	  * Version 3.1.1
+
+	  This is a bugfix release against pgpool-II 3.1.
+
+	  * Bug fixes
+
+	  - Fix add_regex_pattern(). It does not allocate enough memory
+	   	for each black/white_function_list items. The function adds
+	   	"^" and "$" to each function items which do not contain those
+	   	characters. Unfortunately the function forgot to add extra 2
+	   	bytes for those characters. This may lead to memory corruption
+	   	errors when pgpool starting up.
+
+	  - Fix error message of check_replication_time_lag(Tatsuo
+	    Ishii). It emitted wrong error message when it failed to
+	    connect to PostgreSQL while checking streaming replication
+	    delay. Because it does not use health_check_user anymore.
+
+      - Fix memory leak(Toshihiro Kitagawa). This is essentially same
+      	as the fix made for 3.0.5(commit
+      	19a4ea9215da0b61728741fc0da2271958b09238).
+
+      - Major cleanup for strncpy(Tatsuo Ishii). There are several
+      	places where strncpy() is used. Problem is some of them do not
+      	consider the case when copy lengh == buffer size. In this case
+      	copied buffer is not null terminated and may cause tons of
+      	problems later.  To fix this, most of them are replaced by
+      	strlcpy().
+
+      - Update cached backend status whenever possible(Tatsuo Ishii).
+      	This solves the problem of follow_master_command not being
+      	able to lookup backend status correctly which was reported by
+      	Jeff Frost: Subject: [Pgpool-general] diagnosing BackendError
+      	from pcp_recovery_node To: pgpool-general@pgfoundry.org Date:
+      	Wed, 05 Oct 2011 15:15:07 -0700
+
+      - Fix buffer overrun problem when pcp password is longer than
+        32(Tatsuo Ishii).
+
+      - Remove PGDLLIMPORTI which is only neccessary for Windows
+      	and cause a problem for non gcc. Patch contributed by Ibrar Ahmed.
+
+3.1 (hatsuiboshi) 2011/09/08
+
+	  * Version 3.1
+
+	  This is the first version of pgpool-II 3.1 series.
+	  That is, a "major version up" from 3.0 series.
+
+	  * Incompatible changes
+
+	  - Change the lock method of insert_lock. The previous insert_lock uses
+		row locking against the sequence relation, but the current one uses
+		row locking against pgpool_catalog.insert_lock table. The reason is
+		that PostgreSQL core developers decided to disallow row locking
+		against the sequence relation to avoid an internal error which it
+		leads. So creating insert_lock table in all databases which are
+		accessed via pgpool-II beforehand is required. If does not exist
+		insert_lock table, pgpool-II locks the insert target table. This
+		behavior is same as pgpool-II 2.2 and 2.3 series. If you want to use
+		insert_lock which is compatible with older releases, you can specify
+		lock method by configure options: --enable-sequence-lock,
+		--enable-table-lock(Kitagawa)
+
+	  - Deprecate backend_socket_dir. Instead, if backend_hostname starts
+		with '/' it is regarded the as path to Unix domain. If backend_hostname
+		is left empty, then default Unix domain path(/tmp) is used. This
+		follows the convention of libpq interface. Patch contributed by
+		Jehan-Guillaume (ioguix) de Rorthais.
+
+	  - Now "pgpool_walrecrunning()" was not used. pgpool-II used to consider
+		the node that is promoted a primary node using the function. Now,
+		pgpool-II waits for completing of the promotion to primary node
+		because it did not work as we intended. But we still have a problem
+		that pgpool-II waits while recovery_timeout, when there is no primary
+		node(Kitagawa)
+
+	  - Add node_id to each PostgreSQL DB node info in the output of
+		show pool_nodes(Jean-Paul Argudo)
+
+	  - Change the handling of sequence functions(nextval, setval) so that
+		they completely obey setting of black/white_function_list. They were
+		always handled as write functions before(Kitagawa)
+
+	  * New features
+
+	  - Add syslog support. Patch contributed by Gilles Darold. Review and
+		editing by Guillaume Lelarge.
+
+	  - Adapt application_name introduced in PostgreSQL 9.0. When reusing
+		connection, send application_name in the startup packet to backend
+		and send parameter status to frontend(Tatsuo)
+
+	  - Add relcache_expire directive to control the expiration of the
+		internal system catalog cache. ALTER TABLE might make these
+		cache values obsoleted and the new directive will make the risk
+		lower(Tatsuo).
+
+	  - Add follow_master_command directive. This directive specifies a
+		command to run in master/slave streaming replication only after
+		a master failover. Patch contributed by Gilles Darold.
+
+	  - Add pcp_promote_node command. This command promotes a new master
+		node to pgpool-II. This can use in master/slave streaming replication
+		only. Patch contributed by Gilles Darold.
+
+	  - Add pcp_pool_status command which produces similar output of show
+		pool_status. Also C API for this command is added. Patch
+		contributed by Jehan-Guillaume (ioguix) de Rorthais.
+
+	  - Add new per backend directive "backend_flag". This controls per
+		backend behavior. Currently "ALLOW_TO_FAILOVER" or
+		"DISALLOW_TO_FAILOVER" are allowed(Tatsuo)
+
+	  - Add health_check_password directive(Nicolas Thauvin)
+
+	  - Add sr_check_period, sr_check_user and sr_check_password directives.
+		These are used for streaming replication delay checking and
+		determining primary node(Tatsuo)
+
+	  - Add --username(or -u) option to pg_md5 command. This allows to manage
+		users which do not have UNIX accounts. Japanese document change by
+		Tatsuo Ishii(Nicolas Thauvin)
+
+	  - Add pgpool_adm functions to pgpool_adm/. These are user-defined
+		functions written in C language which work like pcp commands
+		(Jehan-Guillaume (ioguix) de Rorthais)
+
+	  - Add Simplified Chinese version of documents(Huang Jian, Sun Peng)
+
+	  - Add SQL files to uninstall functions to sql/(Nicolas Thauvin)
+
+	  - In master/slave mode, SELECTs to unlogged table execute only on
+		master/primary(Kitagawa)
+
+	  * Bug fixes
+
+	  - Fix bug which cannot use the cursors of JDBC driver on standby
+		node. The transaction commands come to be sent to all nodes by
+		this fix in master/slave mode(Kitagawa)
+
+	  - Fix bug with the handling of empty queries. The empty queries
+		come to be handled the same as SELECT queries. This fix allows
+		load-balance after the empty query(Kitagawa)
+
+	  - Fix insert_lock so that it works correctly even if the column
+		definition such as "DEFAULT nextval(('"x_seq"'::text)::regclass)"
+		(Kitagawa)
+
+	  - Fix pcp_attach_node command so that it emits error message while
+		doing failover(Kitagawa)
+
+	  - Fix log message which is emitted when pgpool-II cannot parse the
+		query in the extended query protocol so that it shows the query
+		(Kitagawa)
+
+	  - Fix description about backend_weight inpgpool-II manual. It can
+		be changed by reloading pgpool.conf(Tatsuo)
+
+	  - Fix and enhance wording in English tutorial document.
+		Fix suggested by Huang Jian(Tatsuo)
+
+	  - Fix bug which does not update the node status when reattaching the
+		node in raw mode(Guillaume Lelarge)
+
+	  - Fix incorrect calculation of the replication delay in streaming
+		replication mode(Tatsuo)
+
+	  - Replace wrong function name "notice_backend_error" with correct one
+		"degenerate_backend_set" in the failover log message(Tatsuo)
+
+	  - Remove unnecessary logging at the end of pgpool.conf parsing(Tatsuo)
+
+	  - Fix possible crash of pgpool/worker child after attaching new backend.
+		Fix suggested by Gurjeet Singh(Tatsuo)
+
+	  - Fix bug that SELECTs which have subquery with FOR SHARE/UPDATE clause
+		are sent to slave/standby(Tatsuo)
+
+	  - Fix bug which rewriting timestamp of default value fails in PREPARE
+		statements. This used to work but was broken in 3.0(Kitagawa)
+
+	  - Fix fail to compile pcp commands on the environment without
+		getopt_long()(Tatsuo)
+
+	  - Fix crash of pgpool child when frontend connects if in raw mode,
+		enable_hba is off and more than 2 backends(Kitagawa)
+
+	  - Fix some memory leaks(Kitagawa)
+
+	  * Enhancements
+
+	  - Enhance online recovery in streaming replication mode.
+		Now restarting pgpool-II children is avoided when recovery finished. So
+		existing sessions can be continued while doing online recovery(Tatsuo)
+
+	  - pcp_attach_node does not diconnect existing sessions in
+        streaming replication mode. In other mode, pcp_attache_node
+        still disconnects existing sessions(Tatsuo).
+
+	  - Import PostgreSQL 9.0 parser. This allows to use CREATE INDEX with
+		implicit index name, which is new in 9.0. Patch contributed by
+		Akio Ishida.
+
+	  - Allow to use regular expressions in black and white function list.
+		Patch contributed by Gilles Darold. Patch reviewed by Guillaume Lelarge.
+
+	  - Reorganize pgpool.conf sample files so that they are easier to read
+		(Guillaume Lelarge)
+
+	  - Add <a name="..."> tags into all parameters in the pgpool-II user
+		manual(Haruka Takatsuka)
+
+	  - Enhance online recovery documents in streaming replication(Tatsuo)
+
+	  - Change the function to check the replication delay in streaming
+		replication mode. Currently, pgpool uses
+		pg_last_xlog_replay_location() instead of
+		pg_last_xlog_receive_location(). Fix suggested by Anton Yuzhaninov
+		(Tatsuo)
+
+	  - Allow time stamp rewriting to work with arbitrary expression in
+		default value of a column. Before we detected anything including
+		now() then simply replaced it to now(). This will lead to wrong
+		rewriting of default value. for example, timezone('utc'::text, now()).
+		Note that, however, this only adopts to simple queries. Extended
+		protocols(for example Java, PHP PDO) or SQL "PREPARE" still remain
+		same(Tatsuo)
+
+	  - Enhance the error message which is emitted when failed to check
+		replication delay(Nicolas Thauvin)
+
+	  - Change error message "do_md5: read_password_packet failed" into debug
+		level(Kitagawa)
+
+	  - Allow to compile pgpool-regclass() against PostgreSQL 9.1(Tatsuo)
+
+	  - Update and sync pgpool-II manuals of English version and Japanese
+		version(Tatsuo)
+
 3.0.4 (umiyameboshi) 2011/06/01
 
 	  * Version 3.0.4
@@ -69,8 +331,8 @@
 	  * Incompatible changes
 
 	  - Now installing C function "pgpool_walrecrunning()" is recommended
-	  	if you plan to use streaming replication mode.
-	  	This is necessary for better use of online recovery in the mode.
+		if you plan to use streaming replication mode.
+		This is necessary for better use of online recovery in the mode.
 		Also new variable "%P" can be used in the online recovery script.
 		If you do not install the function, these functionalities cannot be used(Tatsuo).
 
@@ -138,10 +400,10 @@
 		system_db_password(Kitagawa)
 
 	  - Fix online recovery problem in the streaming replication
-        mode(Tatsuo). Consider following scenario. Suppose node 0 is
-        the initial primary server and 1 is the initial standby
-        server.
-		
+		mode(Tatsuo). Consider following scenario. Suppose node 0 is
+		the initial primary server and 1 is the initial standby
+		server.
+
 		1) Node 0 going down and node 1 promotes to new primary.
 		2) Recover node 0 as new standby.
 		3) pgpool-II assumes that node 0 is the new primary.

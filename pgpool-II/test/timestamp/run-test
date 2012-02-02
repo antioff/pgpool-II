@@ -1,6 +1,6 @@
 #! /usr/bin/env ruby
 
-# $Header: /cvsroot/pgpool/pgpool-II/test/timestamp/run-test,v 1.1 2009/11/10 10:03:10 t-ishii Exp $
+# $Header$
 
 #
 # Usage¡§./run-test schedule

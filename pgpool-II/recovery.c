@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/recovery.c,v 1.18.2.2 2011/04/25 22:59:29 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -202,7 +202,7 @@ static int exec_recovery(PGconn *conn, BackendInfo *backend, char stage)
 	char *script;
 	int r;
 
-	if (strlen(backend->backend_hostname) == 0)
+	if (strlen(backend->backend_hostname) == 0 || *(backend->backend_hostname) == '/')
 		hostname = "localhost";
 	else
 		hostname = backend->backend_hostname;
@@ -248,7 +248,7 @@ static int exec_remote_start(PGconn *conn, BackendInfo *backend)
 	char *hostname;
 	int r;
 
-	if (strlen(backend->backend_hostname) == 0)
+	if (strlen(backend->backend_hostname) == 0 || *(backend->backend_hostname) == '/')
 		hostname = "localhost";
 	else
 		hostname = backend->backend_hostname;

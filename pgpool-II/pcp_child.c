@@ -1,11 +1,11 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pcp_child.c,v 1.20.2.1 2011/02/23 13:19:32 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -55,6 +55,7 @@
 #include "md5.h"
 #include "pool_config.h"
 #include "pool_process_context.h"
+#include "pool_process_reporting.h"
 
 #define MAX_FILE_LINE_LEN    512
 #define MAX_USER_PASSWD_LEN  128
@@ -68,13 +69,29 @@ static void unset_nonblock(int fd);
 static int user_authenticate(char *buf, char *passwd_file, char *salt, int salt_len);
 static RETSIGTYPE wakeup_handler(int sig);
 static RETSIGTYPE reload_config_handler(int sig);
+static RETSIGTYPE restart_handler(int sig);
 static int pool_detach_node(int node_id, bool gracefully);
+static int pool_promote_node(int node_id, bool gracefully);
 
 extern int myargc;
 extern char **myargv;
 
 static volatile sig_atomic_t pcp_got_sighup = 0;
 volatile sig_atomic_t pcp_wakeup_request = 0;
+static volatile sig_atomic_t pcp_restart_request = 0;
+
+#define CHECK_RESTART_REQUEST \
+	do { \
+		if (pcp_restart_request) \
+		{ \
+		  pool_log("pcp child process received restart request"); \
+		  exit(1); \
+		} \
+		else \
+		{ \
+		  pool_initialize_private_backend_status(); \
+		} \
+    } while (0)
 
 void
 pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
@@ -106,10 +123,13 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 	signal(SIGHUP, reload_config_handler);
 	signal(SIGQUIT, die);
 	signal(SIGCHLD, SIG_DFL);
-	signal(SIGUSR1, SIG_DFL);
+	signal(SIGUSR1, restart_handler);
 	signal(SIGUSR2, wakeup_handler);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGALRM, SIG_IGN);
+
+	/* Initialize my backend status */
+	pool_initialize_private_backend_status();
 
 	/* Initialize process context */
 	pool_init_process_context();
@@ -117,6 +137,8 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 	for(;;)
 	{
 		errno = 0;
+
+		CHECK_RESTART_REQUEST;
 
 		if (frontend == NULL)
 		{
@@ -195,6 +217,32 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 		pool_debug("pcp_child: received PCP packet type of service '%c'", tos);
 
 		set_ps_display("PCP: processing a request", false);
+
+		if (tos == 'C' || tos == 'd' || tos == 'D' || tos == 'j' ||
+			tos == 'J' || tos == 'O' || tos == 'T')
+		{
+			if (Req_info->switching)
+			{
+				int len;
+				int wsize;
+				char *msg;
+
+				if (Req_info->kind == NODE_UP_REQUEST)
+					msg = "FailbackInProgress";
+				else if (Req_info->kind == NODE_DOWN_REQUEST)
+					msg = "FailoverInProgress";
+				else if (Req_info->kind == PROMOTE_NODE_REQUEST)
+					msg = "PromotionInProgress";
+				else
+					msg = "OperationInProgress";
+
+				len = strlen(msg) + 1;
+				pcp_write(frontend, "e", 1);
+				wsize = htonl(sizeof(int) + len);
+				pcp_write(frontend, &wsize, sizeof(int));
+				pcp_write(frontend, msg, len);
+			}
+		}
 
 		switch (tos)
 		{
@@ -408,13 +456,12 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 			{
 				int proc_id;
 				int wsize;
-
-				ProcessInfo *pi = NULL;
+				int num_proc = pool_config->num_init_children;
+				int i;
 
 				proc_id = atoi(buf);
-				pi = pool_get_process_info(proc_id);
 
-				if (pi == NULL)
+				if ((proc_id != 0) && (pool_get_process_info(proc_id) == NULL))
 				{
 					char code[] = "InvalidProcessID";
 
@@ -438,7 +485,16 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 					/* Finally, indicate that all data is sent */
 					char fin_code[] = "CommandComplete";
 
-					snprintf(con_info_size, sizeof(con_info_size), "%d", pool_config->max_pool*NUM_BACKENDS);
+					POOL_REPORT_POOLS *pools = get_pools(&num_proc);
+
+					if (proc_id == 0)
+					{
+						snprintf(con_info_size, sizeof(con_info_size), "%d", num_proc);
+					}
+					else
+					{
+						snprintf(con_info_size, sizeof(con_info_size), "%d", pool_config->max_pool * NUM_BACKENDS);
+					}
 
 					pcp_write(frontend, "p", 1);
 					wsize = htonl(sizeof(arr_code) +
@@ -450,65 +506,68 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 					if (pcp_flush(frontend) < 0)
 					{
 						pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+						free(pools);
 						exit(1);
 					}
 
 					/* Second, send process information for all connection_info */
-					for (i = 0; i < pool_config->max_pool; i++)
+					for (i=0; i<num_proc; i++)
 					{
-						int j;
+						char code[] = "ProcessInfo";
+						char proc_pid[16];
+						char proc_start_time[20];
+						char proc_create_time[20];
+						char majorversion[5];
+						char minorversion[5];
+						char pool_counter[16];
+						char backend_id[16];
+						char backend_pid[16];
+						char connected[2];
 
-						for (j=0;j<NUM_BACKENDS;j++)
+						if (proc_id != 0 && proc_id != pools[i].pool_pid) continue;
+
+						snprintf(proc_pid, sizeof(proc_pid), "%d", pools[i].pool_pid);
+						snprintf(proc_start_time, sizeof(proc_start_time), "%ld", pools[i].start_time);
+						snprintf(proc_create_time, sizeof(proc_create_time), "%ld", pools[i].create_time);
+						snprintf(majorversion, sizeof(majorversion), "%d", pools[i].pool_majorversion);
+						snprintf(minorversion, sizeof(minorversion), "%d", pools[i].pool_minorversion);
+						snprintf(pool_counter, sizeof(pool_counter), "%d", pools[i].pool_counter);
+						snprintf(backend_id, sizeof(backend_pid), "%d", pools[i].backend_id);
+						snprintf(backend_pid, sizeof(backend_pid), "%d", pools[i].pool_backendpid);
+						snprintf(connected, sizeof(connected), "%d", pools[i].pool_connected);
+
+						pcp_write(frontend, "p", 1);
+						wsize = htonl(	sizeof(code) +
+										strlen(proc_pid)+1 +
+										strlen(pools[i].database)+1 +
+										strlen(pools[i].username)+1 +
+										strlen(proc_start_time)+1 +
+										strlen(proc_create_time)+1 +
+										strlen(majorversion)+1 +
+										strlen(minorversion)+1 +
+										strlen(pool_counter)+1 +
+										strlen(backend_id)+1 +
+										strlen(backend_pid)+1 +
+										strlen(connected)+1 +
+										sizeof(int));
+						pcp_write(frontend, &wsize, sizeof(int));
+						pcp_write(frontend, code, sizeof(code));
+						pcp_write(frontend, proc_pid, strlen(proc_pid)+1);
+						pcp_write(frontend, pools[i].database, strlen(pools[i].database)+1);
+						pcp_write(frontend, pools[i].username, strlen(pools[i].username)+1);
+						pcp_write(frontend, proc_start_time, strlen(proc_start_time)+1);
+						pcp_write(frontend, proc_create_time, strlen(proc_create_time)+1);
+						pcp_write(frontend, majorversion, strlen(majorversion)+1);
+						pcp_write(frontend, minorversion, strlen(minorversion)+1);
+						pcp_write(frontend, pool_counter, strlen(pool_counter)+1);
+						pcp_write(frontend, backend_id, strlen(backend_id)+1);
+						pcp_write(frontend, backend_pid, strlen(backend_pid)+1);
+						pcp_write(frontend, connected, strlen(connected)+1);
+						if (pcp_flush(frontend) < 0)
 						{
-							char code[] = "ProcessInfo";
-							char proc_start_time[20];
-							char proc_create_time[20];
-							char majorversion[5];
-							char minorversion[5];
-							char pool_counter[16];
-							char backend_pid[16];
-							char connected[2];
-
-							ConnectionInfo *connection_info;
-
-							connection_info = pool_coninfo_pid(proc_id, i, j);
-
-							snprintf(proc_start_time, sizeof(proc_start_time), "%ld", pi->start_time);
-							snprintf(proc_create_time, sizeof(proc_create_time), "%ld", connection_info->create_time);
-							snprintf(majorversion, sizeof(majorversion), "%d", connection_info->major);
-							snprintf(minorversion, sizeof(minorversion), "%d", connection_info->minor);
-							snprintf(pool_counter, sizeof(pool_counter), "%d", connection_info->counter);
-							snprintf(backend_pid, sizeof(backend_pid), "%d", ntohl(connection_info->pid));
-							snprintf(connected, sizeof(connected), "%d", connection_info->connected);
-
-							pcp_write(frontend, "p", 1);
-							wsize = htonl(sizeof(code) +
-										  strlen(connection_info->database)+1 +
-										  strlen(connection_info->user)+1 +
-										  strlen(proc_start_time)+1 +
-										  strlen(proc_create_time)+1 +
-										  strlen(majorversion)+1 +
-										  strlen(minorversion)+1 +
-										  strlen(pool_counter)+1 +
-										  strlen(backend_pid)+1 +
-										  strlen(connected)+1 +
-										  sizeof(int));
-							pcp_write(frontend, &wsize, sizeof(int));
-							pcp_write(frontend, code, sizeof(code));
-							pcp_write(frontend, connection_info->database, strlen(connection_info->database)+1);
-							pcp_write(frontend, connection_info->user, strlen(connection_info->user)+1);
-							pcp_write(frontend, proc_start_time, strlen(proc_start_time)+1);
-							pcp_write(frontend, proc_create_time, strlen(proc_create_time)+1);
-							pcp_write(frontend, majorversion, strlen(majorversion)+1);
-							pcp_write(frontend, minorversion, strlen(minorversion)+1);
-							pcp_write(frontend, pool_counter, strlen(pool_counter)+1);
-							pcp_write(frontend, backend_pid, strlen(backend_pid)+1);
-							pcp_write(frontend, connected, strlen(connected)+1);
-							if (pcp_flush(frontend) < 0)
-							{
-								pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
-								exit(1);
-							}
+							pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+							free(pools);
+							exit(1);
 						}
 					}
 
@@ -520,10 +579,12 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 					if (pcp_flush(frontend) < 0)
 					{
 						pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+						free(pools);
 						exit(1);
 					}
 
 					pool_debug("pcp_child: retrieved process information from shared memory");
+					free(pools);
 				}
 				break;
 			}
@@ -826,6 +887,140 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 			}
 				break;
 
+			case 'B': /* status request*/
+			{
+				int nrows = 0;
+				POOL_REPORT_CONFIG *status = get_config(&nrows);
+				int len = 0;
+				/* First, send array size of connection_info */
+				char arr_code[] = "ArraySize";
+				char code[] = "ProcessConfig";
+				/* Finally, indicate that all data is sent */
+				char fin_code[] = "CommandComplete";
+
+				pcp_write(frontend, "b", 1);
+				len = htonl(sizeof(arr_code) + sizeof(int) + sizeof(int));
+				pcp_write(frontend, &len, sizeof(int));
+				pcp_write(frontend, arr_code, sizeof(arr_code));
+				len = htonl(nrows);
+				pcp_write(frontend, &len, sizeof(int));
+
+				if (pcp_flush(frontend) < 0)
+				{
+					pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+					exit(1);
+				}
+
+				for (i = 0; i < nrows; i++)
+				{
+					pcp_write(frontend, "b", 1);
+					len = htonl(sizeof(int)
+						+ sizeof(code)
+						+ strlen(status[i].name) + 1
+						+ strlen(status[i].value) + 1
+						+ strlen(status[i].desc) + 1
+					);
+
+					pcp_write(frontend, &len, sizeof(int));
+					pcp_write(frontend, code, sizeof(code));
+					pcp_write(frontend, status[i].name, strlen(status[i].name)+1);
+					pcp_write(frontend, status[i].value, strlen(status[i].value)+1);
+					pcp_write(frontend, status[i].desc, strlen(status[i].desc)+1);
+				}
+
+				pcp_write(frontend, "b", 1);
+				len = htonl(sizeof(fin_code) + sizeof(int));
+				pcp_write(frontend, &len, sizeof(int));
+				pcp_write(frontend, fin_code, sizeof(fin_code));
+				if (pcp_flush(frontend) < 0)
+				{
+					pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+					exit(1);
+				}
+
+				free(status);
+
+				pool_debug("pcp_child: retrieved status information");
+				break;
+			}
+
+			case 'J':			/* promote node */
+			case 'j':			/* promote node gracefully */
+			{
+				int node_id;
+				int wsize;
+				char code[] = "CommandComplete";
+				bool gracefully;
+
+				if (tos == 'J')
+					gracefully = false;
+				else
+					gracefully = true;
+
+				node_id = atoi(buf);
+				if ( (node_id < 0) || (node_id >= pool_config->backend_desc->num_backends) )
+				{
+					char code[] = "NodeIdOutOfRange";
+					pool_error("pcp_child: node id %d is not valid", node_id);
+					pcp_write(frontend, "e", 1);
+					wsize = htonl(sizeof(code) + sizeof(int));
+					pcp_write(frontend, &wsize, sizeof(int));
+					pcp_write(frontend, code, sizeof(code));
+					if (pcp_flush(frontend) < 0)
+					{
+						pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+						exit(1);
+					}
+					exit(1);
+				}
+				/* promoting node is reserved to Streaming Replication */
+				if (!MASTER_SLAVE || (strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP) != 0))
+				{
+					char code[] = "NotInStreamingReplication";
+					pool_error("pcp_child: not in streaming replication mode, can't promote node id %d", node_id);
+					pcp_write(frontend, "e", 1);
+					wsize = htonl(sizeof(code) + sizeof(int));
+					pcp_write(frontend, &wsize, sizeof(int));
+					pcp_write(frontend, code, sizeof(code));
+					if (pcp_flush(frontend) < 0)
+					{
+						pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+						exit(1);
+					}
+					exit(1);
+				}
+
+				if (node_id == PRIMARY_NODE_ID)
+				{
+					char code[] = "NodeIdAlreadyPrimary";
+					pool_error("pcp_child: specified node is already primary node, can't promote node id %d", node_id);
+					pcp_write(frontend, "e", 1);
+					wsize = htonl(sizeof(code) + sizeof(int));
+					pcp_write(frontend, &wsize, sizeof(int));
+					pcp_write(frontend, code, sizeof(code));
+					if (pcp_flush(frontend) < 0)
+					{
+						pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+						exit(1);
+					}
+					exit(1);
+				}
+
+				pool_debug("pcp_child: promoting Node ID %d", node_id);
+				pool_promote_node(node_id, gracefully);
+
+				pcp_write(frontend, "d", 1);
+				wsize = htonl(sizeof(code) + sizeof(int));
+				pcp_write(frontend, &wsize, sizeof(int));
+				pcp_write(frontend, code, sizeof(code));
+				if (pcp_flush(frontend) < 0)
+				{
+					pool_error("pcp_child: pcp_flush() failed. reason: %s", strerror(errno));
+					exit(1);
+				}
+				break;
+			}
+
 			case 'F':
 				pool_debug("pcp_child: stop online recovery");
 				break;
@@ -879,6 +1074,12 @@ static RETSIGTYPE
 wakeup_handler(int sig)
 {
 	pcp_wakeup_request = 1;
+}
+
+static RETSIGTYPE
+restart_handler(int sig)
+{
+	pcp_restart_request = 1;
 }
 
 static PCP_CONNECTION *
@@ -1009,7 +1210,7 @@ user_authenticate(char *buf, char *passwd_file, char *salt, int salt_len)
 	char packet_password[MAX_USER_PASSWD_LEN+1];
 	char encrypt_buf[(MD5_PASSWD_LEN+1)*2];
 	char file_username[MAX_USER_PASSWD_LEN+1];
-	char file_password[MD5_PASSWD_LEN+1];
+	char file_password[MAX_USER_PASSWD_LEN+1];
 	char *index = NULL;
 	static char line[MAX_FILE_LINE_LEN+1];
 	int i, len;
@@ -1125,6 +1326,54 @@ static int pool_detach_node(int node_id, bool gracefully)
 	 * Now all frontends have gone. Let's do failover.
 	 */
 	notice_backend_error(node_id);		/* send failover request */
+
+	/*
+	 * Wait for failover completed.
+	 */
+	pcp_wakeup_request = 0;
+
+	while (!pcp_wakeup_request)
+	{
+		struct timeval t = {1, 0};
+		select(0, NULL, NULL, NULL, &t);
+	}
+	pcp_wakeup_request = 0;
+
+	/*
+	 * Start to accept incoming connections and send SIGUSR2 to pgpool
+	 * parent to distribute SIGUSR2 all pgpool children.
+	 */
+	finish_recovery();
+
+	return 0;
+}
+
+/* Promote a node */
+static int pool_promote_node(int node_id, bool gracefully)
+{
+	if (!gracefully)
+	{
+		promote_backend(node_id);	/* send promote request */
+		return 0;
+	}
+		
+	/*
+	 * Wait until all frontends exit
+	 */
+	*InRecovery = 1;	/* This wiil ensure that new incoming
+						 * connection requests are blocked */
+
+	if (wait_connection_closed())
+	{
+		/* wait timed out */
+		finish_recovery();
+		return -1;
+	}
+
+	/*
+	 * Now all frontends have gone. Let's do failover.
+	 */
+	promote_backend(node_id);		/* send promote request */
 
 	/*
 	 * Wait for failover completed.

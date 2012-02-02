@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_select_walker.c,v 1.6.2.2 2011/04/22 11:43:54 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -32,22 +32,28 @@
 typedef struct {
 	bool	has_system_catalog;		/* True if system catalog table is used */
 	bool	has_temp_table;		/* True if temporary table is used */
+	bool	has_unlogged_table;	/* True if unlogged table is used */
 	bool	has_function_call;	/* True if write function call is used */	
-
+	bool	has_insertinto_or_locking_clause;	/* True if it has SELECT INTO or FOR SHARE/UPDATE */
 } SelectContext;
 
 static bool function_call_walker(Node *node, void *context);
 static bool system_catalog_walker(Node *node, void *context);
 static bool is_system_catalog(char *table_name);
 static bool temp_table_walker(Node *node, void *context);
+static bool unlogged_table_walker(Node *node, void *context);
 static bool is_temp_table(char *table_name);
+static bool is_unlogged_table(char *table_name);
+static bool	insertinto_or_locking_clause_walker(Node *node, void *context);
+static int pattern_compare(char *str, const int type);
 
 /*
- * Return true if this SELECT has function calls.
+ * Return true if this SELECT has function calls *and* supposed to
+ * modify database.  We check black/white function list to determine
+ * whether the function modifies database.
  */
 bool pool_has_function_call(Node *node)
 {
-
 	SelectContext	ctx;
 
 	if (!IsA(node, SelectStmt))
@@ -97,12 +103,86 @@ bool pool_has_temp_table(Node *node)
 }
 
 /*
- * Walker function to find a function call
+ * Return true if this SELECT has unlogged table.
+ */
+bool pool_has_unlogged_table(Node *node)
+{
+
+	SelectContext	ctx;
+
+	if (!IsA(node, SelectStmt))
+		return false;
+
+	ctx.has_unlogged_table = false;
+
+	raw_expression_tree_walker(node, unlogged_table_walker, &ctx);
+
+	return ctx.has_unlogged_table;
+}
+
+/*
+ * Return true if this SELECT has INSERT INTO or FOR SHARE or FOR UDPATE.
+ */
+bool pool_has_insertinto_or_locking_clause(Node *node)
+{
+	SelectContext	ctx;
+
+	if (!IsA(node, SelectStmt))
+		return false;
+
+	ctx.has_insertinto_or_locking_clause = false;
+
+	raw_expression_tree_walker(node, insertinto_or_locking_clause_walker, &ctx);
+
+	pool_debug("pool_has_insertinto_or_locking_clause: returns %d",
+			   ctx.has_insertinto_or_locking_clause);
+
+	return ctx.has_insertinto_or_locking_clause;
+}
+
+/*
+ * Search function name in whilelist or blacklist regex array
+ * Return 1 on success (found in list)
+ * Return 0 when not found in list
+ * Return -1 if the given search type doesn't exist.
+ * Search type supported are: WHITELIST and BLACKLIST 
+ */
+static int pattern_compare(char *str, const int type)
+{
+	int i = 0;
+
+	/* pass througth all regex pattern unless pattern is found */
+	for (i = 0; i < pool_config->pattc; i++) {
+		if ( (pool_config->lists_patterns[i].type == type) && (regexec(&pool_config->lists_patterns[i].regexv, str, 0, 0, 0) == 0) ) {
+			switch(type) {
+			/* return 1 if string matches whitelist pattern */
+			case WHITELIST:
+				if (pool_config->debug_level > 0)
+					pool_debug("pattern_compare: white_function_list (%s) matched: %s", pool_config->lists_patterns[i].pattern, str);
+				return 1;
+			/* return 1 if string matches blacklist pattern */
+			case BLACKLIST:
+				if (pool_config->debug_level > 0)
+					pool_debug("pattern_compare: black_function_list (%s) matched: %s", pool_config->lists_patterns[i].pattern, str);
+				return 1;
+			default:
+				pool_error("pattern_compare: unknown pattern match type: %s", str);
+				return -1;
+			}
+		}
+	}
+
+	/* return 0 otherwise */
+	return 0;
+}
+
+/*
+ * Walker function to find a function call which is supposed to write
+ * database.
  */
 static bool function_call_walker(Node *node, void *context)
 {
 	SelectContext	*ctx = (SelectContext *) context;
-	int i;
 
 	if (node == NULL)
 		return false;
@@ -131,13 +211,10 @@ static bool function_call_walker(Node *node, void *context)
 			 */
 			if (pool_config->num_white_function_list > 0)
 			{
-				for (i=0;i<pool_config->num_white_function_list;i++)
-				{
+				/* Search function in the white list regex patterns */
+				if (pattern_compare(fname, WHITELIST) == 1) {
 					/* If the function is found in the white list, we can ignore it */
-					if (!strcasecmp(pool_config->white_function_list[i], fname))
-					{
-						return raw_expression_tree_walker(node, function_call_walker, context);
-					}
+					return raw_expression_tree_walker(node, function_call_walker, context);
 				}
 				/*
 				 * Since the function was not found in white list, we
@@ -150,11 +227,10 @@ static bool function_call_walker(Node *node, void *context)
 			/*
 			 * Check black list if any.
 			 */
-			for (i=0;i<pool_config->num_black_function_list;i++)
+			if (pool_config->num_black_function_list > 0)
 			{
-				/* Is the function found in the black list? */
-				if (!strcasecmp(pool_config->black_function_list[i], fname))
-				{
+				/* Search function in the black list regex patterns */
+				if (pattern_compare(fname, BLACKLIST) == 1) {
 					/* Found. */
 					ctx->has_function_call = true;
 					return false;
@@ -215,6 +291,32 @@ temp_table_walker(Node *node, void *context)
 		}
 	}
 	return raw_expression_tree_walker(node, temp_table_walker, context);
+}
+
+/*
+ * Walker function to find a unlogged table
+ */
+static bool
+unlogged_table_walker(Node *node, void *context)
+{
+	SelectContext	*ctx = (SelectContext *) context;
+
+	if (node == NULL)
+		return false;
+
+	if (IsA(node, RangeVar))
+	{
+		RangeVar *rgv = (RangeVar *)node;
+
+		pool_debug("unlogged_table_walker: relname: %s", rgv->relname);
+
+		if (is_unlogged_table(rgv->relname))
+		{
+			ctx->has_unlogged_table = true;
+			return false;
+		}
+	}
+	return raw_expression_tree_walker(node, unlogged_table_walker, context);
 }
 
 /*
@@ -314,21 +416,21 @@ static bool is_temp_table(char *table_name)
 {
 /*
  * Query to know if pg_class has relistemp column or not.
- * PostgreSQL 8.4 or later has this.
+ * PostgreSQL 8.4 and 9.0 have this.
  */
 #define HASRELITEMPPQUERY "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_attribute AS a WHERE c.relname = 'pg_class' AND a.attrelid = c.oid AND a.attname = 'relistemp'"
 
 /*
  * Query to know if the target table is a temporary one.  This query
- * is valid through PostgreSQL 7.3 to 8.3.  We do not use regclass (or
- * its variant) here, because temporary tables never have schema
- * qualified name.
+ * is valid in PostgreSQL 7.3 to 8.3 and 9.1 or later.  We do not use
+ * regclass (or its variant) here, because temporary tables never have
+ * schema qualified name.
  */
 #define ISTEMPQUERY83 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname ~ '^pg_temp_'"
 
 /*
  * Query to know if the target table is a temporary one.  This query
- * is valid PostgreSQL 8.4 or later. We do not use regclass (or its
+ * is valid in PostgreSQL 8.4 and 9.0. We do not use regclass (or its
  * variant) here, because temporary tables never have schema qualified
  * name.
  */
@@ -392,6 +494,96 @@ static bool is_temp_table(char *table_name)
 }
 
 /*
+ * Judge the table used in a query represented by node is a unlogged
+ * table or not.
+ */
+static bool is_unlogged_table(char *table_name)
+{
+/*
+ * Query to know if pg_class has relpersistence column or not.
+ * PostgreSQL 9.1 or later has this.
+ */
+#define HASRELPERSISTENCEQUERY "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_catalog.pg_attribute AS a WHERE c.relname = 'pg_class' AND a.attrelid = c.oid AND a.attname = 'relpersistence'"
+
+/*
+ * Query to know if the target table is a unlogged one.  This query
+ * is valid in PostgreSQL 9.1 or later.
+ */
+#define ISUNLOGGEDQUERY "SELECT count(*) FROM pg_catalog.pg_class AS c WHERE c.relname = '%s' AND c.relpersistence = 'u'"
+
+#define ISUNLOGGEDQUERY2 "SELECT count(*) FROM pg_catalog.pg_class AS c WHERE c.oid = pgpool_regclass('%s') AND c.relpersistence = 'u'"
+
+	int hasrelpersistence;
+	static POOL_RELCACHE *hasrelpersistence_cache;
+	static POOL_RELCACHE *relcache;
+	POOL_CONNECTION_POOL *backend;
+
+	if (table_name == NULL)
+	{
+			return false;
+	}
+
+	backend = pool_get_session_context()->backend;
+
+	/*
+	 * Check backend version
+	 */
+	if (!hasrelpersistence_cache)
+	{
+		hasrelpersistence_cache = pool_create_relcache(128, HASRELPERSISTENCEQUERY,
+													   int_register_func, int_unregister_func,
+													   false);
+		if (hasrelpersistence_cache == NULL)
+		{
+			pool_error("is_unlogged_table: pool_create_relcache error");
+			return false;
+		}
+	}
+
+	hasrelpersistence = pool_search_relcache(hasrelpersistence_cache, backend, "pg_class")==0?0:1;
+	if (hasrelpersistence)
+	{
+		bool result;
+		char *query;
+
+		/* pgpool_regclass has been installed */
+		if (pool_has_pgpool_regclass())
+		{
+			query = ISUNLOGGEDQUERY2;
+		}
+		else
+		{
+			query = ISUNLOGGEDQUERY;
+		}
+
+		/*
+		 * If relcache does not exist, create it.
+		 */
+		if (!relcache)
+		{
+			relcache = pool_create_relcache(128, query,
+											int_register_func, int_unregister_func,
+											true);
+			if (relcache == NULL)
+			{
+				pool_error("is_unlogged_table: pool_create_relcache error");
+				return false;
+			}
+		}
+
+		/*
+		 * Search relcache.
+		 */
+		result = pool_search_relcache(relcache, backend, table_name)==0?false:true;
+		return result;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/*
  * Judge if we have pgpool_regclass or not.
  */
 bool pool_has_pgpool_regclass(void)
@@ -420,4 +612,22 @@ bool pool_has_pgpool_regclass(void)
 
 	result = pool_search_relcache(relcache, backend, "pgpool_regclass")==0?0:1;
 	return result;
+}
+
+/*
+ * Walker function to find intoClause or lockingClause.
+ */
+static bool	insertinto_or_locking_clause_walker(Node *node, void *context)
+{
+	SelectContext	*ctx = (SelectContext *) context;
+
+	if (node == NULL)
+		return false;
+
+	if (IsA(node, IntoClause) || IsA(node, LockingClause))
+	{
+		ctx->has_insertinto_or_locking_clause = true;
+		return false;
+	}
+	return raw_expression_tree_walker(node, insertinto_or_locking_clause_walker, ctx);
 }

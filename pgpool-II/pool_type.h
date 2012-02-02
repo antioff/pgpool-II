@@ -1,12 +1,12 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_type.h,v 1.15 2010/08/05 23:37:43 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2009	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -29,20 +29,7 @@
 #include "config.h"
 #include <sys/types.h>
 #include <sys/socket.h>
-
-typedef signed char int8;		/* == 8 bits */
-typedef signed short int16;		/* == 16 bits */
-typedef signed int int32;		/* == 32 bits */
-
-/*
- * uintN
- *		Unsigned integer, EXACTLY N BITS IN SIZE,
- *		used for numerical computations and the
- *		frontend/backend protocol.
- */
-typedef unsigned char uint8;	/* == 8 bits */
-typedef unsigned short uint16;	/* == 16 bits */
-typedef unsigned int uint32;	/* == 32 bits */
+#include "pcp/libpcp_ext.h"
 
 /* Define common boolean type. C++ and BEOS already has it so exclude them. */
 #ifdef c_plusplus
@@ -71,124 +58,24 @@ typedef char bool;
 #endif /* not C++ */
 #endif /* __BEOS__ */
 
+typedef signed char int8;		/* == 8 bits */
+typedef signed short int16;		/* == 16 bits */
+typedef signed int int32;		/* == 32 bits */
+
 /*
- * startup packet definitions (v2) stolen from PostgreSQL
+ * uintN
+ *		Unsigned integer, EXACTLY N BITS IN SIZE,
+ *		used for numerical computations and the
+ *		frontend/backend protocol.
  */
-#define SM_DATABASE		64
-#define SM_USER			32
-#define SM_OPTIONS		64
-#define SM_UNUSED		64
-#define SM_TTY			64
-
-#define MAX_NUM_BACKENDS 128
-#define MAX_CONNECTION_SLOTS MAX_NUM_BACKENDS
-#define MAX_DB_HOST_NAMELEN	 128
-#define MAX_PATH_LENGTH 256
-
-typedef enum {
-	CON_UNUSED,		/* unused slot */
-    CON_CONNECT_WAIT,		/* waiting for connection starting */
-	CON_UP,	/* up and running */
-	CON_DOWN		/* down, disconnected */
-} BACKEND_STATUS;
+typedef unsigned char uint8;	/* == 8 bits */
+typedef unsigned short uint16;	/* == 16 bits */
+typedef unsigned int uint32;	/* == 32 bits */
 
 typedef enum {
 	LOAD_UNSELECTED = 0,
 	LOAD_SELECTED
 } LOAD_BALANCE_STATUS;
-
-/*
- * PostgreSQL backend descriptor. Placed on shared memory area.
- */
-typedef struct {
-	char backend_hostname[MAX_DB_HOST_NAMELEN];	/* backend host name */
-	int backend_port;	/* backend port numbers */
-	BACKEND_STATUS backend_status;	/* backend status */
-	double backend_weight;	/* normalized backend load balance ratio */
-	double unnormalized_weight; /* descripted parameter */
-	char backend_data_directory[MAX_PATH_LENGTH];
-	unsigned long long int standby_delay;		/* The replication delay against the primary */
-} BackendInfo;
-
-typedef struct {
-	int num_backends;		/* number of used PostgreSQL backends */
-	BackendInfo backend_info[MAX_NUM_BACKENDS];
-} BackendDesc;
-
-/*
- * Connection pool information. Placed on shared memory area.
- */
-typedef struct {
-	char		database[SM_DATABASE];	/* Database name */
-	char		user[SM_USER];	/* User name */
-	int			major;	/* protocol major version */
-	int			minor;	/* protocol minor version */
-	int			pid;	/* backend process id */
-	int			key;	/* cancel key */
-	int			counter; /* used counter */
-	time_t 		create_time; /* connection creation time */
-	int load_balancing_node; /* load balancing node */
-	bool		connected;	/* true if frontend connected */
-} ConnectionInfo;
-
-/*
- * process information
- * This object put on shared memory.
- */
-typedef struct {
-	pid_t pid; /* OS's process id */
-	time_t start_time; /* fork() time */
-	ConnectionInfo *connection_info; /* head of the connection info for this process */
-} ProcessInfo;
-
-/*
- * 
- * system db structure
- */
-typedef struct {
-	char *dbname;			/* database name */
-	char *schema_name;		/* schema name */
-	char *table_name;		/* table name */
-	char *dist_key_col_name;/* column name for dist key */
-	int  dist_key_col_id;	/* column index id for dist key */
-	int  col_num;			/* number of clumn*/
-	char **col_list;		/* column list */
-	char **type_list;		/* type list */
-	char *dist_def_func;	/* function name of distribution rule */
-	char *prepare_name;		/* prepared statement name */
-	int is_created_prepare;	/* is prepare statement created? */
-} DistDefInfo;
-
-typedef struct {
-	char *dbname;     /* database name */
-	char *schema_name;    /* schema name */
-	char *table_name;   /* table name */
-	int  col_num;     /* number of clumn*/
-	char **col_list;    /* column list */
-	char **type_list;   /* type list */
-	char *prepare_name;   /* prepared statement name */
-	int is_created_prepare; /* is prepare statement created? */
-} RepliDefInfo;
-
-typedef struct {
-	int has_prepared_statement;	/* true if the current session has prepared statement created */
-	char *register_prepared_statement; /* prepared statement name for cache register */
-} QueryCacheTableInfo;
-
-typedef struct {
-	char *hostname;     /* host name */
-	int port;       /* port number */
-	char *user;       /* login user name */
-	char *password;     /* login password */
-	char *schema_name;    /* schema name */
-	char *database_name;  /* database name */
-	int repli_def_num;    /* number of replication table */
-	int dist_def_num;   /* number of distribution table */
-	RepliDefInfo *repli_def_slot; /* replication rule list */
-	DistDefInfo *dist_def_slot; /* distribution rule list */
-	QueryCacheTableInfo query_cache_table_info; /* query cache db session info */
-	BACKEND_STATUS system_db_status;
-} SystemDBInfo;
 
 /*
  * Backend status record file
@@ -275,5 +162,6 @@ UserAuth;
 #define AUTH_REQ_SCM_CREDS  6   /* transfer SCM credentials */
 
 typedef unsigned int AuthRequest;
+
 
 #endif /* POOL_TYPE_H */

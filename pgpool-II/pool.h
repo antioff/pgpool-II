@@ -1,12 +1,12 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool.h,v 1.84.2.1 2010/11/04 10:04:52 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -43,6 +43,8 @@
 #include <openssl/err.h>
 #endif
 
+#include <syslog.h>
+
 /* undef this if you have problems with non blocking accept() */
 #define NONE_BLOCK
 
@@ -68,6 +70,9 @@
 
 /* status file name */
 #define STATUS_FILE_NAME "pgpool_status"
+
+/* default string used to identify pgpool on syslog output */
+#define DEFAULT_SYSLOG_IDENT "pgpool"
 
 typedef enum {
 	POOL_CONTINUE = 0,
@@ -113,6 +118,7 @@ typedef struct
 	int minor;	/* protocol minor version */
 	char *database;	/* database name in startup_packet (malloced area) */
 	char *user;	/* user name in startup_packet (malloced area) */
+	char *application_name;		/* not malloced are. pointing to in startup_packet */
 } StartupPacket;
 
 typedef struct CancelPacket
@@ -260,18 +266,19 @@ typedef struct {
  */
 extern bool pool_is_node_to_be_sent_in_current_query(int node_id);
 extern int pool_virtual_master_db_node_id(void);
+extern BACKEND_STATUS* my_backend_status[];
 
 #define VALID_BACKEND(backend_id) \
-	((RAW_MODE && (backend_id) == REAL_MASTER_NODE_ID) || \
-	 (pool_is_node_to_be_sent_in_current_query((backend_id)) && \
-	  ((BACKEND_INFO((backend_id)).backend_status == CON_UP) || \
-	   (BACKEND_INFO((backend_id)).backend_status == CON_CONNECT_WAIT))))
+	((RAW_MODE && (backend_id) == REAL_MASTER_NODE_ID) ||		\
+	(pool_is_node_to_be_sent_in_current_query((backend_id)) &&	\
+	 ((*(my_backend_status[(backend_id)]) == CON_UP) ||			\
+	  (*(my_backend_status[(backend_id)]) == CON_CONNECT_WAIT))))
 
 #define CONNECTION_SLOT(p, slot) ((p)->slots[(slot)])
 #define CONNECTION(p, slot) (CONNECTION_SLOT(p, slot)->con)
 
 /*
- * The first DB ndoe id appears in pgpool.conf or the first "live" DB
+ * The first DB node id appears in pgpool.conf or the first "live" DB
  * node otherwise.
  */
 #define REAL_MASTER_NODE_ID (Req_info->master_node_id)
@@ -343,7 +350,8 @@ typedef enum {
 	NODE_UP_REQUEST = 0,
 	NODE_DOWN_REQUEST,
 	NODE_RECOVERY_REQUEST,
-	CLOSE_IDLE_REQUEST
+	CLOSE_IDLE_REQUEST,
+	PROMOTE_NODE_REQUEST
 } POOL_REQUEST_KIND;
 
 typedef struct {
@@ -352,6 +360,7 @@ typedef struct {
 	int master_node_id;	/* the youngest node id which is not in down status */
 	int primary_node_id;	/* the primary node id in streaming replication mode */
 	int conn_counter;
+	bool switching;	/* it true, failover or failback is in progress */
 } POOL_REQUEST_INFO;
 
 /* description of row. corresponding to RowDescription message */
@@ -398,6 +407,8 @@ extern volatile sig_atomic_t exit_request;
 #define QUERY_STRING_BUFFER_LEN 1024
 extern char query_string_buffer[];		/* last query string sent to simpleQuery() */
 
+extern BACKEND_STATUS private_backend_status[MAX_NUM_BACKENDS];
+
 /*
  * public functions
  */
@@ -442,6 +453,7 @@ extern POOL_STATUS NoticeResponse(POOL_CONNECTION *frontend,
 
 extern void notice_backend_error(int node_id);
 extern void degenerate_backend_set(int *node_id_set, int count);
+extern void promote_backend(int node_id);
 extern void send_failback_request(int node_id);
 
 
@@ -534,7 +546,7 @@ extern int pool_clear_cache_by_time(Interval *interval, int size);
 extern POOL_STATUS pool_execute_query_cache_lookup(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend, Node *node);
 
 /* pool_hba.c */
-extern void load_hba(char *hbapath);
+extern int load_hba(char *hbapath);
 extern void ClientAuthentication(POOL_CONNECTION *frontend);
 
 /* pool_ip.c */
@@ -559,6 +571,7 @@ extern int wait_connection_closed(void);
 /* child.c */
 extern void cancel_request(CancelPacket *sp);
 extern void check_stop_request(void);
+extern void pool_initialize_private_backend_status(void);
 
 /* pool_process_query.c */
 extern void reset_variables(void);

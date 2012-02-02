@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/sql/pgpool-regclass/pgpool-regclass.c,v 1.1.2.2 2011/02/28 00:54:48 t-ishii Exp $
+ * $Header$
  *
  * Copyright (c) 2003-2011	PgPool Global Development Group
  *
@@ -51,8 +51,10 @@ MymakeRangeVarFromNameList(List *names);
 
 extern Oid			MyDatabaseId;
 
+#if !defined(PG_VERSION_NUM) || (PG_VERSION_NUM < 90100)
 static Oid
 get_namespace_oid(const char *nspname, bool missing_ok);
+#endif
 
 Datum
 pgpool_regclass(PG_FUNCTION_ARGS)
@@ -173,6 +175,7 @@ MymakeRangeVarFromNameList(List *names)
 	return rel;
 }
 
+#if !defined(PG_VERSION_NUM) || (PG_VERSION_NUM < 90100)
 /*
  * get_namespace_oid - given a namespace name, look up the OID
  *
@@ -195,3 +198,4 @@ get_namespace_oid(const char *nspname, bool missing_ok)
 
 	return oid;
 }
+#endif

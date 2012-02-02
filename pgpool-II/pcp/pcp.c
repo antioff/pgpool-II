@@ -1,5 +1,5 @@
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pcp/pcp.c,v 1.13.2.1 2011/04/23 06:06:03 t-ishii Exp $
+ * $Header$
  *
  * Handles PCP connection, and protocol communication with pgpool-II
  * These are client APIs. Server program should use APIs in pcp_stream.c
@@ -35,9 +35,12 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#include "pool.h"
 #include "pcp.h"
 #include "pcp_stream.h"
+#include "pool_process_reporting.h"
 #include "md5.h"
+
 
 struct timeval pcp_timeout;
 
@@ -50,6 +53,7 @@ static int debug = 0;
 static int pcp_authorize(char *username, char *password);
 
 static int _pcp_detach_node(int nid, bool gracefully);
+static int _pcp_promote_node(int nid, bool gracefully);
 
 /* --------------------------------
  * pcp_connect - open connection to pgpool using given arguments
@@ -620,6 +624,7 @@ pcp_process_info(int pid, int *array_size)
 	int rsize;
 
 	ProcessInfo *process_info = NULL;
+	ConnectionInfo *conn_info = NULL;
 	int ci_size = 0;
 	int offset = 0;
 
@@ -681,19 +686,20 @@ pcp_process_info(int pid, int *array_size)
 					ci_size = atoi(index);
 
 				*array_size = ci_size;
-				
-				process_info = (ProcessInfo *)malloc(sizeof(ProcessInfo));
+
+				process_info = (ProcessInfo *)malloc(sizeof(ProcessInfo) * ci_size);
 				if (process_info == NULL)
 				{
 					free(buf);
 					errorcode = NOMEMERR;
 					return NULL;
 				}
-				process_info->connection_info = NULL;
-				process_info->connection_info = (ConnectionInfo *)malloc(sizeof(ConnectionInfo)*ci_size);
-				if (process_info->connection_info == NULL)
+
+				conn_info = (ConnectionInfo *)malloc(sizeof(ConnectionInfo) * ci_size);
+				if  (conn_info == NULL)
 				{
 					free(buf);
+					free(process_info);
 					errorcode = NOMEMERR;
 					return NULL;
 				}
@@ -702,41 +708,51 @@ pcp_process_info(int pid, int *array_size)
 			}
 			else if (strcmp(buf, "ProcessInfo") == 0)
 			{
+				process_info[offset].connection_info = &conn_info[offset];
+
 				index = (char *) memchr(buf, '\0', rsize) + 1;
 				if (index != NULL)
-					strcpy(process_info->connection_info[offset].database, index);
+					process_info[offset].pid = atoi(index);
 			
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					strcpy(process_info->connection_info[offset].user, index);
+					strcpy(process_info[offset].connection_info->database, index);
 			
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					process_info->start_time = atol(index);
+					strcpy(process_info[offset].connection_info->user, index);
+			
+				index = (char *) memchr(index, '\0', rsize) + 1;
+				if (index != NULL)
+					process_info[offset].start_time = atol(index);
 
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					process_info->connection_info[offset].create_time = atol(index);
+					process_info[offset].connection_info->create_time = atol(index);
 
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					process_info->connection_info[offset].major = atoi(index);
+					process_info[offset].connection_info->major = atoi(index);
 
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					process_info->connection_info[offset].minor = atoi(index);
+					process_info[offset].connection_info->minor = atoi(index);
 
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					process_info->connection_info[offset].counter = atoi(index);
+					process_info[offset].connection_info->counter = atoi(index);
 
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					process_info->connection_info[offset].pid = atoi(index);
+					process_info[offset].connection_info->backend_id = atoi(index);
 
 				index = (char *) memchr(index, '\0', rsize) + 1;
 				if (index != NULL)
-					process_info->connection_info[offset].connected = atoi(index);
+					process_info[offset].connection_info->pid = atoi(index);
+
+				index = (char *) memchr(index, '\0', rsize) + 1;
+				if (index != NULL)
+					process_info[offset].connection_info->connected = atoi(index);
 
 				offset++;
 			}
@@ -1246,6 +1262,114 @@ pcp_attach_node(int nid)
 	return -1;
 }
 
+/* --------------------------------
+ * pcp_pool_status - return setup parameters and status
+ *
+ * returns and array of POOL_REPORT_CONFIG, NULL otherwise
+ * --------------------------------
+ */
+POOL_REPORT_CONFIG*
+pcp_pool_status(int *array_size)
+{
+	char tos;
+	char *buf = NULL;
+	int wsize;
+	int rsize;
+	POOL_REPORT_CONFIG *status = NULL;
+	int ci_size = 0;
+	int offset = 0;
+
+	if (pc == NULL)
+	{
+		if (debug) fprintf(stderr, "DEBUG: connection does not exist\n");
+		errorcode = NOCONNERR;
+		return NULL;
+	}
+
+	pcp_write(pc, "B", 1);
+	wsize = htonl(sizeof(int));
+	pcp_write(pc, &wsize, sizeof(int));
+	if (pcp_flush(pc) < 0)
+	{
+		if (debug) fprintf(stderr, "DEBUG: could not send data to backend\n");
+		return NULL;
+	}
+	if (debug) fprintf(stderr, "DEBUG pcp_pool_status: send: tos=\"B\", len=%d\n", ntohl(wsize));
+
+	while (1) {
+		if (pcp_read(pc, &tos, 1))
+			return NULL;
+		if (pcp_read(pc, &rsize, sizeof(int)))
+			return NULL;
+		rsize = ntohl(rsize);
+		buf = (char *)malloc(rsize);
+		if (buf == NULL)
+		{
+			errorcode = NOMEMERR;
+			return NULL;
+		}
+		if (pcp_read(pc, buf, rsize - sizeof(int)))
+		{
+			free(buf);
+			return NULL;
+		}
+		if (debug) fprintf(stderr, "DEBUG: recv: tos=\"%c\", len=%d, data=%s\n", tos, rsize, buf);
+
+		if (tos == 'e')
+		{
+			if (debug) fprintf(stderr, "DEBUG: command failed. reason=%s\n", buf);
+			free(buf);
+			errorcode = BACKENDERR;
+			return NULL;
+		}
+		else if (tos == 'b')
+		{
+			char *index;
+
+			if (strcmp(buf, "ArraySize") == 0)
+			{
+				index = (char *) memchr(buf, '\0', rsize) + 1;
+				//if (index != NULL)
+				ci_size = ntohl(*((int *)index));
+
+				*array_size = ci_size;
+
+				status = (POOL_REPORT_CONFIG *) malloc(ci_size * sizeof(POOL_REPORT_CONFIG));
+
+				continue;
+			}
+			else if (strcmp(buf, "ProcessConfig") == 0)
+			{
+				index = (char *) memchr(buf, '\0', rsize) + 1;
+				if (index != NULL)
+					strcpy(status[offset].name, index);
+
+				index = (char *) memchr(index, '\0', rsize) + 1;
+				if (index != NULL)
+					strcpy(status[offset].value, index);
+
+				index = (char *) memchr(index, '\0', rsize) + 1;
+				if (index != NULL)
+					strcpy(status[offset].desc, index);
+
+				offset++;
+			}
+			else if (strcmp(buf, "CommandComplete") == 0)
+			{
+				free(buf);
+				return status;
+			}
+			else
+			{
+				// never reached
+			}
+		}
+	}
+
+	free(buf);
+	return NULL;
+}
+
 void
 pcp_set_timeout(long sec)
 {
@@ -1331,4 +1455,100 @@ void
 pcp_disable_debug(void)
 {
 	debug = 0;
+}
+
+/* --------------------------------
+ * pcp_promote_node - promote a node given by the argument as new pgpool's master
+ *
+ * return 0 on success, -1 otherwise
+ * --------------------------------
+ */
+int
+pcp_promote_node(int nid)
+{
+  return _pcp_promote_node(nid, FALSE);
+}
+
+/* --------------------------------
+
+ * and promote a node given by the argument as new pgpool's master
+ *
+ * return 0 on success, -1 otherwise
+ * --------------------------------
+ */
+int
+pcp_promote_node_gracefully(int nid)
+{
+  return _pcp_promote_node(nid, TRUE);
+}
+
+static int _pcp_promote_node(int nid, bool gracefully)
+{
+	int wsize;
+	char node_id[16];
+	char tos;
+	char *buf = NULL;
+	int rsize;
+	char *sendchar;
+
+	if (pc == NULL)
+	{
+		if (debug) fprintf(stderr, "DEBUG: connection does not exist\n");
+		errorcode = NOCONNERR;
+		return -1;
+	}
+
+	snprintf(node_id, sizeof(node_id), "%d", nid);
+
+	if (gracefully)
+	  sendchar = "j";
+	else
+	  sendchar = "J";
+
+	pcp_write(pc, sendchar, 1);
+	wsize = htonl(strlen(node_id)+1 + sizeof(int));
+	pcp_write(pc, &wsize, sizeof(int));
+	pcp_write(pc, node_id, strlen(node_id)+1);
+	if (pcp_flush(pc) < 0)
+	{
+		if (debug) fprintf(stderr, "DEBUG: could not send data to backend\n");
+		return -1;
+	}
+	if (debug) fprintf(stderr, "DEBUG: send: tos=\"E\", len=%d\n", ntohl(wsize));
+
+	if (pcp_read(pc, &tos, 1))
+		return -1;
+	if (pcp_read(pc, &rsize, sizeof(int)))
+		return -1;
+	rsize = ntohl(rsize);
+	buf = (char *)malloc(rsize);
+	if (buf == NULL)
+	{
+		errorcode = NOMEMERR;
+		return -1;
+	}
+	if (pcp_read(pc, buf, rsize - sizeof(int)))
+	{
+		free(buf);
+		return -1;
+	}
+	if (debug) fprintf(stderr, "DEBUG: recv: tos=\"%c\", len=%d, data=%s\n", tos, rsize, buf);
+
+	if (tos == 'e')
+	{
+		if (debug) fprintf(stderr, "DEBUG: command failed. reason=%s\n", buf);
+		errorcode = BACKENDERR;
+	}
+	else if (tos == 'd')
+	{
+		/* strcmp() for success message, or fail */
+		if(strcmp(buf, "CommandComplete") == 0)
+		{
+			free(buf);
+			return 0;
+		}
+	}
+
+	free(buf);
+	return -1;
 }

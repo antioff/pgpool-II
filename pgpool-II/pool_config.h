@@ -1,12 +1,12 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/pool_config.h,v 1.8 2010/08/01 08:38:17 t-ishii Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2011	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -33,6 +33,27 @@
 #define MODE_SLONY "slony"		/* Slony-I */
 
 /*
+ *  Regex support in white and black list function
+ */
+#include <regex.h>
+#define BLACKLIST	0
+#define WHITELIST	1
+#define PATTERN_ARR_SIZE 16     /* Default length of regex array: 16 patterns */
+typedef struct {
+  char *pattern;
+  int type;
+  int flag;
+  regex_t regexv;
+} RegPattern;
+
+/*
+ * Flags for backendN_flag
+ */
+#define POOL_FAILOVER	0x0001	/* allow or disallow failover */
+#define POOL_DISALLOW_TO_FAILOVER(x) ((unsigned short)(x) & POOL_FAILOVER)
+#define POOL_ALLOW_TO_FAILOVER(x) (!(POOL_DISALLOW_TO_FAILOVER(x)))
+
+/*
  * configuration paramters
  */
 typedef struct {
@@ -51,6 +72,9 @@ typedef struct {
 	int authentication_timeout; /* maximum time in seconds to complete client authentication */
     int	max_pool;	/* max # of connection pool per child */
     char *logdir;		/* logging directory */
+    char *log_destination;      /* log destination: stderr or syslog */
+    int syslog_facility;        /* syslog facility: LOCAL0, LOCAL1, ... */
+    char *syslog_ident;         /* syslog ident string: pgpool */
     char *pid_file_name;		/* pid file name */
     char *backend_socket_dir;	/* Unix domain socket directory for the PostgreSQL server */
 	int replication_mode;		/* replication mode */
@@ -89,7 +113,12 @@ typedef struct {
 	int health_check_timeout;	/* health check timeout */
 	int health_check_period;	/* health check period */
 	char *health_check_user;		/* PostgreSQL user name for health check */
+	char *health_check_password; /* password for health check username */
+	int sr_check_period;		/* streming replication check period */
+	char *sr_check_user;		/* PostgreSQL user name streaming replication check */
+	char *sr_check_password;	/* password for sr_check_user */
 	char *failover_command;     /* execute command when failover happens */
+	char *follow_master_command; /* execute command when failover is ended */
 	char *failback_command;     /* execute command when failback happens */
 
 	/*
@@ -137,11 +166,10 @@ typedef struct {
 	LOAD_BALANCE_STATUS	load_balance_status[MAX_NUM_BACKENDS];	/* to remember which DB node is selected for load balancing */
 
 	/* followings do not exist in the configuration file */
-	int replication_enabled;		/* replication mode enabled */
-	int master_slave_enabled;		/* master/slave mode enabled */
 	int num_reset_queries;		/* number of queries in reset_query_list */
 	int num_white_function_list;		/* number of functions in white_function_list */
 	int num_black_function_list;		/* number of functions in black_function_list */
+	int logsyslog;		/* flag used to start logging to syslog */
 
 	/* ssl configuration */
 	int ssl;	/* if non 0, activate ssl support (frontend+backend) */
@@ -149,6 +177,13 @@ typedef struct {
 	char *ssl_key;	/* path to ssl key (frontend only) */
 	char *ssl_ca_cert;	/* path to root (CA) certificate */
 	char *ssl_ca_cert_dir;	/* path to directory containing CA certificates */
+
+	time_t relcache_expire;		/* relation cache life time in seconds */
+
+	/* followings are for regex support and do not exist in the configuration file */
+	RegPattern *lists_patterns; /* Precompiled regex patterns for black/white lists */
+	int pattc; /* number of regexp pattern */
+	int current_pattern_size; /* size of the regex pattern array */
 } POOL_CONFIG;
 
 typedef enum {
@@ -161,5 +196,13 @@ extern POOL_CONFIG *pool_config;	/* configuration values */
 extern int pool_init_config(void);
 extern int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context);
 extern int eval_logical(char *str);
+extern char *pool_flag_to_str(unsigned short flag);
+
+/* method use for syslog support */
+extern int set_syslog_facility (char *);
+
+/* methods used for regexp support */
+extern int add_regex_pattern(char *type, char *s);
+extern int growPatternArray (RegPattern item);
 
 #endif /* POOL_CONFIG_H */

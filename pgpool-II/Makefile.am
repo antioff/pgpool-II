@@ -30,7 +30,7 @@ pg_md5_SOURCES = pg_md5.c md5.c md5.h \
 	pool_error.c \
 	pool_signal.h pool_signal.c \
 	pool_passwd.c pool_passwd.h \
-	pool_globals.c
+	pool_globals.c strlcpy.c
 
 DEFS = @DEFS@ \
 	-DDEFAULT_CONFIGDIR=\"$(sysconfdir)\"
@@ -38,17 +38,14 @@ DEFS = @DEFS@ \
 sysconf_DATA = pgpool.conf.sample pcp.conf.sample pool_hba.conf.sample \
 				pgpool.conf.sample-replication pgpool.conf.sample-master-slave \
 				pgpool.conf.sample-stream
-pkgdata_DATA = sql/system_db.sql sample/pgpool.pam
+pkgdata_DATA = sql/insert_lock.sql sql/system_db.sql sample/pgpool.pam
 
 AM_CPPFLAGS = -D_GNU_SOURCE -I @PGSQL_INCLUDE_DIR@
 
-pgpool_LDADD = -L@PGSQL_LIB_DIR@ -lpq parser/libsql-parser.a pcp/libpcp.la parser/nodes.o
-if enable_rpath
-  pgpool_LDFLAGS = -rpath @PGSQL_LIB_DIR@ -rpath $(libdir)
-else
-  pgpool_LDFLAGS = 
-endif
+# suggested by libtoolize
+ACLOCAL_AMFLAGS = -I m4
 
+pgpool_LDADD = -L@PGSQL_LIB_DIR@ -lpq parser/libsql-parser.a pcp/libpcp.la parser/nodes.o
 AM_YFLAGS = -d
 
 man_MANS = pgpool.8
@@ -57,34 +54,51 @@ pgpool.8: pgpool.8.in
 	sed 's,@sysconfdir\@,$(sysconfdir),g' $? >$@
 
 CLEANFILES = pgpool.8
-EXTRA_DIST = pgpool.8.in sql/system_db.sql sample/pgpool.pam doc/pgpool-ja.html doc/pgpool-en.html \
-		doc/tutorial-ja.html doc/tutorial-en.html doc/pgpool.css \
-		doc/where_to_send_queries.pdf doc/where_to_send_queries.odg doc/pgpool-ja.css \
+EXTRA_DIST = pgpool.8.in sample/pgpool.pam \
+		doc/pgpool-ja.html doc/pgpool-en.html doc/pgpool-zh_cn.html \
+		doc/tutorial-ja.html doc/tutorial-en.html doc/tutorial-zh_cn.html \
+	    doc/pgpool.css doc/pgpool-ja.css \
+		doc/where_to_send_queries.pdf doc/where_to_send_queries.odg \
 		doc/basebackup.sh doc/pgpool_remote_start doc/recovery.conf.sample \
 		sample/pgpool_remote_start sample/pgpool_recovery sample/pgpool_recovery_pitr \
 		sample/dist_def_pgbench.sql sample/replicate_def_pgbench.sql \
 		sql/Makefile \
+		sql/insert_lock.sql sql/system_db.sql \
 		sql/pgpool-recovery/pgpool-recovery.c \
-		sql/pgpool-recovery/pgpool-recovery.sql.in sql/pgpool-recovery/Makefile \
+		sql/pgpool-recovery/pgpool-recovery.sql.in \
+		sql/pgpool-recovery/uninstall_pgpool-recovery.sql \
+		sql/pgpool-recovery/Makefile \
 		sql/pgpool-regclass/pgpool-regclass.c \
-		sql/pgpool-regclass/pgpool-regclass.sql.in sql/pgpool-regclass/Makefile \
-		sql/pgpool-walrecrunning/README sql/pgpool-walrecrunning/pgpool-walrecrunning.c \
-		sql/pgpool-walrecrunning/pgpool-walrecrunning.sql.in sql/pgpool-walrecrunning/Makefile \
+		sql/pgpool-regclass/pgpool-regclass.sql.in \
+		sql/pgpool-regclass/uninstall_pgpool-regclass.sql \
+		sql/pgpool-regclass/Makefile \
+		sql/pgpool-walrecrunning/README \
+		sql/pgpool-walrecrunning/pgpool-walrecrunning.c \
+		sql/pgpool-walrecrunning/pgpool-walrecrunning.sql.in \
+		sql/pgpool-walrecrunning/uninstall_pgpool-walrecrunning.sql \
+		sql/pgpool-walrecrunning/Makefile \
+		pgpool_adm/Makefile pgpool_adm/TODO pgpool_adm/pgpool_adm--1.0.sql \
+		pgpool_adm/pgpool_adm.c pgpool_adm/pgpool_adm.control \
+		pgpool_adm/pgpool_adm.h pgpool_adm/pgpool_adm.sql.in \
 		test/parser/expected/copy.out test/parser/expected/create.out \
 		test/parser/expected/cursor.out test/parser/expected/delete.out \
 		test/parser/expected/drop.out test/parser/expected/insert.out \
 		test/parser/expected/misc.out test/parser/expected/prepare.out \
-		test/parser/expected/privileges.out test/parser/expected/select.out \
+		test/parser/expected/privileges.out test/parser/expected/scanner.out \
+		test/parser/expected/select.out \
 		test/parser/expected/transaction.out test/parser/expected/update.out \
-		test/parser/expected/v84.out test/parser/expected/var.out \
+		test/parser/expected/v84.out test/parser/expected/v90.out \
+		test/parser/expected/var.out \
 		test/parser/input/alter.sql \
 		test/parser/input/copy.sql test/parser/input/create.sql \
 		test/parser/input/cursor.sql test/parser/input/delete.sql \
 		test/parser/input/drop.sql test/parser/input/insert.sql \
 		test/parser/input/misc.sql test/parser/input/prepare.sql \
-		test/parser/input/privileges.sql test/parser/input/select.sql \
+		test/parser/input/privileges.sql test/parser/input/scanner.sql \
+		test/parser/input/select.sql \
 		test/parser/input/transaction.sql test/parser/input/update.sql \
-		test/parser/input/v84.sql test/parser/input/var.sql \
+		test/parser/input/v84.sql test/parser/input/v90.sql \
+		test/parser/input/var.sql \
 		test/parser/.cvsignore test/parser/Makefile \
 		test/parser/README test/parser/main.c \
 		test/parser/pool.h test/parser/run-test \

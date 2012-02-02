@@ -1,6 +1,6 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header: /cvsroot/pgpool/pgpool-II/pool_query_cache.c,v 1.15 2010/08/30 03:55:58 kitagawa Exp $
+ * $Header$
  *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
@@ -1013,7 +1013,6 @@ POOL_STATUS pool_execute_query_cache_lookup(POOL_CONNECTION *frontend, POOL_CONN
 		{
 			free(parsed_query);
 			parsed_query = NULL;
-			free_parser();
 		}
 	}
 

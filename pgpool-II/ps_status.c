@@ -1,7 +1,7 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header: /cvsroot/pgpool/pgpool-II/ps_status.c,v 1.4 2009/08/22 04:04:21 t-ishii Exp $
+ * $Header$
  *
  * This file was imported from PostgreSQL source code.
  * See below for the copyright and description.
