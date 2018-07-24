@@ -46,6 +46,7 @@ typedef int16_t flex_int16_t;
 typedef uint16_t flex_uint16_t;
 typedef int32_t flex_int32_t;
 typedef uint32_t flex_uint32_t;
+typedef uint64_t flex_uint64_t;
 #else
 typedef signed char flex_int8_t;
 typedef short int flex_int16_t;
@@ -53,6 +54,7 @@ typedef int flex_int32_t;
 typedef unsigned char flex_uint8_t; 
 typedef unsigned short int flex_uint16_t;
 typedef unsigned int flex_uint32_t;
+#endif /* ! C99 */
 
 /* Limits of integral types. */
 #ifndef INT8_MIN
@@ -82,8 +84,6 @@ typedef unsigned int flex_uint32_t;
 #ifndef UINT32_MAX
 #define UINT32_MAX             (4294967295U)
 #endif
-
-#endif /* ! C99 */
 
 #endif /* ! FLEXINT_H */
 
@@ -141,15 +141,7 @@ typedef unsigned int flex_uint32_t;
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k.
- * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
- * Ditto for the __ia64__ case accordingly.
- */
-#define YY_BUF_SIZE 32768
-#else
 #define YY_BUF_SIZE 16384
-#endif /* __ia64__ */
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -161,7 +153,12 @@ typedef unsigned int flex_uint32_t;
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #endif
 
-extern int yyleng;
+#ifndef YY_TYPEDEF_YY_SIZE_T
+#define YY_TYPEDEF_YY_SIZE_T
+typedef size_t yy_size_t;
+#endif
+
+extern yy_size_t yyleng;
 
 extern FILE *yyin, *yyout;
 
@@ -187,11 +184,6 @@ extern FILE *yyin, *yyout;
 
 #define unput(c) yyunput( c, (yytext_ptr)  )
 
-#ifndef YY_TYPEDEF_YY_SIZE_T
-#define YY_TYPEDEF_YY_SIZE_T
-typedef size_t yy_size_t;
-#endif
-
 #ifndef YY_STRUCT_YY_BUFFER_STATE
 #define YY_STRUCT_YY_BUFFER_STATE
 struct yy_buffer_state
@@ -209,7 +201,7 @@ struct yy_buffer_state
 	/* Number of characters read into yy_ch_buf, not including EOB
 	 * characters.
 	 */
-	int yy_n_chars;
+	yy_size_t yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
 	 * and can realloc() it to grow it, and should free() it to
@@ -279,8 +271,8 @@ static YY_BUFFER_STATE * yy_buffer_stack = 0; /**< Stack as an array. */
 
 /* yy_hold_char holds the character lost when yytext is formed. */
 static char yy_hold_char;
-static int yy_n_chars;		/* number of characters read into yy_ch_buf */
-int yyleng;
+static yy_size_t yy_n_chars;		/* number of characters read into yy_ch_buf */
+yy_size_t yyleng;
 
 /* Points to current character in buffer. */
 static char *yy_c_buf_p = (char *) 0;
@@ -308,7 +300,7 @@ static void yy_init_buffer (YY_BUFFER_STATE b,FILE *file  );
 
 YY_BUFFER_STATE yy_scan_buffer (char *base,yy_size_t size  );
 YY_BUFFER_STATE yy_scan_string (yyconst char *yy_str  );
-YY_BUFFER_STATE yy_scan_bytes (yyconst char *bytes,int len  );
+YY_BUFFER_STATE yy_scan_bytes (yyconst char *bytes,yy_size_t len  );
 
 void *yyalloc (yy_size_t  );
 void *yyrealloc (void *,yy_size_t  );
@@ -366,7 +358,7 @@ static void yy_fatal_error (yyconst char msg[]  );
  */
 #define YY_DO_BEFORE_ACTION \
 	(yytext_ptr) = yy_bp; \
-	yyleng = (size_t) (yy_cp - yy_bp); \
+	yyleng = (yy_size_t) (yy_cp - yy_bp); \
 	(yy_hold_char) = *yy_cp; \
 	*yy_cp = '\0'; \
 	(yy_c_buf_p) = yy_cp;
@@ -499,7 +491,7 @@ char *yytext;
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -519,6 +511,7 @@ char *yytext;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "pool.h"
 #include "pool_config.h"
 #include "utils/regex_array.h"
@@ -534,7 +527,6 @@ char *yytext;
 int yylex(void);
 
 POOL_CONFIG *pool_config;	/* configuration values */
-POOL_SYSTEMDB_CONNECTION_POOL *system_db_info;
 static unsigned Lineno;
 static char *default_reset_query_list[] = {"ABORT", "DISCARD ALL"};
 static char *default_black_function_list[] = {"nextval", "setval"};
@@ -553,8 +545,9 @@ typedef enum {
 static char *extract_string(char *value, POOL_TOKEN token);
 static char **extract_string_tokens(char *str, char *delim, int *n);
 static void clear_host_entry(int slot);
+static bool check_redirect_node_spec(char *node_spec);
 
-#line 558 "config/pool_config.c"
+#line 551 "config/pool_config.c"
 
 #define INITIAL 0
 
@@ -593,7 +586,7 @@ FILE *yyget_out (void );
 
 void yyset_out  (FILE * out_str  );
 
-int yyget_leng (void );
+yy_size_t yyget_leng (void );
 
 char *yyget_text (void );
 
@@ -633,12 +626,7 @@ static int input (void );
 
 /* Amount of stuff to slurp up with each read. */
 #ifndef YY_READ_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k */
-#define YY_READ_BUF_SIZE 16384
-#else
 #define YY_READ_BUF_SIZE 8192
-#endif /* __ia64__ */
 #endif
 
 /* Copy whatever the last rule matched to the standard output. */
@@ -646,7 +634,7 @@ static int input (void );
 /* This used to be an fputs(), but since the string might contain NUL's,
  * we now use fwrite().
  */
-#define ECHO do { if (fwrite( yytext, yyleng, 1, yyout )) {} } while (0)
+#define ECHO fwrite( yytext, yyleng, 1, yyout )
 #endif
 
 /* Gets input and stuffs it into "buf".  number of characters read, or YY_NULL,
@@ -657,7 +645,7 @@ static int input (void );
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_is_interactive ) \
 		{ \
 		int c = '*'; \
-		size_t n; \
+		yy_size_t n; \
 		for ( n = 0; n < max_size && \
 			     (c = getc( yyin )) != EOF && c != '\n'; ++n ) \
 			buf[n] = (char) c; \
@@ -739,10 +727,10 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 89 "pool_config.l"
+#line 90 "pool_config.l"
 
 
-#line 746 "config/pool_config.c"
+#line 734 "config/pool_config.c"
 
 	if ( !(yy_init) )
 		{
@@ -824,12 +812,12 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 91 "pool_config.l"
+#line 92 "pool_config.l"
 Lineno++; return POOL_EOL;
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 92 "pool_config.l"
+#line 93 "pool_config.l"
 /* eat whitespace */
 	YY_BREAK
 case 3:
@@ -837,50 +825,50 @@ case 3:
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-#line 93 "pool_config.l"
+#line 94 "pool_config.l"
 /* eat comment */
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 95 "pool_config.l"
+#line 96 "pool_config.l"
 return POOL_KEY;
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 96 "pool_config.l"
+#line 97 "pool_config.l"
 return POOL_STRING;
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 97 "pool_config.l"
+#line 98 "pool_config.l"
 return POOL_UNQUOTED_STRING;
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 98 "pool_config.l"
+#line 99 "pool_config.l"
 return POOL_INTEGER;
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 99 "pool_config.l"
+#line 100 "pool_config.l"
 return POOL_REAL;
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 100 "pool_config.l"
+#line 101 "pool_config.l"
 return POOL_EQUALS;
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 102 "pool_config.l"
+#line 103 "pool_config.l"
 return POOL_PARSE_ERROR;
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 104 "pool_config.l"
+#line 105 "pool_config.l"
 ECHO;
 	YY_BREAK
-#line 884 "config/pool_config.c"
+#line 872 "config/pool_config.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1067,7 +1055,7 @@ static int yy_get_next_buffer (void)
 
 	else
 		{
-			int num_to_read =
+			yy_size_t num_to_read =
 			YY_CURRENT_BUFFER_LVALUE->yy_buf_size - number_to_move - 1;
 
 		while ( num_to_read <= 0 )
@@ -1081,7 +1069,7 @@ static int yy_get_next_buffer (void)
 
 			if ( b->yy_is_our_buffer )
 				{
-				int new_size = b->yy_buf_size * 2;
+				yy_size_t new_size = b->yy_buf_size * 2;
 
 				if ( new_size <= 0 )
 					b->yy_buf_size += b->yy_buf_size / 8;
@@ -1112,7 +1100,7 @@ static int yy_get_next_buffer (void)
 
 		/* Read in more data. */
 		YY_INPUT( (&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move]),
-			(yy_n_chars), (size_t) num_to_read );
+			(yy_n_chars), num_to_read );
 
 		YY_CURRENT_BUFFER_LVALUE->yy_n_chars = (yy_n_chars);
 		}
@@ -1234,7 +1222,7 @@ static int yy_get_next_buffer (void)
 
 		else
 			{ /* need more input */
-			int offset = (yy_c_buf_p) - (yytext_ptr);
+			yy_size_t offset = (yy_c_buf_p) - (yytext_ptr);
 			++(yy_c_buf_p);
 
 			switch ( yy_get_next_buffer(  ) )
@@ -1258,7 +1246,7 @@ static int yy_get_next_buffer (void)
 				case EOB_ACT_END_OF_FILE:
 					{
 					if ( yywrap( ) )
-						return EOF;
+						return 0;
 
 					if ( ! (yy_did_buffer_switch_on_eof) )
 						YY_NEW_FILE;
@@ -1506,7 +1494,7 @@ void yypop_buffer_state (void)
  */
 static void yyensure_buffer_stack (void)
 {
-	int num_to_alloc;
+	yy_size_t num_to_alloc;
     
 	if (!(yy_buffer_stack)) {
 
@@ -1598,17 +1586,16 @@ YY_BUFFER_STATE yy_scan_string (yyconst char * yystr )
 
 /** Setup the input buffer state to scan the given bytes. The next call to yylex() will
  * scan from a @e copy of @a bytes.
- * @param yybytes the byte buffer to scan
- * @param _yybytes_len the number of bytes in the buffer pointed to by @a bytes.
+ * @param bytes the byte buffer to scan
+ * @param len the number of bytes in the buffer pointed to by @a bytes.
  * 
  * @return the newly allocated buffer state object.
  */
-YY_BUFFER_STATE yy_scan_bytes  (yyconst char * yybytes, int  _yybytes_len )
+YY_BUFFER_STATE yy_scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_len )
 {
 	YY_BUFFER_STATE b;
 	char *buf;
-	yy_size_t n;
-	int i;
+	yy_size_t n, i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
 	n = _yybytes_len + 2;
@@ -1690,7 +1677,7 @@ FILE *yyget_out  (void)
 /** Get the length of the current token.
  * 
  */
-int yyget_leng  (void)
+yy_size_t yyget_leng  (void)
 {
         return yyleng;
 }
@@ -1838,7 +1825,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 104 "pool_config.l"
+#line 105 "pool_config.l"
 
 
 
@@ -1861,7 +1848,7 @@ int pool_init_config(void)
 	/*
 	 * add for watchdog
 	 */
-	pool_config->other_wd = palloc0(sizeof(WdDesc));
+	memset(&pool_config->wd_remote_nodes,0x00,sizeof(WdRemoteNodesConfig));
 
 	/* set hardcoded default values */
 	pool_config->listen_addresses = "localhost";
@@ -1869,11 +1856,11 @@ int pool_init_config(void)
 	pool_config->port = 9999;
 	pool_config->pcp_port = 9898;
 	pool_config->socket_dir = DEFAULT_SOCKET_DIR;
+	pool_config->wd_ipc_socket_dir = DEFAULT_WD_IPC_SOCKET_DIR;
 	pool_config->pcp_socket_dir = DEFAULT_SOCKET_DIR;
-	pool_config->backend_socket_dir = NULL;
-	pool_config->pcp_timeout = 10;
 	pool_config->num_init_children = 32;
 	pool_config->listen_backlog_multiplier = 2;
+	pool_config->serialize_accept = 0;
 	pool_config->max_pool = 4;
 	pool_config->child_life_time = 300;
 	pool_config->client_idle_limit = 0;
@@ -1881,10 +1868,10 @@ int pool_init_config(void)
 	pool_config->child_max_connections = 0;
 	pool_config->authentication_timeout = 60;
 	pool_config->logdir = DEFAULT_LOGDIR;
-    pool_config->logsyslog = 0;
-    pool_config->log_destination = "stderr";
-    pool_config->syslog_facility = LOG_LOCAL0;
-    pool_config->syslog_ident = "pgpool";
+	pool_config->logsyslog = 0;
+	pool_config->log_destination = "stderr";
+	pool_config->syslog_facility = LOG_LOCAL0;
+	pool_config->syslog_ident = "pgpool";
 	pool_config->pid_file_name = DEFAULT_PID_FILE_NAME;
 	pool_config->log_statement = 0;
 	pool_config->log_per_node_statement = 0;
@@ -1917,25 +1904,20 @@ int pool_init_config(void)
 	pool_config->health_check_period = 0;
 	pool_config->health_check_user = "nobody";
 	pool_config->health_check_password = "";
+	pool_config->health_check_database = "";
 	pool_config->health_check_max_retries = 0;
 	pool_config->health_check_retry_delay = 1;
 	pool_config->connect_timeout = 10000;
 	pool_config->sr_check_period = 0;
 	pool_config->sr_check_user = "nobody";
 	pool_config->sr_check_password = "";
+	pool_config->sr_check_database = "postgres";
 	pool_config->failover_command = "";
 	pool_config->follow_master_command = "";
 	pool_config->failback_command = "";
 	pool_config->fail_over_on_backend_error = 1;
 	pool_config->insert_lock = 1;
 	pool_config->ignore_leading_white_space = 1;
-	pool_config->parallel_mode = 0;
-	pool_config->system_db_hostname = "localhost";
-	pool_config->system_db_port = 5432;
-	pool_config->system_db_dbname = "pgpool";
-	pool_config->system_db_schema = "pgpool_catalog";
-	pool_config->system_db_user = "pgpool";
-	pool_config->system_db_password = "";
 	pool_config->backend_desc->num_backends = 0;
     pool_config->recovery_user = "";
     pool_config->recovery_password = "";
@@ -1982,6 +1964,7 @@ int pool_init_config(void)
 	pool_config->wd_lifecheck_method = MODE_HEARTBEAT;
 	pool_config->clear_memqcache_on_escalation = 1;	
     pool_config->wd_escalation_command = "";
+	pool_config->wd_de_escalation_command = "";
 	pool_config->trusted_servers = "";
 	pool_config->delegate_IP = "";
 	res = gethostname(localhostname,sizeof(localhostname));
@@ -1993,13 +1976,14 @@ int pool_init_config(void)
 	}
 	pool_config->wd_hostname = localhostname;
 	pool_config->wd_port = 9000;
-	pool_config->other_wd->num_wd = 0;
+	pool_config->wd_priority = 1;
+	pool_config->wd_remote_nodes.num_wd = 0;
 	pool_config->wd_interval = 10;
 	pool_config->wd_authkey = "";
 	pool_config->ping_path = "/bin";
-	pool_config->ifconfig_path = "/sbin";
-	pool_config->if_up_cmd = "ifconfig eth0:0 inet $_IP_$ netmask 255.255.255.0";
-	pool_config->if_down_cmd = "ifconfig eth0:0 down";
+	pool_config->if_cmd_path = "/sbin";
+	pool_config->if_up_cmd = "ip addr add $_IP_$/24 dev eth0 label eth0:0";
+	pool_config->if_down_cmd = "ip addr del $_IP_$/24 dev eth0";
 	pool_config->arping_path = "/usr/sbin";
 	pool_config->arping_cmd = "arping -U $_IP_$ -w 1";
 	pool_config->wd_life_point = 3;
@@ -2011,12 +1995,14 @@ int pool_init_config(void)
 	pool_config->wd_heartbeat_keepalive = 2;
 	pool_config->wd_heartbeat_deadtime = 30;
 	pool_config->num_hb_if = 0;
+	pool_config->wd_monitoring_interfaces_list = NULL;
+	pool_config->num_wd_monitoring_interfaces_list = 0;
 
     pool_config->memory_cache_enabled = 0;
     pool_config->memqcache_method = "shmem";
     pool_config->memqcache_memcached_host = "localhost";
     pool_config->memqcache_memcached_port = 11211;
-    pool_config->memqcache_total_size = 67108864;
+    pool_config->memqcache_total_size = (int64)67108864;
     pool_config->memqcache_max_num_cache = 1000000;
     pool_config->memqcache_expire = 0;
     pool_config->memqcache_auto_cache_invalidation = 1;
@@ -2039,7 +2025,6 @@ int pool_init_config(void)
 				errdetail("failed to get the local hostname")));
 
 	}
-	pool_config->pgpool2_hostname = localhostname;
 
 	for (i=0;i<MAX_CONNECTION_SLOTS;i++)
 	{
@@ -2182,6 +2167,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 	int i;
 	int error_level;
     bool log_destination_changed = false;
+	sig_atomic_t local_num_backends;
 #ifdef USE_MEMCACHED
 	bool use_memcached = true;
 #else
@@ -2348,7 +2334,25 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->socket_dir = str;
 		}
-		else if (!strcmp(key, "pcp_socket_dir") && CHECK_CONTEXT(INIT_CONFIG, context))
+		else if (!strcmp(key, "socket_dir") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+			
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->socket_dir = str;
+		}
+		else if (!strcmp(key, "wd_ipc_socket_dir") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
 
@@ -2364,22 +2368,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				fclose(fd);
 				return(-1);
 			}
-			pool_config->pcp_socket_dir = str;
-		}
-		else if (!strcmp(key, "pcp_timeout") &&
-			 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
-		{
-			int v = atoi(yytext);
-
-			if (token != POOL_INTEGER || v < 0)
-			{
-				fclose(fd);
-				ereport(error_level,
-					(errmsg("invalid configuration for key \"%s\"",key),
-						errdetail("invalid value:\"%s\" for key:\"%s\". %s must be >= 0",yytext,key, key)));
-				return(-1);
-			}
-			pool_config->pcp_timeout = v;
+			pool_config->wd_ipc_socket_dir = str;
 		}
 		else if (!strcmp(key, "num_init_children") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
@@ -2408,6 +2397,20 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				return(-1);
 			}
 			pool_config->listen_backlog_multiplier = v;
+		}
+		else if (!strcmp(key, "serialize_accept") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = eval_logical(yytext);
+
+			if (v < 0)
+			{
+				fclose(fd);
+				ereport(error_level,
+					(errmsg("invalid configuration for key \"%s\"",key),
+						errdetail("invalid value:\"%s\" for key:\"%s\"",yytext,key)));
+				return(-1);
+			}
+			pool_config->serialize_accept = v;
 		}
 		else if (!strcmp(key, "child_life_time") &&
 				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
@@ -2656,28 +2659,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_config->pool_passwd = str;
 		}
 
-		else if (!strcmp(key, "backend_socket_dir") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			char *str;
-
-			ereport(LOG,
-				(errmsg("initializing pool configuration: backend_socket_dir is deprecated"),
-					errdetail("please use backend_hostname instead")));
-
-			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
-			{
-				PARSE_ERROR();
-				fclose(fd);
-				return(-1);
-			}
-			str = extract_string(yytext, token);
-			if (str == NULL)
-			{
-				fclose(fd);
-				return(-1);
-			}
-			pool_config->backend_socket_dir = str;
-		}
 		else if (!strcmp(key, "replication_mode") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			int v = eval_logical(yytext);
@@ -3200,7 +3181,28 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_config->health_check_password = str;
 		}
 
-                else if (!strcmp(key, "health_check_max_retries") &&
+		else if (!strcmp(key, "health_check_database") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->health_check_database = str;
+		}
+
+
+        else if (!strcmp(key, "health_check_max_retries") &&
                                  CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
                 {
                         int v = atoi(yytext);
@@ -3233,6 +3235,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
                         }
                         pool_config->health_check_retry_delay = v;
                 }
+
 		else if (!strcmp(key, "connect_timeout") &&
 				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
 		{
@@ -3305,6 +3308,26 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				return(-1);
 			}
 			pool_config->sr_check_password = str;
+		}
+
+		else if (!strcmp(key, "sr_check_database") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->sr_check_database = str;
 		}
 
 		else if (!strcmp(key, "failover_command") &&
@@ -3548,153 +3571,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_config->ignore_leading_white_space = v;
 		}
 
-		else if (!strcmp(key, "parallel_mode") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			int v = eval_logical(yytext);
-
-			if (v < 0)
-			{
-				fclose(fd);
-				ereport(error_level,
-					(errmsg("invalid configuration for key \"%s\"",key),
-						errdetail("invalid value:\"%s\" for key:\"%s\"", yytext,key),
-							errhint("value must be greater than or equal to 0")));
-				return(-1);
-			}
-			pool_config->parallel_mode = v;
-		}
-
-		else if (!strcmp(key, "pgpool2_hostname") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			char *str;
-
-			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
-			{
-				PARSE_ERROR();
-				fclose(fd);
-				return(-1);
-			}
-			str = extract_string(yytext, token);
-			if (str == NULL)
-			{
-				fclose(fd);
-				return(-1);
-			}
-			if(strlen(str))
-				pool_config->pgpool2_hostname = str;
-		}
-
-		else if (!strcmp(key, "system_db_hostname") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			char *str;
-
-			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
-			{
-				PARSE_ERROR();
-				fclose(fd);
-				return(-1);
-			}
-			str = extract_string(yytext, token);
-			if (str == NULL)
-			{
-				fclose(fd);
-				return(-1);
-			}
-			pool_config->system_db_hostname = str;
-		}
-
-		else if (!strcmp(key, "system_db_port") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			int v = atoi(yytext);
-
-			if (token != POOL_INTEGER || v < 0)
-			{
-				fclose(fd);
-				ereport(error_level,
-					(errmsg("invalid configuration for key \"%s\"",key),
-						errdetail("invalid value:\"%s\" for key:\"%s\"", yytext,key),
-							errhint("value must be greater than or equal to 0")));
-				return(-1);
-			}
-			pool_config->system_db_port = v;
-		}
-
-		else if (!strcmp(key, "system_db_dbname") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			char *str;
-
-			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
-			{
-				PARSE_ERROR();
-				fclose(fd);
-				return(-1);
-			}
-			str = extract_string(yytext, token);
-			if (str == NULL)
-			{
-				fclose(fd);
-				return(-1);
-			}
-			pool_config->system_db_dbname = str;
-		}
-
-		else if (!strcmp(key, "system_db_schema") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			char *str;
-
-			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
-			{
-				PARSE_ERROR();
-				fclose(fd);
-				return(-1);
-			}
-			str = extract_string(yytext, token);
-			if (str == NULL)
-			{
-				fclose(fd);
-				return(-1);
-			}
-			pool_config->system_db_schema = str;
-		}
-
-		else if (!strcmp(key, "system_db_user") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			char *str;
-
-			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
-			{
-				PARSE_ERROR();
-				fclose(fd);
-				return(-1);
-			}
-			str = extract_string(yytext, token);
-			if (str == NULL)
-			{
-				fclose(fd);
-				return(-1);
-			}
-			pool_config->system_db_user = str;
-		}
-
-		else if (!strcmp(key, "system_db_password") && CHECK_CONTEXT(INIT_CONFIG, context))
-		{
-			char *str;
-
-			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
-			{
-				PARSE_ERROR();
-				fclose(fd);
-				return(-1);
-			}
-			str = extract_string(yytext, token);
-			if (str == NULL)
-			{
-				fclose(fd);
-				return(-1);
-			}
-			pool_config->system_db_password = str;
-		}
-
 		else if (!strncmp(key, "backend_hostname", 16) &&
 				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
 				 mypid == getpid()) /* this parameter must be modified by parent pid */
@@ -3722,6 +3598,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			if (context == INIT_CONFIG ||
 				(context == RELOAD_CONFIG && BACKEND_INFO(slot).backend_status == CON_UNUSED))
 				strlcpy(BACKEND_INFO(slot).backend_hostname, str, MAX_DB_HOST_NAMELEN);
+
 		}
 
 		else if (!strncmp(key, "backend_port", 12) &&
@@ -4002,7 +3879,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			if (slot < 0 || slot >= MAX_CONNECTION_SLOTS)
 			{
 				fclose(fd);
-				fclose(fd);
 				ereport(error_level,
 					(errmsg("invalid configuration for key \"%s\"",key),
 						errdetail("invalid slot no :\"%d\" for key:\"%s\"", slot,key),
@@ -4029,7 +3905,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			slot = atoi(key + 17);
 			if (slot < 0 || slot >= MAX_CONNECTION_SLOTS)
 			{
-				fclose(fd);
 				fclose(fd);
 				ereport(error_level,
 					(errmsg("invalid configuration for key \"%s\"",key),
@@ -4062,8 +3937,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
 			{
 				WD_INFO(slot).wd_port = atoi(yytext);
-				WD_INFO(slot).status = WD_INIT;
-				pool_config->other_wd->num_wd = slot + 1;
+				pool_config->wd_remote_nodes.num_wd = slot + 1;
 			}
 		}
 		else if (!strcmp(key, "use_watchdog") && CHECK_CONTEXT(INIT_CONFIG, context))
@@ -4117,6 +3991,27 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->wd_escalation_command = str;
 		}
+	
+		else if (!strcmp(key, "wd_de_escalation_command") &&
+		CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+			
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_de_escalation_command = str;
+		}
+
 
 		else if (!strcmp(key, "trusted_servers") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
@@ -4190,6 +4085,21 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->wd_port = v;
 		}
+		else if (!strcmp(key, "wd_priority") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = atoi(yytext);
+			
+			if (token != POOL_INTEGER || v <= 0)
+			{
+				fclose(fd);
+				ereport(error_level,
+				(errmsg("invalid configuration for key \"%s\"",key),
+				errdetail("invalid value:\"%s\" for key:\"%s\"", yytext,key),
+				errhint("value must be greater than 0")));
+				return(-1);
+			}
+			pool_config->wd_priority = v;
+		}
 		else if (!strcmp(key, "wd_interval") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			int v = atoi(yytext);
@@ -4224,7 +4134,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			if(strlen(str))
 				pool_config->ping_path = str;
 		}
-		else if (!strcmp(key, "ifconfig_path") && CHECK_CONTEXT(INIT_CONFIG, context))
+		else if (!strcmp(key, "if_cmd_path") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
 
@@ -4241,7 +4151,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				return(-1);
 			}
 			if(strlen(str))
-				pool_config->ifconfig_path = str;
+				pool_config->if_cmd_path = str;
 		}
 		else if (!strcmp(key, "if_up_cmd") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
@@ -4431,7 +4341,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				return(-1);
 			}
 
-			if (strcmp(str, MODE_HEARTBEAT) && strcmp(str, MODE_QUERY))
+			if (strcmp(str, MODE_HEARTBEAT) && strcmp(str, MODE_QUERY) && strcmp(str, MODE_EXTERNAL))
 			{
 				fclose(fd);
 				ereport(error_level,
@@ -4532,7 +4442,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
 				strlcpy(WD_HB_IF(slot).if_name, str, WD_MAX_IF_NAME_LEN);
-
 		}
 		/* this must be prior to hertbeat_destination */
 		else if (!strncmp(key, "heartbeat_destination_port", 26) &&
@@ -4584,6 +4493,31 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
 				strlcpy(WD_HB_IF(slot).addr, str, WD_MAX_HOST_NAMELEN);
+		}
+
+		else if (!strcmp(key, "wd_monitoring_interfaces_list") &&
+		CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_monitoring_interfaces_list = extract_string_tokens(str, ",", &pool_config->num_wd_monitoring_interfaces_list);
+			if (pool_config->wd_monitoring_interfaces_list == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
 		}
 
         else if (!strcmp(key, "ssl") && CHECK_CONTEXT(INIT_CONFIG, context))
@@ -4843,7 +4777,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
         }
         else if (!strcmp(key, "memqcache_total_size") && CHECK_CONTEXT(INIT_CONFIG, context))
         {
-            int v = atoi(yytext);
+            int64 v = atoll(yytext);
 
             if (token != POOL_INTEGER || v < 0)
             {
@@ -5039,7 +4973,17 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 
 			for (i=0;i<lrtokens->pos;i++)
 			{
-				if (add_regex_array(pool_config->redirect_dbnames, lrtokens->token[i].left_token))
+				if (!check_redirect_node_spec(lrtokens->token[i].right_token))
+				{
+					fclose(fd);
+					ereport(error_level,
+						(errmsg("invalid configuration for key \"%s\"",key),
+							errdetail("wrong redirect db node spec: \"%s\"", lrtokens->token[i].right_token)));
+				   return(-1);
+				}
+
+				if (*(lrtokens->token[i].left_token) == '\0' ||
+					add_regex_array(pool_config->redirect_dbnames, lrtokens->token[i].left_token))
 				{
 					fclose(fd);
 					ereport(error_level,
@@ -5079,12 +5023,23 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 
 			for (i=0;i<lrtokens->pos;i++)
 			{
-				if (add_regex_array(pool_config->redirect_app_names, lrtokens->token[i].left_token))
+				if (!check_redirect_node_spec(lrtokens->token[i].right_token))
 				{
 					fclose(fd);
 					ereport(error_level,
 						(errmsg("invalid configuration for key \"%s\"",key),
-							errdetail("wrong redirect dbname regular expression: \"%s\"", lrtokens->token[i].left_token)));
+							errdetail("wrong redirect db node spec: \"%s\"", lrtokens->token[i].right_token)));
+				   return(-1);
+				}
+
+
+				if (*(lrtokens->token[i].left_token) == '\0' ||
+					add_regex_array(pool_config->redirect_app_names, lrtokens->token[i].left_token))
+				{
+					fclose(fd);
+					ereport(error_level,
+						(errmsg("invalid configuration for key \"%s\"",key),
+							errdetail("wrong redirect app name regular expression: \"%s\"", lrtokens->token[i].left_token)));
 					return(-1);
 				}
 			}
@@ -5127,7 +5082,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		}
 	}
 
-	pool_config->backend_desc->num_backends = 0;
+	local_num_backends = 0;
 	total_weight = 0.0;
 
 	for (i=0;i<MAX_CONNECTION_SLOTS;i++)
@@ -5141,28 +5096,21 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		else
 		{
 			total_weight += BACKEND_INFO(i).unnormalized_weight;
-			pool_config->backend_desc->num_backends = i+1;
+			local_num_backends = i+1;
 			
 			/* initialize backend_hostname with a default socket path if empty */
 			if (*(BACKEND_INFO(i).backend_hostname) == '\0')
 			{
-				if (pool_config->backend_socket_dir == NULL)
-				{
-					ereport(DEBUG1,
-						(errmsg("initializing pool configuration"),
-							errdetail("empty backend_hostname%d, use PostgreSQL's default unix socket path (%s)", i, DEFAULT_SOCKET_DIR)));
-					strlcpy(BACKEND_INFO(i).backend_hostname, DEFAULT_SOCKET_DIR, MAX_DB_HOST_NAMELEN);
-				}
-				else /* DEPRECATED. backward compatibility with older version. Use backend_socket_dir*/
-				{
-					ereport(DEBUG1,
-						(errmsg("initializing pool configuration"),
-							errdetail("empty backend_hostname%d, use backend_socket_dir as unix socket path (%s)", i, pool_config->backend_socket_dir)));
-					strlcpy(BACKEND_INFO(i).backend_hostname, pool_config->backend_socket_dir, MAX_DB_HOST_NAMELEN);
-				}
+				ereport(DEBUG1,
+					(errmsg("initializing pool configuration"),
+						errdetail("empty backend_hostname%d, use PostgreSQL's default unix socket path (%s)",
+						          i, DEFAULT_SOCKET_DIR)));
+				strlcpy(BACKEND_INFO(i).backend_hostname, DEFAULT_SOCKET_DIR, MAX_DB_HOST_NAMELEN);
 			}
 		}	
 	}
+	if (local_num_backends != pool_config->backend_desc->num_backends)
+			pool_config->backend_desc->num_backends = local_num_backends;
 
 	ereport(DEBUG1,
 		(errmsg("initializing pool configuration"),
@@ -5188,68 +5136,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				(errmsg("initializing pool configuration"),
 					errdetail("backend %d weight: %f flag: %04x", i, BACKEND_INFO(i).backend_weight,BACKEND_INFO(i).flag)));
 		}
-	}
-
-	/* initialize system_db_hostname with a default socket path if empty */
-	if (*pool_config->system_db_hostname == '\0')
-	{
-		ereport(DEBUG1,
-			(errmsg("initializing pool configuration"),
-				errdetail("empty system_db_hostname, use PostgreSQL's default unix socket path (%s)", DEFAULT_SOCKET_DIR)));
-
-		strlcpy(pool_config->system_db_hostname, DEFAULT_SOCKET_DIR, MAX_DB_HOST_NAMELEN);
-	}
-
-	if (pool_config->parallel_mode)
-	{
-#ifndef POOL_PRIVATE
-		int dist_num;
-#endif
-		SystemDBInfo *info;
-		
-		system_db_info = palloc(sizeof(POOL_SYSTEMDB_CONNECTION_POOL));
-		memset(system_db_info, 0, sizeof(*system_db_info));
-
-#ifndef POOL_PRIVATE
-		system_db_info->system_db_status = pool_shared_memory_create(sizeof(BACKEND_STATUS));
-#else
-		system_db_info->system_db_status = palloc(sizeof(BACKEND_STATUS));
-#endif
-
-		*system_db_info->system_db_status = CON_CONNECT_WAIT;	/* which is the same as SYSDB_STATUS = CON_CONNECT_WAIT */
-
-		info = palloc(sizeof(SystemDBInfo));
-
-		system_db_info->info = info;
-		info->hostname = pool_config->system_db_hostname;
-		info->port = pool_config->system_db_port;
-		info->user = pool_config->system_db_user;
-		info->password = pool_config->system_db_password;
-		info->database_name = pool_config->system_db_dbname;
-		info->schema_name = pool_config->system_db_schema;
-		info->dist_def_num = 0;
-		info->dist_def_slot = NULL;
-
-#ifndef POOL_PRIVATE
-		if (pool_config->parallel_mode)
-		{
-
-			dist_num = pool_memset_system_db_info(info);
-			if(dist_num < 0)
-			{
-				ereport(ERROR,
-					(errmsg("invalid configuration, failed to get systemdb info")));
-				return(-1);
-			}
-			if (!pool_config->replication_mode && !pool_config->load_balance_mode)
-			{
-				ereport(ERROR,
-					(errmsg("invalid configuration, parallel_mode requires replication_mode or load_balance_mode turned on")));
-				return(-1);
-			}
-		}
-		SYSDB_STATUS = CON_UP;
-#endif
 	}
 
 	if (strcmp(pool_config->recovery_1st_stage_command, "") ||
@@ -5484,5 +5370,42 @@ char *pool_flag_to_str(unsigned short flag)
 	else if (POOL_DISALLOW_TO_FAILOVER(flag))
 		snprintf(buf, sizeof(buf), "DISALLOW_TO_FAILOVER");
 	return buf;
+}
+
+/*
+ * Check DB node spec. node spec should be either "primary", "standby" or
+ * numeric DB node id.
+*/
+bool check_redirect_node_spec(char *node_spec)
+{
+	int len = strlen(node_spec);
+	int i;
+	long val;
+
+	if (len <= 0)
+		return false;
+
+	if (strcasecmp("primary", node_spec) == 0)
+	{
+		return true;
+	}
+
+	if (strcasecmp("standby", node_spec) == 0)
+	{
+		return true;
+	}
+
+	for (i=0;i<len;i++)
+	{
+		if (!isdigit((int)node_spec[i]))
+				return false;
+	}
+
+	val = atol(node_spec);
+
+    if (val >=0 && val < MAX_NUM_BACKENDS)
+		return true;
+
+    return false;
 }
 

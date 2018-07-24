@@ -33,8 +33,7 @@
 
 #include "libpq-fe.h"
 
-#include "watchdog/watchdog.h"
-#include "watchdog/wd_ext.h"
+#include "watchdog/wd_ipc_commands.h"
 
 #define WAIT_RETRY_COUNT (pool_config->recovery_timeout / 3)
 
@@ -49,7 +48,7 @@ static void check_postmaster_started(BackendInfo *backend);
 
 static char recovery_command[1024];
 
-extern volatile sig_atomic_t pcp_wakeup_request;
+extern volatile sig_atomic_t pcp_worker_wakeup_request;
 
 /*
  * Start online recovery.
@@ -113,7 +112,7 @@ void start_recovery(int recovery_node)
 			if (pool_config->use_watchdog)
 			{
 				/* announce start recovery */
-				if (WD_OK != wd_start_recovery())
+				if (COMMAND_OK != wd_start_recovery())
 					ereport(ERROR,
 							(errmsg("node recovery failed, failed to send start recovery packet")));
 			}
@@ -145,14 +144,14 @@ void start_recovery(int recovery_node)
 		 * reset failover completion flag.  this is necessary since
 		 * previous failover/failback will set the flag to 1.
 		 */
-		pcp_wakeup_request = 0;
+		pcp_worker_wakeup_request = 0;
 
 		/* send failback request to pgpool parent */
-		send_failback_request(recovery_node);
+		send_failback_request(recovery_node,false);
 
 		/* wait for failback */
 		failback_wait_count = 0;
-		while (!pcp_wakeup_request)
+		while (!pcp_worker_wakeup_request)
 		{
 			struct timeval t = {1, 0};
 			/* polling SIGUSR2 signal every 1 sec */
@@ -168,7 +167,7 @@ void start_recovery(int recovery_node)
 				break;
 			}
 		}
-		pcp_wakeup_request = 0;
+		pcp_worker_wakeup_request = 0;
 	}
 	PG_CATCH();
 	{
@@ -195,7 +194,7 @@ void finish_recovery(void)
 	}
 
 	*InRecovery = RECOVERY_INIT;
-	kill(getppid(), SIGUSR2);
+	pool_signal_parent(SIGUSR2);
 }
 
 /*

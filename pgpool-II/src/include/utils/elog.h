@@ -118,8 +118,15 @@ typedef enum
 #endif
 #define FATAL		21			/* fatal error - abort process */
 #define PANIC		22			/* take down the other backends with me */
+/* pgpool-II extension. This is same as ERROR but sets the
+ * do not cache connection flag before transforming to ERROR.
+ */
+#define FRONTEND_ERROR	23			/* transformed to ERROR at errstart */
 
  /* #define DEBUG DEBUG1 */	/* Backward compatibility with pre-7.3 */
+#define POOL_EXIT_SUCCESS	0	/* failure exit and child gets restarted*/
+#define POOL_EXIT_NOFATAL	1	/* failure exit and child gets restarted*/
+#define POOL_EXIT_FATAL		3	/* This exit code from child takes down the pgpool main with it */
 
 
 
@@ -277,6 +284,7 @@ extern int	errposition(int cursorpos);
 
 #define pg_unreachable() exit(0)
 
+extern bool  getfrontendinvalid(void);
 extern int	geterrcode(void);
 extern int	geterrposition(void);
 extern int	getinternalerrposition(void);
@@ -428,6 +436,7 @@ typedef struct ErrorData
 	const char *domain;			/* message domain */
 	const char *context_domain; /* message domain for context message */
 	int			sqlerrcode;		/* encoded ERRSTATE */
+	bool		frontend_invalid;/* true when frontend connection is not valid */
 	char	   *pgpool_errcode;	/* error code to be sent to client */
 	char	   *message;		/* primary error message */
 	char	   *detail;			/* detail error message */

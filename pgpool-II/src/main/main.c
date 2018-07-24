@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -42,7 +42,7 @@
 #include "version.h"
 #include "auth/pool_passwd.h"
 #include "query_cache/pool_memqcache.h"
-#include "watchdog/wd_ext.h"
+#include "watchdog/wd_utils.h"
 
 static void daemonize(void);
 static int read_pid_file(void);
@@ -273,16 +273,7 @@ int main(int argc, char **argv)
 
 	/* check effective user id for watchdog */
 	/* watchdog must be started under the privileged user */
-	if (pool_config->use_watchdog )
-	{
-		/* check setuid bit of network interface control commands */
-		if (wd_chk_setuid() == 1)
-		{
-			/* if_up, if_down and arping command have a setuid bit */
-			ereport(NOTICE,
-				(errmsg("watchdog might call network commands which using setuid bit.")));
-		}
-	}
+	wd_check_network_command_configurations();
 
 	/* set signal masks */
 	poolinitmask();
@@ -311,7 +302,7 @@ int main(int argc, char **argv)
 		dirp = dirname(dirnamebuf);
 		snprintf(pool_passwd, sizeof(pool_passwd), "%s/%s",
 				 dirp, pool_config->pool_passwd);
-		pool_init_pool_passwd(pool_passwd);
+		pool_init_pool_passwd(pool_passwd, POOL_PASSWD_R);
 	}
 
 	pool_semaphore_create(MAX_NUM_SEMAPHORES);

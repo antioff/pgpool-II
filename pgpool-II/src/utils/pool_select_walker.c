@@ -44,7 +44,6 @@ static bool is_immutable_function(char *fname);
 static bool select_table_walker(Node *node, void *context);
 static bool non_immutable_function_call_walker(Node *node, void *context);
 static char *strip_quote(char *str);
-static char *make_table_name_from_rangevar(RangeVar *rangevar);
 
 /*
  * Return true if this SELECT has function calls *and* supposed to
@@ -168,6 +167,7 @@ bool pool_has_insertinto_or_locking_clause(Node *node)
 int pattern_compare(char *str, const int type, const char *param_name)
 {
 	int i = 0;
+	char *s;
 
 	RegPattern *lists_patterns;
 	int *pattc;
@@ -190,11 +190,12 @@ int pattern_compare(char *str, const int type, const char *param_name)
 		return -1;
 	}
 
+	s = strip_quote(str);
 	for (i = 0; i < *pattc; i++) {
 		if (lists_patterns[i].type != type)
 			continue;
 
-		if (regexec(&lists_patterns[i].regexv, str, 0, 0, 0) == 0)
+		if (regexec(&lists_patterns[i].regexv, s, 0, 0, 0) == 0)
 		{
 			switch(type) {
 			/* return 1 if string matches whitelist pattern */
@@ -202,29 +203,51 @@ int pattern_compare(char *str, const int type, const char *param_name)
 				ereport(DEBUG2,
 					(errmsg("comparing function name in whitelist regex array"),
 						errdetail("pattern_compare: %s (%s) matched: %s",
-							   param_name, lists_patterns[i].pattern, str)));
+							   param_name, lists_patterns[i].pattern, s)));
 				return 1;
 			/* return 1 if string matches blacklist pattern */
 			case BLACKLIST:
 				ereport(DEBUG2,
 					(errmsg("comparing function name in blacklist regex array"),
 						 errdetail("pattern_compare: %s (%s) matched: %s",
-								   param_name, lists_patterns[i].pattern, str)));
+								   param_name, lists_patterns[i].pattern, s)));
 				return 1;
 			default:
 				ereport(WARNING,
-						(errmsg("pattern_compare: \"%s\" unknown pattern match type: \"%s\"", param_name, str)));
+						(errmsg("pattern_compare: \"%s\" unknown pattern match type: \"%s\"", param_name, s)));
 				return -1;
 			}
 		}
 		ereport(DEBUG2,
 			(errmsg("comparing function name in blacklist/whitelist regex array"),
 				 errdetail("pattern_compare: %s (%s) not matched: %s",
-						   param_name, lists_patterns[i].pattern, str)));
+						   param_name, lists_patterns[i].pattern, s)));
 	}
 
+	free(s);
 	/* return 0 otherwise */
 	return 0;
+}
+
+static char *strip_quote(char *str)
+{
+	char *after;
+	int i = 0;
+
+	after = malloc(sizeof(char) * strlen(str) + 1);
+
+	do {
+		if (*str != '"')
+		{
+			after[i] = *str;
+			i++;
+		}
+		str++;
+	} while (*str != '\0');
+
+	after[i] = '\0';
+
+	return after;
 }
 
 /*
@@ -421,9 +444,9 @@ static bool is_system_catalog(char *table_name)
  */
 #define ISBELONGTOPGCATALOGQUERY "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
 
-#define ISBELONGTOPGCATALOGQUERY2 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.oid = pgpool_regclass('%s') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
+#define ISBELONGTOPGCATALOGQUERY2 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.oid = pgpool_regclass('\"%s\"') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
 
-#define ISBELONGTOPGCATALOGQUERY3 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.oid = to_regclass('%s') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
+#define ISBELONGTOPGCATALOGQUERY3 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.oid = to_regclass('\"%s\"') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
 
 	int hasreliscatalog;
 	bool result;
@@ -433,8 +456,11 @@ static bool is_system_catalog(char *table_name)
 
 	if (table_name == NULL)
 	{
-			return false;
+		return false;
 	}
+
+	if (!pool_has_to_regclass() && !pool_has_pgpool_regclass())
+		table_name = remove_quotes_and_schema_from_relname(table_name);
 
 	backend = pool_get_session_context(false)->backend;
 
@@ -636,8 +662,11 @@ bool is_unlogged_table(char *table_name)
 
 	if (table_name == NULL)
 	{
-			return false;
+		return false;
 	}
+
+	if (!pool_has_to_regclass() && !pool_has_pgpool_regclass())
+		table_name = remove_quotes_and_schema_from_relname(table_name);
 
 	backend = pool_get_session_context(false)->backend;
 
@@ -727,8 +756,11 @@ bool is_view(char *table_name)
 
 	if (table_name == NULL)
 	{
-			return false;
+		return false;
 	}
+
+	if (!pool_has_to_regclass() && !pool_has_pgpool_regclass())
+		table_name = remove_quotes_and_schema_from_relname(table_name);
 
 	backend = pool_get_session_context(false)->backend;
 
@@ -996,6 +1028,9 @@ int pool_table_name_to_oid(char *table_name)
 		return oid;
 	}
 
+	if (!pool_has_to_regclass() && !pool_has_pgpool_regclass())
+		table_name = remove_quotes_and_schema_from_relname(table_name);
+
 	backend = pool_get_session_context(false)->backend;
 
 	if (pool_has_to_regclass())
@@ -1075,7 +1110,6 @@ select_table_walker(Node *node, void *context)
 		RangeVar *rgv = (RangeVar *)node;
 		char *table;
 		int oid;
-		char *s;
 
 		table = make_table_name_from_rangevar(rgv);
 		oid = pool_table_name_to_oid(table);
@@ -1094,9 +1128,7 @@ select_table_walker(Node *node, void *context)
 			num_oids = ctx->num_oids++;
 
 			ctx->table_oids[num_oids] = oid;
-			s = strip_quote(table);
-			strlcpy(ctx->table_names[num_oids], s, POOL_NAMEDATALEN);
-			free(s);
+			strlcpy(ctx->table_names[num_oids], table, POOL_NAMEDATALEN);
 
 			ereport(DEBUG1,
 				(errmsg("extracting table oids from SELECT statement"),
@@ -1108,26 +1140,6 @@ select_table_walker(Node *node, void *context)
 	return raw_expression_tree_walker(node, select_table_walker, context);
 }
 
-static char *strip_quote(char *str)
-{
-	char *after;
-	int i = 0;
-
-	after = malloc(sizeof(char) * strlen(str) + 1);
-
-	do {
-		if (*str != '"')
-		{
-			after[i] = *str;
-			i++;
-		}
-		str++;
-	} while (*str != '\0');
-
-	after[i] = '\0';
-
-	return after;
-}
 
 /*
  * makeRangeVarFromNameList
@@ -1168,16 +1180,18 @@ makeRangeVarFromNameList(List *names)
  * necessary.  The returned table name is in static area. So next
  * call to this function will break previous result.
  */
-static char *make_table_name_from_rangevar(RangeVar *rangevar)
+char *make_table_name_from_rangevar(RangeVar *rangevar)
 {
 	/*
 	 * Table name. Max size is calculated as follows:
 	 * schema name(POOL_NAMEDATALEN byte)
-	 * + single quote(1 byte)
+	 * + quotation marks for schmea name(2 byte)
+	 * + period(1 byte)
 	 * + table name (POOL_NAMEDATALEN byte)
+	 * + quotation marks for table name(2 byte)
 	 * + NULL(1 byte)
 	 */
-	static char tablename[POOL_NAMEDATALEN*2+1+1];
+	static char tablename[POOL_NAMEDATALEN*2+1+2*2+1];
 
 	if (rangevar == NULL)
 	{
@@ -1198,7 +1212,9 @@ static char *make_table_name_from_rangevar(RangeVar *rangevar)
 
 	if (rangevar->schemaname)
 	{
-		strncpy(tablename, rangevar->schemaname, POOL_NAMEDATALEN);
+		strcat(tablename, "\"");
+		strncat(tablename, rangevar->schemaname, POOL_NAMEDATALEN);
+		strcat(tablename, "\"");
 		strcat(tablename, ".");
 	}
 
@@ -1210,8 +1226,12 @@ static char *make_table_name_from_rangevar(RangeVar *rangevar)
 		return "";
 	}
 
+	strcat(tablename, "\"");
 	strncat(tablename, rangevar->relname, POOL_NAMEDATALEN);
+	strcat(tablename, "\"");
+
 	ereport(DEBUG1,
 			(errmsg("make table name from rangevar: tablename:\"%s\"", tablename)));
+
 	return tablename;
 }

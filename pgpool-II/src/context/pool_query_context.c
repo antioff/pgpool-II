@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -61,9 +61,16 @@ static char* remove_read_write(int len, const char *contents, int *rewritten_len
  */
 POOL_QUERY_CONTEXT *pool_init_query_context(void)
 {
+	MemoryContext memory_context = AllocSetContextCreate(QueryContext,
+															"QueryContextMemoryContext",
+															ALLOCSET_SMALL_MINSIZE,
+															ALLOCSET_SMALL_INITSIZE,
+															ALLOCSET_SMALL_MAXSIZE);
+
+	MemoryContext oldcontext = MemoryContextSwitchTo(memory_context);
 	POOL_QUERY_CONTEXT *qc;
-	MemoryContext oldcontext = MemoryContextSwitchTo(QueryContext);
 	qc = palloc0(sizeof(*qc));
+	qc->memory_context = memory_context;
 	MemoryContextSwitchTo(oldcontext);
 	return qc;
 }
@@ -77,11 +84,13 @@ void pool_query_context_destroy(POOL_QUERY_CONTEXT *query_context)
 
 	if (query_context)
 	{
+		MemoryContext memory_context = query_context->memory_context;
 		session_context = pool_get_session_context(false);
 		pool_unset_query_in_progress();
 		query_context->original_query = NULL;
 		session_context->query_context = NULL;
 		pfree(query_context);
+		MemoryContextDelete(memory_context);
 	}
 }
 
@@ -96,7 +105,7 @@ void pool_start_query(POOL_QUERY_CONTEXT *query_context, char *query, int len, N
 	{
 		MemoryContext old_context;
 		session_context = pool_get_session_context(false);
-		old_context = MemoryContextSwitchTo(QueryContext);
+		old_context = MemoryContextSwitchTo(query_context->memory_context);
 		query_context->original_length = len;
 		query_context->rewritten_length = -1;
 		query_context->original_query = pstrdup(query);
@@ -470,7 +479,7 @@ void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *no
 			}
 		}
 	}
-	else if (REPLICATION || PARALLEL_MODE)
+	else if (REPLICATION)
 	{
 		if (pool_config->load_balance_mode &&
 			is_select_query(node, query) &&
@@ -660,7 +669,7 @@ POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 		}
 
 		per_node_statement_log(backend, i, string);
-
+		stat_count_up(i, query_context->parse_tree);
 		send_simplequery_message(CONNECTION(backend, i), len, string, MAJOR(backend));
 	}
 
@@ -721,7 +730,7 @@ POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context,
  */
 POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 										char *kind, int len, char *contents,
-										int send_type, int node_id)
+										int send_type, int node_id, bool nowait)
 {
 	POOL_SESSION_CONTEXT *session_context;
 	POOL_CONNECTION *frontend;
@@ -839,6 +848,17 @@ POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 			per_node_statement_log(backend, i, msgbuf);
 		}
 
+		/* if Execute message, count up stats count */
+		if (*kind == 'E')
+		{
+			stat_count_up(i, query_context->parse_tree);
+
+			/* Set sync map so that we could wait for response from appropreate node */
+			pool_set_sync_map(i);
+			ereport(DEBUG1,
+					(errmsg("pool_send_and_wait: pool_set_sync_map: %d", i)));
+		}
+
 		send_extended_protocol_message(backend, i, kind, str_len, str);
 	}
 
@@ -850,47 +870,50 @@ POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 			str = query_context->original_query;
 	}
 
-	/* Wait for response */
-	for (i=0;i<NUM_BACKENDS;i++)
+	if (!nowait)
 	{
-		if (!VALID_BACKEND(i))
-			continue;
-		else if (send_type < 0 && i == node_id)
-			continue;
-		else if (send_type > 0 && i != node_id)
-			continue;
-
-		/*
-		 * If in master/slave mode, we do not send COMMIT/ABORT to
-		 * slaves/standbys if it's in I(idle) state.
-		 */
-		if (is_commit && MASTER_SLAVE && !IS_MASTER_NODE_ID(i) && TSTATE(backend, i) == 'I')
+		/* Wait for response */
+		for (i=0;i<NUM_BACKENDS;i++)
 		{
-			continue;
+			if (!VALID_BACKEND(i))
+				continue;
+			else if (send_type < 0 && i == node_id)
+				continue;
+			else if (send_type > 0 && i != node_id)
+				continue;
+
+			/*
+			 * If in master/slave mode, we do not send COMMIT/ABORT to
+			 * slaves/standbys if it's in I(idle) state.
+			 */
+			if (is_commit && MASTER_SLAVE && !IS_MASTER_NODE_ID(i) && TSTATE(backend, i) == 'I')
+			{
+				continue;
+			}
+
+			if (is_begin_read_write)
+			{
+				if (REAL_PRIMARY_NODE_ID == i)
+					str = query_context->original_query;
+				else
+					str = query_context->rewritten_query;
+			}
+
+			wait_for_query_response_with_trans_cleanup(frontend,
+													   CONNECTION(backend, i),
+													   MAJOR(backend),
+													   MASTER_CONNECTION(backend)->pid,
+													   MASTER_CONNECTION(backend)->key);
+
+			/*
+			 * Check if some error detected.  If so, emit
+			 * log. This is useful when invalid encoding error
+			 * occurs. In this case, PostgreSQL does not report
+			 * what statement caused that error and make users
+			 * confused.
+			 */		
+			per_node_error_log(backend, i, str, "pool_send_and_wait: Error or notice message from backend: ", true);
 		}
-
-		if (is_begin_read_write)
-		{
-			if (REAL_PRIMARY_NODE_ID == i)
-				str = query_context->original_query;
-			else
-				str = query_context->rewritten_query;
-		}
-
-        wait_for_query_response_with_trans_cleanup(frontend,
-                                                   CONNECTION(backend, i),
-                                                   MAJOR(backend),
-                                                   MASTER_CONNECTION(backend)->pid,
-                                                   MASTER_CONNECTION(backend)->key);
-
-		/*
-		 * Check if some error detected.  If so, emit
-		 * log. This is useful when invalid encoding error
-		 * occurs. In this case, PostgreSQL does not report
-		 * what statement caused that error and make users
-		 * confused.
-		 */		
-		per_node_error_log(backend, i, str, "pool_send_and_wait: Error or notice message from backend: ", true);
 	}
 
 	if(rewritten_begin)
@@ -920,7 +943,7 @@ static POOL_DEST send_to_where(Node *node, char *query)
 #define AccessExclusiveLock		8		/* ALTER TABLE, DROP TABLE, VACUUM
 										 * FULL, and unqualified LOCK TABLE */
 
-/* From 9.0 include/nodes/node.h */
+/* From 9.5 include/nodes/node.h ("TAGS FOR STATEMENT NODES" part) */
 	static NodeTag nodemap[] = {
 		T_PlannedStmt,
 		T_InsertStmt,
@@ -933,9 +956,7 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_SetOperationStmt,
 		T_GrantStmt,
 		T_GrantRoleStmt,
-		/*
-		T_AlterDefaultPrivilegesStmt,	Our parser does not support yet
-		*/
+		T_AlterDefaultPrivilegesStmt,
 		T_ClosePortalStmt,
 		T_ClusterStmt,
 		T_CopyStmt,
@@ -948,9 +969,7 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_IndexStmt,	/* CREATE INDEX */
 		T_CreateFunctionStmt,
 		T_AlterFunctionStmt,
-		/*
-		T_DoStmt,		Our parser does not support yet
-		*/
+		T_DoStmt,
 		T_RenameStmt,	/* ALTER AGGREGATE etc. */
 		T_RuleStmt,		/* CREATE RULE */
 		T_NotifyStmt,
@@ -964,6 +983,7 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_DropdbStmt,
 		T_VacuumStmt,
 		T_ExplainStmt,
+		T_CreateTableAsStmt,
 		T_CreateSeqStmt,
 		T_AlterSeqStmt,
 		T_VariableSetStmt,		/* SET */
@@ -999,6 +1019,8 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_ReassignOwnedStmt,
 		T_CompositeTypeStmt,	/* CREATE TYPE */
 		T_CreateEnumStmt,
+		T_CreateRangeStmt,
+		T_AlterEnumStmt,
 		T_AlterTSDictionaryStmt,
 		T_AlterTSConfigurationStmt,
 		T_CreateFdwStmt,
@@ -1008,9 +1030,22 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_CreateUserMappingStmt,
 		T_AlterUserMappingStmt,
 		T_DropUserMappingStmt,
-		/*
-		T_AlterTableSpaceOptionsStmt,	Our parser does not support yet
-		*/
+		T_AlterTableSpaceOptionsStmt,
+		T_AlterTableMoveAllStmt,
+		T_SecLabelStmt,
+		T_CreateForeignTableStmt,
+		T_ImportForeignSchemaStmt,
+		T_CreateExtensionStmt,
+		T_AlterExtensionStmt,
+		T_AlterExtensionContentsStmt,
+		T_CreateEventTrigStmt,
+		T_AlterEventTrigStmt,
+		T_RefreshMatViewStmt,
+		T_ReplicaIdentityStmt,
+		T_AlterSystemStmt,
+		T_CreatePolicyStmt,
+		T_AlterPolicyStmt,
+		T_CreateTransformStmt,
 	};
 
 	if (bsearch(&nodeTag(node), nodemap, sizeof(nodemap)/sizeof(nodemap[0]),
@@ -1025,6 +1060,19 @@ static POOL_DEST send_to_where(Node *node, char *query)
 			/* SELECT INTO or SELECT FOR SHARE or UPDATE ? */
 			if (pool_has_insertinto_or_locking_clause(node))
 				return POOL_PRIMARY;
+
+			/* non-SELECT query in WITH clause ? */
+			if (((SelectStmt *)node)->withClause)
+			{
+				List *ctes = ((SelectStmt *)node)->withClause->ctes;
+				ListCell   *cte_item;
+				foreach(cte_item, ctes)
+				{
+					CommonTableExpr *cte = (CommonTableExpr *)lfirst(cte_item);
+					if (!IsA(cte->ctequery, SelectStmt))
+						return POOL_PRIMARY;
+				}
+			}
 
 			return POOL_EITHER;
 		}
@@ -1280,7 +1328,8 @@ char *pool_get_query_string(void)
 }
 
 /*
- * Return true if the query is:
+ * Returns true if the query is one of:
+ *
  * SET TRANSACTION ISOLATION LEVEL SERIALIZABLE or
  * SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE or
  * SET transaction_isolation TO 'serializable'
@@ -1637,4 +1686,78 @@ void pool_unset_cache_exceeded(void)
 	{
 		sc->query_context->temp_cache->is_exceeded = false;
 	}
+}
+
+/*
+ * Return true if one of followings is true
+ *
+ * SET transaction_read_only TO on
+ * SET TRANSACTION READ ONLY
+ * SET TRANSACTION CHARACTERISTICS AS TRANSACTION READ ONLY
+ *
+ * Note that if the node is not a variable statement, returns false.
+ */
+bool pool_is_transaction_read_only(Node *node)
+{
+	ListCell   *list_item;
+	bool ret = false;
+
+	if (!IsA(node, VariableSetStmt))
+		return ret;
+
+	/*
+	 * SET transaction_read_only TO on
+	 */
+	if (((VariableSetStmt *)node)->kind == VAR_SET_VALUE &&
+		!strcmp(((VariableSetStmt *)node)->name, "transaction_read_only"))
+	{
+		List *options = ((VariableSetStmt *)node)->args;
+		foreach(list_item, options)
+		{
+			A_Const *v = (A_Const *)lfirst(list_item);
+
+			switch (v->val.type)
+			{
+				case T_String:
+					if (!strcasecmp(v->val.val.str, "on") ||
+						!strcasecmp(v->val.val.str, "t") ||
+						!strcasecmp(v->val.val.str, "true"))
+						ret = true;
+					break;
+				case T_Integer:
+					if (v->val.val.ival)
+						ret = true;
+				default:
+					break;
+			}
+		}
+	}
+
+	/*
+	 * SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY
+	 * SET TRANSACTION READ ONLY
+	 */
+	else if (((VariableSetStmt *)node)->kind == VAR_SET_MULTI &&
+			 (!strcmp(((VariableSetStmt *)node)->name, "TRANSACTION") ||
+			  !strcmp(((VariableSetStmt *)node)->name, "SESSION CHARACTERISTICS")))
+	{
+		List *options = ((VariableSetStmt *)node)->args;
+		foreach(list_item, options)
+		{
+			DefElem *opt = (DefElem *) lfirst(list_item);
+
+			if (!strcmp("transaction_read_only", opt->defname))
+			{
+				bool read_only;
+
+				read_only = ((A_Const *)opt->arg)->val.val.ival;
+				if (read_only)
+				{
+					ret = true;
+					break;
+				}
+			}
+		}
+	}
+	return ret;
 }

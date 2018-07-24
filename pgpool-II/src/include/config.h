@@ -1,5 +1,5 @@
 /* src/include/config.h.  Generated from config.h.in by configure.  */
-/* src/include/config.h.in.  Generated from configure.in by autoheader.  */
+/* src/include/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Define to the type of arg 1 of 'accept' */
 #define ACCEPT_TYPE_ARG1 int
@@ -144,6 +144,9 @@
 /* Define to 1 if you have the `sigprocmask' function. */
 #define HAVE_SIGPROCMASK 1
 
+/* Define to 1 if you have the `snprintf' function. */
+#define HAVE_SNPRINTF 1
+
 /* Define to 1 if you have the `socket' function. */
 #define HAVE_SOCKET 1
 
@@ -177,22 +180,22 @@
 /* Define to 1 if you have the `strtok' function. */
 #define HAVE_STRTOK 1
 
-/* Define to 1 if `sa_len' is member of `struct sockaddr'. */
+/* Define to 1 if `sa_len' is a member of `struct sockaddr'. */
 /* #undef HAVE_STRUCT_SOCKADDR_SA_LEN */
 
 /* Define to 1 if the system has the type `struct sockaddr_storage'. */
 #define HAVE_STRUCT_SOCKADDR_STORAGE 1
 
-/* Define to 1 if `ss_family' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `ss_family' is a member of `struct sockaddr_storage'. */
 #define HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY 1
 
-/* Define to 1 if `ss_len' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `ss_len' is a member of `struct sockaddr_storage'. */
 /* #undef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN */
 
-/* Define to 1 if `__ss_family' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `__ss_family' is a member of `struct sockaddr_storage'. */
 /* #undef HAVE_STRUCT_SOCKADDR_STORAGE___SS_FAMILY */
 
-/* Define to 1 if `__ss_len' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `__ss_len' is a member of `struct sockaddr_storage'. */
 /* #undef HAVE_STRUCT_SOCKADDR_STORAGE___SS_LEN */
 
 /* Define to 1 if you have the <sys/param.h> header file. */
@@ -228,6 +231,9 @@
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #define HAVE_SYS_WAIT_H 1
 
+/* checking termios */
+#define HAVE_TERMIOS_H 1
+
 /* Define to 1 if the system has the type `union semun'. */
 /* #undef HAVE_UNION_SEMUN */
 
@@ -239,6 +245,9 @@
 
 /* Define to 1 if you have the `vprintf' function. */
 #define HAVE_VPRINTF 1
+
+/* Define to 1 if you have the `vsnprintf' function. */
+#define HAVE_VSNPRINTF 1
 
 /* Define to 1 if you have the `vsyslog' function. */
 #define HAVE_VSYSLOG 1
@@ -254,26 +263,26 @@
    */
 #define LT_OBJDIR ".libs/"
 
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-/* #undef NO_MINUS_C_MINUS_O */
-
 /* Name of package */
 #define PACKAGE "pgpool-II"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT ""
+#define PACKAGE_BUGREPORT "pgpool-hackers@pgpoo.net"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME ""
+#define PACKAGE_NAME "pgpool-II"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING ""
+#define PACKAGE_STRING "pgpool-II 3.5.0"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME ""
+#define PACKAGE_TARNAME "pgpool-II"
+
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION ""
+#define PACKAGE_VERSION "3.5.0"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
@@ -329,11 +338,11 @@
 /* #undef USE_TABLE_LOCK */
 
 /* Version number of package */
-#define VERSION "3.4.0"
+#define VERSION "3.5.0"
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
-#define YYTEXT_POINTER 1
+/* #undef YYTEXT_POINTER */
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

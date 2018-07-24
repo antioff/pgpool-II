@@ -33,16 +33,26 @@
 #include <signal.h>
 
 #ifdef HAVE_SIGPROCMASK
-extern sigset_t UnBlockSig,
-			BlockSig,
-			AuthBlockSig;
+#define pool_sigset_t sigset_t
+#else
+#define pool_sigset_t int
+#endif
+
+#ifdef _SYS_SIGNAL_H_
+/* This appears to be a BSD variant which also uses a different type name */
+typedef sig_t sighandler_t;
+#endif
+
+extern pool_sigset_t UnBlockSig,
+BlockSig,
+AuthBlockSig;
+
+
+#ifdef HAVE_SIGPROCMASK
 
 #define POOL_SETMASK(mask)	sigprocmask(SIG_SETMASK, mask, NULL)
 #define POOL_SETMASK2(mask, oldmask)	sigprocmask(SIG_SETMASK, mask, oldmask)
 #else
-extern int	UnBlockSig,
-			BlockSig,
-			AuthBlockSig;
 
 #ifndef WIN32
 #define POOL_SETMASK(mask)	sigsetmask(*((int*)(mask)))
@@ -53,9 +63,8 @@ extern int	UnBlockSig,
 int			pqsigsetmask(int mask);
 #endif
 #endif
-
 typedef void (*pool_sighandler_t) (int);
 extern pool_sighandler_t pool_signal(int signo, pool_sighandler_t func);
 extern void poolinitmask(void);
-
+extern int pool_signal_parent(int sig);
 #endif /* POOL_SIGNAL_H */

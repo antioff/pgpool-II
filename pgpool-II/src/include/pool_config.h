@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -29,7 +29,12 @@
 /*
  * watchdog
  */
-#include "watchdog/watchdog.h"
+#define WD_MAX_HOST_NAMELEN (128)
+#define WD_MAX_PATH_LEN (128)
+#define MAX_WATCHDOG_NUM (128)
+#define WD_SEND_TIMEOUT (1)
+#define WD_MAX_IF_NUM (256)
+#define WD_MAX_IF_NAME_LEN (16)
 
 /*
  * Master/slave sub mode
@@ -42,6 +47,7 @@
  */
 #define MODE_HEARTBEAT	"heartbeat"
 #define MODE_QUERY 		"query"
+#define MODE_EXTERNAL 	"external"
 
 #include "utils/regex_array.h"
 /*
@@ -66,6 +72,30 @@ typedef struct {
 #define POOL_ALLOW_TO_FAILOVER(x) (!(POOL_DISALLOW_TO_FAILOVER(x)))
 
 /*
+ * watchdog list
+ */
+typedef struct WdRemoteNodeInfo {
+	char hostname[WD_MAX_HOST_NAMELEN];		/* host name */
+	int pgpool_port;						/* pgpool port */
+	int wd_port;							/* watchdog port */
+} WdRemoteNodeInfo;
+
+typedef struct WdRemoteNodesConfig{
+	int				  num_wd;		/* number of watchdogs */
+	WdRemoteNodeInfo  wd_remote_node_info[MAX_WATCHDOG_NUM];
+} WdRemoteNodesConfig;
+
+
+typedef struct {
+	char addr[WD_MAX_HOST_NAMELEN];
+	char if_name[WD_MAX_IF_NAME_LEN];
+	int dest_port;
+} WdHbIf;
+
+#define WD_INFO(wd_id) (pool_config->wd_remote_nodes.wd_remote_node_info[(wd_id)])
+#define WD_HB_IF(if_id) (pool_config->hb_if[(if_id)])
+
+/*
  * configuration parameters
  */
 typedef struct {
@@ -74,10 +104,11 @@ typedef struct {
 	char *pcp_listen_addresses;		/* PCP listen address to listen on */
 	int pcp_port;				/* PCP port # to bind */
 	char *socket_dir;		/* pgpool socket directory */
+	char *wd_ipc_socket_dir;	/* watchdog command IPC socket directory */
 	char *pcp_socket_dir;		/* PCP socket directory */
-	int pcp_timeout;			/* PCP timeout for an idle client */
     int	num_init_children;	/* # of children initially pre-forked */
     int	listen_backlog_multiplier; /* determines the size of the connection queue */
+	int serialize_accept;		/* if non 0, serialize call to accept() to avoid thundering herd problem */
     int	child_life_time;	/* if idle for this seconds, child exits */
     int	connection_life_time;	/* if idle for this seconds, connection closes */
     int	child_max_connections;	/* if max_connections received, child exits */
@@ -90,7 +121,6 @@ typedef struct {
     int syslog_facility;        /* syslog facility: LOCAL0, LOCAL1, ... */
     char *syslog_ident;         /* syslog ident string: pgpool */
     char *pid_file_name;		/* pid file name */
-    char *backend_socket_dir;	/* Unix domain socket directory for the PostgreSQL server */
 	int replication_mode;		/* replication mode */
 
 	int log_connections;		/* 0:false, 1:true - logs incoming connections */
@@ -131,12 +161,14 @@ typedef struct {
 	int health_check_period;	/* health check period */
 	char *health_check_user;		/* PostgreSQL user name for health check */
 	char *health_check_password; /* password for health check username */
+	char *health_check_database; /* database name for health check username */
 	int health_check_max_retries;	/* health check max retries */
 	int health_check_retry_delay;	/* amount of time to wait between retries */
 	int connect_timeout;		/* timeout value before giving up connecting to backend */
 	int sr_check_period;		/* streaming replication check period */
-	char *sr_check_user;		/* PostgreSQL user name streaming replication check */
+	char *sr_check_user;		/* PostgreSQL user name for streaming replication check */
 	char *sr_check_password;	/* password for sr_check_user */
+	char *sr_check_database;	/* PostgreSQL database name for streaming replication check */
 	char *failover_command;     /* execute command when failover happens */
 	char *follow_master_command; /* execute command when failover is ended */
 	char *failback_command;     /* execute command when failback happens */
@@ -165,16 +197,6 @@ typedef struct {
  	int log_statement; /* 0:false, 1: true - logs all SQL statements */
  	int log_per_node_statement; /* 0:false, 1: true - logs per node detailed SQL statements */
 
-	int parallel_mode;	/* if non 0, run in parallel query mode */
-
-	char *pgpool2_hostname;		/* pgpool2 hostname */
-	char *system_db_hostname;	/* system DB hostname */
-	int system_db_port;			/* system DB port number */
-	char *system_db_dbname;		/* system DB name */
-	char *system_db_schema;		/* system DB schema name */
-	char *system_db_user;		/* user name to access system DB */
-	char *system_db_password;	/* password to access system DB */
-
 	char *lobj_lock_table;		/* table name to lock for rewriting lo_creat */
 
 	int debug_level;			/* debug message verbosity level.
@@ -191,6 +213,7 @@ typedef struct {
 	int num_black_function_list;		/* number of functions in black_function_list */
 	int num_white_memqcache_table_list;		/* number of functions in white_memqcache_table_list */
 	int num_black_memqcache_table_list;		/* number of functions in black_memqcache_table_list */
+	int num_wd_monitoring_interfaces_list;  /* number of items in wd_monitoring_interfaces_list */
 	int logsyslog;		/* flag used to start logging to syslog */
 
 	/* ssl configuration */
@@ -214,7 +237,7 @@ typedef struct {
 	char *memqcache_method;   /* Cache store method. Either 'shmem'(shared memory) or 'memcached'. 'shmem' by default */
 	char *memqcache_memcached_host;   /* Memcached host name. Mandatory if memqcache_method=memcached. */
 	int memqcache_memcached_port;   /* Memcached port number. Mandatory if memqcache_method=memcached. */
-	int memqcache_total_size;   /* Total memory size in bytes for storing memory cache. Mandatory if memqcache_method=shmem. */
+	int64 memqcache_total_size;   /* Total memory size in bytes for storing memory cache. Mandatory if memqcache_method=shmem. */
 	int memqcache_max_num_cache;   /* Total number of cache entries. Mandatory if memqcache_method=shmem. */
 	int memqcache_expire;   /* Memory cache entry life time specified in seconds. 60 by default. */
 	int memqcache_auto_cache_invalidation; /* If true, invalidation of query cache is triggered by corresponding */
@@ -257,16 +280,18 @@ typedef struct {
 	int use_watchdog;					/* if non 0, use watchdog */
 	char *wd_lifecheck_method;			/* method of lifecheck. 'heartbeat' or 'query' */
 	int clear_memqcache_on_escalation;	/* if no 0, clear query cache on shmem when escalating */
-    char *wd_escalation_command;		/* Executes this command at escalation on new active pgpool.*/
+	char *wd_escalation_command;		/* Executes this command at escalation on new active pgpool.*/
+	char *wd_de_escalation_command;		/* Executes this command when master pgpool goes down.*/
 	char *wd_hostname;					/* watchdog hostname */
 	int wd_port;						/* watchdog port */
-	WdDesc * other_wd;					/* watchdog lists */
+	int wd_priority;					/* watchdog node priority, during leader election*/
+	WdRemoteNodesConfig wd_remote_nodes;/* watchdog lists */
 	char * trusted_servers;				/* icmp reachable server list (A,B,C) */
 	char * delegate_IP;					/* delegate IP address */
 	int  wd_interval;					/* lifecheck interval (sec) */
 	char *wd_authkey;					/* Authentication key for watchdog communication */
 	char * ping_path;					/* path to ping command */
-	char * ifconfig_path;				/* path to ifconfig command */
+	char * if_cmd_path;					/* path to interface up/down command */
 	char * if_up_cmd;					/* ifup command */
 	char * if_down_cmd;					/* ifdown command */
 	char * arping_path;					/* path to arping command */
@@ -281,6 +306,7 @@ typedef struct {
 	int wd_heartbeat_deadtime;			/* Deadtime interval for heartbeat signal (sec) */
 	WdHbIf hb_if[WD_MAX_IF_NUM];		/* interface devices */
 	int num_hb_if;						/* number of interface devices */
+	char **wd_monitoring_interfaces_list;/* network interface name list to be monitored by watchdog */
 } POOL_CONFIG;
 
 typedef enum {

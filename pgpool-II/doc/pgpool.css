@@ -182,6 +182,9 @@ tr.header th {
 tr.center td {
 	text-align: center;
 }
+tr.footer {
+	border-top: double;
+}
 
 dd {
 	margin-left: 0px;
@@ -253,6 +256,15 @@ dl.flat dd {
 }
 dl.flat dd * {
 	margin-left: 0px;
+}
+dl.options {
+	margin: 10px 0px 10px 40px;
+}
+dl.options dt {
+	font-weight:normal;
+}
+dl.options dd {
+	margin: 10px 0px 10px 0px;
 }
 li dl dt {
 	font-weight: normal;

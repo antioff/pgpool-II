@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -72,7 +72,6 @@ static void send_frontend_exits(void);
 static void s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password);
 static void connection_count_up(void);
 static void connection_count_down(void);
-static void init_system_db_connection(void);
 static bool connect_using_existing_connection(POOL_CONNECTION *frontend,
 											  POOL_CONNECTION_POOL *backend,
 											  StartupPacket *sp);
@@ -87,7 +86,7 @@ static POOL_CONNECTION *get_connection(int front_end_fd, SockAddr *saddr);
 static POOL_CONNECTION_POOL *get_backend_connection(POOL_CONNECTION *frontend);
 static StartupPacket *StartupPacketCopy(StartupPacket *sp);
 static void print_process_status(char *remote_host,char* remote_port);
-static bool backend_cleanup(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL* volatile backend);
+static bool backend_cleanup(POOL_CONNECTION* volatile *frontend, POOL_CONNECTION_POOL* volatile backend, bool frontend_invalid);
 static void free_persisten_db_connection_memory(POOL_CONNECTION_POOL_SLOT *cp);
 static int choose_db_node_id(char *str);
 static void child_will_go_down(int code, Datum arg);
@@ -115,6 +114,7 @@ volatile sig_atomic_t got_sighup = 0;
 
 char remote_host[NI_MAXHOST];	/* client host */
 char remote_port[NI_MAXSERV];	/* client port */
+POOL_CONNECTION* volatile child_frontend = NULL;
 
 /*
 * child main loop
@@ -122,8 +122,6 @@ char remote_port[NI_MAXSERV];	/* client port */
 void do_child(int *fds)
 {
 	sigjmp_buf	local_sigjmp_buf;
-
-	POOL_CONNECTION* volatile frontend = NULL;
 	POOL_CONNECTION_POOL* volatile backend = NULL;
 	struct timeval now;
 	struct timezone tz;
@@ -191,9 +189,6 @@ void do_child(int *fds)
 	srandom((unsigned int) now.tv_usec);
 #endif
 
-	/* initialize system db connection */
-	init_system_db_connection();
-
 	/* initialize connection pool */
 	if (pool_init_cp())
 	{
@@ -213,11 +208,21 @@ void do_child(int *fds)
 	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
 	{
         POOL_PROCESS_CONTEXT *session;
+		bool frontend_invalid = getfrontendinvalid();
 		disable_authentication_timeout();
 		/* Since not using PG_TRY, must reset error stack by hand */
         error_context_stack = NULL;
 
-		EmitErrorReport();
+		/*
+		 * Do not emit an error when EOF was encountered on frontend connection before the session
+		 * was initialized. This is the normal behavior of psql to close and reconnect
+		 * the connection when some authentication method is used
+		 */
+		if(pool_get_session_context(true) ||
+		   !child_frontend ||
+		   child_frontend->socket_state != POOL_SOCKET_EOF)
+			EmitErrorReport();
+
         /* process the cleanup in ProcessLoopContext which will get reset
          * during the next loop iteration
          */
@@ -226,7 +231,7 @@ void do_child(int *fds)
 		if (accepted)
 			connection_count_down();
         
-        backend_cleanup(frontend, backend);
+        backend_cleanup(&child_frontend, backend, frontend_invalid);
 
         session = pool_get_process_context();
 
@@ -252,10 +257,10 @@ void do_child(int *fds)
             }
         }
 
-		if(frontend)
+		if(child_frontend)
 		{
-			pool_close(frontend);
-			frontend = NULL;
+			pool_close(child_frontend);
+			child_frontend = NULL;
 		}
 
 		MemoryContextSwitchTo(TopMemoryContext);
@@ -277,6 +282,7 @@ void do_child(int *fds)
 		MemoryContextSwitchTo(ProcessLoopContext);
 		MemoryContextResetAndDeleteChildren(ProcessLoopContext);
 
+		backend = NULL;
 		idle = 1;
 
 		/* pgpool stop request already sent? */
@@ -306,10 +312,10 @@ void do_child(int *fds)
 
 		check_config_reload();
 		validate_backend_connectivity(front_end_fd);
-		frontend = get_connection(front_end_fd, &saddr);
+		child_frontend = get_connection(front_end_fd, &saddr);
 
 		/* set frontend fd to blocking */
-		pool_unset_nonblock(frontend->fd);
+		pool_unset_nonblock(child_frontend->fd);
 
 		/* reset busy flag */
 		idle = 0;
@@ -321,11 +327,11 @@ void do_child(int *fds)
 			backend_timer_expired = 0;
 		}
 
-		backend = get_backend_connection(frontend);
+		backend = get_backend_connection(child_frontend);
 		if(!backend)
 		{
-			pool_close(frontend);
-			frontend = NULL;
+			pool_close(child_frontend);
+			child_frontend = NULL;
 			continue;
 		}
 		connected = 1;
@@ -340,7 +346,7 @@ void do_child(int *fds)
 		/*
 		 * Initialize per session context
 		 */
-		pool_init_session_context(frontend, backend);
+		pool_init_session_context(child_frontend, backend);
 
 		/*
 		 * Mark this connection pool is connected from frontend 
@@ -361,10 +367,10 @@ void do_child(int *fds)
 			MemoryContextSwitchTo(QueryContext);
 			MemoryContextResetAndDeleteChildren(QueryContext);
 
-			status = pool_process_query(frontend, backend, 0);
+			status = pool_process_query(child_frontend, backend, 0);
             if(status != POOL_CONTINUE)
             {
-                backend_cleanup(frontend, backend);
+                backend_cleanup(&child_frontend, backend, false);
                 break;
             }
 		}
@@ -407,29 +413,28 @@ void do_child(int *fds)
  * return true if backend connection is cached
  */
 static bool
-backend_cleanup(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL* volatile backend)
+backend_cleanup(POOL_CONNECTION* volatile *frontend, POOL_CONNECTION_POOL* volatile backend, bool frontend_invalid)
 {
     StartupPacket *sp;
     bool cache_connection = false;
 
-    if(backend == NULL)
+    if (backend == NULL)
         return false;
 
     sp = MASTER_CONNECTION(backend)->sp;
-    
+
     /*
-     * cach connection if connection is not for
-     * system db and connection cache configuration
-     * parameter is enabled
+     * cach connection if connection cache configuration parameter is enabled
+	 * and frontend connection is not invalid
      */
-    if(sp && pool_config->connection_cache != 0 && sp->system_db == false)
+    if (sp && pool_config->connection_cache != 0 && frontend_invalid == false )
     {
-        if(frontend)
+        if (*frontend)
         {
             MemoryContext oldContext = CurrentMemoryContext;
             PG_TRY();
             {
-                if(pool_process_query(frontend, backend, 1) == POOL_CONTINUE)
+                if(pool_process_query(*frontend, backend, 1) == POOL_CONTINUE)
                 {
                     pool_connection_pool_timer(backend);
                     cache_connection = true;
@@ -444,12 +449,33 @@ backend_cleanup(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL* volatile backen
             PG_END_TRY();
         }
     }
-    if(cache_connection == false)
+
+	if (cache_connection)
+	{
+		/*
+		 * For those special databases, and when frontend client exits abnormally,
+		 * we don't cache connection to backend.
+		 */
+		if ((sp &&
+			(!strcmp(sp->database, "template0") ||
+			 !strcmp(sp->database, "template1") ||
+			 !strcmp(sp->database, "postgres") ||
+			 !strcmp(sp->database, "regression"))) ||
+			 (*frontend != NULL &&
+			  ((*frontend)->socket_state == POOL_SOCKET_EOF ||
+			  (*frontend)->socket_state == POOL_SOCKET_ERROR)))
+			cache_connection = false;
+	}
+	/*
+	 * Close frontend connection
+	 */
+	reset_connection();
+	pool_close(*frontend);
+	*frontend = NULL;
+
+    if (cache_connection == false)
     {
-        reset_connection();
-        pool_close(frontend);
-        frontend = NULL;
-        pool_send_frontend_exits(backend);
+		pool_send_frontend_exits(backend);
         if(sp)
             pool_discard_cp(sp->user, sp->database, sp->major);
     }
@@ -588,14 +614,6 @@ static StartupPacket *read_startup_packet(POOL_CONNECTION *cp)
 				   sp->major, sp->minor, sp->database, sp->user)));
 
 	disable_authentication_timeout();
-
-    if(!strcmp(sp->database, "template0") ||
-        !strcmp(sp->database, "template1") ||
-        !strcmp(sp->database, "postgres") ||
-        !strcmp(sp->database, "regression"))
-        sp->system_db = true;
-    else
-        sp->system_db = false;
 
 	return sp;
 }
@@ -1019,11 +1037,7 @@ static void send_frontend_exits(void)
 	int i;
 	POOL_CONNECTION_POOL *p = pool_connection_pool;
 
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 
@@ -1099,15 +1113,6 @@ child_will_go_down(int code, Datum arg)
 	/* count down global connection counter */
 	if (accepted)
 		connection_count_down();
-	
-	/* prepare to shutdown connections to system db */
-	if(pool_config->parallel_mode)
-	{
-		if (system_db_info->pgconn)
-			pool_close_libpq_connection();
-		if (pool_system_db_connection())
-			pool_close(pool_system_db_connection()->con);
-	}
 	
 	if (pool_config->memory_cache_enabled && !pool_is_shmem_cache())
 	{
@@ -1540,11 +1545,7 @@ static void s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
  */
 static void connection_count_up(void)
 {
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(CONN_COUNTER_SEM);
@@ -1559,11 +1560,7 @@ static void connection_count_up(void)
  */
 static void connection_count_down(void)
 {
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(CONN_COUNTER_SEM);
@@ -1644,21 +1641,28 @@ int select_load_balancing_node(void)
 	{
 		char *app_name = MASTER_CONNECTION(ses->backend)->sp->application_name;
 
-		/* Check to see if the database matches any of
-		 * database_redirect_preference_list
+		/*
+		 * Check only if application name is set.
+		 * Old applications may not have application name.
 		 */
-		index = regex_array_match(pool_config->redirect_app_names, app_name);
-		if (index >= 0)
+		if (app_name && strlen(app_name) > 0)
 		{
-			/* Matches */
-			ereport(DEBUG1,
-					(errmsg("selecting load balance node db matched"),
-					 errdetail("app_name: %s index is %d dbnode is %s", app_name, index, pool_config->app_name_redirect_tokens->token[index].right_token)));
-
-			tmp = choose_db_node_id(pool_config->app_name_redirect_tokens->token[index].right_token);
-			if (tmp == -1 || (tmp >= 0 && VALID_BACKEND(tmp)))
+			/* Check to see if the aplication name matches any of
+			 * app_name_redirect_preference_list.
+			 */
+			index = regex_array_match(pool_config->redirect_app_names, app_name);
+			if (index >= 0)
 			{
-				suggested_node_id = tmp;
+				/* Matches */
+				ereport(DEBUG1,
+						(errmsg("selecting load balance node db matched"),
+						 errdetail("app_name: %s index is %d dbnode is %s", app_name, index, pool_config->app_name_redirect_tokens->token[index].right_token)));
+
+				tmp = choose_db_node_id(pool_config->app_name_redirect_tokens->token[index].right_token);
+				if (tmp == -1 || (tmp >= 0 && VALID_BACKEND(tmp)))
+				{
+					suggested_node_id = tmp;
+				}
 			}
 		}
 	}
@@ -1743,31 +1747,6 @@ void check_stop_request(void)
 }
 
 /*
- * Initialize system DB connection
- */
-static void init_system_db_connection(void)
-{	
-	if (pool_config->parallel_mode)
-	{
-		int nRet;
-		nRet = system_db_connect();
-		if (nRet || PQstatus(system_db_info->pgconn) != CONNECTION_OK)
-		{
-            ereport(ERROR,
-                (errmsg("failed to make persistent system db connection"),
-                     errdetail("system_db_connect failed")));
-
-		}
-
-		system_db_info->connection = make_persistent_db_connection(pool_config->system_db_hostname,
-																   pool_config->system_db_port,
-																   pool_config->system_db_dbname,
-																   pool_config->system_db_user,
-																   pool_config->system_db_password, false);
-	}
-}
-
-/*
  * Initialize my backend status and master node id.
  * We copy the backend status to private area so that
  * they are not changed while I am alive.
@@ -1836,7 +1815,10 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 	for (walk = fds; *walk != -1; walk++)
 		pool_set_nonblock(*walk);
 
-	set_ps_display("wait for connection request", false);
+	if (SERIALIZE_ACCEPT)
+		set_ps_display("wait for accept lock", false);
+	else
+		set_ps_display("wait for connection request", false);
 
     memcpy((char *) &rmask, (char *) &readmask, sizeof(fd_set));
     
@@ -1857,9 +1839,29 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 #endif
 	}
 
+	/*
+	 * If child life time is disabled and serialize_accept is on, we serialize
+	 * select() and accept() to avoid the "Thundering herd" problem.
+	 */
+	if (SERIALIZE_ACCEPT)
+	{
+		pool_semaphore_lock(ACCEPT_FD_SEM);
+		set_ps_display("wait for connection request", false);
+		ereport(DEBUG1,
+			   (errmsg("LOCKING select()")));
+	}
+
 	numfds = select(nsocks, &rmask, NULL, NULL, timeoutval);
 
 	save_errno = errno;
+
+	if (SERIALIZE_ACCEPT)
+	{
+		pool_semaphore_unlock(ACCEPT_FD_SEM);
+		ereport(DEBUG1,
+			   (errmsg("UNLOCKING select()")));
+	}
+
 	/* check backend timer is expired */
 	if (backend_timer_expired)
 	{
@@ -1997,8 +1999,6 @@ static void check_config_reload(void)
 			if (strcmp("", pool_config->pool_passwd))
 				pool_reopen_passwd_file();
 		}
-		if (pool_config->parallel_mode)
-			pool_memset_system_db_info(system_db_info->info);
 		got_sighup = 0;
 	}
 }
@@ -2012,7 +2012,7 @@ static void get_backends_status(unsigned int *valid_backends, unsigned int *down
 	{
 		if (BACKEND_INFO(i).backend_status == CON_DOWN)
 			(*down_backends)++;
-		else if(VALID_BACKEND(i))
+		if (VALID_BACKEND(i))
 			(*valid_backends)++;
 	}
 }
@@ -2027,41 +2027,15 @@ static void validate_backend_connectivity(int front_end_fd)
 	char *error_hint = NULL;
 
 	get_backends_status(&valid_backends,&down_backends);
-	if (pool_config->parallel_mode)
+
+	if(valid_backends == 0)
 	{
-		/* Not even a single node is allowed to be down
-		 * when opperating in the parallel mode 
-		 */
-		 if(SYSDB_STATUS == CON_DOWN || down_backends > 0)
-		 {
-			 fatal_error = true;
-			 error_msg = "pgpool is not available in parallel query mode";
-			if(SYSDB_STATUS == CON_DOWN)
-			{
-				error_detail = "SystemDB status is down";
-				error_hint = "repair the SystemDB and restart pgpool";
-			}
-			else
-			{
-				error_detail = palloc(255);
-				snprintf(error_detail, 255, "%d backend nodes are down", down_backends);
-				error_hint = "repair the backend nodes and restart pgpool";
-			}
-		 }
+		fatal_error = true;
+		error_msg = "pgpool is not accepting any new connections";
+		error_detail = "all backend nodes are down, pgpool requires at least one valid node";
+		error_hint = "repair the backend nodes and restart pgpool";
 	}
-	else
-	{
-		/* In non parallel mode single valid backend is all we need 
-		 * to continue 
-		 */
-		if(valid_backends == 0)
-		{
-			fatal_error = true;
-			error_msg = "pgpool is not accepting any new connections";
-			error_detail = "all backend nodes are down, pgpool requires atleast one valid node";
-			error_hint = "repair the backend nodes and restart pgpool";
-		}
-	}
+	
 	if(fatal_error)
 	{
 		/* check if we can inform the connecting client about the current
@@ -2138,7 +2112,8 @@ get_connection(int front_end_fd, SockAddr *saddr)
 
     
 	/* set NODELAY and KEEPALIVE options if INET connection */
-	if (saddr->addr.ss_family == AF_INET)
+	if (saddr->addr.ss_family == AF_INET ||
+		saddr->addr.ss_family == AF_INET6)
 	{
 		int on = 1;
 
@@ -2344,4 +2319,44 @@ static int choose_db_node_id(char *str)
 			node_id = tmp;
 	}
 	return node_id;
+}
+
+int send_to_pg_frontend(char* data, int len, bool flush)
+{
+	int ret;
+	if (processType != PT_CHILD || child_frontend == NULL)
+		return -1;
+	if (child_frontend->socket_state != POOL_SOCKET_VALID)
+		return -1;
+	ret = pool_write_noerror(child_frontend, data, len);
+	if(flush && !ret)
+		ret = pool_flush_it(child_frontend);
+	return ret;
+}
+
+int set_pg_frontend_blocking(bool blocking)
+{
+	if (processType != PT_CHILD || child_frontend == NULL)
+		return -1;
+	if (child_frontend->socket_state != POOL_SOCKET_VALID)
+		return -1;
+	if (blocking)
+		pool_unset_nonblock(child_frontend->fd);
+	else
+		pool_set_nonblock(child_frontend->fd);
+	return 0;
+}
+
+int get_frontend_protocol_version(void)
+{
+	if (processType != PT_CHILD || child_frontend == NULL)
+		return -1;
+	return child_frontend->protoVersion;
+}
+
+int pg_frontend_exists(void)
+{
+	if (processType != PT_CHILD || child_frontend == NULL)
+		return -1;
+	return 0;
 }

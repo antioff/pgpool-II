@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2013	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -218,13 +218,13 @@ int pool_do_auth(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *cp)
 		if (frontend->auth_method != uaMD5 && !RAW_MODE && NUM_BACKENDS > 1)
 		{
 			pool_send_error_message(frontend, protoMajor, AUTHFAIL_ERRORCODE,
-									"MD5 authentication is unsupported in replication, master-slave and parallel modes.",
+									"MD5 authentication is unsupported in replication and master-slave modes.",
 									"",
 									"check pg_hba.conf",
 									__FILE__, __LINE__);
 			ereport(ERROR,
 				(errmsg("failed to authenticate with backend"),
-					errdetail("MD5 authentication is not supported in replication, master-slave and parallel modes."),
+					errdetail("MD5 authentication is not supported in replication and master-slave modes."),
 						errhint("check pg_hba.conf settings on backend node")));
 		}
 
@@ -596,10 +596,21 @@ static int do_clear_text_password(POOL_CONNECTION *backend, POOL_CONNECTION *fro
     pool_read(backend, &response, sizeof(response));
 
 	if (response != 'R')
+	{
+		if(response == 'E') /* Backend has thrown an error instead */
+		{
+			char* message;
+			if (pool_extract_error_message(false, backend, protoMajor, false, &message) == 1)
+			{
+				ereport(ERROR,
+					(errmsg("clear text password authentication failed"),
+					 errdetail("%s",message?message:"backend throws authentication error")));
+			}
+		}
         ereport(ERROR,
             (errmsg("clear text password authentication failed"),
                  errdetail("invalid packet from backend. backend does not return R while processing clear text password authentication")));
-
+	}
 	if (protoMajor == PROTO_MAJOR_V3)
 	{
 		pool_read(backend, &len, sizeof(len));
@@ -732,9 +743,21 @@ static int do_crypt(POOL_CONNECTION *backend, POOL_CONNECTION *frontend, int rea
 	pool_read(backend, &response, sizeof(response));
 
 	if (response != 'R')
+	{
+		if(response == 'E') /* Backend has thrown an error instead */
+		{
+			char* message;
+			if (pool_extract_error_message(false, backend, protoMajor, false, &message) == 1)
+			{
+				ereport(ERROR,
+						(errmsg("crypt authentication failed"),
+						 errdetail("%s",message?message:"backend throws authentication error")));
+			}
+		}
         ereport(ERROR,
-                (errmsg("crypt authentication failed"),
+			(errmsg("crypt authentication failed"),
                  errdetail("invalid packet from backend. backend does not return R while processing clear text password authentication")));
+	}
 
 	if (protoMajor == PROTO_MAJOR_V3)
 	{
@@ -1010,9 +1033,21 @@ static int send_password_packet(POOL_CONNECTION *backend, int protoMajor, char *
 	pool_read(backend, &response, sizeof(response));
 
 	if (response != 'R')
+	{
+		if(response == 'E') /* Backend has thrown an error instead */
+		{
+			char* message;
+			if (pool_extract_error_message(false, backend, protoMajor, false, &message) == 1)
+			{
+				ereport(ERROR,
+						(errmsg("authentication failed"),
+						 errdetail("%s",message?message:"backend throws authentication error")));
+			}
+		}
         ereport(ERROR,
 			(errmsg("authentication failed"),
                  errdetail("invalid backend response. Response does not replied with \"R\"")));
+	}
 
 	if (protoMajor == PROTO_MAJOR_V3)
 	{
@@ -1240,6 +1275,7 @@ int pool_read_int(POOL_CONNECTION_POOL *cp)
  */
 void pool_random_salt(char *md5Salt)
 {
+	srandom(time(NULL));
 	long rand = random();
 
 	md5Salt[0] = (rand % 255) + 1;

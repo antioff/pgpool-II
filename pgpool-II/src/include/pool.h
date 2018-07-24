@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -77,6 +77,9 @@
 /* Unix domain socket directory */
 #define DEFAULT_SOCKET_DIR "/tmp"
 
+/* Unix domain socket directory for watchdog IPC */
+#define DEFAULT_WD_IPC_SOCKET_DIR "/tmp"
+
 /* pid file name */
 #define DEFAULT_PID_FILE_NAME "/var/run/pgpool/pgpool.pid"
 
@@ -100,6 +103,13 @@ typedef enum {
 	POOL_FATAL,
 	POOL_DEADLOCK
 } POOL_STATUS;
+
+typedef enum {
+	POOL_SOCKET_CLOSED = 0,
+	POOL_SOCKET_VALID,
+	POOL_SOCKET_ERROR,
+	POOL_SOCKET_EOF
+} POOL_SOCKET_STATE;
 
 /* protocol major version numbers */
 #define PROTO_MAJOR_V2	2
@@ -137,7 +147,6 @@ typedef struct
 	char *database;	/* database name in startup_packet (malloced area) */
 	char *user;	/* user name in startup_packet (malloced area) */
 	char *application_name;		/* not malloced. pointing to in startup_packet */
-    bool system_db;     /* true if database name is one of default that comes with server e.g postgres or template.. */
 } StartupPacket;
 
 typedef struct CancelPacket
@@ -215,6 +224,8 @@ typedef struct {
 
 	char kind;	/* kind cache */
 
+	/* true if remote end closed the connection */
+	POOL_SOCKET_STATE socket_state;
 	/*
 	 * frontend info needed for hba
 	 */
@@ -243,14 +254,6 @@ typedef struct {
 	ConnectionInfo *info;		/* connection info on shmem */
     POOL_CONNECTION_POOL_SLOT	*slots[MAX_NUM_BACKENDS];
 } POOL_CONNECTION_POOL;
-
-typedef struct {
-	SystemDBInfo *info;
-	PGconn *pgconn;
-	/* persistent connection to the system DB */
-	POOL_CONNECTION_POOL_SLOT *connection;
-	BACKEND_STATUS *system_db_status;
-} POOL_SYSTEMDB_CONNECTION_POOL;
 
 /* 
  * for pool_clear_cache() in pool_query_cache.c 
@@ -340,15 +343,12 @@ extern int my_master_node_id;
 #define REPLICATION (pool_config->replication_mode)
 #define MASTER_SLAVE (pool_config->master_slave_mode)
 #define STREAM (MASTER_SLAVE && !strcmp("stream", pool_config->master_slave_sub_mode))
+#define SLONY (MASTER_SLAVE && !strcmp("slony", pool_config->master_slave_sub_mode))
 #define DUAL_MODE (REPLICATION || MASTER_SLAVE)
-#define PARALLEL_MODE (pool_config->parallel_mode)
-#define RAW_MODE (!REPLICATION && !PARALLEL_MODE && !MASTER_SLAVE)
+#define RAW_MODE (!REPLICATION && !MASTER_SLAVE)
 #define MAJOR(p) MASTER_CONNECTION(p)->sp->major
 #define TSTATE(p, i) (CONNECTION(p, i)->tstate)
 #define INTERNAL_TRANSACTION_STARTED(p, i) (CONNECTION(p, i)->is_internal_transaction_started)
-#define SYSDB_INFO (system_db_info->info)
-#define SYSDB_CONNECTION (system_db_info->connection)
-#define SYSDB_STATUS (*system_db_info->system_db_status)
 
 #define Max(x, y)		((x) > (y) ? (x) : (y))
 #define Min(x, y)		((x) < (y) ? (x) : (y))
@@ -360,12 +360,19 @@ extern int my_master_node_id;
 #define NO_LOAD_BALANCE "/*NO LOAD BALANCE*/"
 #define NO_LOAD_BALANCE_COMMENT_SZ (sizeof(NO_LOAD_BALANCE)-1)
 
-#define MAX_NUM_SEMAPHORES		4
-#define CONN_COUNTER_SEM 0
-#define REQUEST_INFO_SEM 1
-#define SHM_CACHE_SEM	2
+#define MAX_NUM_SEMAPHORES		6
+#define CONN_COUNTER_SEM		0
+#define REQUEST_INFO_SEM		1
+#define SHM_CACHE_SEM			2
 #define QUERY_CACHE_STATS_SEM	3
+#define PCP_REQUEST_SEM			4
+#define ACCEPT_FD_SEM			5
 #define MAX_REQUEST_QUEUE_SIZE	10
+
+#define MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION 6 /*number of sec to wait for watchdog command if cluster is stabalizing */
+
+#define SERIALIZE_ACCEPT (pool_config->serialize_accept != 0 && \
+						  pool_config->child_life_time == 0)
 
 /*
  * number specified when semaphore is locked/unlocked
@@ -440,7 +447,6 @@ typedef enum {
  * global variables
  */
 extern pid_t mypid; /* parent pid */
-extern bool run_as_pcp_child;
 
 typedef enum
 {
@@ -453,7 +459,8 @@ typedef enum
 	PT_LIFECHECK,
 	PT_FOLLOWCHILD,
 	PT_WATCHDOG_UTILITY,
-	PT_PCP
+	PT_PCP,
+	PT_PCP_WORKER
 } ProcessType;
 
 extern ProcessType processType;
@@ -462,7 +469,6 @@ typedef enum
 {
 	INITIALIZING,
 	PERFORMING_HEALTH_CHECK,
-	PERFORMING_SYSDB_CHECK,
 	SLEEPING,
 	WAITIG_FOR_CONNECTION,
 	BACKEND_CONNECTING,
@@ -477,7 +483,6 @@ extern volatile sig_atomic_t backend_timer_expired; /* flag for connection close
 extern volatile sig_atomic_t health_check_timer_expired;		/* non 0 if health check timer expired */
 extern long int weight_master;	/* normalized weight of master (0-RAND_MAX range) */
 extern int my_proc_id;  /* process table id (!= UNIX's PID) */
-extern POOL_SYSTEMDB_CONNECTION_POOL *system_db_info; /* systemdb */
 extern ProcessInfo *process_info; /* shmem process information table */
 extern ConnectionInfo *con_info; /* shmem connection info table */
 extern POOL_REQUEST_INFO *Req_info;
@@ -485,6 +490,7 @@ extern volatile sig_atomic_t *InRecovery;
 extern char remote_ps_data[];		/* used for set_ps_display */
 extern volatile sig_atomic_t got_sighup;
 extern volatile sig_atomic_t exit_request;
+
 
 #define QUERY_STRING_BUFFER_LEN 1024
 extern char query_string_buffer[];		/* last query string sent to simpleQuery() */
@@ -501,7 +507,7 @@ extern bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id
 extern char *get_config_file_name(void);
 extern char *get_hba_file_name(void);
 extern void do_child(int *fds);
-extern void pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file);
+extern void pcp_main(int unix_fd, int inet_fd);
 extern int select_load_balancing_node(void);
 extern int pool_init_cp(void);
 extern POOL_STATUS pool_process_query(POOL_CONNECTION *frontend,
@@ -527,8 +533,9 @@ extern void NoticeResponse(POOL_CONNECTION *frontend,
 
 extern void notice_backend_error(int node_id);
 extern void degenerate_backend_set(int *node_id_set, int count);
+extern bool degenerate_backend_set_ex(int *node_id_set, int count, bool error, bool test_only);
 extern void promote_backend(int node_id);
-extern void send_failback_request(int node_id);
+extern void send_failback_request(int node_id, bool throw_error);
 
 
 extern void pool_set_timeout(int timeoutval);
@@ -603,16 +610,7 @@ extern POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection_noerror(
 extern void discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT *cp);
 
 /* define pool_system.c */
-extern POOL_CONNECTION_POOL_SLOT *pool_system_db_connection(void);
-extern DistDefInfo *pool_get_dist_def_info (char * dbname, char * schema_name, char * table_name);
-extern RepliDefInfo *pool_get_repli_def_info (char * dbname, char * schema_name, char * table_name);
-extern int pool_get_id (DistDefInfo *info, const char * value);
-extern int system_db_connect (void);
-extern int pool_memset_system_db_info (SystemDBInfo *info);
 extern void pool_close_libpq_connection(void);
-extern int system_db_health_check(void);
-extern SystemDBInfo *pool_get_system_db_info(void);
-
 
 /* pool_hba.c */
 extern int load_hba(char *hbapath);
@@ -645,6 +643,10 @@ extern void cancel_request(CancelPacket *sp);
 extern void check_stop_request(void);
 extern void pool_initialize_private_backend_status(void);
 extern bool is_session_connected(void);
+extern int send_to_pg_frontend(char* data, int len, bool flush);
+extern int pg_frontend_exists(void);
+extern int set_pg_frontend_blocking(bool blocking);
+extern int get_frontend_protocol_version(void);
 
 /* pool_process_query.c */
 extern void reset_variables(void);
@@ -687,5 +689,27 @@ extern int connect_inet_domain_socket_by_port(char *host, int port, bool retry);
 extern int connect_unix_domain_socket_by_port(int port, char *socket_dir, bool retry);
 extern int pool_pool_index(void);
 
+/* utils/statistics.c */
+size_t stat_shared_memory_size(void);
+void stat_set_stat_area(void *address);
+void stat_init_stat_area(void);
+void stat_count_up(int backend_node_id, Node *parsetree);
+uint64 stat_get_select_count(int backend_node_id);
+
 extern int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps);
+
+/* pcp_child.c */
+extern int send_to_pcp_frontend(char* data, int len, bool flush);
+extern int pcp_frontend_exists(void);
+extern void pcp_worker_main(int port);
+extern void pcp_mark_recovery_finished(void);
+extern bool pcp_mark_recovery_in_progress(void);
+
+
+/* pgpool_main.c */
+extern int pool_send_to_frontend(char* data, int len, bool flush);
+extern int pool_frontend_exists(void);
+extern pid_t pool_waitpid(int *status);
+extern int write_status_file(void);
+
 #endif /* POOL_H */

@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2013	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -32,13 +32,70 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <errno.h>
+
+#include <sys/socket.h>
+#ifdef __linux__
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/if.h>
+#else	/* __linux__ */
+#include <net/route.h>
+#include <net/if.h>
+
+#ifdef AF_LINK
+#include <net/if_dl.h>
+#endif
+#endif	/* __linux__ */
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+
+#ifdef __FreeBSD__
+#include <netinet/in.h>
+#endif
+
 #include "pool.h"
+
 #include "utils/elog.h"
 #include "pool_config.h"
 #include "watchdog/watchdog.h"
-#include "watchdog/wd_ext.h"
+#include "watchdog/wd_utils.h"
 
-static int exec_ifconfig(char * path,char * command);
+#ifndef __linux__
+#define IFF_LOWER_UP	0x10000
+#endif
+
+static int exec_if_cmd(char * path,char * command);
+
+
+List* get_all_local_ips(void)
+{
+	struct ifaddrs *ifAddrStruct=NULL;
+	struct ifaddrs *ifa=NULL;
+	void *tmpAddrPtr=NULL;
+	List *local_addresses = NULL;
+	
+	getifaddrs(&ifAddrStruct);
+	for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next)
+	{
+		if (!ifa->ifa_addr)
+			continue;
+		
+		if (ifa->ifa_addr->sa_family == AF_INET)
+		{
+			char *addressBuffer;
+			if (!strncasecmp("lo", ifa->ifa_name, 2))
+				continue; /* We do not need loop back addresses */
+
+			tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+			addressBuffer = palloc(INET_ADDRSTRLEN);
+			inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
+			local_addresses = lappend(local_addresses,addressBuffer);
+		}
+	}
+	if (ifAddrStruct!=NULL)
+		freeifaddrs(ifAddrStruct);
+	return local_addresses;
+}
 
 #define WD_TRY_PING_AT_IPUP 3
 int
@@ -52,49 +109,37 @@ wd_IP_up(void)
 	if (strlen(pool_config->delegate_IP) == 0)
 		return WD_NG;
 
-	if (WD_List->delegate_ip_flag == 0)
+	wd_get_cmd(cmd,pool_config->if_up_cmd);
+	snprintf(path,sizeof(path),"%s/%s",pool_config->if_cmd_path,cmd);
+	rtn = exec_if_cmd(path,pool_config->if_up_cmd);
+
+	if (rtn == WD_OK)
 	{
-		WD_List->delegate_ip_flag = 1;
-
-		wd_get_cmd(cmd,pool_config->if_up_cmd);
-		snprintf(path,sizeof(path),"%s/%s",pool_config->ifconfig_path,cmd);
-		rtn = exec_ifconfig(path,pool_config->if_up_cmd);
-
-		if (rtn == WD_OK)
+		wd_get_cmd(cmd,pool_config->arping_cmd);
+		snprintf(path,sizeof(path),"%s/%s",pool_config->arping_path,cmd);
+		rtn = exec_if_cmd(path,pool_config->arping_cmd);
+	}
+	if (rtn == WD_OK)
+	{
+		for (i = 0; i < WD_TRY_PING_AT_IPUP; i++)
 		{
-			wd_get_cmd(cmd,pool_config->arping_cmd);
-			snprintf(path,sizeof(path),"%s/%s",pool_config->arping_path,cmd);
-			rtn = exec_ifconfig(path,pool_config->arping_cmd);
-		}
-		if (rtn == WD_OK)
-		{
-			for (i = 0; i < WD_TRY_PING_AT_IPUP; i++)
-			{
-				if (!wd_is_unused_ip(pool_config->delegate_IP))
-					break;
-				ereport(DEBUG1,
-					(errmsg("watchdog bringing up delegate IP"),
-						 errdetail("waiting... count: %d", i+1)));
-			}
-
-			if (i >= WD_TRY_PING_AT_IPUP)
-				rtn = WD_NG;
-		}
-
-		if (rtn == WD_OK)
+			if (!wd_is_unused_ip(pool_config->delegate_IP))
+				break;
 			ereport(LOG,
-				(errmsg("watchdog bringing up delegate IP, 'ifconfig up' succeeded")));
-		else
-			ereport(WARNING,
-				(errmsg("watchdog failed to bring up delegate IP, 'ifconfig up' failed")));
-	}
-	else
-	{
-		ereport(DEBUG1,
-			(errmsg("watchdog failed to bring up delegate IP"),
-				 errdetail("already delegate IP holder")));
+				(errmsg("watchdog bringing up delegate IP"),
+					 errdetail("waiting... count: %d", i+1)));
+		}
+
+		if (i >= WD_TRY_PING_AT_IPUP)
+			rtn = WD_NG;
 	}
 
+	if (rtn == WD_OK)
+		ereport(LOG,
+			(errmsg("watchdog bringing up delegate IP, 'if_up_cmd' succeeded")));
+	else
+		ereport(WARNING,
+			(errmsg("watchdog failed to bring up delegate IP, 'if_up_cmd' failed")));
 	return rtn;
 }
 
@@ -110,47 +155,36 @@ wd_IP_down(void)
 	if (strlen(pool_config->delegate_IP) == 0)
 		return WD_NG;
 
-	if (WD_List->delegate_ip_flag == 1)
+	wd_get_cmd(cmd,pool_config->if_down_cmd);
+	snprintf(path, sizeof(path), "%s/%s", pool_config->if_cmd_path, cmd);
+	rtn = exec_if_cmd(path,pool_config->if_down_cmd);
+
+	if (rtn == WD_OK)
 	{
-		WD_List->delegate_ip_flag = 0;
-		wd_get_cmd(cmd,pool_config->if_down_cmd);
-		snprintf(path, sizeof(path), "%s/%s", pool_config->ifconfig_path, cmd);
-		rtn = exec_ifconfig(path,pool_config->if_down_cmd);
-
-		if (rtn == WD_OK)
+		for (i = 0; i < WD_TRY_PING_AT_IPDOWN; i++)
 		{
-			for (i = 0; i < WD_TRY_PING_AT_IPDOWN; i++)
-			{
-				if (wd_is_unused_ip(pool_config->delegate_IP))
-					break;
-			}
-
-			if (i >= WD_TRY_PING_AT_IPDOWN)
-				rtn = WD_NG;
+			if (wd_is_unused_ip(pool_config->delegate_IP))
+				break;
 		}
 
-		if (rtn == WD_OK)
-		{
-			ereport(LOG,
-				(errmsg("watchdog bringing down delegate IP"),
-					 errdetail("ifconfig down succeeded")));
-		}
-		else
-		{
-			WD_List->delegate_ip_flag = 1;
-			ereport(WARNING,
-				(errmsg("watchdog bringing down delegate IP, ifconfig down failed")));
-		}
+		if (i >= WD_TRY_PING_AT_IPDOWN)
+			rtn = WD_NG;
+	}
+
+	if (rtn == WD_OK)
+	{
+		ereport(LOG,
+			(errmsg("watchdog bringing down delegate IP"),
+				 errdetail("if_down_cmd succeeded")));
 	}
 	else
 	{
-		ereport(DEBUG1,
-			(errmsg("watchdog failed to bring down delegate IP"),
-				 errdetail("not a delegate IP holder")));
+		ereport(WARNING,
+			(errmsg("watchdog bringing down delegate IP, if_down_cmd failed")));
 	}
-
 	return rtn;
 }
+
 
 int
 wd_get_cmd(char * buf, char * cmd)
@@ -171,23 +205,24 @@ wd_get_cmd(char * buf, char * cmd)
 }
 
 static int
-exec_ifconfig(char * path,char * command)
+exec_if_cmd(char * path,char * command)
 {
 	int pfd[2];
 	int status;
 	char * args[24];
 	int pid, i = 0;
-	char buf[256];
+	char* buf;
 	char *bp, *ep;
 
 	if (pipe(pfd) == -1)
 	{
 		ereport(WARNING,
-				(errmsg("while executing ifconfig, pipe open failed with error \"%s\"",strerror(errno))));
+				(errmsg("while executing interface up/down command, pipe open failed with error \"%s\"",strerror(errno))));
 		return WD_NG;
 	}
-	memset(buf,0,sizeof(buf));
-	strlcpy(buf,command,sizeof(buf));
+
+	buf = string_replace(command,"$_IP_$",pool_config->delegate_IP);
+
 	bp = buf;
 	while (*bp == ' ')
 	{
@@ -200,14 +235,7 @@ exec_ifconfig(char * path,char * command)
 		{
 			*ep = '\0';
 		}
-		if (!strncmp(bp,"$_IP_$",5))
-		{
-			args[i++] = pool_config->delegate_IP;
-		}
-		else
-		{
-			args[i++] = bp;
-		}
+		args[i++] = bp;
 		if (ep != NULL)
 		{
 			bp = ep +1;
@@ -224,8 +252,15 @@ exec_ifconfig(char * path,char * command)
 	args[i++] = NULL;
 
 	pid = fork();
+	if (pid == -1)
+	{
+		ereport(FATAL,
+			(errmsg("failed to execute interface up/down command"),
+				 errdetail("fork() failed with reason: \"%s\"", strerror(errno))));
+	}
 	if (pid == 0)
 	{
+		on_exit_reset();
 		processType = PT_WATCHDOG_UTILITY;
 		close(STDOUT_FILENO);
 		dup2(pfd[1], STDOUT_FILENO);
@@ -235,26 +270,28 @@ exec_ifconfig(char * path,char * command)
 	}
 	else
 	{
+		pfree(buf);
 		close(pfd[1]);
 		for (;;)
 		{
 			int result;
-			result = wait(&status);
-			if (result < 0 && errno != ECHILD)
+			result = waitpid(pid, &status, 0);
+			if (result < 0)
 			{
 				if (errno == EINTR)
 					continue;
 
 				ereport(DEBUG1,
-					(errmsg("watchdog exec wait()failed"),
-						 errdetail("wait() system call failed with reason \"%s\"", strerror(errno))));
+					(errmsg("watchdog exec waitpid()failed"),
+						 errdetail("waitpid() system call failed with reason \"%s\"", strerror(errno))));
+
 				return WD_NG;
 			}
 
 			if (WIFEXITED(status) == 0 || WEXITSTATUS(status) != 0)
 			{
 				ereport(DEBUG1,
-					(errmsg("watchdog exec ifconfig failed"),
+					(errmsg("watchdog exec interface up/down command failed"),
 						errdetail("'%s' failed. exit status: %d",command, WEXITSTATUS(status))));
 
 				return WD_NG;
@@ -265,9 +302,183 @@ exec_ifconfig(char * path,char * command)
 		close(pfd[0]);
 	}
 	ereport(DEBUG1,
-		(errmsg("watchdog exec ifconfig: '%s' succeeded", command)));
+		(errmsg("watchdog exec interface up/down command: '%s' succeeded", command)));
 
 	return WD_OK;
 }
 
 
+int create_monitoring_socket(void)
+{
+	int sock = -1;
+#ifdef __linux__
+	sock = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	
+#else
+	sock = socket(PF_ROUTE, SOCK_RAW, AF_UNSPEC);
+#endif
+	if (sock < 0)
+		ereport(ERROR,
+				(errmsg("watchdog: VIP monitoring failed to create socket"),
+				 errdetail("socket() failed with error \"%s\"",strerror(errno))));
+	
+#ifdef __linux__
+	struct sockaddr_nl addr;
+	
+	memset(&addr, 0x00, sizeof(addr));
+	addr.nl_family = AF_NETLINK;
+	addr.nl_groups = RTMGRP_IPV4_IFADDR | RTMGRP_LINK;
+	
+	if (bind(sock,(struct sockaddr *)&addr,sizeof(addr)) < 0)
+	{
+		close(sock);
+		ereport(ERROR,
+				(errmsg("watchdog: VIP monitoring failed to bind socket"),
+				 errdetail("bind() failed with error \"%s\"",strerror(errno))));
+	}
+#endif
+	
+	return sock;
+}
+
+#ifdef __linux__
+bool read_interface_change_event(int sock, bool* link_event, bool* deleted)
+{
+	char buffer[4096];
+	int len;
+	struct iovec iov;
+	struct msghdr hdr;
+	struct nlmsghdr *nlhdr;
+	struct ifinfomsg *ifimsg;
+
+	*deleted = false;
+	*link_event = false;
+	
+	iov.iov_base = buffer;
+	iov.iov_len = sizeof(buffer);
+	
+	memset(&hdr, 0, sizeof(hdr));
+	hdr.msg_iov = &iov;
+	hdr.msg_iovlen = 1;
+	
+	len = recvmsg(sock, &hdr, 0);
+	if (len < 0)
+	{
+		ereport(DEBUG1,
+				(errmsg("VIP monitoring failed to receive from socket"),
+				 errdetail("recvmsg() failed with error \"%s\"",strerror(errno))));
+		return false;
+	}
+	
+	nlhdr = (struct nlmsghdr *)buffer;
+
+	for (; NLMSG_OK(nlhdr, len) ;nlhdr = NLMSG_NEXT(nlhdr, len))
+	{
+		if(nlhdr->nlmsg_type == NLMSG_DONE)
+			break;
+
+		ifimsg = NLMSG_DATA(nlhdr);
+
+		switch(nlhdr->nlmsg_type)
+		{
+			case RTM_DELLINK:
+				*deleted = true; /* fallthrough */
+			case RTM_NEWLINK:
+				if (!(ifimsg->ifi_flags & IFF_LOWER_UP) || !(ifimsg->ifi_flags & IFF_RUNNING))
+					*deleted = true;
+				else
+					*link_event = true;
+				return true;
+				break;
+
+			case RTM_DELADDR:
+				*deleted = true; /* fallthrough */
+			case RTM_NEWADDR:
+				*link_event = false;
+				return true;
+				break;
+			default:
+				ereport(DEBUG2,
+						(errmsg("unknown nlmsg_type=%d", nlhdr->nlmsg_type)));
+		}
+	}
+	return false;
+}
+
+#else /* For non linux chaps */
+#if defined(__OpenBSD__) || defined(__FreeBSD__)
+#define SALIGN (sizeof(long) - 1)
+#else
+#define SALIGN (sizeof(int32_t) - 1)
+#endif
+
+#define SA_RLEN(sa) ((sa)->sa_len ? (((sa)->sa_len + SALIGN) & ~SALIGN) : (SALIGN + 1))
+/* With the help from https://github.com/miniupnp/miniupnp/blob/master/minissdpd/ifacewatch.c */
+
+bool read_interface_change_event(int sock, bool* link_event, bool* deleted)
+{
+	char buffer[1024];
+	int len;
+	struct rt_msghdr *nlhdr;
+	
+	*deleted = false;
+	*link_event = false;
+
+	len = recv(sock, buffer, sizeof(buffer), 0);
+	if (len < 0)
+	{
+		ereport(DEBUG1,
+				(errmsg("VIP monitoring failed to receive from socket"),
+				 errdetail("recv() failed with error \"%s\"",strerror(errno))));
+		return false;
+	}
+	
+	nlhdr = (struct rt_msghdr *)buffer;
+	switch(nlhdr->rtm_type)
+	{
+		case RTM_DELETE:
+			*deleted = true; /* fallthrough */
+		case RTM_ADD:
+			*link_event = true;
+			return true;
+			break;
+
+		case RTM_DELADDR:
+			*deleted = true; /* fallthrough */
+		case RTM_NEWADDR:
+			*link_event = false;
+			return true;
+			break;
+		default:
+			ereport(DEBUG2,
+					(errmsg("unknown nlmsg_type=%d", nlhdr->rtm_type)));
+	}
+	return false;
+}
+#endif
+
+bool is_interface_up(struct ifaddrs *ifa)
+{
+	bool result = false;
+
+	if (ifa->ifa_flags & IFF_RUNNING)
+	{
+		ereport(DEBUG1,
+				(errmsg("network interface \"%s\" link is active",ifa->ifa_name)));
+
+		if (ifa->ifa_flags & IFF_LOWER_UP)
+		{
+			ereport(DEBUG1,
+					(errmsg("network interface \"%s\" link is up",ifa->ifa_name)));
+			result = true;
+		}
+		else
+			ereport(NOTICE,
+					(errmsg("network interface \"%s\" link is down",ifa->ifa_name)));
+	}
+	else
+		ereport(NOTICE,
+				(errmsg("network interface \"%s\" link is inactive",ifa->ifa_name)));
+
+	return result;
+}

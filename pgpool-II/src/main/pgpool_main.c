@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -57,7 +57,10 @@
 #include "parser/pool_string.h"
 #include "auth/pool_passwd.h"
 #include "query_cache/pool_memqcache.h"
-#include "watchdog/wd_ext.h"
+#include "watchdog/wd_ipc_commands.h"
+#include "watchdog/wd_lifecheck.h"
+
+#include "watchdog/watchdog.h"
 
 /*
  * Process pending signal actions.
@@ -97,7 +100,6 @@ static int process_backend_health_check_failure(int health_check_node_id, int re
 static bool do_health_check(bool use_template_db, volatile int *health_check_node_id);
 
 static void FileUnlink(int code, Datum path);
-static int write_status_file();
 static pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file);
 static pid_t fork_a_child(int *fds, int id);
 static pid_t worker_fork_a_child(void);
@@ -120,7 +122,7 @@ static RETSIGTYPE reload_config_handler(int sig);
 static RETSIGTYPE health_check_timer_handler(int sig);
 static RETSIGTYPE wakeup_handler(int sig);
 
-static void initialize_shared_mem_objects(void);
+static void initialize_shared_mem_objects(bool clear_memcache_oidmaps);
 static int trigger_failover_command(int node, const char *command_line,
 									int old_master, int new_master, int old_primary);
 static bool verify_backend_node_status(int backend_no, bool* is_standby);
@@ -128,11 +130,11 @@ static int find_primary_node(void);
 static int find_primary_node_repeatedly(void);
 static void terminate_all_childrens();
 static void system_will_go_down(int code, Datum arg);
-
+static char* process_name_from_pid(pid_t pid);
 
 static struct sockaddr_un un_addr;		/* unix domain socket path */
 static struct sockaddr_un pcp_un_addr;  /* unix domain socket path for PCP */
-ProcessInfo *process_info = NULL;	/* Per child info table on shmem */
+ProcessInfo *process_info = NULL;		/* Per child info table on shmem */
 
 /*
  * Private copy of backend status
@@ -170,9 +172,11 @@ int my_proc_id;
 
 static BackendStatusRecord backend_rec;	/* Backend status record */
 
-static pid_t worker_pid = -1; /* pid of worker process */
-static pid_t follow_pid = -1; /* pid for child process handling follow command */
-static pid_t pcp_pid = -1; /* pid for child process handling PCP */
+static pid_t worker_pid = 0; /* pid of worker process */
+static pid_t follow_pid = 0; /* pid for child process handling follow command */
+static pid_t pcp_pid = 0; /* pid for child process handling PCP */
+static pid_t watchdog_pid = 0; /* pid for watchdog child process */
+static pid_t wd_lifecheck_pid = 0; /* pid for child process handling watchdog lifecheck */
 
 BACKEND_STATUS* my_backend_status[MAX_NUM_BACKENDS];		/* Backend status buffer */
 int my_master_node_id;		/* Master node id buffer */
@@ -187,11 +191,10 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	volatile int health_check_node_id = 0;
 	volatile bool use_template_db = false;
 	volatile int retrycnt;
-	volatile int sys_retrycnt;
 
 	MemoryContext MainLoopMemoryContext;
 	sigjmp_buf	local_sigjmp_buf;
-	
+
 	/* Set the process type variable */
 	processType = PT_MAIN;
 	processState = INITIALIZING;
@@ -200,7 +203,7 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	 * Restore previous backend status if possible
 	 */
 	read_status_file(discard_status);
-    
+
 	/*
 	 * install the call back for preparation of system exit
 	 */
@@ -223,6 +226,56 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	if (fds == NULL)
 		ereport(FATAL,
 				(errmsg("failed to allocate memory in startup process")));
+
+	initialize_shared_mem_objects(clear_memcache_oidmaps);
+
+	if (pool_config->use_watchdog)
+	{
+		sigset_t mask;
+		wakeup_request = 0;
+
+		/* Watchdog process fires SIGUSR2 once in stable state,
+		 * so install the SIGUSR2 handler first up. In addition,
+		 * when wathcodg fails to start with FATAL, the process
+		 * exits and SIGCHLD is fired, so SIGCHLD handelr is also
+		 * needed.
+		 */
+		pool_signal(SIGUSR2, wakeup_handler);
+		pool_signal(SIGCHLD, reap_handler);
+		/*
+		 * okay as we need to wait until watchdog is in stable state
+		 * so only wait for SIGUSR2, SIGCHLD, and signals those are
+		 * necessary to make sure we respond to user requests of shutdown
+		 if it arives while we are in waiting state.
+		 */
+		sigfillset(&mask);
+		sigdelset(&mask, SIGUSR2);
+		sigdelset(&mask, SIGCHLD);
+		sigdelset(&mask, SIGTERM);
+		sigdelset(&mask, SIGINT);
+		sigdelset(&mask, SIGQUIT);
+		watchdog_pid = initialize_watchdog();
+		ereport (LOG,
+				 (errmsg("waiting for watchdog to initialize")));
+		while (wakeup_request == 0 && sigchld_request == 0)
+		{
+			sigsuspend(&mask);
+		}
+		wakeup_request = 0;
+
+		/* watchdog process fails to start */
+		if (sigchld_request)
+		{
+			reaper();
+		}
+
+		ereport (LOG,
+				 (errmsg("watchdog process is initialized")));
+		/*
+		 * initialize the lifecheck process
+		 */
+		wd_lifecheck_pid = initialize_watchdog_lifecheck();
+	}
 
 	fds[0] = create_unix_domain_socket(un_addr);
 	on_proc_exit(FileUnlink, (Datum) un_addr.sun_path);
@@ -253,17 +306,6 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 		free(inet_fds);
 	}
 
-	initialize_shared_mem_objects();
-
-	/* start watchdog */
-	if (pool_config->use_watchdog )
-	{
-		if (!wd_main(1))
-		{
-            ereport(FATAL,
-                    (errmsg("wd_main error")));
-		}
-	}
 
 	/*
 	 * We need to block signal here. Otherwise child might send some
@@ -295,7 +337,7 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 		ereport(FATAL,
 			(errmsg("failed to create pipe")));
 	}
-	
+
 	MemoryContextSwitchTo(TopMemoryContext);
 
 	/* Create per loop iteration memory context */
@@ -304,9 +346,6 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 											  ALLOCSET_DEFAULT_MINSIZE,
 											  ALLOCSET_DEFAULT_INITSIZE,
 											  ALLOCSET_DEFAULT_MAXSIZE);
-	
-	ereport(LOG,
-		(errmsg("%s successfully started. version %s (%s)", PACKAGE, VERSION, PGPOOLVERSION)));
 
 	/* fork a child for PCP handling */
 	pcp_unix_fd = create_unix_domain_socket(pcp_un_addr);
@@ -321,7 +360,14 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	worker_pid = worker_fork_a_child();
 
 	retrycnt = 0;		/* reset health check retry counter */
-	sys_retrycnt = 0;	/* reset SystemDB health check retry counter */
+
+	/*
+	 * check for child signals to ensure child startup before reporting successfull start
+	 */
+	CHECK_REQUEST;
+
+	ereport(LOG,
+			(errmsg("%s successfully started. version %s (%s)", PACKAGE, VERSION, PGPOOLVERSION)));
 
 	/* Save primary node id */
 	Req_info->primary_node_id = find_primary_node();
@@ -360,7 +406,7 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 					if (ret > 0) /* Retries are exhausted, reset the counter */
 					{
 						retrycnt = 0;
-						if (ret == 2)
+						if (ret == 2) /* 2 = failover done on node */
 						{
 							health_check_node_id = 0;
 							use_template_db = false;
@@ -369,33 +415,13 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 				}
 			}
 		}
-		else if (processState == PERFORMING_SYSDB_CHECK)
-		{
-			if ( errno != EINTR || health_check_timer_expired)
-			{
-				sys_retrycnt++;
-				pool_signal(SIGALRM, SIG_IGN);
-				CLEAR_ALARM;
-
-				if (sys_retrycnt > NUM_BACKENDS)
-				{
-					ereport(LOG,
-                            (errmsg("set SystemDB down status")));
-
-					SYSDB_STATUS = CON_DOWN;
-					sys_retrycnt = 0;
-				}
-				int sleep_time = pool_config->health_check_period/NUM_BACKENDS;
-
-				ereport(DEBUG2,
-                        (errmsg("retry sleep time: %d seconds", sleep_time)));
-				pool_sleep(sleep_time);
-			}
-		}
 	}
 	/* We can now handle ereport(ERROR) */
 	PG_exception_stack = &local_sigjmp_buf;
-	
+
+	/* Create or write status file */
+	(void)write_status_file();
+
 	/* This is the main loop */
 	for (;;)
 	{
@@ -433,29 +459,19 @@ int PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 			errno = 0;
 			health_check_timer_expired = 0;
 
-			if (pool_config->parallel_mode)
-			{
-				processState = PERFORMING_SYSDB_CHECK;
-				system_db_health_check();
-				sys_retrycnt = 0;
-				errno = 0;
-			}
-
 			POOL_SETMASK(&UnBlockSig);
 
 			processState = PERFORMING_HEALTH_CHECK;
 			all_nodes_healthy = do_health_check(use_template_db,&health_check_node_id);
 			POOL_SETMASK(&BlockSig);
 
+			if (all_nodes_healthy && retrycnt)
+				ereport(LOG,
+					(errmsg("all backends are returned to a healthy state after %d retry(ies)",retrycnt)));
+
 			health_check_node_id = 0;
 			use_template_db = false;
 			retrycnt = 0;
-
-			if (all_nodes_healthy && retrycnt)
-				ereport(LOG,
-					(errmsg("after retry %d, All backends are returned to healthy state",retrycnt)));
-
-
 			processState = SLEEPING;
 
 			if (pool_config->health_check_timeout > 0)
@@ -497,11 +513,8 @@ process_backend_health_check_failure(int health_check_node_id, int retrycnt)
 	/*
 	 *  health check is failed on template1 database as well
 	 */
-	int sleep_time = pool_config->parallel_mode ?
-			pool_config->health_check_period/NUM_BACKENDS : pool_config->health_check_retry_delay;
-
-	int health_check_max_retries = pool_config->parallel_mode ?
-			(NUM_BACKENDS - 1) : pool_config->health_check_max_retries;
+	int sleep_time = pool_config->health_check_retry_delay;
+	int health_check_max_retries = pool_config->health_check_max_retries;
 
 	pool_signal(SIGALRM, SIG_IGN);	/* Cancel timer */
 	CLEAR_ALARM;
@@ -518,8 +531,7 @@ process_backend_health_check_failure(int health_check_node_id, int retrycnt)
 	else
 	{
 		/* No more retries left, proceed to failover if allowed */
-		if ((!pool_config->parallel_mode) &&
-			POOL_DISALLOW_TO_FAILOVER(BACKEND_INFO(health_check_node_id).flag))
+		if (POOL_DISALLOW_TO_FAILOVER(BACKEND_INFO(health_check_node_id).flag))
 		{
 			ereport(LOG,
 					(errmsg("health check failed on node %d but failover is disallowed for the node", health_check_node_id)));
@@ -530,7 +542,7 @@ process_backend_health_check_failure(int health_check_node_id, int retrycnt)
 			ereport(LOG,
 					(errmsg("setting backend node %d status to NODE DOWN", health_check_node_id)));
 			health_check_timer_expired = 0;
-			register_node_operation_request(NODE_DOWN_REQUEST,&health_check_node_id,1);
+			degenerate_backend_set(&health_check_node_id,1);
 			return 2;
 			/* need to distribute this info to children ??*/
 		}
@@ -547,13 +559,9 @@ process_backend_health_check_failure(int health_check_node_id, int retrycnt)
 bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id_set, int count)
 {
 	bool failover_in_progress;
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
-	/* 
+	/*
 	 * if the queue is already full
 	 * what to do?
 	 */
@@ -579,7 +587,7 @@ bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id_set, i
 
 	if (getpid() == mypid)
 	{
-		/* 
+		/*
 		 * We are invoked from main process
 		 * call failover with blocked signals
 		 */
@@ -591,7 +599,7 @@ bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id_set, i
 		POOL_SETMASK(&oldmask);
 		if(failover_in_progress == false)
 		{
-			kill(getppid(), SIGUSR1);
+			pool_signal_parent(SIGUSR1);
 		}
 	}
 
@@ -621,8 +629,7 @@ pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 		POOL_SETMASK(&UnBlockSig);
 		health_check_timer_expired = 0;
 		reload_config_request = 0;
-		run_as_pcp_child = true;
-		pcp_do_child(unix_fd, inet_fd, pcp_conf_file);
+		pcp_main(unix_fd, inet_fd);
 	}
 	else if (pid == -1)
 	{
@@ -668,7 +675,6 @@ pid_t fork_a_child(int *fds, int id)
 		health_check_timer_expired = 0;
 		reload_config_request = 0;
 		my_proc_id = id;
-		run_as_pcp_child = false;
 		do_child(fds);
 	}
 	else if (pid == -1)
@@ -687,7 +693,7 @@ pid_t fork_a_child(int *fds, int id)
 pid_t worker_fork_a_child()
 {
 	pid_t pid;
-	
+
 	pid = fork();
 
 	if (pid == 0)
@@ -723,7 +729,7 @@ pid_t worker_fork_a_child()
             (errmsg("failed to fork a child"),
                  errdetail("system call fork() failed with reason: %s", strerror(errno))));
 	}
-	
+
 	return pid;
 }
 
@@ -911,7 +917,7 @@ static int create_inet_domain_socket(const char *hostname, const int port)
 	{
 		char *host = "", *serv = "";
 		char hostname[NI_MAXHOST], servname[NI_MAXSERV];
-		if (getnameinfo((struct sockaddr *) &addr, len, hostname, sizeof(hostname), servname, sizeof(servname), 0) == 0) 
+		if (getnameinfo((struct sockaddr *) &addr, len, hostname, sizeof(hostname), servname, sizeof(servname), 0) == 0)
 		{
 			host = hostname;
 			serv = servname;
@@ -994,16 +1000,25 @@ static void terminate_all_childrens()
 		return;
 	POOL_SETMASK(&BlockSig);
 
-    kill_all_children(SIGTERM);
+    kill_all_children(SIGINT);
     if(pcp_pid > 0)
-        kill(pcp_pid, SIGTERM);
+        kill(pcp_pid, SIGINT);
     pcp_pid = 0;
     if(worker_pid > 0)
-        kill(worker_pid, SIGTERM);
+        kill(worker_pid, SIGINT);
     worker_pid = 0;
 	if (pool_config->use_watchdog)
 	{
-		wd_kill_watchdog(SIGTERM);
+		if (pool_config->use_watchdog)
+		{
+			if (watchdog_pid)
+				kill(watchdog_pid, SIGINT);
+			watchdog_pid = 0;
+
+			if (wd_lifecheck_pid)
+				kill(wd_lifecheck_pid, SIGINT);
+			wd_lifecheck_pid = 0;
+		}
 	}
 
     /* wait for all children to exit */
@@ -1011,7 +1026,7 @@ static void terminate_all_childrens()
     {
         wpid = wait(NULL);
     }while (wpid > 0 || (wpid == -1 && errno == EINTR));
-    
+
     if (wpid == -1 && errno != ECHILD)
         ereport(LOG,
                 (errmsg("wait() failed. reason:%s", strerror(errno))));
@@ -1034,18 +1049,31 @@ void notice_backend_error(int node_id)
 	}
 }
 
-/* notice backend connection error using SIGUSR1 */
-void degenerate_backend_set(int *node_id_set, int count)
+/*
+ * degenerate_backend_set_ex:
+ *
+ * The function registers/verifies the node down operation request.
+ * The request is then processed by failover function.
+ *
+ * node_id_set:	array of node ids to be registered for NODE DOWN operation
+ * count:		number of elements in node_id_set array
+ * error:		if set error is thrown as soon as any node id is found in
+ *				in node_id_set on which operation could not be performed.
+ * test_only:	When set, function only checks if NODE DOWN operation can be
+ *				executed on provided node ids and never registers the operation
+ *				request.
+ *				For test_only case function returs false or throws an error as
+ *				soon as first non complient node in node_id_set is found
+ */
+bool degenerate_backend_set_ex(int *node_id_set, int count, bool error, bool test_only)
 {
 	int i;
-
 	int node_id[MAX_NUM_BACKENDS];
 	int node_count = 0;
+	int elevel = LOG;
 
-	if (pool_config->parallel_mode)
-	{
-		return;
-	}
+	if (error)
+		elevel = ERROR;
 
 	for (i = 0; i < count; i++)
 	{
@@ -1053,26 +1081,31 @@ void degenerate_backend_set(int *node_id_set, int count)
 			!VALID_BACKEND(node_id_set[i]))
 		{
 			if (node_id_set[i] < 0 || node_id_set[i] >= MAX_NUM_BACKENDS)
-				ereport(LOG,
+				ereport(elevel,
 						(errmsg("invalid degenerate backend request, node id: %d is out of range. node id must be between [0 and %d]"
 								,node_id_set[i],MAX_NUM_BACKENDS)));
 			else
-				ereport(LOG,
+				ereport(elevel,
 						(errmsg("invalid degenerate backend request, node id : %d status: [%d] is not valid for failover"
 								,node_id_set[i],BACKEND_INFO(node_id_set[i]).backend_status)));
+			if (test_only)
+				return false;
 
 			continue;
 		}
 
 		if (POOL_DISALLOW_TO_FAILOVER(BACKEND_INFO(node_id_set[i]).flag))
 		{
-			ereport(LOG,
-					(errmsg("degenerate backend request for node_id: %d from pid [%d] is canceled because failover is disallowed on the node",
+			ereport(elevel,
+				(errmsg("degenerate backend request for node_id: %d from pid [%d] is canceled because failover is disallowed on the node",
 							node_id_set[i], getpid())));
+			if (test_only)
+				return false;
 		}
 		else
 		{
-			ereport(LOG,
+			if (!test_only)	/* do not produce this log if we are in testing mode */
+				ereport(LOG,
 					(errmsg("received degenerate backend request for node_id: %d from pid [%d]",
 							node_id_set[i], getpid())));
 
@@ -1082,23 +1115,62 @@ void degenerate_backend_set(int *node_id_set, int count)
 
 	if (node_count)
 	{
-		if (!pool_config->use_watchdog || WD_OK == wd_degenerate_backend_set(node_id_set, count))
+		WdCommandResult res = COMMAND_OK;
+		/* If this was only a test. Inform the caller without doing anything */
+		if(test_only)
+			return true;
+
+		if (pool_config->use_watchdog)
+		{
+			int x;
+			for (x=0; x < MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION; x++)
+			{
+				res = wd_degenerate_backend_set(node_id_set, count);
+				if (res != CLUSTER_IN_TRANSATIONING)
+					break;
+				sleep(1);
+			}
+		}
+		if (res == CLUSTER_IN_TRANSATIONING)
+		{
+			/*
+			 * What to do when cluster is still not stable
+			 * Is proceeding to failover is the right choice ???
+			 */
+			ereport(NOTICE,
+					(errmsg("rdegenerate backend request for %d node(s) from pid [%d], But cluster is not in stable state"
+							, node_count, getpid())));
+		}
+
+		if (res != COMMAND_FAILED)
 		{
 			register_node_operation_request(NODE_DOWN_REQUEST, node_id, node_count);
 		}
 		else
 		{
-			ereport(LOG,
-					(errmsg("degenerate backend request for node_id: %d from pid [%d] is canceled  by other pgpool"
-							, node_id_set[i], getpid())));
+			ereport(elevel,
+					(errmsg("degenerate backend request for %d node(s) from pid [%d] is canceled  by other pgpool"
+							, node_count, getpid())));
+			return false;
 		}
 	}
+	return true;
+}
 
+/*
+ * wrapper over degenerate_backend_set_ex function to register
+ * NODE down operation request
+ */
+void degenerate_backend_set(int *node_id_set, int count)
+{
+	degenerate_backend_set_ex(node_id_set, count, false, false);
 }
 
 /* send promote node request using SIGUSR1 */
 void promote_backend(int node_id)
 {
+	WdCommandResult res = COMMAND_OK;
+
 	if (!MASTER_SLAVE || strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP))
 	{
 		return;
@@ -1120,7 +1192,30 @@ void promote_backend(int node_id)
 			(errmsg("received promote backend request for node_id: %d from pid [%d]",
 					node_id, getpid())));
 
-	if (!pool_config->use_watchdog || WD_OK == wd_promote_backend(node_id))
+	/* If this was only a test. Inform the caller without doing anything */
+	if (pool_config->use_watchdog)
+	{
+		int x;
+		for (x=0; x < MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION; x++)
+		{
+			res = wd_promote_backend(node_id);
+			if (res != CLUSTER_IN_TRANSATIONING)
+				break;
+			sleep(1);
+		}
+	}
+	if (res == CLUSTER_IN_TRANSATIONING)
+	{
+		/*
+		 * What to do when cluster is still not stable
+		 * Is proceeding to failover is the right choice ???
+		 */
+		ereport(NOTICE,
+				(errmsg("promote backend request for node_id: %d from pid [%d], But cluster is not in stable state"
+						, node_id, getpid())));
+	}
+
+	if (res != COMMAND_FAILED)
 	{
 		register_node_operation_request(PROMOTE_NODE_REQUEST, &node_id, 1);
 	}
@@ -1133,17 +1228,19 @@ void promote_backend(int node_id)
 }
 
 /* send failback request using SIGUSR1 */
-void send_failback_request(int node_id)
+void send_failback_request(int node_id,bool throw_error)
 {
+	WdCommandResult res = COMMAND_OK;
+
     if (node_id < 0 || node_id >= MAX_NUM_BACKENDS ||
 		(RAW_MODE && BACKEND_INFO(node_id).backend_status != CON_DOWN && VALID_BACKEND(node_id)))
 	{
 		if (node_id < 0 || node_id >= MAX_NUM_BACKENDS)
-			ereport(LOG,
+			ereport(throw_error?ERROR:LOG,
 					(errmsg("invalid failback request, node id: %d is out of range. node id must be between [0 and %d]"
 							,node_id,MAX_NUM_BACKENDS)));
 		else
-			ereport(LOG,
+			ereport(throw_error?ERROR:LOG,
 					(errmsg("invalid failback request, node id : %d status: [%d] not valid for failback"
 							,node_id,BACKEND_INFO(node_id).backend_status)));
 		return;
@@ -1153,14 +1250,39 @@ void send_failback_request(int node_id)
 			(errmsg("received failback request for node_id: %d from pid [%d]",
 					node_id, getpid())));
 
-	if (pool_config->use_watchdog && WD_OK != wd_send_failback_request(node_id))
+	/* If this was only a test. Inform the caller without doing anything */
+	if (pool_config->use_watchdog)
 	{
-		ereport(LOG,
+		int x;
+		for (x=0; x < MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION; x++)
+		{
+			res = wd_send_failback_request(node_id);
+			if (res != CLUSTER_IN_TRANSATIONING)
+				break;
+			sleep(1);
+		}
+	}
+	if (res == CLUSTER_IN_TRANSATIONING)
+	{
+		/*
+		 * What to do when cluster is still not stable
+		 * Is proceeding to failover is the right choice ???
+		 */
+		ereport(NOTICE,
+				(errmsg("failback request for node_id: %d from pid [%d], But cluster is not in stable state"
+						, node_id, getpid())));
+	}
+
+	if (res != COMMAND_FAILED)
+	{
+		register_node_operation_request(NODE_UP_REQUEST, &node_id, 1);
+	}
+	else
+	{
+		ereport(throw_error?ERROR:LOG,
 				(errmsg("failback request for node_id: %d from pid [%d] is canceled  by other pgpool"
 						, node_id, getpid())));
-		return;
 	}
-	register_node_operation_request(NODE_UP_REQUEST, &node_id, 1);
 }
 
 static RETSIGTYPE exit_handler(int sig)
@@ -1221,17 +1343,23 @@ static RETSIGTYPE exit_handler(int sig)
 		}
 	}
 
-    if(pcp_pid > 0)
+    if (pcp_pid > 0)
         kill(pcp_pid, sig);
     pcp_pid = 0;
 
-    if(worker_pid > 0)
+    if (worker_pid > 0)
         kill(worker_pid, sig);
     worker_pid = 0;
 
 	if (pool_config->use_watchdog)
 	{
-		wd_kill_watchdog(sig);
+		if (watchdog_pid)
+			kill(watchdog_pid, sig);
+		watchdog_pid = 0;
+
+		if (wd_lifecheck_pid)
+			kill(wd_lifecheck_pid, sig);
+		wd_lifecheck_pid = 0;
 	}
 
 	POOL_SETMASK(&UnBlockSig);
@@ -1239,7 +1367,7 @@ static RETSIGTYPE exit_handler(int sig)
     {
         wpid = wait(NULL);
     }while (wpid > 0 || (wpid == -1 && errno == EINTR));
-    
+
     if (wpid == -1 && errno != ECHILD)
         ereport(LOG,
                 (errmsg("wait() failed. reason:%s", strerror(errno))));
@@ -1297,6 +1425,7 @@ static RETSIGTYPE failover_handler(int sig)
 	POOL_SETMASK(&UnBlockSig);
 }
 
+
 /*
  * backend connection error, failover/failback request, if possible
  * failover() must be called under protecting signals.
@@ -1305,7 +1434,6 @@ static void failover(void)
 {
 	int i;
 	int node_id;
-	bool by_health_check;
 	int new_master;
 	int new_primary;
 	int nodes[MAX_NUM_BACKENDS];
@@ -1360,6 +1488,7 @@ static void failover(void)
 		int queue_index;
 		int node_id_set[MAX_NUM_BACKENDS];
 		int node_count;
+		WDFailoverCMDResults failoverLockRes;
 
 		pool_semaphore_lock(REQUEST_INFO_SEM);
 
@@ -1395,13 +1524,6 @@ static void failover(void)
 				 errdetail("starting to select new master node")));
 		node_id = node_id_set[0];
 
-		/* start of command inter-lock with watchdog */
-		if (pool_config->use_watchdog)
-		{
-			by_health_check = (!failover_request && reqkind == NODE_DOWN_REQUEST);
-			wd_start_interlock(by_health_check, node_id);
-		}
-
 		/* failback request? */
 		if (reqkind == NODE_UP_REQUEST)
 		{
@@ -1418,10 +1540,6 @@ static void failover(void)
 					ereport(LOG,
 							(errmsg("invalid failback request, status: [%d] of node id : %d is invalid for failback",BACKEND_INFO(node_id).backend_status,node_id)));
 
-				/* end of command inter-lock */
-				if (pool_config->use_watchdog)
-					wd_leave_interlock();
-
 				continue;
 			}
 
@@ -1431,21 +1549,27 @@ static void failover(void)
 					 BACKEND_INFO(node_id).backend_port)));
 
 			BACKEND_INFO(node_id).backend_status = CON_CONNECT_WAIT;	/* unset down status */
+			(void)write_status_file();
 
-			/* wait for failback command lock or to be lock holder */
-			if (pool_config->use_watchdog && !wd_am_I_lock_holder())
-			{
-				wd_wait_for_lock(WD_FAILBACK_COMMAND_LOCK);
-			}
-			/* execute failback command if lock holder */
-			if (!pool_config->use_watchdog || wd_am_I_lock_holder())
+			/* Aquire failback start command lock */
+			failoverLockRes = wd_failover_command_start(NODE_FAILBACK_CMD);
+
+			if (failoverLockRes == FAILOVER_RES_I_AM_LOCK_HOLDER)
 			{
 				trigger_failover_command(node_id, pool_config->failback_command,
 										MASTER_NODE_ID, get_next_master_node(), PRIMARY_NODE_ID);
 
-				/* unlock failback command */
-				if (pool_config->use_watchdog)
-					wd_unlock(WD_FAILBACK_COMMAND_LOCK);
+				wd_release_failover_command_lock(NODE_FAILBACK_CMD);
+
+			}
+			else
+			{
+				/*
+				 * Okay we are not allowed to execute the failover command
+				 * so we need to wait untle the one who is executing the command
+				 * finish with it.
+				 */
+				wd_wati_until_lock_or_timeout(NODE_FAILBACK_CMD);
 			}
 		}
 		else if (reqkind == PROMOTE_NODE_REQUEST)
@@ -1453,7 +1577,7 @@ static void failover(void)
 			if (node_id != -1 && VALID_BACKEND(node_id))
 			{
 				ereport(LOG,
-						(errmsg("starting promotion. promote host %s(%d)",
+					(errmsg("starting promotion. promote host %s(%d)",
 						 BACKEND_INFO(node_id).backend_hostname,
 						 BACKEND_INFO(node_id).backend_port)));
 			}
@@ -1461,13 +1585,10 @@ static void failover(void)
 			{
 				ereport(LOG,
 						(errmsg("failover: no backends are promoted")));
-
-				/* end of command inter-lock */
-				if (pool_config->use_watchdog)
-					wd_leave_interlock();
-
 				continue;
 			}
+
+			failoverLockRes = wd_failover_command_start(NODE_PROMOTE_CMD);
 		}
 		else
 		{
@@ -1485,6 +1606,8 @@ static void failover(void)
 							 BACKEND_INFO(node_id_set[i]).backend_port)));
 
 					BACKEND_INFO(node_id_set[i]).backend_status = CON_DOWN;	/* set down status */
+					(void)write_status_file();
+
 					/* save down node */
 					nodes[node_id_set[i]] = 1;
 					cnt++;
@@ -1495,10 +1618,6 @@ static void failover(void)
 			{
 				ereport(LOG,
 						(errmsg("failover: no backends are degenerated")));
-
-				/* end of command inter-lock */
-				if (pool_config->use_watchdog)
-					wd_leave_interlock();
 
 				continue;
 			}
@@ -1601,14 +1720,9 @@ static void failover(void)
 			need_to_restart_children = true;
 		}
 
-		/* wait for failover command lock or to be lock holder*/
-		if (pool_config->use_watchdog && !wd_am_I_lock_holder())
-		{
-			wd_wait_for_lock(WD_FAILOVER_COMMAND_LOCK);
-		}
+		failoverLockRes = wd_failover_command_start(NODE_FAILED_CMD);
 
-		/* execute failover command if lock holder */
-		if (!pool_config->use_watchdog || wd_am_I_lock_holder())
+		if (failoverLockRes == FAILOVER_RES_I_AM_LOCK_HOLDER)
 		{
 			/* Exec failover_command if needed */
 			for (i = 0; i < pool_config->backend_desc->num_backends; i++)
@@ -1617,11 +1731,9 @@ static void failover(void)
 					trigger_failover_command(i, pool_config->failover_command,
 												MASTER_NODE_ID, new_master, PRIMARY_NODE_ID);
 			}
-
-			/* unlock failover command */
-			if (pool_config->use_watchdog)
-				wd_unlock(WD_FAILOVER_COMMAND_LOCK);
 		}
+		else
+			wd_wati_until_lock_or_timeout(NODE_FAILED_CMD);
 
 
 	/* no need to wait since it will be done in reap_handler */
@@ -1670,7 +1782,8 @@ static void failover(void)
 				if (((reqkind == NODE_DOWN_REQUEST) &&
 					 (nodes[Req_info->primary_node_id])) ||
 					((reqkind == PROMOTE_NODE_REQUEST) &&
-					 (VALID_BACKEND(node_id)))) {
+					 (VALID_BACKEND(node_id))))
+				{
 
 					for (i = 0; i < pool_config->backend_desc->num_backends; i++)
 					{
@@ -1683,6 +1796,8 @@ static void failover(void)
 									 bkinfo->backend_hostname,
 									 bkinfo->backend_port)));
 							bkinfo->backend_status = CON_DOWN;	/* set down status */
+							(void)write_status_file();
+
 							follow_cnt++;
 						}
 					}
@@ -1703,30 +1818,29 @@ static void failover(void)
 			}
 		}
 
-
-		/* wait for follow_master_command lock or to be lock holder */
-		if (pool_config->use_watchdog && !wd_am_I_lock_holder())
-		{
-			wd_wait_for_lock(WD_FOLLOW_MASTER_COMMAND_LOCK);
-		}
-
-		/* execute follow_master_command */
-		if (!pool_config->use_watchdog || wd_am_I_lock_holder())
+		/*
+		 * follow master command also uses the same locks used by trigring command
+		 */
+		if (failoverLockRes == FAILOVER_RES_I_AM_LOCK_HOLDER)
 		{
 			if ((follow_cnt > 0) && (*pool_config->follow_master_command != '\0'))
 			{
 				follow_pid = fork_follow_child(Req_info->master_node_id, new_primary,
 											Req_info->primary_node_id);
 			}
-
-			/* unlock follow_master_command  */
-			if (pool_config->use_watchdog)
-				wd_unlock(WD_FOLLOW_MASTER_COMMAND_LOCK);
+			if (reqkind == PROMOTE_NODE_REQUEST)
+				wd_release_failover_command_lock(NODE_PROMOTE_CMD);
+			else if (reqkind == NODE_DOWN_REQUEST)
+				wd_release_failover_command_lock(NODE_FAILED_CMD);
+		}
+		else
+		{
+			if (reqkind == PROMOTE_NODE_REQUEST)
+				wd_wati_until_lock_or_timeout(NODE_PROMOTE_CMD);
+			else if (reqkind == NODE_DOWN_REQUEST)
+				wd_wati_until_lock_or_timeout(NODE_FAILED_CMD);
 		}
 
-		/* end of command inter-lock */
-		if (pool_config->use_watchdog)
-			wd_end_interlock();
 
 		/* Save primary node id */
 		Req_info->primary_node_id = new_primary;
@@ -1781,13 +1895,16 @@ static void failover(void)
 
 		if (reqkind == NODE_UP_REQUEST)
 		{
+			wd_failover_command_end(NODE_FAILBACK_CMD);
 			ereport(LOG,
 					(errmsg("failback done. reconnect host %s(%d)",
 					 BACKEND_INFO(node_id).backend_hostname,
 					 BACKEND_INFO(node_id).backend_port)));
+
 		}
 		else if (reqkind == PROMOTE_NODE_REQUEST)
 		{
+			wd_failover_command_end(NODE_PROMOTE_CMD);
 			ereport(LOG,
 					(errmsg("promotion done. promoted host %s(%d)",
 					 BACKEND_INFO(node_id).backend_hostname,
@@ -1795,6 +1912,9 @@ static void failover(void)
 		}
 		else
 		{
+			/* Release the locks and interlocking */
+			wd_failover_command_end(NODE_FAILED_CMD);
+
 			/* Temporary black magic. Without this regression 055 does not finish */
 			fprintf(stderr, "failover done. shutdown host %s(%d)",
 					 BACKEND_INFO(node_id).backend_hostname,
@@ -1888,7 +2008,15 @@ do_health_check(bool use_template_db, volatile int *health_check_node_id)
 	if (*InRecovery)
 		return false;
 
-	dbname = use_template_db ? "template1" : "postgres";
+	if (!strcmp(pool_config->health_check_database, ""))
+		dbname = use_template_db ? "template1" : "postgres";
+	else
+		dbname = pool_config->health_check_database;
+
+	ereport(DEBUG1,
+			(errmsg("doing health check against database:%s user:%s",
+					dbname, pool_config->health_check_user)));
+
 	/*
 	 * Start checking the backed nodes starting from the
 	 * previously failed node
@@ -1943,7 +2071,7 @@ static RETSIGTYPE reap_handler(int sig)
 {
 	POOL_SETMASK(&BlockSig);
 	sigchld_request = 1;
-	if(write(pipe_fds[1], "\0", 1) < 0)
+	if(pipe_fds[1] && write(pipe_fds[1], "\0", 1) < 0)
         ereport(WARNING,
             (errmsg("reap_handler: write to pipe failed with error \"%s\"", strerror(errno))));
 
@@ -1951,8 +2079,53 @@ static RETSIGTYPE reap_handler(int sig)
 }
 
 /*
+ * pool_waitpid:
+ * nothing more than a wrapper function over NOHANG mode waitpid() or wait3()
+ * depending on the existance of waitpid in the system
+ */
+pid_t pool_waitpid(int *status)
+{
+#ifdef HAVE_WAITPID
+	return waitpid(-1, status, WNOHANG);
+#else
+	return wait3(status, WNOHANG, NULL);
+#endif
+}
+
+/*
+ * process_name_from_pid()
+ * helper function for reaper() to report the terminating child process type name
+ */
+static char* process_name_from_pid(pid_t pid)
+{
+	if (pid == pcp_pid)
+		return "PCP child";
+	if (pid == worker_pid)
+		return "worker child";
+	if (pool_config->use_watchdog)
+	{
+		if (pid == watchdog_pid)
+			return "watchdog child";
+		else if (pid == wd_lifecheck_pid)
+			return "watchdog lifecheck";
+	}
+	return "child";
+}
+/*
  * Attach zombie processes and restart child processes.
  * reaper() must be called protected from signals.
+ * Note:
+ * In pgpool child can exit in two ways, either by some signal or by
+ * calling exit() system function.
+ * For the case of child terminating due to a signal the reaper() function
+ * always forks a new respective type of child process. But for the case when
+ * child got terminated by exit() system call than the function checks the exit
+ * code and if the child was exited by POOL_EXIT_FATAL than we do not restarts the
+ * terminating child but shutdowns the pgpool-II. This allow
+ * the child process to inform parent process of fatal failures which needs
+ * to be rectified (e.g startup failure) by user for smooth running of system.
+ * Also the child exits with success status POOL_EXIT_SUCCESS does not gets
+ * restarted.
  */
 static void reaper(void)
 {
@@ -1980,94 +2153,130 @@ static void reaper(void)
 	/* clear SIGCHLD request */
 	sigchld_request = 0;
 
-#ifdef HAVE_WAITPID
-	ereport(DEBUG2,
-			(errmsg("reaper handler, call waitpid()")));
-
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-#else
-		ereport(DEBUG2,
-				(errmsg("reaper handler, call wait3()")));
-	while ((pid = wait3(&status, WNOHANG, NULL)) > 0)
-#endif
+	while ((pid = pool_waitpid(&status)) > 0)
 	{
-		if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV)
+		pid_t new_pid = 0;
+		bool shutdown_system = false;
+		bool restart_child = true;
+		char *exiting_process_name = process_name_from_pid(pid);
+
+		/*
+		 * Check if the terminating child wants pgpool main to go down with it
+		 */
+		if(WIFEXITED(status))
+		{
+			if(WEXITSTATUS(status) == POOL_EXIT_FATAL)
+			{
+				ereport(DEBUG1,
+						(errmsg("%s process with pid: %d exit with FATAL ERROR. pgpool-II will be shutdown",exiting_process_name, pid)));
+				shutdown_system = true;
+			}
+			else if(WEXITSTATUS(status) == POOL_EXIT_SUCCESS)
+			{
+				ereport(DEBUG1,
+						(errmsg("%s process with pid: %d exit with SUCCESS. child will not be restarted",exiting_process_name, pid)));
+
+				restart_child = false;
+			}
+		}
+		if (WIFSIGNALED(status))
 		{
 			/* Child terminated by segmentation fault. Report it */
-			ereport(WARNING,
-					(errmsg("child process with pid: %d was terminated by segmentation fault", pid)));
+			if(WTERMSIG(status) == SIGSEGV)
+				ereport(WARNING,
+					(errmsg("%s process with pid: %d was terminated by segmentation fault", exiting_process_name,pid)));
+			else
+				ereport(LOG,
+						(errmsg("%s process with pid: %d exits with status %d by signal %d", exiting_process_name, pid, status, WTERMSIG(status))));
 		}
+		else
+			ereport(LOG,
+					(errmsg("%s process with pid: %d exits with status %d", exiting_process_name,pid, status)));
 
 		/* if exiting child process was PCP handler */
 		if (pid == pcp_pid)
 		{
-			if (WIFSIGNALED(status))
-				ereport(LOG,
-                        (errmsg("PCP child %d exits with status %d by signal %d", pid, status, WTERMSIG(status))));
+			if(restart_child)
+			{
+				pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
+				new_pid = pcp_pid;
+			}
 			else
-                         ereport(LOG,
-                                 (errmsg("PCP child %d exits with status %d", pid, status)));
-
-			pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
-			ereport(LOG,
-                    (errmsg("fork a new PCP child pid %d", pcp_pid)));
+				pcp_pid = 0;
 		}
 
 		/* exiting process was worker process */
 		else if (pid == worker_pid)
 		{
-			if (WIFSIGNALED(status))
-				ereport(LOG,
-                        (errmsg("worker child %d exits with status %d by signal %d", pid, status, WTERMSIG(status))));
-			else
-				ereport(LOG,
-                        (errmsg("worker child %d exits with status %d", pid, status)));
-
-			if (status)
+			if(restart_child)
+			{
 				worker_pid = worker_fork_a_child();
-
-			ereport(LOG,
-                    (errmsg("fork a new worker child pid %d", worker_pid)));
+				new_pid = worker_pid;
+			}
+			else
+				worker_pid = 0;
 		}
 
 		/* exiting process was watchdog process */
-		else if (pool_config->use_watchdog && wd_is_watchdog_pid(pid))
+		else if (pool_config->use_watchdog)
 		{
-			if (!wd_reaper_watchdog(pid, status))
+			if (watchdog_pid == pid)
 			{
-                ereport(FATAL,
-                    (errmsg("wd_reaper failed")));
-
+				if(restart_child)
+				{
+					watchdog_pid = initialize_watchdog();
+					new_pid = watchdog_pid;
+				}
+				else
+					watchdog_pid = 0;
+			}
+			else if (wd_lifecheck_pid == pid)
+			{
+				if(restart_child)
+				{
+					wd_lifecheck_pid = initialize_watchdog_lifecheck();
+					new_pid = wd_lifecheck_pid;
+				}
+				else
+					wd_lifecheck_pid = 0;
 			}
 		}
-
 		else
 		{
-			if (WIFSIGNALED(status))
-				ereport(DEBUG1,
-						(errmsg("reaper handler: child with PID:%d exits with status %d by signal %d", pid, status, WTERMSIG(status))));
-			else
-				ereport(DEBUG1,
-						(errmsg("reaper handler: child with PID:%d exits with status %d", pid, status)));
-
 			/* look for exiting child's pid */
 			for (i=0;i<pool_config->num_init_children;i++)
 			{
 				if (pid == process_info[i].pid)
 				{
 					/* if found, fork a new child */
-					if (!switching && !exiting && status)
+					if (!switching && !exiting && restart_child)
 					{
 						process_info[i].pid = fork_a_child(fds, i);
 						process_info[i].start_time = time(NULL);
-						ereport(DEBUG1,
-								(errmsg("reaper handler: forked a new child with PID:%d", process_info[i].pid)));
-
-						break;
+						new_pid = process_info[i].pid;
 					}
+					else
+						process_info[i].pid = 0;
+					break;
 				}
 			}
 		}
+		if(shutdown_system)
+			ereport(FATAL,
+				(errmsg("%s process exit with fatal error. exiting pgpool-II",exiting_process_name)));
+		else if(restart_child && new_pid)
+		{
+			/* Report if the child was restarted */
+			ereport(LOG,
+					(errmsg("fork a new %s process with pid: %d",exiting_process_name, new_pid)));
+		}
+		else
+		{
+			/* And the child was not restarted */
+			ereport(LOG,
+					(errmsg("%s process with pid: %d exited with success and will not be restarted", exiting_process_name, pid)));
+		}
+
 	}
 	ereport(DEBUG1,
 			(errmsg("reaper handler: exiting normally")));
@@ -2138,12 +2347,15 @@ static void wakeup_children(void)
 
 static RETSIGTYPE wakeup_handler(int sig)
 {
-	POOL_SETMASK(&BlockSig);
 	wakeup_request = 1;
-	if(write(pipe_fds[1], "\0", 1) < 0)
-        ereport(WARNING,
-            (errmsg("wakeup_handler: write to pipe failed with error \"%s\"", strerror(errno))));
-	POOL_SETMASK(&UnBlockSig);
+	if (processState != INITIALIZING)
+	{
+		POOL_SETMASK(&BlockSig);
+		if(write(pipe_fds[1], "\0", 1) < 0)
+			ereport(WARNING,
+				(errmsg("wakeup_handler: write to pipe failed with error \"%s\"", strerror(errno))));
+		POOL_SETMASK(&UnBlockSig);
+	}
 }
 
 /*
@@ -2265,7 +2477,7 @@ static int trigger_failover_command(int node, const char *command_line,
 		return 0;
 
 	/* check failed nodeID */
-	if (node < 0 || node > NUM_BACKENDS)
+	if (node < 0 || node >= NUM_BACKENDS)
 		return -1;
 
 	info = pool_get_node_info(node);
@@ -2308,7 +2520,7 @@ static int trigger_failover_command(int node, const char *command_line,
 							string_append_char(exec_cmd, newmaster->backend_hostname);
 						else
 							/* no valid new master */
-							string_append_char(exec_cmd, "");
+							string_append_char(exec_cmd, "\"\"");
 						break;
 
 					case 'm': /* new master node id */
@@ -2325,7 +2537,7 @@ static int trigger_failover_command(int node, const char *command_line,
 						}
 						else
 							/* no valid new master */
-							string_append_char(exec_cmd, "");
+							string_append_char(exec_cmd, "\"\"");
 						break;
 
 					case 'R': /* new master database directory */
@@ -2334,7 +2546,7 @@ static int trigger_failover_command(int node, const char *command_line,
 							string_append_char(exec_cmd, newmaster->backend_data_directory);
 						else
 							/* no valid new master */
-							string_append_char(exec_cmd, "");
+							string_append_char(exec_cmd, "\"\"");
 						break;
 
 					case 'M': /* old master node id */
@@ -2374,7 +2586,7 @@ static int trigger_failover_command(int node, const char *command_line,
 }
 /*
  * This function is used by find_primary_node() function and is just a wrapper
- * over make_persistent_db_connection() function and returns boolean value to 
+ * over make_persistent_db_connection() function and returns boolean value to
  * inform connection status
  * This function must not throws ereport
  */
@@ -2390,7 +2602,7 @@ static bool
 
 	s = make_persistent_db_connection_noerror(bkinfo->backend_hostname,
 										  bkinfo->backend_port,
-										  "postgres",
+										  pool_config->sr_check_database,
 										  pool_config->sr_check_user,
 										  pool_config->sr_check_password, true);
 	if (s)
@@ -2468,7 +2680,7 @@ static int find_primary_node(void)
 		bool is_standby;
 
 		ereport(LOG,
-				(errmsg("find_primary_node: checking backend no %d\n",i)));
+				(errmsg("find_primary_node: checking backend no %d",i)));
 
 		if (!VALID_BACKEND(i))
 			continue;
@@ -2514,7 +2726,7 @@ static int find_primary_node_repeatedly(void)
 		/* No point to look for primary node if not in streaming
 		 * replication mode.
 		 */
-		ereport(DEBUG1, 
+		ereport(DEBUG1,
 			(errmsg("find_primary_node: not in streaming replication mode")));
 		return -1;
 	}
@@ -2575,7 +2787,7 @@ pid_t fork_follow_child(int old_master, int new_primary, int old_primary)
 }
 
 
-static void initialize_shared_mem_objects()
+static void initialize_shared_mem_objects(bool clear_memcache_oidmaps)
 {
 	int size,i;
 	/*
@@ -2592,6 +2804,13 @@ static void initialize_shared_mem_objects()
 	memset(con_info, 0, size);
 
 	size = pool_config->num_init_children * (sizeof(ProcessInfo));
+
+	ereport(DEBUG1,
+			(errmsg("ProcessInfo: num_init_children (%d) * sizeof(ProcessInfo) (%zu) = %d bytes requested for shared memory",
+					pool_config->num_init_children,
+					sizeof(ProcessInfo),
+					size)));
+
 	process_info = pool_shared_memory_create(size);
 	memset(process_info, 0, size);
 
@@ -2602,6 +2821,10 @@ static void initialize_shared_mem_objects()
 
 	/* create fail over/switch over event area */
 	Req_info = pool_shared_memory_create(sizeof(POOL_REQUEST_INFO));
+
+	ereport(DEBUG1,
+			(errmsg("Request info are: sizeof(POOL_REQUEST_INFO) %zu bytes requested for shared memory",
+					sizeof(POOL_REQUEST_INFO))));
 
 	/*
 	 * Initialize backend status area.
@@ -2622,6 +2845,10 @@ static void initialize_shared_mem_objects()
 	InRecovery = pool_shared_memory_create(sizeof(int));
 	*InRecovery = RECOVERY_INIT;
 
+	ereport(DEBUG1,
+			(errmsg("Recovery management area: sizeof(int) %zu bytes requested for shared memory",
+					sizeof(int))));
+
 	/*
 	 * Initialize shared memory cache
 	 */
@@ -2639,7 +2866,7 @@ static void initialize_shared_mem_objects()
 				ereport(FATAL,
 					(errmsg("invalid shared memory size"),
 						errdetail("pool_shared_memory_fsmm_size error")));
-	
+
 			pool_init_fsmm(size);
 
 			pool_allocate_fsmm_clock_hand();
@@ -2670,6 +2897,15 @@ static void initialize_shared_mem_objects()
 #endif
 
 		pool_init_memqcache_stats();
+	}
+
+	/* Initialize statistics area */
+	stat_set_stat_area(pool_shared_memory_create(stat_shared_memory_size()));
+	stat_init_stat_area();
+	/* initialize watchdog IPC unix domain socket address */
+	if (pool_config->use_watchdog)
+	{
+		wd_ipc_initialize_data();
 	}
 }
 
@@ -2722,6 +2958,7 @@ static int read_status_file(bool discard_status)
 			if (backend_rec.status[i] == CON_DOWN)
 			{
 				BACKEND_INFO(i).backend_status = CON_DOWN;
+				(void)write_status_file();
 				ereport(LOG,
 						(errmsg("read_status_file: %d th backend is set to down status", i)));
 			}
@@ -2729,6 +2966,7 @@ static int read_status_file(bool discard_status)
 					 BACKEND_INFO(i).backend_status == CON_UP)
 			{
 				BACKEND_INFO(i).backend_status = CON_CONNECT_WAIT;
+				(void)write_status_file();
 				someone_wakeup = true;
 			}
 			else
@@ -2749,7 +2987,7 @@ static int read_status_file(bool discard_status)
 		/*
 		 * Fall back to new ascii format file.
 		 * the format looks like(case is ignored):
-		 * 
+		 *
 		 * up|down|unused
 		 * UP|down|unused
 		 *   :
@@ -2770,7 +3008,7 @@ static int read_status_file(bool discard_status)
 		{
 			BACKEND_INFO(i).backend_status = CON_UNUSED;
 		}
-			  
+
 		for (i=0;;i++)
 		{
 			readbuf[MAXLINE-1] = '\0';
@@ -2811,17 +3049,19 @@ static int read_status_file(bool discard_status)
 		{
 			BACKEND_INFO(i).backend_status = CON_CONNECT_WAIT;
 		}
+		(void)write_status_file();
 	}
 
 	return 0;
 }
 
 /*
-* Write the pid file
+* Write the status file
 */
-static int write_status_file()
+int write_status_file()
 {
 	FILE *fd;
+	int fdnum;
 	char fnamebuf[POOLMAXPATHLEN];
 	int i;
 
@@ -2870,6 +3110,24 @@ static int write_status_file()
             fclose(fd);
             return -1;
         }
+		fdnum = fileno(fd);
+		if (fdnum < 0)
+        {
+			ereport(WARNING,
+				(errmsg("failed to get file number. fsync() will not be performed: \"%s\"",fnamebuf),
+					 errdetail("\"%s\"",strerror(errno))));
+            fclose(fd);
+            return -1;
+        }
+		if (fsync(fdnum) != 0)
+		{
+			ereport(WARNING,
+				(errmsg("failed to fsync(): \"%s\"",fnamebuf),
+					 errdetail("\"%s\"",strerror(errno))));
+            fclose(fd);
+            return -1;
+		}
+
         fclose(fd);
     }
 	return 0;
@@ -2882,11 +3140,13 @@ static void reload_config(void)
 		(errmsg("reload config files.")));
     MemoryContext oldContext = MemoryContextSwitchTo(TopMemoryContext);
 	pool_get_config(conf_file, RELOAD_CONFIG);
+
+	/* Realoading config file could change backend status */
+	(void)write_status_file();
+
     MemoryContextSwitchTo(oldContext);
 	if (pool_config->enable_pool_hba)
 		load_hba(hba_file);
-	if (pool_config->parallel_mode)
-		pool_memset_system_db_info(system_db_info->info);
 	kill_all_children(SIGHUP);
 
 	if (worker_pid)
@@ -2896,9 +3156,9 @@ static void reload_config(void)
 /* Call back function to unlink the file */
 static void FileUnlink(int code, Datum path)
 {
-	char* filePath = (char*)path; 
+	char* filePath = (char*)path;
 	if (unlink(filePath) == 0) return;
-	/* 
+	/*
 	 * We are already exiting the system just produce a log entry to report an error
 	 */
 	ereport(LOG,
@@ -2916,8 +3176,8 @@ static void system_will_go_down(int code, Datum arg)
     }
     POOL_SETMASK(&AuthBlockSig);
     /* Write status file */
-    write_status_file();
-    /* 
+    (void)write_status_file();
+    /*
      * Terminate all childrens. But we may already have killed
      * all the childrens if we come to this function because of shutdown
      * signal.
@@ -2926,5 +3186,23 @@ static void system_will_go_down(int code, Datum arg)
         terminate_all_childrens();
     processState = EXITING;
     POOL_SETMASK(&UnBlockSig);
-    
+
+}
+
+int pool_send_to_frontend(char* data, int len, bool flush)
+{
+	if (processType == PT_PCP_WORKER)
+		return send_to_pcp_frontend(data, len, flush);
+	else if (processType == PT_CHILD)
+		return send_to_pg_frontend(data, len, flush);
+	return -1;
+}
+
+int pool_frontend_exists(void)
+{
+	if (processType == PT_PCP_WORKER)
+		return pcp_frontend_exists();
+	else if (processType == PT_CHILD)
+		return pg_frontend_exists();
+	return -1;
 }

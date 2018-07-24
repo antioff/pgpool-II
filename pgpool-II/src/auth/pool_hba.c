@@ -6,9 +6,9 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Portions Copyright (c) 2003-2012	PgPool Global Development Group
+ * Portions Copyright (c) 2003-2015	PgPool Global Development Group
  * Portions Copyright (c) 1996-2005, PostgreSQL Global Development Group
- * Portions Copyright (c) 1994, Regents of the University of California                                          *
+ * Portions Copyright (c) 1994, Regents of the University of California
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
  * granted, provided that the above copyright notice appear in all
@@ -37,6 +37,7 @@
 #include "pool_config.h"
 #include "pool_type.h"
 #include "utils/palloc.h"
+#include "utils/memutils.h"
 #include "utils/elog.h"
 #include "parser/pg_list.h"
 #include "auth/pool_passwd.h"
@@ -102,10 +103,6 @@ static POOL_CONNECTION *pam_frontend_kludge; /* Workaround for passing
 int load_hba(char *hbapath)
 {
 	FILE *file;
-
-	if (hba_lines || hba_line_nums)
-		free_lines(&hba_lines, &hba_line_nums);
-
 	file = fopen(hbapath, "r");
 	if (!file)
 	{
@@ -120,14 +117,17 @@ int load_hba(char *hbapath)
 			errdetail("loading file :\"%s\" for client authentication configuration file",
 				   hbapath)));
 
+	MemoryContext oldContext = MemoryContextSwitchTo(TopMemoryContext);
+
+	if (hba_lines || hba_line_nums)
+		free_lines(&hba_lines, &hba_line_nums);
 
 	tokenize_file(hbapath, file, &hba_lines, &hba_line_nums);
 	fclose(file);
 
 	hbaFileName = pstrdup(hbapath);
 
-	/* switch to old memory context */
-
+	MemoryContextSwitchTo(oldContext);
 	return 0;
 }
 
@@ -405,11 +405,7 @@ static void close_all_backend_connections(void)
 	int i;
 	POOL_CONNECTION_POOL *p = pool_connection_pool;
 
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 
@@ -1380,7 +1376,7 @@ static POOL_STATUS CheckMd5Auth(char *username)
         ereport(FATAL,
             (return_code(2),
                  errmsg("md5 authentication failed"),
-                    errdetail("pool_passed file does not contains entry for \"%s\"",username)));
+                    errdetail("pool_passwd file does not contain an entry for \"%s\"",username)));
 
 
 	/*

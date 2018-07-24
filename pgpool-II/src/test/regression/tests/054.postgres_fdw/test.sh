@@ -29,29 +29,32 @@ export PGPORT=$PGPOOL_PORT
 wait_for_pgpool_startup
 
 # create foreign table
-$PSQL -p 11001 test <<EOF
+$PSQL -p 11003 test <<EOF
 CREATE EXTENSION postgres_fdw;
-CREATE SERVER pgpool FOREIGN DATA WRAPPER postgres_fdw OPTIONS (dbname 'test', port '11002');
+CREATE SERVER pgpool FOREIGN DATA WRAPPER postgres_fdw OPTIONS (dbname 'test', port '11000');
 CREATE USER MAPPING FOR PUBLIC SERVER pgpool;
 CREATE FOREIGN TABLE fr1(i INTEGER) SERVER pgpool;
 EOF
 
 # create remote table
-$PSQL -p 11000 test <<EOF
+$PSQL -p 11002 test <<EOF
 CREATE TABLE fr1(i INTEGER);
 EOF
 
 # detach node #1 so that pgpool does not access
 # postgres_fdw. Otherwise it will go into an inifinite loop.
-$PGPOOL_INSTALL_DIR/bin/pcp_detach_node 1 localhost $PCP_PORT $WHOAMI $WHOAMI 1
+$PGPOOL_INSTALL_DIR/bin/pcp_detach_node -w -h localhost -p $PCP_PORT -n 1
 
 if [ $? != 0 ];then
 	echo "pcp_detach_node failed"
 	exit 1
 fi
 
-# access foreign table 11001(PostgreSQL)->11002(pgpool)->11000(PostgreSQL)
-$PSQL -p 11001 test <<EOF
+# assure node #1 is detached 
+sleep 1
+
+# access foreign table 11003(PostgreSQL)->11000(pgpool)->11002(PostgreSQL)
+$PSQL -p 11003 test <<EOF
 SELECT * FROM fr1;
 INSERT INTO fr1 VALUES(1); -- should call pgpool_regclass
 EOF

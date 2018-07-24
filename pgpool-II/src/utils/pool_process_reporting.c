@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -150,7 +150,6 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 
 	/* we initialize the array with NULL values so when looping
 	 * on it, we can use it as stop condition */
-//	memset(status, 0, sizeof(POOL_REPORT_CONFIG) * MAXITEMS);
 
 	i = 0;
 
@@ -241,6 +240,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].name, "listen_backlog_multiplier", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->listen_backlog_multiplier);
 	StrNCpy(status[i].desc, "determines the size of the queue for pending connections", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "serialize_accept", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->serialize_accept);
+	StrNCpy(status[i].desc, "whether to serialize accept() call", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	StrNCpy(status[i].name, "max_pool", POOLCONFIG_MAXNAMELEN);
@@ -471,6 +475,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].desc, "sr check password", POOLCONFIG_MAXDESCLEN);
 	i++;
 #endif
+	StrNCpy(status[i].name, "sr_check_database", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->sr_check_database);
+	StrNCpy(status[i].desc, "sr check database", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	StrNCpy(status[i].name, "delay_threshold", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%lld", pool_config->delay_threshold);
 	StrNCpy(status[i].desc, "standby delay threshold", POOLCONFIG_MAXDESCLEN);
@@ -497,45 +506,6 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].desc, "allow SQL comments", POOLCONFIG_MAXDESCLEN);
 	i++;
 
-	/* PARALLEL MODE AND QUERY CACHE */
-
-	StrNCpy(status[i].name, "parallel_mode", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->parallel_mode);
-	StrNCpy(status[i].desc, "if non 0, run in parallel query mode", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-
-	StrNCpy(status[i].name, "pgpool2_hostname", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->pgpool2_hostname);
-	StrNCpy(status[i].desc, "pgpool2 hostname", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	/* - System DB info - */
-	StrNCpy(status[i].name, "system_db_hostname", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_hostname);
-	StrNCpy(status[i].desc, "system DB hostname", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_port", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->system_db_port);
-	StrNCpy(status[i].desc, "system DB port number", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_dbname", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_dbname);
-	StrNCpy(status[i].desc, "system DB name", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_schema", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_schema);
-	StrNCpy(status[i].desc, "system DB schema name", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_user", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_user);
-	StrNCpy(status[i].desc, "user name to access system DB", POOLCONFIG_MAXDESCLEN);
-	i++;
-
 	/* HEALTH CHECK */
 
 	StrNCpy(status[i].name, "health_check_period", POOLCONFIG_MAXNAMELEN);
@@ -558,6 +528,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].desc, "health check password", POOLCONFIG_MAXDESCLEN);
 	i++;
 #endif
+	StrNCpy(status[i].name, "health_check_database", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->health_check_database);
+	StrNCpy(status[i].desc, "health check database", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	StrNCpy(status[i].name, "health_check_max_retries", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->health_check_max_retries);
 	StrNCpy(status[i].desc, "health check max retries", POOLCONFIG_MAXDESCLEN);
@@ -644,47 +619,17 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].desc, "enable unlogged table check", POOLCONFIG_MAXDESCLEN);
 	i++;
 
-	StrNCpy(status[i].name, "parallel_mode", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->parallel_mode);
-	StrNCpy(status[i].desc, "if non 0, run in parallel query mode", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "pgpool2_hostname", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->pgpool2_hostname);
-	StrNCpy(status[i].desc, "pgpool2 hostname", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_hostname", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_hostname);
-	StrNCpy(status[i].desc, "system DB hostname", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_port", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->system_db_port);
-	StrNCpy(status[i].desc, "system DB port number", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_dbname", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_dbname);
-	StrNCpy(status[i].desc, "system DB name", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_schema", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_schema);
-	StrNCpy(status[i].desc, "system DB schema name", POOLCONFIG_MAXDESCLEN);
-	i++;
-
-	StrNCpy(status[i].name, "system_db_user", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->system_db_user);
-	StrNCpy(status[i].desc, "user name to access system DB", POOLCONFIG_MAXDESCLEN);
-	i++;
-	
 	/*
 	 * add for watchdog
 	 */
 	StrNCpy(status[i].name, "use_watchdog", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->use_watchdog);
 	StrNCpy(status[i].desc, "non 0 if operating in use_watchdog", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "wd_ipc_socket_dir", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_ipc_socket_dir);
+	StrNCpy(status[i].desc, "watchdog ipc socket directory", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	StrNCpy(status[i].name, "wd_lifecheck_method", POOLCONFIG_MAXNAMELEN);
@@ -700,6 +645,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].name, "wd_escalation_command", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_escalation_command);
 	StrNCpy(status[i].desc, "command executed when escalation occurs", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "wd_de_escalation_command", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_de_escalation_command);
+	StrNCpy(status[i].desc, "command executed when master pgpool resigns occurs", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	StrNCpy(status[i].name, "trusted_servers", POOLCONFIG_MAXNAMELEN);
@@ -722,6 +672,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].desc, "watchdog port number", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	StrNCpy(status[i].name, "wd_priority", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->wd_priority);
+	StrNCpy(status[i].desc, "watchdog priority", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	StrNCpy(status[i].name, "wd_interval", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->wd_interval);
 	StrNCpy(status[i].desc, "life check interval (second)", POOLCONFIG_MAXDESCLEN);
@@ -732,9 +687,9 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].desc, "path to ping command", POOLCONFIG_MAXDESCLEN);
 	i++;
 
-	StrNCpy(status[i].name, "ifconfig_path", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->ifconfig_path);
-	StrNCpy(status[i].desc, "path to ifconfig command", POOLCONFIG_MAXDESCLEN);
+	StrNCpy(status[i].name, "if_cmd_path", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->if_cmd_path);
+	StrNCpy(status[i].desc, "path to interface up/down command", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	StrNCpy(status[i].name, "if_up_cmd", POOLCONFIG_MAXNAMELEN);
@@ -797,6 +752,19 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	StrNCpy(status[i].desc, "password for watchdog user in lifecheck", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	StrNCpy(status[i].name, "wd_monitoring_interfaces_list", POOLCONFIG_MAXNAMELEN);
+	*(status[i].value) = '\0';
+	for (j=0;j<pool_config->num_wd_monitoring_interfaces_list;j++)
+	{
+		len = POOLCONFIG_MAXVALLEN - strlen(status[i].value);
+		strncat(status[i].value, pool_config->wd_monitoring_interfaces_list[j], len);
+		len = POOLCONFIG_MAXVALLEN - strlen(status[i].value);
+		if (j != pool_config->num_wd_monitoring_interfaces_list-1)
+			strncat(status[i].value, ",", len);
+	}
+	StrNCpy(status[i].desc, "interfaces to monitor by watchdog", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	/*
 	 * end of watchdog
 	 */
@@ -822,7 +790,7 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	i++;
 
 	StrNCpy(status[i].name, "memqcache_total_size", POOLCONFIG_MAXNAMELEN);
-	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->memqcache_total_size);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%ld", pool_config->memqcache_total_size);
 	StrNCpy(status[i].desc, "Total memory size in bytes for storing memory cache. Mandatory if memqcache_method=shmem", POOLCONFIG_MAXDESCLEN);
 	i++;
 
@@ -1069,11 +1037,12 @@ POOL_REPORT_NODES* get_nodes(int *nrows)
 	{
 	    bi = pool_get_node_info(i);
 
-		snprintf(nodes[i].node_id, 	POOLCONFIG_MAXSTATLEN, 	"%d", 	i);
+		snprintf(nodes[i].node_id, 	POOLCONFIG_MAXIDLEN, 	"%d", 	i);
 	    StrNCpy(nodes[i].hostname, 	bi->backend_hostname, 		strlen(bi->backend_hostname)+1);
-	    snprintf(nodes[i].port, 	POOLCONFIG_MAXIDENTLEN, "%d", 	bi->backend_port);
+	    snprintf(nodes[i].port, 	POOLCONFIG_MAXPORTLEN, "%d", 	bi->backend_port);
 	    snprintf(nodes[i].status, 	POOLCONFIG_MAXSTATLEN, 	"%d", 	bi->backend_status);
 	    snprintf(nodes[i].lb_weight, POOLCONFIG_MAXWEIGHTLEN, "%f", bi->backend_weight/RAND_MAX);
+	    snprintf(nodes[i].select, POOLCONFIG_MAXWEIGHTLEN, "%lld", stat_get_select_count(i));
 
 		if (MASTER_SLAVE && !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP))
 			if (i == REAL_PRIMARY_NODE_ID)
@@ -1096,7 +1065,7 @@ POOL_REPORT_NODES* get_nodes(int *nrows)
 
 void nodes_reporting(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
 {
-	static char *field_names[] = {"node_id","hostname", "port", "status", "lb_weight", "role"};
+	static char *field_names[] = {"node_id","hostname", "port", "status", "lb_weight", "role", "select_cnt"};
 	short num_fields = sizeof(field_names)/sizeof(char *);
 	int i;
 	short s;
@@ -1148,6 +1117,11 @@ void nodes_reporting(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
 			hsize = htonl(size+4);
 			pool_write(frontend, &hsize, sizeof(hsize));
 			pool_write(frontend, nodes[i].role, size);
+
+			size = strlen(nodes[i].select);
+			hsize = htonl(size+4);
+			pool_write(frontend, &hsize, sizeof(hsize));
+			pool_write(frontend, nodes[i].select, size);
 		}
 	}
 	else
@@ -1163,6 +1137,7 @@ void nodes_reporting(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
 			len += 4 + strlen(nodes[i].status);    /* int32 + data; */
 			len += 4 + strlen(nodes[i].lb_weight); /* int32 + data; */
 			len += 4 + strlen(nodes[i].role);      /* int32 + data; */
+			len += 4 + strlen(nodes[i].select);    /* int32 + data; */
 			len = htonl(len);
 			pool_write(frontend, &len, sizeof(len));
 			s = htons(num_fields);
@@ -1191,6 +1166,10 @@ void nodes_reporting(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
 			len = htonl(strlen(nodes[i].role));
 			pool_write(frontend, &len, sizeof(len));
 			pool_write(frontend, nodes[i].role, strlen(nodes[i].role));
+
+			len = htonl(strlen(nodes[i].select));
+			pool_write(frontend, &len, sizeof(len));
+			pool_write(frontend, nodes[i].select, strlen(nodes[i].select));
 		}
 	}
 
@@ -1617,11 +1596,7 @@ void cache_reporting(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
 	static unsigned char nullmap[2] = {0xff, 0xff};
 	int nbytes = (num_fields + 7)/8;
 	volatile POOL_SHMEM_STATS *mystats;
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 	double ratio;
 
 #define POOL_CACHE_STATS_MAX_STRING_LEN 32

@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -57,6 +57,7 @@ volatile sig_atomic_t health_check_timer_expired;		/* non 0 if health check time
 static POOL_CONNECTION_POOL_SLOT *create_cp(POOL_CONNECTION_POOL_SLOT *cp, int slot);
 static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p);
 static int check_socket_status(int fd);
+static bool connect_with_timeout(int fd, struct addrinfo *walk, char *host, int port, bool retry);
 
 /*
 * initialize connection pools. this should be called once at the startup.
@@ -83,11 +84,7 @@ int pool_init_cp(void)
 */
 POOL_CONNECTION_POOL *pool_get_cp(char *user, char *database, int protoMajor, int check_socket)
 {
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	int i, freed = 0;
 	ConnectionInfo *info;
@@ -533,7 +530,16 @@ int connect_unix_domain_socket_by_port(int port, char *socket_dir, bool retry)
 	return fd;
 }
 
-bool connect_with_timeout(int fd, struct addrinfo *walk, char *host, int port, bool retry)
+/*
+ * Connet to backend using pool_config->connect_timeout.
+ *
+ * fd: the socket
+ * walk: backend address to connect
+ * host and port: backend hostname and port number. Only for error message
+ * purpose.
+ * retry: true if need to retry
+ */
+static bool connect_with_timeout(int fd, struct addrinfo *walk, char *host, int port, bool retry)
 {
 	struct timeval *tm;
 	struct timeval timeout;
@@ -652,7 +658,7 @@ bool connect_with_timeout(int fd, struct addrinfo *walk, char *host, int port, b
 					if (error != 0)
 					{
 						ereport(LOG,
-								(errmsg("failed to connect to PostgreSQL server on \"%s:%d\", getsockopt() detected error \"%s\"",host,port,strerror(errno))));
+								(errmsg("failed to connect to PostgreSQL server on \"%s:%d\", getsockopt() detected error \"%s\"",host,port,strerror(error))));
 						return false;
 					}
 				}
@@ -666,16 +672,32 @@ bool connect_with_timeout(int fd, struct addrinfo *walk, char *host, int port, b
 			}
 			else		/* select returns error */
 			{
-				if((errno == EINTR && retry) || errno == EAGAIN)
+				if ((errno == EINTR && retry) || errno == EAGAIN)
 				{
 					ereport(LOG,
 						(errmsg("trying to connect to PostgreSQL server on \"%s:%d\" using INET socket",host,port),
 							 errdetail("select() interrupted. retrying...")));
 					continue;
 				}
+
+				/*
+				 * select(2) was interrupted by certain signal and we guess it
+				 * was not SIGALRM because health_check_timer_expired was not
+				 * set (if the variable was set, we can assume that SIGALRM
+				 * handler was called). Surely this is not a health check time
+				 * out. We can assume that this is a transient case. So we
+				 * will retry again...
+				 */
+				if (health_check_timer_expired == 0 && errno == EINTR)
+				{
+					ereport(LOG,
+							(errmsg("connect_inet_domain_socket: select() interrupted by certain signal. retrying...")));
+					continue;
+				}
+
 				ereport(LOG,
 					(errmsg("failed to connect to PostgreSQL server on \"%s:%d\" using INET socket",host,port),
-						 errdetail("select() system call interrupted")));
+						 errdetail("select() system call failed with an error \"%s\"",strerror(errno))));
 				close(fd);
 				return false;
 			}
@@ -826,11 +848,14 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 			if (pool_config->fail_over_on_backend_error)
 			{
 				notice_backend_error(i);
+				ereport(FATAL,
+					(errmsg("failed to create a backend connection"),
+						 errdetail("executing failover on backend")));
 			}
 			else
 			{
-				ereport(LOG,
-					(errmsg("creating new connection to backend"),
+				ereport(FATAL,
+					(errmsg("failed to create a backend connection"),
 						 errdetail("not executing failover because fail_over_on_backend_error is off")));
 			}
 			child_exit(1);
@@ -844,6 +869,8 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 		BACKEND_INFO(i).backend_status = CON_UP;
 		active_backend_count++;
 	}
+
+	(void)write_status_file();
 
     MemoryContextSwitchTo(oldContext);
 

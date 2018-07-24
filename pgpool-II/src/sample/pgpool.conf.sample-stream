@@ -56,6 +56,9 @@ listen_backlog_multiplier = 2
                                    # Set the backlog parameter of listen(2) to
 								   # num_init_children * listen_backlog_multiplier.
                                    # (change requires restart)
+serialize_accept = off
+                                   # whether to serialize accept() call to avoid thundering herd problem
+                                   # (change requires restart)
 
 # - Backend Connection Settings -
 
@@ -333,6 +336,8 @@ sr_check_user = 'nobody'
                                    # replication delay check by sr_check_period = 0
 sr_check_password = ''
                                    # Password for streaming replication check user
+sr_check_database = 'postgres'
+                                   # Database name for streaming replication check
 delay_threshold = 10000000
                                    # Threshold before not dispatching query to standby node
                                    # Unit is in bytes
@@ -369,6 +374,8 @@ health_check_user = 'nobody'
                                    # Health check user
 health_check_password = ''
                                    # Password for health check user
+health_check_database = ''
+                                   # Database name for health check. If '', tries 'postgres' frist, 
 health_check_max_retries = 0
                                    # Maximum number of times to retry a failed health check before giving up.
 health_check_retry_delay = 1
@@ -478,9 +485,20 @@ wd_hostname = ''
 wd_port = 9000
                                     # port number for watchdog service
                                     # (change requires restart)
+wd_priority = 1
+									# priority of this watchdog in leader election
+									# (change requires restart)
+
 wd_authkey = ''
                                     # Authentication key for watchdog communication
                                     # (change requires restart)
+
+wd_ipc_socket_dir = '/tmp'
+									# Unix domain socket path for watchdog IPC socket
+									# The Debian package defaults to
+									# /var/run/postgresql
+									# (change requires restart)
+
 
 # - Virtual IP control Setting -
 
@@ -488,19 +506,18 @@ delegate_IP = ''
                                     # delegate IP address
                                     # If this is empty, virtual IP never bring up. 
                                     # (change requires restart)
-ifconfig_path = '/sbin'
-                                    # ifconfig command path
+if_cmd_path = '/sbin'
+                                    # path to the directory where if_up/down_cmd exists 
                                     # (change requires restart)
-if_up_cmd = 'ifconfig eth0:0 inet $_IP_$ netmask 255.255.255.0'
+if_up_cmd = 'ip addr add $_IP_$/24 dev eth0 label eth0:0'
                                     # startup delegate IP command
                                     # (change requires restart)
-if_down_cmd = 'ifconfig eth0:0 down'
+if_down_cmd = 'ip addr del $_IP_$/24 dev eth0'
                                     # shutdown delegate IP command
                                     # (change requires restart)
-
-arping_path = '/usr/sbin'           # arping command path
+arping_path = '/usr/sbin'
+                                    # arping command path
                                     # (change requires restart)
-
 arping_cmd = 'arping -U $_IP_$ -w 1'
                                     # arping command
                                     # (change requires restart)
@@ -517,13 +534,22 @@ clear_memqcache_on_escalation = on
 wd_escalation_command = ''
                                     # Executes this command at escalation on new active pgpool.
                                     # (change requires restart)
+wd_de_escalation_command = ''
+									# Executes this command when master pgpool resigns from being master.
+									# (change requires restart)
 
-# - Lifecheck Setting - 
+# - Lifecheck Setting -
 
 # -- common --
 
+wd_monitoring_interfaces_list = ''  # Comma separated list of interfaces names to monitor.
+									# if any interface from the list is active the watchdog will
+									# consider the network is fine
+									# 'any' to enable monitoring on all interfaces except loopback
+									# '' to disable monitoring
+
 wd_lifecheck_method = 'heartbeat'
-                                    # Method of watchdog lifecheck ('heartbeat' or 'query')
+                                    # Method of watchdog lifecheck ('heartbeat' or 'query' or 'external')
                                     # (change requires restart)
 wd_interval = 10
                                     # lifecheck interval (sec) > 0

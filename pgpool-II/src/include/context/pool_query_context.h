@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -68,6 +68,7 @@ typedef struct {
 								 * query and parsed node is actually a dummy query.
 								 */
 	int num_original_params; /* number of parameters in original query */
+	MemoryContext memory_context;	/* memory context for query context */
 } POOL_QUERY_CONTEXT;
 
 extern POOL_QUERY_CONTEXT *pool_init_query_context(void);
@@ -83,7 +84,7 @@ extern void pool_setall_node_to_be_sent(POOL_QUERY_CONTEXT *query_context);
 extern bool pool_multi_node_to_be_sent(POOL_QUERY_CONTEXT *query_context);
 extern void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *node);
 extern POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context, int send_type, int node_id);
-extern POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context, char *kind, int len, char *contents, int send_type, int node_id);
+extern POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context, char *kind, int len, char *contents, int send_type, int node_id, bool nowait);
 extern Node *pool_get_parse_tree(void);
 extern char *pool_get_query_string(void);
 extern bool is_set_transaction_serializable(Node *node);
@@ -101,5 +102,6 @@ extern void pool_unset_cache_safe(void);
 extern bool pool_is_cache_exceeded(void);
 extern void pool_set_cache_exceeded(void);
 extern void pool_unset_cache_exceeded(void);
+extern bool pool_is_transaction_read_only(Node *node);
 
 #endif /* POOL_QUERY_CONTEXT_H */

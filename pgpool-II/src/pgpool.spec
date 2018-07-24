@@ -1,16 +1,26 @@
 # How to build RPM:
-#   rpmbuild -ba pgpool.spec --define="pgpool_version 3.4rc1" --define="pg_version 93" --define="pghome /usr/pgsql-9.3"
+#   rpmbuild -ba pgpool.spec --define="pgpool_version 3.4.0" --define="pg_version 93" --define="pghome /usr/pgsql-9.3" --define="dist .rhel6"
 #
 # expecting RPM name are:
-#   pgpool-II-pg{xx}-{version}.pgdg.{arch}.rpm
-#   pgpool-II-pg{xx}-devel-{version}.pgdg.{arch}.rpm
-#   pgpool-II-pg{xx}-extensions-{version}.pgdg.{arch}.rpm
-#   pgpool-II-pg{xx}-{version}.pgdg.src.rpm
+#   pgpool-II-pg{pg_version}-{pgpool_version}-{rel}pgdg.rhel{v}.{arch}.rpm
+#   pgpool-II-pg{pg_version}-devel-{pgpool_version}-{rel}pgdg.rhel{v}.{arch}.rpm
+#   pgpool-II-pg{pg_version}-extensions-{pgpool_version}-{rel}pgdg.rhel{v}.{arch}.rpm
+#   pgpool-II-pg{pg_version}-{pgpool_version}-{rel}pgdg.rhel{v}.src.rpm
+
+%global short_name  pgpool-II
+
+%if 0%{rhel} && 0%{rhel} <= 6
+  %global systemd_enabled 0
+%else
+  %global systemd_enabled 1
+%endif
+
+%global _varrundir %{_localstatedir}/run/pgpool
 
 Summary:        Pgpool is a connection pooling/replication server for PostgreSQL
 Name:           pgpool-II-pg%{pg_version}
 Version:        %{pgpool_version}
-Release:        1%{?dist}
+Release:        1pgdg%{?dist}
 License:        BSD
 Group:          Applications/Databases
 Vendor:         Pgpool Global Development Group
@@ -18,8 +28,28 @@ URL:            http://www.pgppol.net/
 Source0:        pgpool-II-%{version}.tar.gz
 Source1:        pgpool.init
 Source2:        pgpool.sysconfig
+%if %{systemd_enabled}
+Source3:        pgpool.service
+%endif
+Patch1:         pgpool-II-head.patch
+%if %{pg_version} >=94 && %{rhel} >= 7
+Patch2:         pgpool_socket_dir.patch
+%endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel
+BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel
+%if %{systemd_enabled}
+BuildRequires:    systemd
+Requires:         systemd
+Requires(post):   systemd-sysv
+Requires(post):   systemd
+Requires(preun):  systemd
+Requires(postun): systemd
+%else
+Requires(post):   chkconfig
+Requires(preun):  chkconfig
+Requires(preun):  initscripts
+Requires(postun): initscripts
+%endif
 Obsoletes:      postgresql-pgpool
 
 # original pgpool archive name
@@ -34,14 +64,6 @@ replication and load balancing functions. pgpool-I allows a
 user to connect at most two PostgreSQL servers for higher
 availability or for higher search performance compared to a
 single PostgreSQL server.
-
-pgpool-II, on the other hand, allows multiple PostgreSQL
-servers (DB nodes) to be connected, which enables queries
-to be executed simultaneously on all servers. In other words,
-it enables "parallel query" processing. Also, pgpool-II can
-be started as pgpool-I by changing configuration parameters.
-pgpool-II that is executed in pgpool-I mode enables multiple
-DB nodes to be connected, which was not possible in pgpool-I.
 
 %package devel
 Summary:     The development files for pgpool-II
@@ -59,35 +81,58 @@ Postgresql extensions libraries and sql files for pgpool-II.
 
 %prep
 %setup -q -n %{archive_name}
+%patch1 -p1
+%if %{pg_version} >=94 && %{rhel} >= 7
+%patch2 -p0
+%endif
 
 %build
 %configure --with-pgsql=%{pghome} \
-           --disable-static --with-pam --with-openssl --disable-rpath \
-           --sysconfdir=%{_sysconfdir}/pgpool-II/
+           --disable-static \
+           --with-pam \
+           --with-openssl \
+           --with-memcached=%{_usr} \
+           --disable-rpath \
+           --sysconfdir=%{_sysconfdir}/%{short_name}/
 
-make %{?_smp_flags}
+make %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
-make %{?_smp_flags} DESTDIR=%{buildroot} install
-install -d %{buildroot}%{_datadir}/pgpool-II
-install -d %{buildroot}%{_sysconfdir}/pgpool-II
-mv %{buildroot}/%{_sysconfdir}/pgpool-II/pcp.conf.sample %{buildroot}%{_sysconfdir}/pgpool-II/pcp.conf
-mv %{buildroot}/%{_sysconfdir}/pgpool-II/pgpool.conf.sample %{buildroot}%{_sysconfdir}/pgpool-II/pgpool.conf
-mv %{buildroot}/%{_sysconfdir}/pgpool-II/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/pgpool-II/pool_hba.conf
-install -d %{buildroot}%{_initrddir}
-install -m 755 %{SOURCE1} %{buildroot}%{_initrddir}/pgpool
-install -d %{buildroot}%{_sysconfdir}/sysconfig
-install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/sysconfig/pgpool
+
+# make pgpool-II
+export PATH=%{pghome}/bin:$PATH
+make %{?_smp_mflags} DESTDIR=%{buildroot} install
 
 # install to PostgreSQL
-export PATH=%{pghome}/bin:$PATH
-cd src/sql/pgpool-recovery/
-make %{?_smp_flags} DESTDIR=%{buildroot} install
-cd ../../../
-cd src/sql/pgpool-regclass/
-make %{?_smp_flags} DESTDIR=%{buildroot} install
-cd ../../../
+make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool-recovery
+%if %{pg_version} <= 93
+# From PostgreSQL 9.4 pgpool-regclass.so is not needed anymore
+# because 9.4 or later has to_regclass.
+make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool-regclass
+%endif
+
+install -d %{buildroot}%{_datadir}/%{short_name}
+install -d %{buildroot}%{_sysconfdir}/%{short_name}
+mv %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf
+mv %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf
+mv %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf
+
+%if %{systemd_enabled}
+install -d %{buildroot}%{_unitdir}
+install -m 644 %{SOURCE3} %{buildroot}%{_unitdir}/pgpool.service
+
+mkdir -p %{buildroot}%{_tmpfilesdir}
+cat > %{buildroot}%{_tmpfilesdir}/%{name}.conf <<EOF
+d %{_varrundir} 0755 root root -
+EOF
+%else
+install -d %{buildroot}%{_initrddir}
+install -m 755 %{SOURCE1} %{buildroot}%{_initrddir}/pgpool
+%endif
+
+install -d %{buildroot}%{_sysconfdir}/sysconfig
+install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/sysconfig/pgpool
 
 # nuke libtool archive and static lib
 rm -f %{buildroot}%{_libdir}/libpcp.{a,la}
@@ -97,20 +142,50 @@ rm -rf %{buildroot}
 
 %post
 /sbin/ldconfig
-chkconfig --add pgpool
+
+%if %{systemd_enabled}
+%systemd_post pgpool.service
+%tmpfiles_create
+%else
+/sbin/chkconfig --add pgpool
+%endif
 
 %preun
+%if %{systemd_enabled}
+%systemd_preun pgpool.service
+%else
 if [ $1 = 0 ] ; then
-    /sbin/service pgpool condstop >/dev/null 2>&1
-    chkconfig --del pgpool
+  /sbin/service pgpool condstop >/dev/null 2>&1
+  chkconfig --del pgpool
 fi
+%endif
 
-%postun -p /sbin/ldconfig
+%postun
+/sbin/ldconfig
+
+%if %{systemd_enabled}
+%systemd_postun_with_restart pgpool.service
+
+%triggerun -- pgpool < 3.1-1
+# Save the current service runlevel info
+# User must manually run systemd-sysv-convert --apply pgpool
+# to migrate them to systemd targets
+/usr/bin/systemd-sysv-convert --save pgpool >/dev/null 2>&1 ||:
+
+# Run these because the SysV package being removed won't do them
+/sbin/chkconfig --del pgpool >/dev/null 2>&1 || :
+/bin/systemctl try-restart pgpool.service >/dev/null 2>&1 || :
+
+%else
+if [ $1 -ge 1 ] ; then
+  /sbin/service pgpool condrestart >/dev/null 2>&1 || :
+fi
+%endif
 
 %files
 %defattr(-,root,root,-)
-%dir %{_datadir}/pgpool-II
-%doc README TODO COPYING INSTALL AUTHORS ChangeLog NEWS doc/pgpool-en.html doc/pgpool-ja.html doc/pgpool.css doc/tutorial-en.html doc/tutorial-ja.html
+%dir %{_datadir}/%{short_name}
+%doc README TODO COPYING INSTALL AUTHORS ChangeLog NEWS doc/pgpool-en.html doc/pgpool-ja.html doc/pgpool-zh_cn.html doc/pgpool.css doc/tutorial-en.html doc/tutorial-ja.html
 %{_bindir}/pgpool
 %{_bindir}/pcp_attach_node
 %{_bindir}/pcp_detach_node
@@ -122,19 +197,23 @@ fi
 %{_bindir}/pcp_promote_node
 %{_bindir}/pcp_stop_pgpool
 %{_bindir}/pcp_recovery_node
-%{_bindir}/pcp_systemdb_info
 %{_bindir}/pcp_watchdog_info
 %{_bindir}/pg_md5
 %{_mandir}/man8/pgpool*
-%{_datadir}/pgpool-II/insert_lock.sql
-%{_datadir}/pgpool-II/system_db.sql
-%{_datadir}/pgpool-II/pgpool.pam
-%{_sysconfdir}/pgpool-II/pgpool.conf.sample-master-slave
-%{_sysconfdir}/pgpool-II/pgpool.conf.sample-replication
-%{_sysconfdir}/pgpool-II/pgpool.conf.sample-stream
+%{_datadir}/%{short_name}/insert_lock.sql
+%{_datadir}/%{short_name}/pgpool.pam
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-master-slave
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
 %{_libdir}/libpcp.so.*
+%if %{systemd_enabled}
+%ghost %{_varrundir}
+%{_tmpfilesdir}/%{name}.conf
+%{_unitdir}/pgpool.service
+%else
 %{_initrddir}/pgpool
-%attr(764,root,root) %config(noreplace) %{_sysconfdir}/pgpool-II/*.conf
+%endif
+%attr(764,root,root) %config(noreplace) %{_sysconfdir}/%{short_name}/*.conf
 %config(noreplace) %{_sysconfdir}/sysconfig/pgpool
 
 %files devel
@@ -150,21 +229,46 @@ fi
 %{pghome}/share/extension/pgpool-recovery.sql
 %{pghome}/share/extension/pgpool_recovery--1.1.sql
 %{pghome}/share/extension/pgpool_recovery.control
-%{pghome}/share/extension/pgpool-regclass.sql
-%{pghome}/share/extension/pgpool_regclass--1.0.sql
-%{pghome}/share/extension/pgpool_regclass.control
 %{pghome}/lib/pgpool-recovery.so
 # From PostgreSQL 9.4 pgpool-regclass.so is not needed anymore
 # because 9.4 or later has to_regclass.
 %if %{pg_version} <= 93
+  %{pghome}/share/extension/pgpool_regclass--1.0.sql
+  %{pghome}/share/extension/pgpool_regclass.control
+  %{pghome}/share/extension/pgpool-regclass.sql
   %{pghome}/lib/pgpool-regclass.so
 %endif
 
 %changelog
+* Mon Dec 28 2015 Yugo Nagata <nagata@sraoss.co.jp> 3.5.0
+- Add Chinese document
+
+* Mon Aug 24 2015 Yugo Nagata <nagata@sraoss.co.jp> 3.5.0
+- Remove system database 
+
+* Tue Feb 10 2015 Nozomi Anzai <anzai@sraoss.co.jp> 3.4.1-2
+- Fix %tmpfiles_create to not be executed in RHEL/CentOS 6
+
+* Wed Jan 28 2015 Nozomi Anzai <anzai@sraoss.co.jp> 3.4.1
+- Fix typo of %{_smp_mflags}
+- Change to use systemd if it is available
+
+* Sat Dec 20 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.4.0-3
+- Fix "error: Installed (but unpackaged) file(s) found"
+
+* Fri Nov 21 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.4.0-2
+- Re-enable to apply difference from HEAD patch.
+
+* Tue Nov 18 2014 Yugo Nagata <nagata@sraoss.co.jp> 3.4.0-2
+- Rename RPM filename to include RHEL version no.
+
+* Tue Nov 11 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.4.0-2
+- Add memcached support to configure.
+
 * Tue Oct 21 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.4beta2
 - Adopt to PostgreSQL 9.4
 
-* Mon Sep 25 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.3.4-2
+* Thu Sep 25 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.3.4-2
 - Split pgpool_regclass and pgpool_recovery as a separate extention package.
 - Fix wrong OpenSSL build option.
 
@@ -175,7 +279,7 @@ fi
 - Add PATCH2 which is diff between 3.3.3 and 3.3-stable tree head.
 - RPM expert said this is the better way.
 
-* Sun May 10 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.3.3-3
+* Sat May 10 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.3.3-3
 - Use 3.3-stable tree head
 
 * Sun May 4 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.3.3-2
@@ -255,12 +359,12 @@ fi
 - added --disable-rpath configure parameter.
 - Chowned sample conf files, so that they can work with pgpoolAdmin.
 
-* Thu Apr 22 2007 Devrim Gunduz <devrim@CommandPrompt.com> 1.0.2-4
+* Sun Apr 22 2007 Devrim Gunduz <devrim@CommandPrompt.com> 1.0.2-4
 - Added postgresql-devel as BR, per bugzilla review.
 - Added --disable-static flan, per bugzilla review.
 - Removed superfluous manual file installs, per bugzilla review.
 
-* Thu Apr 22 2007 Devrim Gunduz <devrim@CommandPrompt.com> 1.0.2-3
+* Sun Apr 22 2007 Devrim Gunduz <devrim@CommandPrompt.com> 1.0.2-3
 - Rebuilt for the correct tarball
 - Fixed man8 file ownership, per bugzilla review #229321
 
@@ -284,10 +388,10 @@ fi
 - Fix .so link problem
 - Cosmetic changes to spec file
 
-* Thu Sep 27 2006 - Devrim GUNDUZ <devrim@commandprompt.com> 1.0.1-3
+* Wed Sep 27 2006 - Devrim GUNDUZ <devrim@commandprompt.com> 1.0.1-3
 - Fix spec, per Yoshiyuki Asaba
 
-* Thu Sep 26 2006 - Devrim GUNDUZ <devrim@commandprompt.com> 1.0.1-2
+* Tue Sep 26 2006 - Devrim GUNDUZ <devrim@commandprompt.com> 1.0.1-2
 - Fixed rpmlint errors
 - Fixed download url
 - Added ldconfig for .so files

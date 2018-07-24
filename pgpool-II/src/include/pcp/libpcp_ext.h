@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -25,7 +25,8 @@
 
 #ifndef LIBPCP_EXT_H
 #define LIBPCP_EXT_H
-
+#include <signal.h>
+#include <stdio.h>
 /*
  * startup packet definitions (v2) stolen from PostgreSQL
  */
@@ -62,7 +63,12 @@ typedef struct {
 } BackendInfo;
 
 typedef struct {
-	int num_backends;		/* number of used PostgreSQL backends */
+	sig_atomic_t num_backends;		/* Number of used PostgreSQL backends.
+									 * This needs to be a sig_atomic_t type
+									 * since it is replaced by a local
+									 * variable while reloading pgpool.conf.
+									 */
+
 	BackendInfo backend_info[MAX_NUM_BACKENDS];
 } BackendDesc;
 /*
@@ -108,60 +114,13 @@ typedef struct {
 } ProcessInfo;
 
 /*
- * 
- * system db structure
- */
-typedef struct {
-	char *dbname;			/* database name */
-	char *schema_name;		/* schema name */
-	char *table_name;		/* table name */
-	char *dist_key_col_name;/* column name for dist key */
-	int  dist_key_col_id;	/* column index id for dist key */
-	int  col_num;			/* number of column*/
-	char **col_list;		/* column list */
-	char **type_list;		/* type list */
-	char *dist_def_func;	/* function name of distribution rule */
-	char *prepare_name;		/* prepared statement name */
-	int is_created_prepare;	/* is prepare statement created? */
-} DistDefInfo;
-
-typedef struct {
-	char *dbname;     /* database name */
-	char *schema_name;    /* schema name */
-	char *table_name;   /* table name */
-	int  col_num;     /* number of column*/
-	char **col_list;    /* column list */
-	char **type_list;   /* type list */
-	char *prepare_name;   /* prepared statement name */
-	int is_created_prepare; /* is prepare statement created? */
-} RepliDefInfo;
-
-typedef struct {
-	int has_prepared_statement;	/* true if the current session has prepared statement created */
-	char *register_prepared_statement; /* prepared statement name for cache register */
-} QueryCacheTableInfo;
-
-typedef struct {
-	char *hostname;     /* host name */
-	int port;       /* port number */
-	char *user;       /* login user name */
-	char *password;     /* login password */
-	char *schema_name;    /* schema name */
-	char *database_name;  /* database name */
-	int repli_def_num;    /* number of replication table */
-	int dist_def_num;   /* number of distribution table */
-	RepliDefInfo *repli_def_slot; /* replication rule list */
-	DistDefInfo *dist_def_slot; /* distribution rule list */
-	QueryCacheTableInfo query_cache_table_info; /* query cache db session info */
-	BACKEND_STATUS system_db_status;
-} SystemDBInfo;
-/*
  * reporting types
  */
 /* some length definitions */
+#define POOLCONFIG_MAXIDLEN 4
 #define POOLCONFIG_MAXNAMELEN 64
 #define POOLCONFIG_MAXVALLEN 512
-#define POOLCONFIG_MAXDESCLEN 64
+#define POOLCONFIG_MAXDESCLEN 80
 #define POOLCONFIG_MAXIDENTLEN 63
 #define POOLCONFIG_MAXPORTLEN 6
 #define POOLCONFIG_MAXSTATLEN 2
@@ -178,12 +137,13 @@ typedef struct {
 
 /* nodes report struct */
 typedef struct {
-	char node_id[POOLCONFIG_MAXSTATLEN+1];
+	char node_id[POOLCONFIG_MAXIDLEN+1];
 	char hostname[POOLCONFIG_MAXIDENTLEN+1];
-	char port[POOLCONFIG_MAXIDENTLEN+1];
+	char port[POOLCONFIG_MAXPORTLEN+1];
 	char status[POOLCONFIG_MAXSTATLEN+1];
 	char lb_weight[POOLCONFIG_MAXWEIGHTLEN+1];
 	char role[POOLCONFIG_MAXWEIGHTLEN+1];
+	char select[POOLCONFIG_MAXWEIGHTLEN+1];
 } POOL_REPORT_NODES;
 
 /* processes report struct */
@@ -217,34 +177,87 @@ typedef struct {
 	char version[POOLCONFIG_MAXVALLEN+1];
 } POOL_REPORT_VERSION;
 
+typedef enum {
+	PCP_CONNECTION_OK,
+	PCP_CONNECTION_CONNECTED,
+	PCP_CONNECTION_NOT_CONNECTED,
+	PCP_CONNECTION_BAD,
+	PCP_CONNECTION_AUTH_ERROR
+}ConnStateType;
+
+typedef enum {
+	PCP_RES_COMMAND_OK,
+	PCP_RES_BAD_RESPONSE,
+	PCP_RES_BACKEND_ERROR,
+	PCP_RES_INCOMPLETE,
+	PCP_RES_ERROR
+}ResultStateType;
+
+struct PCPConnInfo;
+
+typedef struct {
+	int			isint;		/* 1 if data in slot is integer, 0 otherwise */
+	int			datalen;	/* Length of binary data*/
+	union
+	{
+		int* ptr;
+		int integer;
+	}data;
+	void (*free_func)(struct PCPConnInfo*,void*);	/* custom free function deep free of data */
+}PCPResultSlot;
+
+typedef struct {
+	ResultStateType resultStatus;
+	int				resultSlots;	/* Total number of slots contained in this result */
+	int				nextFillSlot;	/* internal to keep track of last filled slot */
+	PCPResultSlot	resultSlot[1];	/* variable length slots */
+}PCPResultInfo;
+
+typedef struct PCPConnInfo{
+	void		*pcpConn;
+	char	    *errMsg;			/* error message, or NULL if no error */
+	ConnStateType	connState;
+	PCPResultInfo   *pcpResInfo;
+	FILE		*Pfdebug;			/* File pointer to output debug infor */
+}PCPConnInfo;
+
 struct WdInfo;
 
-extern int pcp_connect(char *hostname, int port, char *username, char *password);
-extern void pcp_disconnect(void);
-extern int pcp_terminate_pgpool(char mode);
-extern int pcp_node_count(void);
-extern BackendInfo *pcp_node_info(int nid);
-extern int *pcp_process_count(int *process_count);
-extern ProcessInfo *pcp_process_info(int pid, int *array_size);
-extern SystemDBInfo *pcp_systemdb_info(void);
-extern void free_systemdb_info(SystemDBInfo * si);
-extern int pcp_detach_node(int nid);
-extern int pcp_detach_node_gracefully(int nid);
-extern int pcp_attach_node(int nid);
-extern POOL_REPORT_CONFIG* pcp_pool_status(int *array_size);
-extern void pcp_set_timeout(long sec);
-extern int pcp_recovery_node(int nid);
-extern void pcp_enable_debug(void);
-extern void pcp_disable_debug(void);
-extern int pcp_promote_node(int nid);
-extern int pcp_promote_node_gracefully(int nid);
-extern struct WdInfo *pcp_watchdog_info(int nid);
+extern PCPConnInfo* pcp_connect(char *hostname, int port, char *username, char *password, FILE *Pfdebug);
+extern void pcp_disconnect(PCPConnInfo* pcpConn);
 
+extern PCPResultInfo *pcp_terminate_pgpool(PCPConnInfo* pcpCon,char mode);
+extern PCPResultInfo *pcp_node_count(PCPConnInfo* pcpCon);
+extern PCPResultInfo *pcp_node_info(PCPConnInfo* pcpCon, int nid);
+
+extern PCPResultInfo *pcp_process_count(PCPConnInfo* pcpConn);
+extern PCPResultInfo *pcp_process_info(PCPConnInfo* pcpConn, int pid);
+
+extern PCPResultInfo *pcp_detach_node(PCPConnInfo* pcpConn,int nid);
+extern PCPResultInfo *pcp_detach_node_gracefully(PCPConnInfo* pcpConn,int nid);
+extern PCPResultInfo *pcp_attach_node(PCPConnInfo* pcpConn, int nid);
+extern PCPResultInfo *pcp_pool_status(PCPConnInfo *pcpConn);
+extern PCPResultInfo *pcp_recovery_node(PCPConnInfo* pcpConn, int nid);
+extern PCPResultInfo *pcp_promote_node(PCPConnInfo* pcpConn, int nid);
+extern PCPResultInfo *pcp_promote_node_gracefully(PCPConnInfo* pcpConn,int nid);
+extern PCPResultInfo *pcp_watchdog_info(PCPConnInfo* pcpConn, int nid);
+extern PCPResultInfo *pcp_set_backend_parameter(PCPConnInfo* pcpConn,char* parameter_name, char* value);
+
+
+extern ResultStateType PCPResultStatus(const PCPResultInfo *res);
+extern ConnStateType PCPConnectionStatus(const PCPConnInfo *conn);
+extern void* pcp_get_binary_data(const PCPResultInfo *res, unsigned int slotno);
+extern int pcp_get_int_data(const PCPResultInfo *res, unsigned int slotno);
+extern int pcp_get_data_length(const PCPResultInfo *res, unsigned int slotno);
+extern void pcp_free_result(PCPConnInfo* pcpConn);
+extern void pcp_free_connection(PCPConnInfo* pcpConn);
+extern int pcp_result_slot_count(PCPResultInfo* res);
+extern char *pcp_get_last_error(PCPConnInfo* pcpConn);
+
+extern int pcp_result_is_empty(PCPResultInfo* res);
 /* ------------------------------
  * pcp_error.c
  * ------------------------------
  */
-//extern ErrorCode errorcode;
-//extern void pcp_errorstr(ErrorCode e);
 
 #endif /* LIBPCP_EXT_H */

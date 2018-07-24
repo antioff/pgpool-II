@@ -5,7 +5,7 @@
  *
  * Because of the extremely high rate at which log messages can be generated,
  * we need to be mindful of the performance cost of obtaining any information
- * that may be logged.	Also, it's important to keep in mind that this code may
+ * that may be logged.  Also, it's important to keep in mind that this code may
  * get called from within an aborted transaction, in which case operations
  * such as syscache lookups are unsafe.
  *
@@ -15,12 +15,12 @@
  * if we run out of memory, it's important to be able to report that fact.
  * There are a number of considerations that go into this.
  *
- * First, distinguish between re-entrant use and actual recursion.	It
+ * First, distinguish between re-entrant use and actual recursion.  It
  * is possible for an error or warning message to be emitted while the
  * parameters for an error message are being computed.	In this case
  * errstart has been called for the outer message, and some field values
- * may have already been saved, but we are not actually recursing.	We handle
- * this by providing a (small) stack of ErrorData records.	The inner message
+ * may have already been saved, but we are not actually recursing.  We handle
+ * this by providing a (small) stack of ErrorData records.  The inner message
  * can be computed and sent without disturbing the state of the outer message.
  * (If the inner message is actually an error, this isn't very interesting
  * because control won't come back to the outer message generator ... but
@@ -43,8 +43,8 @@
  * overflow.)
  *
  *
- * Portions Copyright (c) 2003-2014, PgPool Global Development Group
- * Portions Copyright (c) 1996-2013, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2015, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -93,12 +93,15 @@ struct ONEXIT on_exit_prepare = {NULL,0L};
  * (or in the parent postmaster).
  */
 static bool atexit_callback_setup = false;
+
 /*
  * This flag is set during proc_exit() to change ereport()'s behavior,
  * so that an ereport() from an on_proc_exit routine cannot get us out
  * of the exit procedure.  We do NOT want to go back to the idle loop...
  */
+
 bool		proc_exit_inprogress = false;
+
 /* local functions */
 static void proc_exit_prepare(int code);
 
@@ -146,7 +149,6 @@ static void write_syslog(int level, const char *line);
 static void send_message_to_server_log(ErrorData *edata);
 static void send_message_to_frontend(ErrorData *edata);
 static void write_console(const char *line, int len);
-static void send_message_to_frontend(ErrorData *edata);
 static void log_line_prefix(StringInfo buf, const char *line_prefix, ErrorData *edata);
 static const char *process_log_prefix_padding(const char *p, int *ppadding);
 #ifdef WIN32
@@ -162,6 +164,8 @@ static ErrorData errordata[ERRORDATA_STACK_SIZE];
 static int	errordata_stack_depth = -1; /* index of topmost active frame */
 
 static int	recursion_depth = 0;	/* to detect actual recursion */
+
+static int	frontend_error_recursion_depth = 0;	/* to detect recursion in delivering error to frontend clients */
 
 
 /* Macro for checking errordata_stack_depth is reasonable */
@@ -198,25 +202,6 @@ in_error_recursion_trouble(void)
 }
 
 /*
- * One of those fallback steps is to stop trying to localize the error
- * message, since there's a significant probability that that's exactly
- * what's causing the recursion.
- */
-static inline const char *
-err_gettext(const char *str)
-{
-#ifdef ENABLE_NLS
-	if (in_error_recursion_trouble())
-		return str;
-	else
-		return gettext(str);
-#else
-	return str;
-#endif
-}
-
-
-/*
  * errstart --- begin an error-reporting cycle
  *
  * Create a stack entry and store the given parameters in it.  Subsequently,
@@ -235,11 +220,17 @@ errstart(int elevel, const char *filename, int lineno,
 	bool		output_to_server;
 	bool		output_to_client = false;
 	int			i;
-
+	int			frontend_invalid = false;
 	/*
 	 * Check some cases in which we want to promote an error into a more
 	 * severe error.  None of this logic applies for non-error messages.
 	 */
+	if (elevel == FRONTEND_ERROR)
+	{
+		frontend_invalid = true;
+		elevel = ERROR;
+	}
+
 	if (elevel >= ERROR)
 	{
 		/*
@@ -282,8 +273,9 @@ errstart(int elevel, const char *filename, int lineno,
 	/* Determine whether message is enabled for server log output */
 	output_to_server = is_log_level_output(elevel, pool_config->log_min_messages);
 
+
 	/* Determine whether message is enabled for client output */
-	if (whereToSendOutput == DestRemote && elevel != COMMERROR)
+	if (elevel != COMMERROR)
 	{
 		/*
 		 * client_min_messages is honored only after we complete the
@@ -321,6 +313,7 @@ errstart(int elevel, const char *filename, int lineno,
 		if (in_error_recursion_trouble())
 		{
 			error_context_stack = NULL;
+			output_to_client = false;
 		}
 	}
 	if (++errordata_stack_depth >= ERRORDATA_STACK_SIZE)
@@ -338,9 +331,13 @@ errstart(int elevel, const char *filename, int lineno,
 	edata = &errordata[errordata_stack_depth];
 	MemSet(edata, 0, sizeof(ErrorData));
 	edata->elevel = elevel;
+	edata->frontend_invalid = frontend_invalid;
 	edata->output_to_server = output_to_server;
 	edata->output_to_client = output_to_client;
-	edata->retcode = 1;
+	if(elevel == FATAL && PG_exception_stack == NULL) /* This is startup failure. Take down main process with it */
+		edata->retcode = POOL_EXIT_FATAL;
+	else
+		edata->retcode = POOL_EXIT_NOFATAL;
 	if (filename)
 	{
 		const char *slash;
@@ -547,15 +544,6 @@ int pool_error_code(const char *errcode)
 	return 0;					/* return value does not matter */
 }
 
-/*
- * errcode_for_socket_access --- add SQLSTATE error code to the current error
- *
- * The SQLSTATE code is chosen based on the saved errno value.	We assume
- * that the failing operation was some type of socket access.
- *
- * NOTE: the primary error message string should generally include %m
- * when this is used.
- */
 
 /*
  * This macro handles expansion of a format string and associated parameters;
@@ -587,13 +575,13 @@ int pool_error_code(const char *errcode)
 		for (;;) \
 		{ \
 			va_list		args; \
-			bool		success; \
+			int			needed; \
 			va_start(args, fmt); \
-			success = appendStringInfoVA(&buf, fmtbuf, args); \
+			needed = appendStringInfoVA(&buf, fmtbuf, args); \
 			va_end(args); \
-			if (success) \
+			if (needed == 0) \
 				break; \
-			enlargeStringInfo(&buf, buf.maxlen); \
+			enlargeStringInfo(&buf, needed); \
 		} \
 		/* Done with expanded fmt */ \
 		pfree(fmtbuf); \
@@ -630,13 +618,13 @@ int pool_error_code(const char *errcode)
 		for (;;) \
 		{ \
 			va_list		args; \
-			bool		success; \
+			int			needed; \
 			va_start(args, n); \
-			success = appendStringInfoVA(&buf, fmtbuf, args); \
+			needed = appendStringInfoVA(&buf, fmtbuf, args); \
 			va_end(args); \
-			if (success) \
+			if (needed == 0) \
 				break; \
-			enlargeStringInfo(&buf, buf.maxlen); \
+			enlargeStringInfo(&buf, needed); \
 		} \
 		/* Done with expanded fmt */ \
 		pfree(fmtbuf); \
@@ -983,6 +971,21 @@ geterrcode(void)
 }
 
 /*
+ * getfrontendinvalid --- return the currently frontend_invalid value
+ *
+ * This is only intended for use in error callback subroutines, since there
+ * is no other place outside elog.c where the concept is meaningful.
+ */
+bool getfrontendinvalid(void)
+{
+	ErrorData  *edata = &errordata[errordata_stack_depth];
+
+	/* we don't bother incrementing recursion_depth */
+	CHECK_STACK_DEPTH();
+
+	return edata->frontend_invalid;
+}
+/*
  * geterrposition --- return the currently set error position (0 if none)
  *
  * This is only intended for use in error callback subroutines, since there
@@ -1241,6 +1244,7 @@ FlushErrorState(void)
 	 */
 	errordata_stack_depth = -1;
 	recursion_depth = 0;
+	frontend_error_recursion_depth = 0;
 	/* Delete all data in ErrorContext */
 	MemoryContextResetAndDeleteChildren(ErrorContext);
 }
@@ -1593,7 +1597,7 @@ write_eventlog(int level, const char *line, int len)
 
 	if (evtHandle == INVALID_HANDLE_VALUE)
 	{
-		evtHandle = RegisterEventSource(NULL, event_source ? event_source : "PostgreSQL");
+		evtHandle = RegisterEventSource(NULL, event_source ? event_source : "pgpool");
 		if (evtHandle == NULL)
 		{
 			evtHandle = INVALID_HANDLE_VALUE;
@@ -1742,28 +1746,39 @@ write_console(const char *line, int len)
 static void
 send_message_to_frontend(ErrorData *edata)
 {
-    if(processType != PT_CHILD)
-        return;
-    if(edata->elevel < NOTICE)
-        return;
+	int protoVersion = PROTO_MAJOR_V3; /* default protocol version is V3 also used by pcp lib */
 
-    POOL_SESSION_CONTEXT *session = pool_get_session_context(true);
-    if(!session || !session->frontend)
-        return;
+	if (pool_frontend_exists() < 0 )
+		return;
+	/*
+	 * Leave if we are failing on sending the message to frontend.
+	 */
+	if (++frontend_error_recursion_depth > 2)
+		return;
 
-    POOL_CONNECTION *frontend = session->frontend;
-
-	pool_set_nonblock(frontend->fd);
-    
-	if (frontend->protoVersion == PROTO_MAJOR_V2)
+	if(processType == PT_CHILD)
 	{
-        char* message = edata->message?edata->message:"missing error text";
-		pool_write_noerror(frontend, (edata->elevel < ERROR) ? "N" : "E", 1);
-        pool_write_noerror(frontend, message, strlen(message));
-        pool_write_noerror(frontend, "\n", 1);
-        pool_flush_it(frontend);
+		/*
+		 * Do not forward the debug messages to client before session is initialized
+		 */
+		if (edata->elevel < ERROR && pool_get_session_context(true) == NULL)
+		{
+			frontend_error_recursion_depth--;
+			return;
+		}
+		protoVersion = get_frontend_protocol_version();
+		set_pg_frontend_blocking(false);
 	}
-	else if (frontend->protoVersion == PROTO_MAJOR_V3)
+
+	if (protoVersion == PROTO_MAJOR_V2)
+	{
+		char* message = edata->message?edata->message:"missing error text";
+		pool_send_to_frontend((edata->elevel < ERROR) ? "N" : "E", 1,false);
+		pool_send_to_frontend(message, strlen(message),false);
+		pool_send_to_frontend("\n", 1,true);
+	}
+
+	else if (protoVersion == PROTO_MAJOR_V3)
 	{
         /*
          * Buffer length for each message part
@@ -1784,8 +1799,8 @@ send_message_to_frontend(ErrorData *edata)
         
 		len = 0;
 		memset(data, 0, MAXDATA);
-        pool_write_noerror(frontend, (edata->elevel < ERROR) ? "N" : "E", 1);
-        
+		pool_send_to_frontend((edata->elevel < ERROR) ? "N" : "E", 1, false);
+
 		/* error level */
 		thislen = snprintf(msgbuf, MAXMSGBUF, "S%s", error_severity(edata->elevel));
 		thislen = Min(thislen, MAXMSGBUF);
@@ -1840,12 +1855,16 @@ send_message_to_frontend(ErrorData *edata)
         
 		sendlen = len;
 		len = htonl(len + 4);
-		pool_write_noerror(frontend, &len, sizeof(len));
-		pool_write_noerror(frontend, data, sendlen);
-        pool_flush_it(frontend);
+
+		pool_send_to_frontend((char*)&len, sizeof(len), false);
+		pool_send_to_frontend(data, sendlen, true);
 
 	}
-	pool_unset_nonblock(frontend->fd);
+
+	if (processType == PT_CHILD)
+		set_pg_frontend_blocking(true);
+
+	frontend_error_recursion_depth--;
 }
 
 /*
@@ -2341,6 +2360,9 @@ process_name(void)
 			break;
 		case PT_PCP:
 			prefix = _("PCP CHILD");
+			break;
+		case PT_PCP_WORKER:
+			prefix = _("PCP WORKER");
 			break;
 		case PT_HB_SENDER:
 			prefix = _("WD HB SENDER");

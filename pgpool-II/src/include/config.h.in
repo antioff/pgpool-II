@@ -1,4 +1,4 @@
-/* src/include/config.h.in.  Generated from configure.in by autoheader.  */
+/* src/include/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Define to the type of arg 1 of 'accept' */
 #undef ACCEPT_TYPE_ARG1
@@ -143,6 +143,9 @@
 /* Define to 1 if you have the `sigprocmask' function. */
 #undef HAVE_SIGPROCMASK
 
+/* Define to 1 if you have the `snprintf' function. */
+#undef HAVE_SNPRINTF
+
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET
 
@@ -176,22 +179,22 @@
 /* Define to 1 if you have the `strtok' function. */
 #undef HAVE_STRTOK
 
-/* Define to 1 if `sa_len' is member of `struct sockaddr'. */
+/* Define to 1 if `sa_len' is a member of `struct sockaddr'. */
 #undef HAVE_STRUCT_SOCKADDR_SA_LEN
 
 /* Define to 1 if the system has the type `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE
 
-/* Define to 1 if `ss_family' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `ss_family' is a member of `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY
 
-/* Define to 1 if `ss_len' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `ss_len' is a member of `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 
-/* Define to 1 if `__ss_family' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `__ss_family' is a member of `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE___SS_FAMILY
 
-/* Define to 1 if `__ss_len' is member of `struct sockaddr_storage'. */
+/* Define to 1 if `__ss_len' is a member of `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE___SS_LEN
 
 /* Define to 1 if you have the <sys/param.h> header file. */
@@ -227,6 +230,9 @@
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #undef HAVE_SYS_WAIT_H
 
+/* checking termios */
+#undef HAVE_TERMIOS_H
+
 /* Define to 1 if the system has the type `union semun'. */
 #undef HAVE_UNION_SEMUN
 
@@ -238,6 +244,9 @@
 
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
+
+/* Define to 1 if you have the `vsnprintf' function. */
+#undef HAVE_VSNPRINTF
 
 /* Define to 1 if you have the `vsyslog' function. */
 #undef HAVE_VSYSLOG
@@ -253,9 +262,6 @@
    */
 #undef LT_OBJDIR
 
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
-
 /* Name of package */
 #undef PACKAGE
 
@@ -270,6 +276,9 @@
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION

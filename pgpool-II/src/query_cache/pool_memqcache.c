@@ -120,7 +120,7 @@ static uint32 create_hash_key(POOL_QUERY_HASH *key);
 static volatile POOL_HASH_ELEMENT *get_new_hash_element(void);
 static void put_back_hash_element(volatile POOL_HASH_ELEMENT *element);
 static bool is_free_hash_element(void);
-static char *get_relation_without_alias(RangeVar *relation);
+static void forward_pending_data(POOL_CONNECTION *frontend,POOL_CONNECTION *backend);
 
 /*
  * Connect to Memcached
@@ -592,11 +592,7 @@ POOL_STATUS pool_fetch_from_memory_cache(POOL_CONNECTION *frontend,
 	char *qcache;
 	size_t qcachelen;
 	int sts;
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	*foundp = false;
     
@@ -618,77 +614,93 @@ POOL_STATUS pool_fetch_from_memory_cache(POOL_CONNECTION *frontend,
 	pool_shmem_unlock();
 	POOL_SETMASK(&oldmask);
 
-	if (sts == 0)
+	if (sts != 0)
+		/* Cache not found */
+		return POOL_CONTINUE;
+
+	/*
+	 * Cache found. If we are doing extended query and in streaming
+	 * replication mode, we need to retrieve any responses from backend and
+	 * forward them to frontend.
+	 */
+	if (pool_is_doing_extended_query_message() && STREAM)
 	{
-		/*
-		 * Cache found. send each messages to frontend
-		 */
-		send_cached_messages(frontend, qcache, qcachelen);
-		pfree(qcache);
-
-		/*
-		 * If we are doing extended query, wait and discard Sync
-		 * message from frontend. This is necessary to prevent
-		 * receiving Sync message after Sending Ready for query.
-		 */
-		if (pool_is_doing_extended_query_message())
-		{
-			char kind;
-			int32 len;
-
-			if (pool_flush(frontend))
-				return POOL_END;
-			if (pool_read(frontend, &kind, 1))
-				return POOL_END;
-
-			ereport(DEBUG2,
-					(errmsg("memcache: fetching from memory cache: expecting sync: kind '%c'", kind)));
-			if (pool_read(frontend, &len, sizeof(len)))
-				return POOL_END;
-		}
-
-		/*
-		 * send a "READY FOR QUERY"
-		 */
-		if (MAJOR(backend) == PROTO_MAJOR_V3)
-		{
-			signed char state;
-
-			/*
-			 * We keep previous transaction state.
-			 */
-			state = MASTER(backend)->tstate;
-			send_message(frontend, 'Z', 5, (char *)&state);
-		}
-		else
-		{
-			pool_write(frontend, "Z", 1);
-		}
-		if (pool_flush(frontend))
-		{
-			return POOL_END;
-		}
-
-		*foundp = true;
-
-		if (pool_config->log_per_node_statement)
-			ereport(LOG,
-				(errmsg("fetch from memory cache"),
-					errdetail("query result fetched from cache. statement: %s", contents)));
+		POOL_SESSION_CONTEXT *session_context;
+		POOL_CONNECTION *target_backend;
 
 		ereport(DEBUG1,
-			(errmsg("fetch from memory cache"),
-				 errdetail("query result found in the query cache, %s", contents)));
+				(errmsg("memcache: fetching forwarding_pending_data")));
 
-		return POOL_CONTINUE;
+		session_context = pool_get_session_context(true);
+		target_backend = CONNECTION(backend, session_context->load_balance_node_id);
+		forward_pending_data(frontend, target_backend);
 	}
 
-	/* Cache not found */
+	/*
+	 * Send each messages to frontend
+	 */
+	send_cached_messages(frontend, qcache, qcachelen);
+	pfree(qcache);
+
+	/*
+	 * If we are doing extended query, wait and discard Sync
+	 * message from frontend. This is necessary to prevent
+	 * receiving Sync message after Sending Ready for query.
+	 */
+	if (pool_is_doing_extended_query_message())
+	{
+		char kind;
+		int32 len;
+
+		if (pool_flush(frontend))
+			return POOL_END;
+		if (pool_read(frontend, &kind, 1))
+			return POOL_END;
+
+		ereport(DEBUG2,
+				(errmsg("memcache: fetching from memory cache: expecting sync: kind '%c'", kind)));
+		if (pool_read(frontend, &len, sizeof(len)))
+			return POOL_END;
+	}
+
+	/*
+	 * send a "READY FOR QUERY"
+	 */
+	if (MAJOR(backend) == PROTO_MAJOR_V3)
+	{
+		signed char state;
+
+		/*
+		 * We keep previous transaction state.
+		 */
+		state = MASTER(backend)->tstate;
+		send_message(frontend, 'Z', 5, (char *)&state);
+	}
+	else
+	{
+		pool_write(frontend, "Z", 1);
+	}
+	if (pool_flush(frontend))
+	{
+		return POOL_END;
+	}
+
+	*foundp = true;
+
+	if (pool_config->log_per_node_statement)
+		ereport(LOG,
+				(errmsg("fetch from memory cache"),
+				 errdetail("query result fetched from cache. statement: %s", contents)));
+
+	ereport(DEBUG1,
+			(errmsg("fetch from memory cache"),
+			 errdetail("query result found in the query cache, %s", contents)));
+
 	return POOL_CONTINUE;
 }
 
 /*
- * Simple and rough(thus unreliable) check if the query is likely
+ * Simple and rough (thus unreliable) check if the query is likely
  * SELECT. Just check if the query starts with SELECT or WITH. This
  * can be used before parse tree is available.
  */
@@ -828,6 +840,21 @@ bool pool_is_allow_to_cache(Node *node, char *query)
 		return false;
 
 	/*
+	 * TABLESAMPLE is not allowed to cache.
+	 */
+	if (IsA(node, SelectStmt) && ((SelectStmt *)node)->fromClause)
+	{
+		List *tbl_list = ((SelectStmt *)node)->fromClause;
+		ListCell   *tbl;
+		foreach(tbl, tbl_list)
+		{
+			if (IsA(lfirst(tbl), RangeTableSample))
+				return false;
+		}
+	}
+
+
+	/*
 	 * If the table is in the while list, allow to cache even if it is
 	 * VIEW or unlogged table.
 	 */
@@ -930,17 +957,17 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 	if (IsA(node, InsertStmt))
 	{
 		InsertStmt *stmt = (InsertStmt *)node;
-		table = nodeToString(stmt->relation);
+		table = make_table_name_from_rangevar(stmt->relation);
 	}
 	else if (IsA(node, UpdateStmt))
 	{
 		UpdateStmt *stmt = (UpdateStmt *)node;
-		table = get_relation_without_alias(stmt->relation);
+		table = make_table_name_from_rangevar(stmt->relation);
 	}
 	else if (IsA(node, DeleteStmt))
 	{
 		DeleteStmt *stmt = (DeleteStmt *)node;
-		table = get_relation_without_alias(stmt->relation);
+		table = make_table_name_from_rangevar(stmt->relation);
 	}
 
 #ifdef NOT_USED
@@ -952,14 +979,14 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 	else if (IsA(node, CreateStmt))
 	{
 		CreateStmt *stmt = (CreateStmt *)node;
-		table = nodeToString(stmt->relation);
+		table = make_table_name_from_rangevar(stmt->relation);
 	}
 #endif
 
 	else if (IsA(node, AlterTableStmt))
 	{
 		AlterTableStmt *stmt = (AlterTableStmt *)node;
-		table = nodeToString(stmt->relation);
+		table = make_table_name_from_rangevar(stmt->relation);
 	}
 
 	else if (IsA(node, CopyStmt))
@@ -967,7 +994,7 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 		CopyStmt *stmt = (CopyStmt *)node;
 		if (stmt->is_from)		/* COPY FROM? */
 		{
-			table = nodeToString(stmt->relation);
+			table = make_table_name_from_rangevar(stmt->relation);
 		}
 		else
 		{
@@ -989,9 +1016,9 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 		/* Here, stmt->objects is list of target relation info.  The
 		 * first cell of target relation info is a list (possibly)
 		 * consists of database, schema and relation.  We need to call
-		 * makeRangeVarFromNameList() before passing to nodeToString.
-		 * Otherwise we get weird excessively decorated relation name
-		 * (''table_name'').
+		 * makeRangeVarFromNameList() before passing to
+		 * make_table_name_from_rangevar. Otherwise we get weird excessively
+		 * decorated relation name (''table_name'').
 		 */
 		foreach(cell, stmt->objects)
 		{
@@ -1002,7 +1029,7 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 				return 0;
 			}
 
-			table = nodeToString(makeRangeVarFromNameList(lfirst(cell)));
+			table = make_table_name_from_rangevar(makeRangeVarFromNameList(lfirst(cell)));
 			oid = pool_table_name_to_oid(table);
 			if (oid > 0)
 			{
@@ -1028,7 +1055,7 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 				return 0;
 			}
 
-			table = nodeToString(lfirst(cell));
+			table = make_table_name_from_rangevar(lfirst(cell));
 			oid = pool_table_name_to_oid(table);
 			if (oid > 0)
 			{
@@ -1056,41 +1083,6 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 	return num_oids;
 }
 
-/*
- * Get relation name without alias.  NodeToString() calls
- * _outRangeVar(). Unfortunately _outRangeVar() returns table with
- * alias ("t1 AS foo") as a table name if table alias is used. This
- * function just trim down "AS..." part from the table name when table
- * alias is used.
- */
-static char *get_relation_without_alias(RangeVar *relation)
-{
-	char *table;
-	char *p;
-
-	if (!IsA(relation, RangeVar))
-	{
-		ereport(WARNING,
-			(errmsg("memcache: extracting table name without alias: invalid node, not a RangeVar"),
-				 errdetail("passed in node is of type:%d",relation->type)));
-		return "";
-	}
-	table = nodeToString(relation);
-	if (relation->alias)
-	{
-		p = strchr(table, ' ');
-		if (!p)
-		{
-			ereport(LOG,
-				(errmsg("memcache: extracting table name without alias: parsing error"),
-					 errdetail("cannot locate space in name:\"%s\"", table)));
-			return "";
-		}
-		*p = '\0';
-	}
-	return table;		
-}
-
 #define POOL_OIDBUF_SIZE 1024
 static int* oidbuf;
 static int oidbufp;
@@ -1109,8 +1101,15 @@ void pool_add_dml_table_oid(int oid)
 
 	if (oidbufp >= oidbuf_size)
 	{
+		MemoryContext oldcxt;
 		oidbuf_size += POOL_OIDBUF_SIZE;
+		/*
+		 * This need to live throughout the life of child so home it in
+		 * TopMemoryContext
+		 */
+		oldcxt = MemoryContextSwitchTo(TopMemoryContext);
 		tmp = repalloc(oidbuf, sizeof(int) * oidbuf_size);
+		MemoryContextSwitchTo(oldcxt);
 		if (tmp == NULL)
 			return;
 
@@ -1120,11 +1119,12 @@ void pool_add_dml_table_oid(int oid)
 	for (i=0;i<oidbufp;i++)
 	{
 		if (oidbuf[i] == oid)
-			/* Already same oid exists */
+		/* Already same oid exists */
 			return;
 	}
 	oidbuf[oidbufp++] = oid;
 }
+
 
 /*
  * Get table oid buffer
@@ -1730,7 +1730,7 @@ static int pool_get_memqcache_blocks(void)
  */
 size_t pool_shared_memory_cache_size(void)
 {
-	int num_blocks;
+	int64 num_blocks;
 	size_t size;
 
 	if (pool_config->memqcache_maxcache > pool_config->memqcache_cache_block_size)
@@ -1746,13 +1746,13 @@ size_t pool_shared_memory_cache_size(void)
 	if (num_blocks == 0)
 		ereport(FATAL,
 			(errmsg("invalid memory cache configuration"),
-					errdetail("memqcache_total_size %d should be greater or equal to memqcache_cache_block_size %d",
+					errdetail("memqcache_total_size %ld should be greater or equal to memqcache_cache_block_size %d",
 								pool_config->memqcache_total_size,
 								pool_config->memqcache_cache_block_size)));
 
 		ereport(LOG,
 			(errmsg("memory cache initialized"),
-					errdetail("memcache blocks :%d",num_blocks)));
+					errdetail("memcache blocks :%ld",num_blocks)));
 	/* Remember # of blocks */
 	pool_set_memqcache_blocks(num_blocks);
 	size = pool_config->memqcache_cache_block_size * num_blocks;
@@ -1780,11 +1780,7 @@ void
 pool_clear_memory_cache(void)
 {
 	size_t size;
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_shmem_lock();
@@ -2708,16 +2704,18 @@ POOL_QUERY_CACHE_ARRAY *pool_create_query_cache_array(void)
 {
 #define POOL_QUERY_CACHE_ARRAY_ALLOCATE_NUM 128
 #define POOL_QUERY_CACHE_ARRAY_HEADER_SIZE (sizeof(int)+sizeof(int))
-    MemoryContext oldContext = MemoryContextSwitchTo(ProcessLoopContext);
+
 	size_t size;
 	POOL_QUERY_CACHE_ARRAY *p;
+	POOL_SESSION_CONTEXT *session_context =pool_get_session_context(false);
+	MemoryContext old_context = MemoryContextSwitchTo(session_context->memory_context);
 
 	size = POOL_QUERY_CACHE_ARRAY_HEADER_SIZE + POOL_QUERY_CACHE_ARRAY_ALLOCATE_NUM *
 		sizeof(POOL_TEMP_QUERY_CACHE *);
 	p = palloc(size);
 	p->num_caches = 0;
 	p->array_size = POOL_QUERY_CACHE_ARRAY_ALLOCATE_NUM;
-    MemoryContextSwitchTo(oldContext);
+    MemoryContextSwitchTo(old_context);
 	return p;
 }
 
@@ -2779,8 +2777,9 @@ static POOL_QUERY_CACHE_ARRAY * pool_add_query_cache_array(POOL_QUERY_CACHE_ARRA
  */
 POOL_TEMP_QUERY_CACHE *pool_create_temp_query_cache(char *query)
 {
+	POOL_SESSION_CONTEXT *session_context =pool_get_session_context(false);
+    MemoryContext old_context = MemoryContextSwitchTo(session_context->memory_context);
 	POOL_TEMP_QUERY_CACHE *p;
-    MemoryContext oldContext = MemoryContextSwitchTo(QueryContext);
 	p = palloc(sizeof(*p));
     p->query = pstrdup(query);
 
@@ -2790,7 +2789,7 @@ POOL_TEMP_QUERY_CACHE *pool_create_temp_query_cache(char *query)
     p->is_exceeded = false;
     p->is_discarded = false;
 
-    MemoryContextSwitchTo(oldContext);
+    MemoryContextSwitchTo(old_context);
 
 	return p;
 }
@@ -2932,6 +2931,8 @@ static void pool_add_buffer(POOL_INTERNAL_BUFFER *buffer, void *data, size_t len
 	/* Sanity check */
 	if (!buffer || !data || len == 0)
 		return;
+	POOL_SESSION_CONTEXT *session_context =pool_get_session_context(false);
+	MemoryContext old_context = MemoryContextSwitchTo(session_context->memory_context);
 
 	/* Check if we need to increase the buffer size */
 	if ((buffer->buflen + len) > buffer->bufsize)
@@ -2951,6 +2952,7 @@ static void pool_add_buffer(POOL_INTERNAL_BUFFER *buffer, void *data, size_t len
 		(errmsg("memcache adding data to internal buffer"),
 			errdetail("len:%zd, total:%zd bufsize:%zd",
 				   len, buffer->buflen, buffer->bufsize)));
+	MemoryContextSwitchTo(old_context);
 	return;
 }
 
@@ -3090,16 +3092,12 @@ static void pool_check_and_discard_cache_buffer(int num_oids, int *oids)
 void pool_handle_query_cache(POOL_CONNECTION_POOL *backend, char *query, Node *node, char state)
 {
 	POOL_SESSION_CONTEXT *session_context;
+	pool_sigset_t oldmask;
 	char *cache_buffer;
 	size_t len;
 	int num_oids;
 	int *oids;
 	int i;
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
 
 	session_context = pool_get_session_context(true);
 
@@ -3140,6 +3138,24 @@ void pool_handle_query_cache(POOL_CONNECTION_POOL *backend, char *query, Node *n
 								(errmsg("ReadyForQuery: pool_commit_cache failed")));
 
 					}
+					else
+					{
+						/*
+						 * Reset temporary query cache buffer. This is
+						 * necessary if extended query protocol is used and a
+						 * bind/execute message arrives which uses a statement
+						 * created by prior parse message. In this case since
+						 * the temp_cache is not initialized by a parse
+						 * message, messages are added to pre existing temp
+						 * cache buffer. The problem was found in bug#152.
+						 * http://www.pgpool.net/mantisbt/view.php?id=152
+						 */
+						POOL_TEMP_QUERY_CACHE *cache;
+						cache = pool_get_current_cache();
+						pool_discard_temp_query_cache(cache);
+						session_context->query_context->temp_cache = pool_create_temp_query_cache(query);
+					}
+
 					pfree(cache_buffer);
 				}
 				pool_shmem_unlock();
@@ -3352,11 +3368,7 @@ int pool_init_memqcache_stats(void)
 POOL_QUERY_CACHE_STATS *pool_get_memqcache_stats(void)
 {
 	static POOL_QUERY_CACHE_STATS mystats;
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	memset(&mystats, 0, sizeof(POOL_QUERY_CACHE_STATS));
 
@@ -3388,11 +3400,7 @@ void pool_reset_memqcache_stats(void)
  */
 long long int pool_stats_count_up_num_selects(long long int num)
 {
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(QUERY_CACHE_STATS_SEM);
@@ -3443,11 +3451,7 @@ void pool_tmp_stats_reset_num_selects(void)
  */
 long long int pool_stats_count_up_num_cache_hits(void)
 {
-#ifdef HAVE_SIGPROCMASK
-	sigset_t oldmask;
-#else
-	int	oldmask;
-#endif
+	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(QUERY_CACHE_STATS_SEM);
@@ -3935,4 +3939,71 @@ POOL_SHMEM_STATS *pool_get_shmem_storage_stats(void)
 	memcpy(&mystats.cache_stats, stats, sizeof(mystats.cache_stats));
 
 	return &mystats;
+}
+
+/*
+ * Send flash message to backend and forward any response to frontend.
+ */
+void forward_pending_data(POOL_CONNECTION *frontend, POOL_CONNECTION *backend)
+{
+	char kind;
+	int len;
+	char *buf;
+
+	/* If are doing extended query and we are in streaming replication
+	 * mode, we need to retrieve any response from backend.
+	 */
+	if (!pool_is_pending_response())
+	{
+		ereport(DEBUG1,
+				(errmsg("forward_pending_data: no peding data")));
+		return;
+	}
+
+	/* Send flush messsage to backend to retrieve response of backend */
+	pool_write(backend, "H", 1);		
+	len = htonl(sizeof(len));
+	pool_write_and_flush(backend, &len, sizeof(len));
+
+	/*
+	 * Then forward any response from backend
+	 */
+	for(;;)
+	{
+		pool_read(backend, &kind, 1);
+		ereport(DEBUG1,
+				(errmsg("forward_pending_data: forwarding kind: '%c'", kind)));
+		pool_write(frontend, &kind, 1);
+
+		pool_read(backend, &len, sizeof(len));
+		ereport(DEBUG1,
+				(errmsg("forward_pending_data: forwarding len: '%d'", ntohl(len))));
+		pool_write(frontend, &len, sizeof(len));
+
+		len = ntohl(len);
+		if ((len - sizeof(len)) > 0)
+		{
+			len -= sizeof(len);
+			ereport(DEBUG1,
+					(errmsg("forward_pending_data: fowarding rest of packet. len:%d", len)));
+			buf = palloc(len);
+			pool_read(backend, buf, len);
+			pool_write(frontend, buf, len);
+		}
+
+		/* check if there's any pending data */
+		if (!pool_ssl_pending(backend) && pool_read_buffer_is_empty(backend))
+		{
+			pool_set_timeout(0);
+			if (pool_check_fd(backend) != 0)
+			{
+				ereport(DEBUG1,
+						(errmsg("forward_pending_data: select shows no pending data")));
+				pool_set_timeout(-1);
+				break;
+			}
+			pool_set_timeout(-1);
+		}
+	}
+	pool_flush(frontend);
 }

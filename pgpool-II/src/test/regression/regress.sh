@@ -8,6 +8,8 @@
 # -p installation path of Postgres
 # -j JDBC driver path
 # -m install (install pgpool-II and use that for tests) / noinstall : Default install
+# -s unix socket directory 
+# -d start pgpool with debug option
 
 dir=`pwd`
 MODE=install
@@ -17,12 +19,16 @@ JDBC_DRIVER=/usr/local/pgsql/share/postgresql-9.2-1003.jdbc4.jar
 log=$dir/log
 fail=0
 ok=0
+timeout=0
+PGSOCKET_DIR=/tmp
 
 CRED=$(tput setaf 1)
 CGREEN=$(tput setaf 2)
 CBLUE=$(tput setaf 4)
 CNORM=$(tput sgr0)
 
+# timeout for each test (5 min.)
+TIMEOUT=300
 
 function install_pgpool
 {
@@ -67,12 +73,20 @@ function export_env_vars
  	fi
 	
 	echo "using pgpool-II at "$PGPOOL_PATH
-    export PGPOOL_INSTALL_DIR=$PGPOOL_PATH
-	
+	export PGPOOL_INSTALL_DIR=$PGPOOL_PATH
+
+	PGPOOLLIB=${PGPOOL_INSTALL_DIR}/lib
+	if [ -z "$LD_LIBRARY_PATH" ];then
+	    export LD_LIBRARY_PATH=$PGPOOLLIB
+	else
+	    export LD_LIBRARY_PATH=${PGPOOLLIB}:${LD_LIBRARY_PATH}
+	fi
+
 	export TESTLIBS=$dir/libs.sh
 	export PGBIN=$PGBIN
 	export JDBC_DRIVER=$JDBC_DRIVER
 	export PGBENCH_PATH=$PGBENCH_PATH
+	export PGSOCKET_DIR=$PGSOCKET_DIR
 }
 function print_info
 {
@@ -96,6 +110,9 @@ function print_usage
 	printf "  -i   DIRECTORY           pgpool installed directory, if already installed pgpool is to be used for tests\n" >&2
 	printf "  -m   install/noinstall   make install pgpool to temp directory for executing regression tests [Default: install]\n" >&2
 	printf "  -j   FILE                Postgres jdbc jar file path\n" >&2
+	printf "  -s   DIRECTORY           unix socket directory\n" >&2
+	printf "  -t   TIMEOUT             timeout value for each test (sec)\n" >&2
+	printf "  -d                       start pgpool with debug option\n" >&2
 	printf "  -?                       print this help and then exit\n\n" >&2
 	printf "Please read the README for details on adding new tests\n" >&2
 
@@ -103,7 +120,7 @@ function print_usage
 
 trap "echo ; exit 0" SIGINT SIGQUIT
 
-while getopts "p:m:i:j:b:?" OPTION
+while getopts "p:m:i:j:b:s:t:d?" OPTION
 do
   case $OPTION in
     p)  PG_INSTALL_DIR="$OPTARG";;
@@ -111,6 +128,9 @@ do
     i)  PGPOOL_PATH="$OPTARG";;
     j)  JDBC_DRIVER="$OPTARG";;
     b)  PGBENCH_PATH="$OPTARG";;
+    s)  PGSOCKET_DIR="$OPTARG";;
+    t)  TIMEOUT="$OPTARG";;
+    d)  export PGPOOLDEBUG="true";;
     ?)  print_usage
         exit 2;;
   esac
@@ -125,7 +145,7 @@ elif [ "$MODE" = "noinstall" ]; then
 	if [[ -n "$PGPOOL_INSTALL_PATH" ]]; then
 		PGPOOL_PATH=$PGPOOL_INSTALL_PATH
 	fi
-	export PGPOOL_SETUP=$dir/../pgpool_setup
+        export PGPOOL_SETUP=$dir/../pgpool_setup
 else
 	echo $MODE : Invalid mode
 	exit -1
@@ -151,10 +171,14 @@ for i in $dirs
 do
 	cd $i
 	echo -n "testing $i..."
-	./test.sh > $log/$i 2>&1
-	if [ $? = 0 ];then
+	timeout $TIMEOUT ./test.sh > $log/$i 2>&1
+	rtn=$?
+	if [ $rtn = 0 ];then
 		echo ${CGREEN}"ok."${CNORM}
 		ok=`expr $ok + 1`
+	elif [ $rtn = 124 ];then
+		echo "timeout."
+		timeout=`expr $timeout + 1`
 	else
 		echo ${CRED}"failed."${CNORM}
 		fail=`expr $fail + 1`
@@ -166,4 +190,4 @@ done
 
 total=`expr $ok + $fail`
 
-echo "out of $total ok:$ok failed:$fail"
+echo "out of $total ok:$ok failed:$fail timeout:$timeout"

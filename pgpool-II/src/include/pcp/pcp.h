@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2008	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -25,37 +25,43 @@
 #define PCP_H
 
 #include "pool_type.h"
-#include "watchdog/watchdog.h"
+#include "pool_config.h"
+
 
 #define MAX_USER_PASSWD_LEN    128
+typedef struct PCPWDNodeInfo
+{
+	int state;
+	char nodeName[WD_MAX_HOST_NAMELEN];
+	char hostName[WD_MAX_HOST_NAMELEN];		/* host name */
+	char stateName[WD_MAX_HOST_NAMELEN];	/* state name */
+	int wd_port;							/* watchdog port */
+	int wd_priority;						/* node priority in leader election */
+	int pgpool_port;						/* pgpool port */
+	char delegate_ip[WD_MAX_HOST_NAMELEN];	/* delegate IP */
+	int	id;
+}PCPWDNodeInfo;
 
-typedef enum {
-	UNKNOWNERR = 1,		/* shouldn't happen */
-	EOFERR,				/* EOF read by read() */
-	NOMEMERR,			/* could not allocate memory */
-	READERR,			/* read() error */
-	WRITEERR,			/* flush() error */
-	TIMEOUTERR,			/* select() timeout */
-	INVALERR,			/* invalid command-line argument(s) number, length, range, etc. */
-	CONNERR,			/* thrown by connect() */
-	NOCONNERR,			/* not connected to server */
-	SOCKERR,			/* thrown by socket() or setsockopt() */
-	HOSTERR,			/* thrown by gethostbyname() */
-	BACKENDERR,			/* server dependent error */
-	AUTHERR				/* authorization failure */
-} ErrorCode;
+typedef struct PCPWDClusterInfo
+{
+	int remoteNodeCount;
+	int quorumStatus;
+	int aliveNodeCount;
+	bool escalated;
+	char masterNodeName[WD_MAX_HOST_NAMELEN];
+	char masterHostName[WD_MAX_HOST_NAMELEN];
+	int nodeCount;
+	PCPWDNodeInfo nodeList[1];
+}PCPWDClusterInfo;
 
 /* --------------------------------
  * pcp.c
  * --------------------------------
  */
-extern struct timeval pcp_timeout;
 
 /* ------------------------------
  * pcp_error.c
  * ------------------------------
  */
-extern ErrorCode errorcode;
-extern void pcp_errorstr(ErrorCode e);
 
 #endif /* PCP_H */
