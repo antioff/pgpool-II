@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -35,6 +35,7 @@
 #endif
 
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <fcntl.h>
 
 #include <sys/wait.h>
@@ -59,7 +60,8 @@
 #include "parser/pool_memory.h"
 #include "parser/pool_string.h"
 #include "pool_passwd.h"
-
+#include "pool_memqcache.h"
+#include "watchdog/wd_ext.h"
 /*
  * Process pending signal actions.
  */
@@ -115,6 +117,9 @@ static RETSIGTYPE reload_config_handler(int sig);
 static RETSIGTYPE health_check_timer_handler(int sig);
 static RETSIGTYPE wakeup_handler(int sig);
 
+static int health_check(void);
+static int system_db_health_check(void);
+
 static void usage(void);
 static void show_version(void);
 static void stop_me(void);
@@ -161,8 +166,6 @@ static int not_detach = 0;		/* non 0 if non detach option (-n) is given */
 
 static int stop_sig = SIGTERM;	/* stopping signal default value */
 
-static volatile sig_atomic_t health_check_timer_expired;		/* non 0 if health check timer expired */
-
 POOL_REQUEST_INFO *Req_info;		/* request info area in shared memory */
 volatile sig_atomic_t *InRecovery; /* non 0 if recovery is started */
 volatile sig_atomic_t reload_config_request = 0;
@@ -177,8 +180,10 @@ int my_proc_id;
 static BackendStatusRecord backend_rec;	/* Backend status record */
 
 static pid_t worker_pid; /* pid of worker process */
+static pid_t watchdog_pid; /* pid of watchdog process */
 
 BACKEND_STATUS* my_backend_status[MAX_NUM_BACKENDS];		/* Backend status buffer */
+int my_master_node_id;		/* Master node id buffer */
 
 int myargc;
 char **myargv;
@@ -197,6 +202,8 @@ int main(int argc, char **argv)
 	int debug_level = 0;
 	int	optindex;
 	bool discard_status = false;
+	bool retrying;
+	bool clear_memcache_oidmaps = false;
 
 	static struct option long_options[] = {
 		{"hba-file", required_argument, NULL, 'a'},
@@ -208,6 +215,7 @@ int main(int argc, char **argv)
 		{"mode", required_argument, NULL, 'm'},
 		{"dont-detach", no_argument, NULL, 'n'},
 		{"discard-status", no_argument, NULL, 'D'},
+		{"clear-oidmaps", no_argument, NULL, 'C'},
 		{"version", no_argument, NULL, 'v'},
 		{NULL, 0, NULL, 0}
 	};
@@ -219,7 +227,7 @@ int main(int argc, char **argv)
 	snprintf(pcp_conf_file, sizeof(pcp_conf_file), "%s/%s", DEFAULT_CONFIGDIR, PCP_PASSWD_FILE_NAME);
 	snprintf(hba_file, sizeof(hba_file), "%s/%s", DEFAULT_CONFIGDIR, HBA_CONF_FILE_NAME);
 
-    while ((opt = getopt_long(argc, argv, "a:cdf:F:hm:nDv", long_options, &optindex)) != -1)
+    while ((opt = getopt_long(argc, argv, "a:cdf:F:hm:nDCv", long_options, &optindex)) != -1)
 	{
 		switch (opt)
 		{
@@ -288,6 +296,10 @@ int main(int argc, char **argv)
 
 			case 'D':	/* discard pgpool_status */
 				discard_status = true;
+				break;
+
+			case 'C': /* discard caches in memcached */
+				clear_memcache_oidmaps = true;
 				break;
 
 			case 'v':
@@ -370,6 +382,7 @@ int main(int argc, char **argv)
 		if (!strcmp(argv[optind], "stop"))
 		{
 			stop_me();
+			unlink(pool_config->pid_file_name);
 			pool_shmem_exit(0);
 			exit(0);
 		}
@@ -406,6 +419,28 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	/* check effective user id for watchdog */
+	/* watchdog must be started under the privileged user */
+	if (pool_config->use_watchdog )
+	{
+		/* check sticky bit of network interface control commands */
+		if (wd_chk_sticky() == 1)
+		{
+			/* if_up, if_down and arping command have a sticky bit */
+			pool_log("watchdog might call network commands which using sticky bit.");
+		}
+		else
+		{
+			/* check root */
+			if (geteuid() != 0)
+			{
+				pool_error("watchdog must be started under the privileged user ID to up/down virtual network interface.");
+				pool_shmem_exit(1);
+				exit(1);
+			}
+		}
+	}
+
 	/* set signal masks */
 	poolinitmask();
 
@@ -416,6 +451,8 @@ int main(int argc, char **argv)
 
 	/*
 	 * Locate pool_passwd
+	 * The default file name "pool_passwd" can be changed by setting
+	 * pgpool.conf's "pool_passwd" directive.
 	 */
 	if (strcmp("", pool_config->pool_passwd))
 	{
@@ -533,7 +570,78 @@ int main(int argc, char **argv)
 		pool_error("failed to allocate InRecovery");
 		myexit(1);
 	}
-	*InRecovery = 0;
+	*InRecovery = RECOVERY_INIT;
+
+	/*
+	 * Initialize shared memory cache
+	 */
+	if (pool_config->memory_cache_enabled)
+	{
+		if (pool_is_shmem_cache())
+		{
+			size_t size;
+			
+			size = pool_shared_memory_cache_size();
+			if (size == 0)
+			{
+				pool_error("pool_shared_memory_cache_size error");
+				myexit(1);
+			}
+
+			if (pool_init_memory_cache(size) < 0)
+			{
+				pool_error("pool_shared_memory_cache_size error");
+				myexit(1);
+			}
+
+			size = pool_shared_memory_fsmm_size();
+			if (size == 0)
+			{
+				pool_error("pool_shared_memory_fsmm_size error");
+				myexit(1);
+			}
+			pool_init_fsmm(size);
+
+			pool_allocate_fsmm_clock_hand();
+
+			pool_discard_oid_maps();
+			pool_log("pool_discard_oid_maps: discarded memqcache oid maps");
+
+			pool_hash_init(pool_config->memqcache_max_num_cache);
+		}
+
+#ifdef USE_MEMCACHED
+		else
+		{
+			if (clear_memcache_oidmaps)
+			{
+				pool_discard_oid_maps();
+				pool_log("pool_discard_oid_maps: discarded memqcache oid maps");
+			}
+			else
+			{
+				pool_debug("skipped discarding memqcache oid maps");
+			}
+		}
+#endif
+
+		if (pool_init_memqcache_stats() < 0)
+		{
+			pool_error("pool_init_memqcache_stats error");
+			myexit(1);
+		}
+	}
+
+	/* start watchdog */
+	if (pool_config->use_watchdog )
+	{
+		watchdog_pid = wd_main(1);
+		if (watchdog_pid == 0)
+		{
+			pool_error("wd_main error");
+			myexit(1);
+		}
+	}
 
 	/*
 	 * We need to block signal here. Otherwise child might send some
@@ -590,6 +698,9 @@ int main(int argc, char **argv)
 	/*
 	 * This is the main loop
 	 */
+
+	retrying = false;
+
 	for (;;)
 	{
 		CHECK_REQUEST;
@@ -629,6 +740,7 @@ int main(int argc, char **argv)
 			POOL_SETMASK(&UnBlockSig);
 			sts = health_check();
 			POOL_SETMASK(&BlockSig);
+
 			if (pool_config->parallel_mode || pool_config->enable_query_cache)
 				sys_sts = system_db_health_check();
 
@@ -638,34 +750,48 @@ int main(int argc, char **argv)
 				{
 					sts--;
 
+					retrycnt++;
+					pool_signal(SIGALRM, SIG_IGN);	/* Cancel timer */
+
 					if (!pool_config->parallel_mode)
 					{
 						if (POOL_DISALLOW_TO_FAILOVER(BACKEND_INFO(sts).flag))
 						{
 							pool_log("health_check: %d failover is canceld because failover is disallowed", sts);
 						}
+						else if (retrycnt <= pool_config->health_check_max_retries)
+						{
+							/* continue to retry */
+							sleep_time = pool_config->health_check_retry_delay;
+							pool_log("health check retry sleep time: %d second(s)", sleep_time);
+							pool_sleep(sleep_time);
+							retrying = true;
+							continue;
+						}
 						else
 						{
+							/* retry count over */
 							pool_log("set %d th backend down status", sts);
 							Req_info->kind = NODE_DOWN_REQUEST;
 							Req_info->node_id[0] = sts;
+							health_check_timer_expired = 0;
 							failover();
 							/* need to distribute this info to children */
+							retrying = false;
 						}
 					}
 					else
 					{
-						retrycnt++;
-						pool_signal(SIGALRM, SIG_IGN);	/* Cancel timer */
-
 						if (retrycnt > NUM_BACKENDS)
 						{
 							/* retry count over */
 							pool_log("set %d th backend down status", sts);
 							Req_info->kind = NODE_DOWN_REQUEST;
 							Req_info->node_id[0] = sts;
+							health_check_timer_expired = 0;
 							failover();
 							retrycnt = 0;
+							retrying = false;
 						}
 						else
 						{
@@ -695,6 +821,16 @@ int main(int argc, char **argv)
 						pool_sleep(sleep_time);
 						continue;
 					}
+				}
+			}
+			else
+			{
+				/* success. reset retry count */
+				retrycnt = 0;
+				if (retrying)
+				{
+					pool_log("after some retrying backend returned to healthy state");
+					retrying = false;
 				}
 			}
 
@@ -754,6 +890,8 @@ static void usage(void)
 	fprintf(stderr, "  -h, --help          Prints this help\n\n");
 	fprintf(stderr, "Start options:\n");
 	fprintf(stderr, "  -c, --clear         Clears query cache (enable_query_cache must be on)\n");
+	fprintf(stderr, "  -C, --clear-oidmaps Clears query cache oidmaps when memqcache_method is memcached\n");
+	fprintf(stderr, "                      (If shmem, discards whenever pgpool starts.)\n");
 	fprintf(stderr, "  -n, --dont-detach   Don't run in daemon mode, does not detach control tty\n");
 	fprintf(stderr, "  -D, --discard-status Discard pgpool_status file and do not restore previous status\n");
 	fprintf(stderr, "  -d, --debug         Debug mode\n\n");
@@ -800,7 +938,7 @@ static void daemonize(void)
 #endif
 
 	mypid = getpid();
-
+	write_pid_file();
 	rc_chdir = chdir("/");
 
 	i = open("/dev/null", O_RDWR);
@@ -808,11 +946,20 @@ static void daemonize(void)
 	dup2(i, 1);
 	dup2(i, 2);
 
+	/* close syslog connection for daemonizing */
+	if (pool_config->logsyslog) {
+		closelog();
+	}
+
     fdlimit = sysconf(_SC_OPEN_MAX);
     for (i = 3; i < fdlimit; i++)
 		close(i);
 
-	write_pid_file();
+	/* reopen syslog connection after daemonizing */
+	if (pool_config->logsyslog) {
+		openlog(pool_config->syslog_ident, LOG_PID|LOG_NDELAY|LOG_NOWAIT, pool_config->syslog_facility);
+	}
+
 }
 
 
@@ -853,22 +1000,30 @@ static void stop_me(void)
 */
 static int read_pid_file(void)
 {
-	FILE *fd;
+	int fd;
+	int readlen;
 	char pidbuf[128];
 
-	fd = fopen(pool_config->pid_file_name, "r");
-	if (!fd)
+	fd = open(pool_config->pid_file_name, O_RDONLY);
+	if (fd == -1)
 	{
 		return -1;
 	}
-	if (fread(pidbuf, 1, sizeof(pidbuf), fd) <= 0)
+	if ((readlen = read(fd, pidbuf, sizeof(pidbuf))) == -1)
 	{
 		pool_error("could not read pid file as %s. reason: %s",
 				   pool_config->pid_file_name, strerror(errno));
-		fclose(fd);
+		close(fd);
 		return -1;
 	}
-	fclose(fd);
+	else if (readlen == 0)
+	{
+		pool_error("EOF detected while reading pid file as %s. reason: %s",
+				   pool_config->pid_file_name, strerror(errno));
+		close(fd);
+		return -1;
+	}
+	close(fd);
 	return(atoi(pidbuf));
 }
 
@@ -877,11 +1032,11 @@ static int read_pid_file(void)
 */
 static void write_pid_file(void)
 {
-	FILE *fd;
+	int fd;
 	char pidbuf[128];
 
-	fd = fopen(pool_config->pid_file_name, "w");
-	if (!fd)
+	fd = open(pool_config->pid_file_name, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
+	if (fd == -1)
 	{
 		pool_error("could not open pid file as %s. reason: %s",
 				   pool_config->pid_file_name, strerror(errno));
@@ -889,10 +1044,25 @@ static void write_pid_file(void)
 		exit(1);
 	}
 	snprintf(pidbuf, sizeof(pidbuf), "%d", (int)getpid());
-	fwrite(pidbuf, strlen(pidbuf)+1, 1, fd);
-	if (fclose(fd))
+	if (write(fd, pidbuf, strlen(pidbuf)+1) == -1)
 	{
 		pool_error("could not write pid file as %s. reason: %s",
+				   pool_config->pid_file_name, strerror(errno));
+		close(fd);
+		pool_shmem_exit(1);
+		exit(1);
+	}
+	if (fsync(fd) == -1)
+	{
+		pool_error("could not fsync pid file as %s. reason: %s",
+				   pool_config->pid_file_name, strerror(errno));
+		close(fd);
+		pool_shmem_exit(1);
+		exit(1);
+	}	
+	if (close(fd) == -1)
+	{
+		pool_error("could not close pid file as %s. reason: %s",
 				   pool_config->pid_file_name, strerror(errno));
 		pool_shmem_exit(1);
 		exit(1);
@@ -1288,12 +1458,18 @@ void degenerate_backend_set(int *node_id_set, int count)
 	pid_t parent = getppid();
 	int i;
 	bool need_signal = false;
+#ifdef HAVE_SIGPROCMASK
+	sigset_t oldmask;
+#else
+	int	oldmask;
+#endif
 
 	if (pool_config->parallel_mode)
 	{
 		return;
 	}
 
+	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(REQUEST_INFO_SEM);
 	Req_info->kind = NODE_DOWN_REQUEST;
 	for (i = 0; i < count; i++)
@@ -1317,9 +1493,15 @@ void degenerate_backend_set(int *node_id_set, int count)
 	}
 
 	if (need_signal)
-		kill(parent, SIGUSR1);
+	{
+		if (!pool_config->use_watchdog || WD_OK == wd_degenerate_backend_set(node_id_set, count))
+		{
+			kill(parent, SIGUSR1);
+		}
+	}
 
 	pool_semaphore_unlock(REQUEST_INFO_SEM);
+	POOL_SETMASK(&oldmask);
 }
 
 /* send promote node request using SIGUSR1 */
@@ -1342,7 +1524,11 @@ void promote_backend(int node_id)
 	Req_info->kind = PROMOTE_NODE_REQUEST;
 	Req_info->node_id[0] = node_id;
 	pool_log("promote_backend: %d promote node request from pid %d", node_id, getpid());
-	kill(parent, SIGUSR1);
+
+	if (!pool_config->use_watchdog || WD_OK == wd_promote_backend(node_id))
+	{
+		kill(parent, SIGUSR1);
+	}
 	pool_semaphore_unlock(REQUEST_INFO_SEM);
 }
 
@@ -1362,6 +1548,10 @@ void send_failback_request(int node_id)
 		return;
 	}
 
+	if (pool_config->use_watchdog && WD_OK != wd_send_failback_request(node_id))
+	{
+		return;
+	}
 	kill(parent, SIGUSR1);
 }
 
@@ -1410,6 +1600,12 @@ static RETSIGTYPE exit_handler(int sig)
 	kill(pcp_pid, sig);
 	kill(worker_pid, sig);
 
+	if (pool_config->use_watchdog)
+	{
+		pool_log("watchdog_pid: %d", watchdog_pid);
+		kill(watchdog_pid, sig);
+	}
+
 	POOL_SETMASK(&UnBlockSig);
 
 	while (wait(NULL) > 0)
@@ -1436,12 +1632,10 @@ static int get_next_master_node(void)
 		 * Do not use VALID_BACKEND macro in raw mode.
 		 * VALID_BACKEND return true only if the argument is master
 		 * node id. In other words, standby nodes are false. So need
-		 * to check backend status without VALID_BACKEND.
+		 * to check backend status with VALID_BACKEND_RAW.
 		 */
-		if (RAW_MODE)
+		if (RAW_MODE && VALID_BACKEND_RAW(i))
 		{
-			/* if in raw mode, we can switch to a standby node */
-			if (BACKEND_INFO(i).backend_status == CON_CONNECT_WAIT)
 				break;
 		}
 		else if (VALID_BACKEND(i))
@@ -1582,12 +1776,12 @@ static void failover(void)
 		for (i = 0; i < MAX_NUM_BACKENDS; i++)
 		{
 			if (Req_info->node_id[i] != -1 &&
-				VALID_BACKEND(Req_info->node_id[i]))
+				((RAW_MODE && VALID_BACKEND_RAW(Req_info->node_id[i])) ||
+				 VALID_BACKEND(Req_info->node_id[i])))
 			{
 				pool_log("starting degeneration. shutdown host %s(%d)",
 						 BACKEND_INFO(Req_info->node_id[i]).backend_hostname,
 						 BACKEND_INFO(Req_info->node_id[i]).backend_port);
-
 
 				BACKEND_INFO(Req_info->node_id[i]).backend_status = CON_DOWN;	/* set down status */
 				/* save down node */
@@ -1629,7 +1823,7 @@ static void failover(void)
 #ifdef NOT_USED
 	else
 	{
-		if (Req_info->master_node_id == new_master && *InRecovery == 0)
+		if (Req_info->master_node_id == new_master && *InRecovery == RECOVERY_INIT)
 		{
 			pool_log("failover_handler: do not restart pgpool. same master node %d was selected", new_master);
 			if (Req_info->kind == NODE_UP_REQUEST)
@@ -1668,7 +1862,7 @@ static void failover(void)
 	* and request is NODE_UP_REQUEST(failback case) we don't need to
 	* restart all children. Existing session will not use newly
 	* attached node, but load balanced node is not changed util this
-	* session ends, so it's not harmless anyway.
+	* session ends, so it's harmless anyway.
 	*/
 	if (MASTER_SLAVE && !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP)	&&
 		Req_info->kind == NODE_UP_REQUEST)
@@ -1803,12 +1997,12 @@ static void failover(void)
 		{
 			process_info[i].need_to_restart = 1;
 		}
-
-		/*
-		 * Send restart request to worker child.
-		 */
-		kill(worker_pid, SIGUSR1);
 	}
+
+	/*
+	 * Send restart request to worker child.
+	 */
+	kill(worker_pid, SIGUSR1);
 
 	if (Req_info->kind == NODE_UP_REQUEST)
 	{
@@ -1857,23 +2051,15 @@ static RETSIGTYPE health_check_timer_handler(int sig)
 
 
 /*
- * check if we can connect to the backend
+ * Check if we can connect to the backend
  * returns 0 for ok. otherwise returns backend id + 1
  */
-int health_check(void)
+static int health_check(void)
 {
-	int fd;
-	int sts;
+	POOL_CONNECTION_POOL_SLOT *slot;
+	BackendInfo *bkinfo;
 	static bool is_first = true;
 	static char *dbname;
-
-	/* V2 startup packet */
-	typedef struct {
-		int len;		/* startup packet length */
-		StartupPacket_v2 sp;
-	} MySp;
-	MySp mysp;
-	char kind;
 	int i;
 
 	/* Do not execute health check during recovery */
@@ -1887,79 +2073,38 @@ int health_check(void)
 	if (is_first)
 		dbname = "postgres";
 
-	memset(&mysp, 0, sizeof(mysp));
-	mysp.len = htonl(296);
-	mysp.sp.protoVersion = htonl(PROTO_MAJOR_V2 << 16);
-	strcpy(mysp.sp.database, dbname);
-	strncpy(mysp.sp.user, pool_config->health_check_user, sizeof(mysp.sp.user) - 1);
-	*mysp.sp.options = '\0';
-	*mysp.sp.unused = '\0';
-	*mysp.sp.tty = '\0';
-
 	for (i=0;i<pool_config->backend_desc->num_backends;i++)
 	{
-		pool_debug("health_check: %d th DB node status: %d", i, BACKEND_INFO(i).backend_status);
+		/*
+		 * Make sure that health check timer has not been expired.
+		 * Before called health_check(), health_check_timer_expired is
+		 * set to 0.  However it is possible that while processing DB
+		 * nodes health check timer expired.
+		 */
+		if (health_check_timer_expired)
+		{
+			pool_log("health_check: health check timer has been already expired before attempting to connect to %d th backend", i);
+			return i+1;
+		}
 
-		if (BACKEND_INFO(i).backend_status == CON_UNUSED ||
-			BACKEND_INFO(i).backend_status == CON_DOWN)
+		bkinfo = pool_get_node_info(i);
+
+		pool_debug("health_check: %d th DB node status: %d", i, bkinfo->backend_status);
+
+		if (bkinfo->backend_status == CON_UNUSED ||
+			bkinfo->backend_status == CON_DOWN)
 			continue;
 
-		if (*(BACKEND_INFO(i).backend_hostname) == '/')
-			fd = connect_unix_domain_socket(i, FALSE);
-		else
-			fd = connect_inet_domain_socket(i, FALSE);
-
-		if (fd < 0)
-		{
-			pool_error("health check failed. %d th host %s at port %d is down",
-					   i,
-					   BACKEND_INFO(i).backend_hostname,
-					   BACKEND_INFO(i).backend_port);
-
-			return i+1;
-		}
-
-		if (write(fd, &mysp, sizeof(mysp)) < 0)
-		{
-			pool_error("health check failed during write. host %s at port %d is down. reason: %s",
-					   BACKEND_INFO(i).backend_hostname,
-					   BACKEND_INFO(i).backend_port,
-					   strerror(errno));
-			close(fd);
-			return i+1;
-		}
-
-		/*
-		 * Don't bother to be blocked by read(2). It will be
-		 * interrupted by ALRAM anyway.
-		 */
-		sts = read(fd, &kind, 1);
-		if (sts == -1)
-		{
-			pool_error("health check failed during read. host %s at port %d is down. reason: %s",
-					   BACKEND_INFO(i).backend_hostname,
-					   BACKEND_INFO(i).backend_port,
-					   strerror(errno));
-			close(fd);
-			return i+1;
-		}
-		else if (sts == 0)
-		{
-			pool_error("health check failed. EOF encountered. host %s at port %d is down",
-					   BACKEND_INFO(i).backend_hostname,
-					   BACKEND_INFO(i).backend_port);
-			close(fd);
-			return i+1;
-		}
+		slot = make_persistent_db_connection(bkinfo->backend_hostname, 
+											 bkinfo->backend_port,
+											 dbname,
+											 pool_config->health_check_user,
+											 pool_config->health_check_password, false);
 
 		if (is_first)
 			is_first = false;
 
-		/*
-		 * If a backend raised a FATAL error(max connections error or
-		 * starting up error?), do not send a Terminate message.
-		 */
-		if ((kind != 'E') && (write(fd, "X", 1) < 0))
+		if (!slot)
 		{
 			if (!strcmp(dbname, "postgres"))
 			{
@@ -1969,16 +2114,19 @@ int health_check(void)
 				dbname = "template1";
 				goto Retry;
 			}
-
-			pool_error("health check failed during write. host %s at port %d is down. reason: %s. Perhaps wrong health check user?",
-					   BACKEND_INFO(i).backend_hostname,
-					   BACKEND_INFO(i).backend_port,
-					   strerror(errno));
-			close(fd);
-			return i+1;
+			else
+			{
+				pool_error("health check failed. %d th host %s at port %d is down",
+						   i,
+						   bkinfo->backend_hostname,
+						   bkinfo->backend_port);
+				return i+1;
+			}
 		}
-
-		close(fd);
+		else
+		{
+			discard_persistent_db_connection(slot);
+		}
 	}
 
 	return 0;
@@ -1988,7 +2136,7 @@ int health_check(void)
  * check if we can connect to the SystemDB
  * returns 0 for ok. otherwise returns -1
  */
-int
+static int
 system_db_health_check(void)
 {
 	int fd;
@@ -2384,7 +2532,7 @@ static int trigger_failover_command(int node, const char *command_line,
 	if (command_line == NULL || (strlen(command_line) == 0))
 		return 0;
 
-	/* check nodeID */
+	/* check failed nodeID */
 	if (node < 0 || node > NUM_BACKENDS)
 		return -1;
 
@@ -2440,6 +2588,27 @@ static int trigger_failover_command(int node, const char *command_line,
 					case 'm': /* new master node id */
 						snprintf(port_buf, sizeof(port_buf), "%d", new_master);
 						string_append_char(exec_cmd, port_buf);
+						break;
+
+					case 'r': /* new master port */
+						newmaster = pool_get_node_info(get_next_master_node());
+						if (newmaster)
+						{
+							snprintf(port_buf, sizeof(port_buf), "%d", newmaster->backend_port);
+							string_append_char(exec_cmd, port_buf);
+						}
+						else
+							/* no vaid new master */
+							string_append_char(exec_cmd, "");
+						break;
+
+					case 'R': /* new master database directory */
+						newmaster = pool_get_node_info(get_next_master_node());
+						if (newmaster)
+							string_append_char(exec_cmd, newmaster->backend_data_directory);
+						else
+							/* no vaid new master */
+							string_append_char(exec_cmd, "");
 						break;
 
 					case 'M': /* old master node id */
@@ -2520,7 +2689,7 @@ static int find_primary_node(void)
 										  bkinfo->backend_port,
 										  "postgres",
 										  pool_config->sr_check_user,
-										  pool_config->sr_check_password);
+										  pool_config->sr_check_password, true);
 		if (!s)
 		{
 			pool_error("find_primary_node: make_persistent_connection failed");

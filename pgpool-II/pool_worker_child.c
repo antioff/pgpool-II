@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -164,7 +164,7 @@ static void establish_persistent_connection(void)
 											  bkinfo->backend_port,
 											  "postgres",
 											  pool_config->sr_check_user,
-											  pool_config->sr_check_password);
+											  pool_config->sr_check_password, true);
 			if (s)
 				slots[i] = s;
 			else

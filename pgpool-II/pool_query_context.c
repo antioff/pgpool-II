@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -98,7 +98,10 @@ void pool_start_query(POOL_QUERY_CONTEXT *query_context, char *query, int len, N
 		query_context->original_query = query;
 		query_context->rewritten_query = NULL;
 		query_context->parse_tree = node;
-		query_context->virtual_master_node_id = REAL_MASTER_NODE_ID;
+		query_context->virtual_master_node_id = my_master_node_id;
+		query_context->is_cache_safe = false;
+		if (pool_config->memory_cache_enabled)
+			query_context->temp_cache = pool_create_temp_query_cache(query);
 		pool_set_query_in_progress();
 		session_context->query_context = query_context;
 	}
@@ -177,8 +180,8 @@ void pool_setall_node_to_be_sent(POOL_QUERY_CONTEXT *query_context)
 
 	for (i=0;i<NUM_BACKENDS;i++)
 	{
-		if ((BACKEND_INFO(i)).backend_status == CON_UP ||
-			(BACKEND_INFO((i)).backend_status == CON_CONNECT_WAIT))
+		if (private_backend_status[i] == CON_UP ||
+			(private_backend_status[i] == CON_CONNECT_WAIT))
 			query_context->where_to_send[i] = true;
 	}
 	return;
@@ -273,7 +276,11 @@ int pool_virtual_master_db_node_id(void)
 	{
 		return sc->query_context->virtual_master_node_id;
 	}
-	return REAL_MASTER_NODE_ID;
+
+	/*
+	 * No query context exists. Returns master node id in private buffer.
+	 */
+	return my_master_node_id;
 }
 
 /*
@@ -324,14 +331,35 @@ void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *no
 	{
 		pool_set_node_to_be_sent(query_context, REAL_MASTER_NODE_ID);
 	}
+	else if (MASTER_SLAVE && query_context->is_multi_statement)
+	{
+		/*
+		 * If we are in master/slave mode and we have multi stametemt
+		 * query, we should send it to primary server only. Otherwise
+		 * it is possible to send a write query to standby servers
+		 * because we only use the first element of the multi
+		 * statement query and don't care about the rest.  Typical
+		 * situation where we are bugged by this is, "BEGIN;DELETE
+		 * FROM table;END". Note that from pgpool-II 3.1.0
+		 * transactional statements such as "BEGIN" is unconditionaly
+		 * sent to all nodes(see send_to_where() for more details).
+		 * Someday we might be able to understand all part of multi
+		 * statement queries, but until that day we need this band
+		 * aid.
+		 */
+		if (query_context->is_multi_statement)
+		{
+			pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+		}
+	}
 	else if (MASTER_SLAVE)
 	{
 		POOL_DEST dest;
-		POOL_MEMORY_POOL *old_context = pool_memory;
+		POOL_MEMORY_POOL *old_context;
 
-		pool_memory = query_context->memory_context;
+		old_context = pool_memory_context_switch_to(query_context->memory_context);
 		dest = send_to_where(node, query);
-		pool_memory = old_context;
+		pool_memory_context_switch_to(old_context);
 
 		pool_debug("send_to_where: %d query: %s", dest, query);
 
@@ -412,7 +440,7 @@ void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *no
 					 * If temporary table is used in the SELECT,
 					 * we prefer to send to the primary.
 					 */
-					else if (pool_has_temp_table(node))
+					else if (pool_config->check_temp_table && pool_has_temp_table(node))
 					{
 						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
 					}
@@ -546,12 +574,13 @@ POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 	string = NULL;
 
 	/*
-	 * If the query is BEGIN READ WRITE in master/slave mode,
-	 * we send BEGIN instead of it to slaves/standbys. 
+	 * If the query is BEGIN READ WRITE or
+	 * BEGIN ... SERIALIZABLE in master/slave mode,
+	 * we send BEGIN to slaves/standbys instead.
+	 * original_query which is BEGIN READ WRITE is sent to primary.
+	 * rewritten_query which is BEGIN is sent to standbys.
 	 */
-	if (is_start_transaction_query(query_context->parse_tree) &&
-		is_read_write((TransactionStmt *)query_context->parse_tree) &&
-		MASTER_SLAVE)
+	if (pool_need_to_treat_as_if_default_transaction(query_context))
 	{
 		is_begin_read_write = true;
 	}
@@ -579,7 +608,6 @@ POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 		else if (send_type > 0 && i != node_id)
 			continue;
 
-#ifdef NOT_USED
 		/*
 		 * If in master/slave mode, we do not send COMMIT/ABORT to
 		 * slaves/standbys if it's in I(idle) state.
@@ -589,7 +617,6 @@ POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 			pool_unset_node_to_be_sent(query_context, i);
 			continue;
 		}
-#endif
 
 		/*
 		 * If in reset context, we send COMMIT/ABORT to nodes those
@@ -712,12 +739,13 @@ POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 	rewritten_begin = NULL;
 
 	/*
-	 * If the query is BEGIN READ WRITE in master/slave mode,
-	 * we send BEGIN instead of it to slaves/standbys. 
+	 * If the query is BEGIN READ WRITE or
+	 * BEGIN ... SERIALIZABLE in master/slave mode,
+	 * we send BEGIN to slaves/standbys instead.
+	 * original_query which is BEGIN READ WRITE is sent to primary.
+	 * rewritten_query which is BEGIN is sent to standbys.
 	 */
-	if (is_start_transaction_query(query_context->parse_tree) &&
-		is_read_write((TransactionStmt *)query_context->parse_tree) &&
-		MASTER_SLAVE)
+	if (pool_need_to_treat_as_if_default_transaction(query_context))
 	{
 		is_begin_read_write = true;
 
@@ -1102,6 +1130,16 @@ static POOL_DEST send_to_where(Node *node, char *query)
 				return ret;
 			}
 
+			/* SET TRANSACTION ISOLATION LEVEL SERIALIZABLE or
+			 * SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE or
+			 * SET transaction_isolation TO 'serializable'
+			 * SET default_transaction_isolation TO 'serializable'
+			 */
+			else if (is_set_transaction_serializable(node))
+			{
+				return POOL_PRIMARY;
+			}
+
 			/*
 			 * Check "SET TRANSACTION READ WRITE" "SET SESSION
 			 * CHARACTERISTICS AS TRANSACTION READ WRITE"
@@ -1265,7 +1303,7 @@ char *pool_get_query_string(void)
  * SET transaction_isolation TO 'serializable'
  * SET default_transaction_isolation TO 'serializable'
  */
-bool is_set_transaction_serializable(Node *node, char *query)
+bool is_set_transaction_serializable(Node *node)
 {
 	ListCell   *list_item;
 
@@ -1346,12 +1384,57 @@ bool is_read_write(TransactionStmt *node)
 			bool read_only;
 
 			read_only = ((A_Const *)opt->arg)->val.val.ival;
-			if (!read_only)
+			if (read_only)
+				return false;	/* TRANSACTION READ ONLY */
+			else
+				/*
+				 * TRANSACTION READ WRITE specified. This sounds a little bit strange,
+				 * but actually the parse code works in the way.
+				 */
 				return true;
 		}
 	}
 
+	/*
+	 * No TRANSACTION READ ONLY/READ WRITE clause specified.
+	 */
 	return false;
+}
+
+/*
+ * Return true if start transaction query with "SERIALIZABLE" option.
+ */
+bool is_serializable(TransactionStmt *node)
+{
+	ListCell   *list_item;
+
+	List *options = node->options;
+	foreach(list_item, options)
+	{
+		DefElem *opt = (DefElem *) lfirst(list_item);
+
+		if (!strcmp("transaction_isolation", opt->defname) &&
+			IsA(opt->arg, A_Const) &&
+			((A_Const *)opt->arg)->val.type == T_String &&
+			!strcmp("serializable", ((A_Const *)opt->arg)->val.val.str))
+				return true;
+	}
+	return false;
+}
+
+/*
+ * If the query is BEGIN READ WRITE or
+ * BEGIN ... SERIALIZABLE in master/slave mode,
+ * we send BEGIN to slaves/standbys instead.
+ * original_query which is BEGIN READ WRITE is sent to primary.
+ * rewritten_query which is BEGIN is sent to standbys.
+ */
+bool pool_need_to_treat_as_if_default_transaction(POOL_QUERY_CONTEXT *query_context)
+{
+	return (MASTER_SLAVE &&
+			is_start_transaction_query(query_context->parse_tree) &&
+			(is_read_write((TransactionStmt *)query_context->parse_tree) ||
+			 is_serializable((TransactionStmt *)query_context->parse_tree)));
 }
 
 /*
@@ -1401,6 +1484,11 @@ void pool_set_query_state(POOL_QUERY_CONTEXT *query_context, POOL_QUERY_STATE st
 	}
 }
 
+/*
+ * Return -1, 0 or 1 according to s1 is "before, equal or after" s2 in terms of state
+ * transition order. 
+ * The State transiton order is defined as: UNPARSED < PARSE_COMPLETE < BIND_COMPLETE < EXECUTE_COMPLETE
+ */
 int statecmp(POOL_QUERY_STATE s1, POOL_QUERY_STATE s2)
 {
 	int ret;
@@ -1469,4 +1557,108 @@ char* remove_read_write(int len, const char* contents, int *rewritten_len)
 		   len - (strlen(name) + strlen(stmt) + 2));
 
 	return rewritten_contents;
+}
+
+/*
+ * Return true if current query is safe to cache.
+ */
+bool pool_is_cache_safe(void)
+{
+	POOL_SESSION_CONTEXT *sc;
+
+	sc = pool_get_session_context();
+	if (!sc)
+		return false;
+
+	if (pool_is_query_in_progress() && sc->query_context)
+	{
+		return sc->query_context->is_cache_safe;
+	}
+	return false;
+}
+
+/*
+ * Set safe to cache.
+ */
+void pool_set_cache_safe(void)
+{
+	POOL_SESSION_CONTEXT *sc;
+
+	sc = pool_get_session_context();
+	if (!sc)
+		return;
+
+	if (sc->query_context)
+	{
+		sc->query_context->is_cache_safe = true;
+	}
+}
+
+/*
+ * Unset safe to cache.
+ */
+void pool_unset_cache_safe(void)
+{
+	POOL_SESSION_CONTEXT *sc;
+
+	sc = pool_get_session_context();
+	if (!sc)
+		return;
+
+	if (sc->query_context)
+	{
+		sc->query_context->is_cache_safe = false;
+	}
+}
+
+/*
+ * Return true if current temporary query cache is exceeded
+ */
+bool pool_is_cache_exceeded(void)
+{
+	POOL_SESSION_CONTEXT *sc;
+
+	sc = pool_get_session_context();
+	if (!sc)
+		return false;
+
+	if (pool_is_query_in_progress() && sc->query_context)
+	{
+		return sc->query_context->temp_cache->is_exceeded;
+	}
+	return false;
+}
+
+/*
+ * Set current temporary query cache is exceeded
+ */
+void pool_set_cache_exceeded(void)
+{
+	POOL_SESSION_CONTEXT *sc;
+
+	sc = pool_get_session_context();
+	if (!sc)
+		return;
+
+	if (sc->query_context)
+	{
+		sc->query_context->temp_cache->is_exceeded = true;
+	}
+}
+
+/*
+ * Unset current temporary query cache is exceeded
+ */
+void pool_unset_cache_exceeded(void)
+{
+	POOL_SESSION_CONTEXT *sc;
+
+	sc = pool_get_session_context();
+	if (!sc)
+		return;
+
+	if (sc->query_context)
+	{
+		sc->query_context->temp_cache->is_exceeded = false;
+	}
 }

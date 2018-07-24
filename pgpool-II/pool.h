@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -34,6 +34,7 @@
 #include "libpq-fe.h"
 #include <stdio.h>
 #include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <limits.h>
 
@@ -267,12 +268,20 @@ typedef struct {
 extern bool pool_is_node_to_be_sent_in_current_query(int node_id);
 extern int pool_virtual_master_db_node_id(void);
 extern BACKEND_STATUS* my_backend_status[];
+extern int my_master_node_id;
 
 #define VALID_BACKEND(backend_id) \
 	((RAW_MODE && (backend_id) == REAL_MASTER_NODE_ID) ||		\
 	(pool_is_node_to_be_sent_in_current_query((backend_id)) &&	\
 	 ((*(my_backend_status[(backend_id)]) == CON_UP) ||			\
 	  (*(my_backend_status[(backend_id)]) == CON_CONNECT_WAIT))))
+
+/*
+ * For raw mode failover control
+ */
+#define VALID_BACKEND_RAW(backend_id) \
+	((*(my_backend_status[(backend_id)]) == CON_UP) ||			\
+	 (*(my_backend_status[(backend_id)]) == CON_CONNECT_WAIT))
 
 #define CONNECTION_SLOT(p, slot) ((p)->slots[(slot)])
 #define CONNECTION(p, slot) (CONNECTION_SLOT(p, slot)->con)
@@ -329,9 +338,11 @@ extern BACKEND_STATUS* my_backend_status[];
 #define NO_LOAD_BALANCE "/*NO LOAD BALANCE*/"
 #define NO_LOAD_BALANCE_COMMENT_SZ (sizeof(NO_LOAD_BALANCE)-1)
 
-#define MAX_NUM_SEMAPHORES		3
+#define MAX_NUM_SEMAPHORES		4
 #define CONN_COUNTER_SEM 0
 #define REQUEST_INFO_SEM 1
+#define SHM_CACHE_SEM	2
+#define QUERY_CACHE_STATS_SEM	3
 
 /*
  * number specified when semaphore is locked/unlocked
@@ -386,6 +397,16 @@ typedef struct {
 } POOL_SELECT_RESULT;
 
 /*
+ * recovery mode
+ */
+typedef enum {
+	RECOVERY_INIT = 0,
+	RECOVERY_ONLINE,
+	RECOVERY_DETACH,
+	RECOVERY_PROMOTE
+} POOL_RECOVERY_MODE;
+
+/*
  * global variables
  */
 extern pid_t mypid; /* parent pid */
@@ -393,6 +414,7 @@ extern bool run_as_pcp_child;
 
 extern POOL_CONNECTION_POOL *pool_connection_pool;	/* connection pool */
 extern volatile sig_atomic_t backend_timer_expired; /* flag for connection closed timer is expired */
+extern volatile sig_atomic_t health_check_timer_expired;		/* non 0 if health check timer expired */
 extern long int weight_master;	/* normalized weight of master (0-RAND_MAX range) */
 extern int my_proc_id;  /* process table id (!= UNIX's PID) */
 extern POOL_SYSTEMDB_CONNECTION_POOL *system_db_info; /* systemdb */
@@ -408,6 +430,9 @@ extern volatile sig_atomic_t exit_request;
 extern char query_string_buffer[];		/* last query string sent to simpleQuery() */
 
 extern BACKEND_STATUS private_backend_status[MAX_NUM_BACKENDS];
+
+extern char remote_host[];	/* client host */
+extern char remote_port[];	/* client port */
 
 /*
  * public functions
@@ -505,9 +530,6 @@ extern int send_startup_packet(POOL_CONNECTION_POOL_SLOT *cp);
 extern void pool_free_startup_packet(StartupPacket *sp);
 extern void child_exit(int code);
 
-extern int health_check(void);
-extern int system_db_health_check(void);
-
 extern void init_prepared_list(void);
 
 extern void *pool_shared_memory_create(size_t size);
@@ -526,7 +548,7 @@ extern POOL_STATUS OneNode_do_command(POOL_CONNECTION *frontend, POOL_CONNECTION
 
 /* child.c */
 extern POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
-	char *hostname, int port, char *dbname, char *user, char *password);
+	char *hostname, int port, char *dbname, char *user, char *password, bool retry);
 extern void discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT *cp);
 
 /* define pool_system.c */
@@ -562,6 +584,7 @@ extern void init_ps_display(const char *username, const char *dbname,
 							const char *host_info, const char *initial_str);
 extern void set_ps_display(const char *activity, bool force);
 extern const char *get_ps_display(int *displen);
+extern void pool_ps_idle_display(POOL_CONNECTION_POOL *backend);
 
 /* recovery.c */
 extern int start_recovery(int recovery_node);

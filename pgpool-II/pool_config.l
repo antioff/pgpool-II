@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -130,6 +130,17 @@ int pool_init_config(void)
 	}
 #endif
 
+	/*
+	 * add for watchdog
+	 */
+	pool_config->other_wd = malloc(sizeof(WdDesc));
+	if (pool_config->other_wd == NULL)
+	{
+		pool_error("failed to allocate pool_config->cwother_wd");
+		return -1;
+	}
+	memset(pool_config->other_wd,0,sizeof(WdDesc));
+
 	/* set hardcoded default values */
 	pool_config->listen_addresses = "localhost";
 	pool_config->port = 9999;
@@ -146,10 +157,10 @@ int pool_init_config(void)
 	pool_config->child_max_connections = 0;
 	pool_config->authentication_timeout = 60;
 	pool_config->logdir = DEFAULT_LOGDIR;
-        pool_config->logsyslog = 0;
-        pool_config->log_destination = "stderr";
-        pool_config->syslog_facility = LOG_LOCAL0;
-        pool_config->syslog_ident = "pgpool";
+    pool_config->logsyslog = 0;
+    pool_config->log_destination = "stderr";
+    pool_config->syslog_facility = LOG_LOCAL0;
+    pool_config->syslog_ident = "pgpool";
 	pool_config->pid_file_name = DEFAULT_PID_FILE_NAME;
  	pool_config->log_statement = 0;
  	pool_config->log_per_node_statement = 0;
@@ -179,6 +190,8 @@ int pool_init_config(void)
 	pool_config->health_check_period = 0;
 	pool_config->health_check_user = "nobody";
 	pool_config->health_check_password = "";
+	pool_config->health_check_max_retries = 0;
+	pool_config->health_check_retry_delay = 1;
 	pool_config->sr_check_period = 0;
 	pool_config->sr_check_user = "nobody";
 	pool_config->sr_check_password = "";
@@ -211,9 +224,54 @@ int pool_init_config(void)
 	pool_config->ssl_ca_cert_dir = "";
 	pool_config->debug_level = 0;
 	pool_config->relcache_expire = 0;
+	pool_config->relcache_size = 256;
+	pool_config->check_temp_table = 1;
 	pool_config->lists_patterns = NULL;
 	pool_config->pattc = 0;
 	pool_config->current_pattern_size = 0;
+	/*
+	 * add for watchdog
+	 */
+	pool_config->use_watchdog = 0;
+	pool_config->trusted_servers = NULL;
+	pool_config->delegate_IP = NULL;
+	res = gethostname(localhostname,sizeof(localhostname));
+	if(res !=0 )
+	{
+		pool_debug("faild to get this hostname");
+	}
+	pool_config->wd_hostname = localhostname;
+	pool_config->wd_port = 9000;
+	pool_config->other_wd->num_wd = 0;
+	pool_config->wd_interval = 10;
+	pool_config->ping_path = "/bin";
+	pool_config->ifconfig_path = "/sbin";
+	pool_config->if_up_cmd = "ifconfig eth0:0 inet $_IP_$ netmask 255.255.255.0";
+	pool_config->if_down_cmd = "ifconfig eth0:0 down";
+	pool_config->arping_path = "/usr/sbin";
+	pool_config->arping_cmd = "arping -U $_IP_$ -w 1";
+	pool_config->wd_life_point = 3;
+	pool_config->wd_lifecheck_query = "SELECT 1";
+
+
+    pool_config->memory_cache_enabled = 0;
+    pool_config->memqcache_method = "shmem";
+    pool_config->memqcache_memcached_host = "localhost";
+    pool_config->memqcache_memcached_port = 11211;
+    pool_config->memqcache_total_size = 67108864;
+    pool_config->memqcache_max_num_cache = 1000000;
+    pool_config->memqcache_expire = 0;
+    pool_config->memqcache_auto_cache_invalidation = 1;
+    pool_config->memqcache_maxcache = 409600;
+    pool_config->memqcache_cache_block_size = 1048576;
+    pool_config->memqcache_oiddir = "/var/log/pgpool/oiddir";
+	pool_config->white_memqcache_table_list = NULL;
+	pool_config->num_white_memqcache_table_list = 0;
+	pool_config->black_memqcache_table_list = NULL;
+	pool_config->num_black_memqcache_table_list = 0;
+    pool_config->lists_memqcache_table_patterns = NULL;
+    pool_config->memqcache_table_pattc = 0;
+    pool_config->current_memqcache_table_pattern_size = 0;
 
 	res = gethostname(localhostname,sizeof(localhostname));
 	if(res !=0 )
@@ -243,11 +301,13 @@ int add_regex_pattern(char *type, char *s)
 	/* Add extended regex search */
 	regex_flags |= REG_EXTENDED;
 	/* Fill the pattern type */
-	if (strcmp(type, "black_function_list") == 0)
+	if (strcmp(type, "black_function_list") == 0 ||
+        strcmp(type, "black_memqcache_table_list") == 0)
 	{
 		currItem.type = BLACKLIST;
 	}
-	else if (strcmp(type, "white_function_list") == 0)
+	else if (strcmp(type, "white_function_list") == 0 ||
+	         strcmp(type, "white_memqcache_table_list") == 0)
 	{
 		currItem.type = WHITELIST;
 	}
@@ -285,14 +345,21 @@ int add_regex_pattern(char *type, char *s)
 	{
 		pool_error("add_to_patterns: invalid regex pattern: %s", currItem.pattern);
 	}
-	else
-	{
-		if (growPatternArray(currItem) < 0)
-		{
-			pool_error("add_to_patterns: unable to allocate new pattern");
-			return 0;
-		}
-	}
+    else if ((strcmp(type, "white_function_list") == 0 ||
+	          strcmp(type, "black_function_list") == 0) &&
+             growFunctionPatternArray(currItem) < 0)
+    {
+        pool_error("add_to_patterns: unable to allocate new pattern");
+        return 0;
+    }
+    else if ((strcmp(type, "white_memqcache_table_list") == 0 ||
+	          strcmp(type, "black_memqcache_table_list") == 0) &&
+             growMemqcacheTablePatternArray(currItem) < 0)
+    {
+        pool_error("add_to_patterns: unable to allocate new pattern");
+        return 0;
+    }
+
 	return 1;
 }
 
@@ -301,13 +368,14 @@ int add_regex_pattern(char *type, char *s)
  * The array start with PATTERN_ARR_SIZE storage place, if required
  * it will grow of PATTERN_ARR_SIZE more each time.
  */
-int growPatternArray (RegPattern item)
+int growFunctionPatternArray(RegPattern item)
 {
 	void *_tmp = NULL;
 	if (pool_config->pattc == pool_config->current_pattern_size)
 	{
 		pool_config->current_pattern_size += PATTERN_ARR_SIZE;
-		_tmp = realloc(pool_config->lists_patterns, (pool_config->current_pattern_size * sizeof(RegPattern)));
+		_tmp = realloc(pool_config->lists_patterns,
+		               (pool_config->current_pattern_size * sizeof(RegPattern)));
 		if (!_tmp)
 		{
 			return(-1);
@@ -321,6 +389,27 @@ int growPatternArray (RegPattern item)
 	return(pool_config->pattc);
 }
 
+int growMemqcacheTablePatternArray(RegPattern item)
+{
+	void *_tmp = NULL;
+	if (pool_config->memqcache_table_pattc == pool_config->current_memqcache_table_pattern_size)
+	{
+		pool_config->current_memqcache_table_pattern_size += PATTERN_ARR_SIZE;
+		_tmp = realloc(pool_config->lists_memqcache_table_patterns,
+		               (pool_config->current_memqcache_table_pattern_size * sizeof(RegPattern)));
+		if (!_tmp)
+		{
+			return(-1);
+		}
+
+		pool_config->lists_memqcache_table_patterns = (RegPattern*)_tmp;
+	}
+	pool_config->lists_memqcache_table_patterns[pool_config->memqcache_table_pattc] = item;
+	pool_config->memqcache_table_pattc++;
+
+	return(pool_config->memqcache_table_pattc);
+}
+
 int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 {
 	FILE *fd;
@@ -329,6 +418,11 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 	double total_weight;
 	int i;
     bool log_destination_changed = false;
+#ifdef USE_MEMCACHED
+	bool use_memcached = true;
+#else
+	bool use_memcached = false;
+#endif
 
 #define PARSE_ERROR()		pool_error("pool_config: parse error at line %d '%s'", Lineno, yytext)
 
@@ -1089,6 +1183,34 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_config->health_check_password = str;
 		}
 
+                else if (!strcmp(key, "health_check_max_retries") &&
+                                 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+                {
+                        int v = atoi(yytext);
+
+                        if (token != POOL_INTEGER || v < 0)
+                        {
+                                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                                fclose(fd);
+                                return(-1);
+                        }
+                        pool_config->health_check_max_retries = v;
+                }
+
+                else if (!strcmp(key, "health_check_retry_delay") &&
+                                 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+                {
+                        int v = atoi(yytext);
+
+                        if (token != POOL_INTEGER || v < 0)
+                        {
+                                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                                fclose(fd);
+                                return(-1);
+                        }
+                        pool_config->health_check_retry_delay = v;
+                }
+
 		else if (!strcmp(key, "sr_check_period") &&
 				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
 		{
@@ -1758,6 +1880,312 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->lobj_lock_table = str;
 		}
+		/*
+		 * add for watchdog
+		 */
+		else if (!strncmp(key, "other_pgpool_hostname", 21) &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
+				 mypid == getpid()) /* this parameter must be modified by parent pid */
+		{
+			int slot;
+			char *str;
+
+			slot = atoi(key + 21) ;
+			if (slot < 0 || slot >= MAX_CONNECTION_SLOTS)
+			{
+				pool_error("pool_config: pgpool number %s for other_pgpool_hostname out of range", key);
+				fclose(fd);
+				return(-1);
+			}
+
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
+				strlcpy(WD_INFO(slot).hostname, str, WD_MAX_HOST_NAMELEN);
+		}
+
+		else if (!strncmp(key, "other_pgpool_port", 17) &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
+				 mypid == getpid()) /* this parameter must be modified by parent pid */
+		{
+			int slot;
+
+			slot = atoi(key + 17);
+			if (slot < 0 || slot >= MAX_CONNECTION_SLOTS)
+			{
+				pool_error("pool_config: pgpool number %s for other_pgpool_port out of range", key);
+				fclose(fd);
+				return(-1);
+			}
+
+			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
+				WD_INFO(slot).pgpool_port = atoi(yytext);
+		}
+
+		else if (!strncmp(key, "other_wd_port", 13) &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
+				 mypid == getpid()) /* this parameter must be modified by parent pid */
+		{
+			int slot;
+
+			slot = atoi(key + 13);
+			if (slot < 0 || slot >= MAX_CONNECTION_SLOTS)
+			{
+				pool_error("pool_config: pgpool number %s for other_wd_port out of range", key);
+				fclose(fd);
+				return(-1);
+			}
+
+			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
+			{
+				WD_INFO(slot).wd_port = atoi(yytext);
+				WD_INFO(slot).status = WD_INIT;
+				pool_config->other_wd->num_wd = slot+1;
+			}
+		}
+		else if (!strcmp(key, "use_watchdog") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = eval_logical(yytext);
+
+			if (v < 0)
+			{
+				pool_error("pool_config: invalid value %s for %s", yytext, key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->use_watchdog = v;
+		}
+		else if (!strcmp(key, "trusted_servers") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->trusted_servers = str;
+		}
+		else if (!strcmp(key, "delegate_IP") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->delegate_IP = str;
+		}
+		else if (!strcmp(key, "wd_hostname") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->wd_hostname = str;
+		}
+		else if (!strcmp(key, "wd_port") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v <= 0)
+			{
+				pool_error("pool_config: %s must be higher than 1 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_port = v;
+		}
+		else if (!strcmp(key, "wd_interval") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v <= 0)
+			{
+				pool_error("pool_config: %s must be higher than 1 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_interval = v;
+		}
+		else if (!strcmp(key, "ping_path") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->ping_path = str;
+		}
+		else if (!strcmp(key, "ifconfig_path") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->ifconfig_path = str;
+		}
+		else if (!strcmp(key, "if_up_cmd") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->if_up_cmd = str;
+		}
+		else if (!strcmp(key, "if_down_cmd") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->if_down_cmd = str;
+		}
+		else if (!strcmp(key, "arping_path") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->arping_path = str;
+		}
+		else if (!strcmp(key, "arping_cmd") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->arping_cmd = str;
+		}
+		else if (!strcmp(key, "wd_life_point") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v <= 0)
+			{
+				pool_error("pool_config: %s must be higher than 1 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_life_point = v;
+		}
+		else if (!strcmp(key, "wd_lifecheck_query") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if(strlen(str))
+				pool_config->wd_lifecheck_query = str;
+		}
+
 
         else if (!strcmp(key, "ssl") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
@@ -1871,6 +2299,270 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_config->relcache_expire = v;
 		}
 
+		else if (!strcmp(key, "relcache_size") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v < 1)
+			{
+				pool_error("pool_config: %s must be equal or higher than 1 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->relcache_size = v;
+		}
+
+		else if (!strcmp(key, "check_temp_table") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			int v = eval_logical(yytext);
+
+			if (v < 0)
+			{
+				pool_error("pool_config: invalid value %s for %s", yytext, key);
+				return(-1);
+			}
+			pool_config->check_temp_table = v;
+		}
+
+        else if (!strcmp(key, "memory_cache_enabled") &&
+                 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+        {
+            int v = eval_logical(yytext);
+
+            if (v < 0)
+            {
+                pool_error("pool_config: invalid value %s for %s", yytext, key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memory_cache_enabled = v;
+        }
+        else if (!strcmp(key, "memqcache_method") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            char *str;
+
+            if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+            {
+                PARSE_ERROR();
+                fclose(fd);
+                return(-1);
+            }
+            str = extract_string(yytext, token);
+            if (str == NULL)
+            {
+                fclose(fd);
+                return(-1);
+            }
+
+			if (!strcmp(str, "memcached") && !use_memcached)
+			{
+				pool_error("memqcached_method cannot be memcached because pgpool-II is not built with MEMCACHED enabled");
+				fclose(fd);
+				return -1;
+			}
+
+			if (strcmp(str, "memcached") && strcmp(str, "shmem"))
+			{
+				pool_error("memqcached_method must be either shmem or memcached");
+				fclose(fd);
+				return -1;
+			}
+
+            pool_config->memqcache_method = str;
+        }
+        else if (!strcmp(key, "memqcache_memcached_host") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            char *str;
+
+            if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+            {
+                PARSE_ERROR();
+                fclose(fd);
+                return(-1);
+            }
+            str = extract_string(yytext, token);
+            if (str == NULL)
+            {
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_memcached_host = str;
+        }
+        else if (!strcmp(key, "memqcache_memcached_port") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = atoi(yytext);
+
+            if (token != POOL_INTEGER || v < 0)
+            {
+                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_memcached_port = v;
+        }
+        else if (!strcmp(key, "memqcache_total_size") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = atoi(yytext);
+
+            if (token != POOL_INTEGER || v < 0)
+            {
+                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_total_size = v;
+        }
+        else if (!strcmp(key, "memqcache_total_size") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = atoi(yytext);
+
+            if (token != POOL_INTEGER || v < 0)
+            {
+                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_total_size = v;
+        }
+        else if (!strcmp(key, "memqcache_max_num_cache") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = atoi(yytext);
+
+            if (token != POOL_INTEGER || v < 0)
+            {
+                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_max_num_cache = v;
+        }
+        else if (!strcmp(key, "memqcache_expire") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = atoi(yytext);
+
+            if (token != POOL_INTEGER || v < 0)
+            {
+                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_expire = v;
+        }
+        else if (!strcmp(key, "memqcache_auto_cache_invalidation") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = eval_logical(yytext);
+
+            if (v < 0)
+            {
+                pool_error("pool_config: invalid value %s for %s", yytext, key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_auto_cache_invalidation = v;
+        }
+        else if (!strcmp(key, "memqcache_maxcache") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = atoi(yytext);
+
+            if (token != POOL_INTEGER || v < 0)
+            {
+                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_maxcache = v;
+        }
+        else if (!strcmp(key, "memqcache_cache_block_size") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            int v = atoi(yytext);
+
+            if (token != POOL_INTEGER || v < 512)
+            {
+                pool_error("pool_config: %s must be equal or higher than 512 numeric value", key);
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_cache_block_size = v;
+        }
+        else if (!strcmp(key, "memqcache_oiddir") && CHECK_CONTEXT(INIT_CONFIG, context))
+        {
+            char *str;
+
+            if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+            {
+                PARSE_ERROR();
+                fclose(fd);
+                return(-1);
+            }
+            str = extract_string(yytext, token);
+            if (str == NULL)
+            {
+                fclose(fd);
+                return(-1);
+            }
+            pool_config->memqcache_oiddir = str;
+        }
+		else if (!strcmp(key, "white_memqcache_table_list") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->white_memqcache_table_list =
+				extract_string_tokens(str, ",", &pool_config->num_white_memqcache_table_list);
+
+			if (pool_config->white_memqcache_table_list == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			for (i=0;i<pool_config->num_white_memqcache_table_list;i++)
+			{
+				add_regex_pattern("white_memqcache_table_list", pool_config->white_memqcache_table_list[i]);
+			}
+		}
+
+		else if (!strcmp(key, "black_memqcache_table_list") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->black_memqcache_table_list =
+				extract_string_tokens(str, ",", &pool_config->num_black_memqcache_table_list);
+
+			if (pool_config->black_memqcache_table_list == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			for (i=0;i<pool_config->num_black_memqcache_table_list;i++)
+			{
+				add_regex_pattern("black_memqcache_table_list", pool_config->black_memqcache_table_list[i]);
+			}
+		}
 	}
 
 	fclose(fd);

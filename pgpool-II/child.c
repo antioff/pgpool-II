@@ -56,6 +56,7 @@
 #include "pool_ip.h"
 #include "md5.h"
 #include "pool_stream.h"
+#include "pool_passwd.h"
 
 static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *timeout);
 static StartupPacket *read_startup_packet(POOL_CONNECTION *cp);
@@ -88,6 +89,9 @@ extern char **myargv;
 char remote_ps_data[NI_MAXHOST];		/* used for set_ps_display */
 
 volatile sig_atomic_t got_sighup = 0;
+
+char remote_host[NI_MAXHOST];	/* client host */
+char remote_port[NI_MAXSERV];	/* client port */
 
 /*
 * child main loop
@@ -137,7 +141,11 @@ void do_child(int unix_fd, int inet_fd)
 
 	/* initialize random seed */
 	gettimeofday(&now, &tz);
+#if defined(sun) || defined(__sun)
+	srand((unsigned int) now.tv_usec);
+#else
 	srandom((unsigned int) now.tv_usec);
+#endif
 
 	/* initialize system db connection */
 	init_system_db_connection();
@@ -479,9 +487,6 @@ static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *time
 	struct timeval *timeoutval;
 	struct timeval tv1, tv2, tmback = {0, 0};
 
-	char remote_host[NI_MAXHOST];
-	char remote_port[NI_MAXSERV];
-
 	set_ps_display("wait for connection request", false);
 
 	/* Destroy session context for just in case... */
@@ -634,7 +639,10 @@ static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *time
 	{
 		pool_get_config(get_config_file_name(), RELOAD_CONFIG);
 		if (pool_config->enable_pool_hba)
+		{
 			load_hba(get_hba_file_name());
+			pool_reopen_passwd_file();
+		}
 		if (pool_config->parallel_mode)
 			pool_memset_system_db_info(system_db_info->info);
 		got_sighup = 0;
@@ -1396,6 +1404,11 @@ void child_exit(int code)
 			pool_close(pool_system_db_connection()->con);
 	}
 
+	if (pool_config->memory_cache_enabled && !pool_is_shmem_cache())
+	{
+		memcached_disconnect();
+	}
+
 	/* let backend know now we are exiting */
 	send_frontend_exits();
 
@@ -1406,7 +1419,7 @@ void child_exit(int code)
  * create a persistent connection
  */
 POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
-	char *hostname, int port, char *dbname, char *user, char *password)
+	char *hostname, int port, char *dbname, char *user, char *password, bool retry)
 {
 	POOL_CONNECTION_POOL_SLOT *cp;
 	int fd;
@@ -1445,11 +1458,11 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	 */
 	if (*hostname == '/')
 	{
-		fd = connect_unix_domain_socket_by_port(port, hostname, TRUE);
+		fd = connect_unix_domain_socket_by_port(port, hostname, retry);
 	}
 	else
 	{
-		fd = connect_inet_domain_socket_by_port(hostname, port, TRUE);
+		fd = connect_inet_domain_socket_by_port(hostname, port, retry);
 	}
 
 	if (fd < 0)
@@ -1828,9 +1841,17 @@ static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
  */
 static void connection_count_up(void)
 {
+#ifdef HAVE_SIGPROCMASK
+	sigset_t oldmask;
+#else
+	int	oldmask;
+#endif
+
+	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(CONN_COUNTER_SEM);
 	Req_info->conn_counter++;
 	pool_semaphore_unlock(CONN_COUNTER_SEM);
+	POOL_SETMASK(&oldmask);
 }
 
 /*
@@ -1839,6 +1860,13 @@ static void connection_count_up(void)
  */
 static void connection_count_down(void)
 {
+#ifdef HAVE_SIGPROCMASK
+	sigset_t oldmask;
+#else
+	int	oldmask;
+#endif
+
+	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(CONN_COUNTER_SEM);
 	/*
 	 * Make sure that we do not decrement too much.  If failed to read
@@ -1851,6 +1879,7 @@ static void connection_count_down(void)
 	if (Req_info->conn_counter > 0)
 		Req_info->conn_counter--;
 	pool_semaphore_unlock(CONN_COUNTER_SEM);
+	POOL_SETMASK(&oldmask);
 }
 
 /*
@@ -1882,7 +1911,13 @@ int select_load_balancing_node(void)
 			total_weight += BACKEND_INFO(i).backend_weight;
 		}
 	}
+
+#if defined(sun) || defined(__sun)
+	r = (((double)rand())/RAND_MAX) * total_weight;
+#else
 	r = (((double)random())/RAND_MAX) * total_weight;
+#endif
+
 	total_weight = 0.0;
 	for (i=0;i<NUM_BACKENDS;i++)
 	{
@@ -1942,7 +1977,7 @@ static void init_system_db_connection(void)
 																   pool_config->system_db_port,
 																   pool_config->system_db_dbname,
 																   pool_config->system_db_user,
-																   pool_config->system_db_password);
+																   pool_config->system_db_password, false);
 		if (system_db_info->connection == NULL)
 		{
 			pool_error("Could not make persistent system DB connection");
@@ -1951,7 +1986,7 @@ static void init_system_db_connection(void)
 }
 
 /*
- * Initialize my backend status.
+ * Initialize my backend status and master node id.
  * We copy the backend status to private area so that
  * they are not changed while I am alive.
  */
@@ -1967,4 +2002,6 @@ void pool_initialize_private_backend_status(void)
 		/* my_backend_status is referred to by VALID_BACKEND macro. */
 		my_backend_status[i] = &private_backend_status[i];
 	}
+
+	my_master_node_id = REAL_MASTER_NODE_ID;
 }

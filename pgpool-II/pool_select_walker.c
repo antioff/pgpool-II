@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -21,6 +21,7 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "pool.h"
 #include "pool_config.h"
@@ -28,24 +29,21 @@
 #include "pool_relcache.h"
 #include "parser/parsenodes.h"
 #include "pool_session_context.h"
-
-typedef struct {
-	bool	has_system_catalog;		/* True if system catalog table is used */
-	bool	has_temp_table;		/* True if temporary table is used */
-	bool	has_unlogged_table;	/* True if unlogged table is used */
-	bool	has_function_call;	/* True if write function call is used */	
-	bool	has_insertinto_or_locking_clause;	/* True if it has SELECT INTO or FOR SHARE/UPDATE */
-} SelectContext;
+#include "pool_timestamp.h"
 
 static bool function_call_walker(Node *node, void *context);
 static bool system_catalog_walker(Node *node, void *context);
 static bool is_system_catalog(char *table_name);
 static bool temp_table_walker(Node *node, void *context);
 static bool unlogged_table_walker(Node *node, void *context);
+static bool view_walker(Node *node, void *context);
 static bool is_temp_table(char *table_name);
-static bool is_unlogged_table(char *table_name);
 static bool	insertinto_or_locking_clause_walker(Node *node, void *context);
-static int pattern_compare(char *str, const int type);
+static bool is_immutable_function(char *fname);
+static bool select_table_walker(Node *node, void *context);
+static bool non_immutable_function_call_walker(Node *node, void *context);
+static char *strip_quote(char *str);
+static char *make_table_name_from_rangevar(RangeVar *rangevar);
 
 /*
  * Return true if this SELECT has function calls *and* supposed to
@@ -121,6 +119,24 @@ bool pool_has_unlogged_table(Node *node)
 }
 
 /*
+ * Return true if this SELECT has a view.
+ */
+bool pool_has_view(Node *node)
+{
+
+	SelectContext	ctx;
+
+	if (!IsA(node, SelectStmt))
+		return false;
+
+	ctx.has_view = false;
+
+	raw_expression_tree_walker(node, view_walker, &ctx);
+
+	return ctx.has_view;
+}
+
+/*
  * Return true if this SELECT has INSERT INTO or FOR SHARE or FOR UDPATE.
  */
 bool pool_has_insertinto_or_locking_clause(Node *node)
@@ -147,29 +163,54 @@ bool pool_has_insertinto_or_locking_clause(Node *node)
  * Return -1 if the given search type doesn't exist.
  * Search type supported are: WHITELIST and BLACKLIST 
  */
-static int pattern_compare(char *str, const int type)
+int pattern_compare(char *str, const int type, const char *param_name)
 {
 	int i = 0;
 
-	/* pass througth all regex pattern unless pattern is found */
-	for (i = 0; i < pool_config->pattc; i++) {
-		if ( (pool_config->lists_patterns[i].type == type) && (regexec(&pool_config->lists_patterns[i].regexv, str, 0, 0, 0) == 0) ) {
+	RegPattern *lists_patterns;
+	int *pattc;
+
+	if (strcmp(param_name, "white_function_list") == 0 ||
+	    strcmp(param_name, "black_function_list") == 0)
+	{
+		lists_patterns = pool_config->lists_patterns;
+		pattc = &pool_config->pattc;
+
+	} else if (strcmp(param_name, "white_memqcache_table_list") == 0 ||
+	           strcmp(param_name, "black_memqcache_table_list") == 0)
+	{
+		lists_patterns = pool_config->lists_memqcache_table_patterns;
+		pattc = &pool_config->memqcache_table_pattc;
+
+	} else {
+		pool_error("pattern_compare: unknown paramname %s", param_name);
+		return -1;
+	}
+
+	for (i = 0; i < *pattc; i++) {
+		if (lists_patterns[i].type != type)
+			continue;
+
+		if (regexec(&lists_patterns[i].regexv, str, 0, 0, 0) == 0)
+		{
 			switch(type) {
 			/* return 1 if string matches whitelist pattern */
 			case WHITELIST:
-				if (pool_config->debug_level > 0)
-					pool_debug("pattern_compare: white_function_list (%s) matched: %s", pool_config->lists_patterns[i].pattern, str);
+				pool_debug("pattern_compare: %s (%s) matched: %s",
+			               param_name, lists_patterns[i].pattern, str);
 				return 1;
 			/* return 1 if string matches blacklist pattern */
 			case BLACKLIST:
-				if (pool_config->debug_level > 0)
-					pool_debug("pattern_compare: black_function_list (%s) matched: %s", pool_config->lists_patterns[i].pattern, str);
+				pool_debug("pattern_compare: %s (%s) matched: %s",
+			               param_name, lists_patterns[i].pattern, str);
 				return 1;
 			default:
-				pool_error("pattern_compare: unknown pattern match type: %s", str);
+				pool_error("pattern_compare: %s unknown pattern match type: %s", param_name, str);
 				return -1;
 			}
 		}
+		pool_debug("pattern_compare: %s (%s) not matched: %s",
+	               param_name, lists_patterns[i].pattern, str);
 	}
 
 	/* return 0 otherwise */
@@ -212,7 +253,7 @@ static bool function_call_walker(Node *node, void *context)
 			if (pool_config->num_white_function_list > 0)
 			{
 				/* Search function in the white list regex patterns */
-				if (pattern_compare(fname, WHITELIST) == 1) {
+				if (pattern_compare(fname, WHITELIST, "white_function_list") == 1) {
 					/* If the function is found in the white list, we can ignore it */
 					return raw_expression_tree_walker(node, function_call_walker, context);
 				}
@@ -230,7 +271,7 @@ static bool function_call_walker(Node *node, void *context)
 			if (pool_config->num_black_function_list > 0)
 			{
 				/* Search function in the black list regex patterns */
-				if (pattern_compare(fname, BLACKLIST) == 1) {
+				if (pattern_compare(fname, BLACKLIST, "black_function_list") == 1) {
 					/* Found. */
 					ctx->has_function_call = true;
 					return false;
@@ -300,6 +341,33 @@ static bool
 unlogged_table_walker(Node *node, void *context)
 {
 	SelectContext	*ctx = (SelectContext *) context;
+	char *relname;
+
+	if (node == NULL)
+		return false;
+
+	if (IsA(node, RangeVar))
+	{
+		RangeVar *rgv = (RangeVar *)node;
+		relname = make_table_name_from_rangevar(rgv);
+		pool_debug("unlogged_table_walker: relname: %s", relname);
+
+		if (is_unlogged_table(relname))
+		{
+			ctx->has_unlogged_table = true;
+			return false;
+		}
+	}
+	return raw_expression_tree_walker(node, unlogged_table_walker, context);
+}
+
+/*
+ * Walker function to find a view
+ */
+static bool
+view_walker(Node *node, void *context)
+{
+	SelectContext	*ctx = (SelectContext *) context;
 
 	if (node == NULL)
 		return false;
@@ -308,15 +376,15 @@ unlogged_table_walker(Node *node, void *context)
 	{
 		RangeVar *rgv = (RangeVar *)node;
 
-		pool_debug("unlogged_table_walker: relname: %s", rgv->relname);
+		pool_debug("view_walker: relname: %s", rgv->relname);
 
-		if (is_unlogged_table(rgv->relname))
+		if (is_view(rgv->relname))
 		{
-			ctx->has_unlogged_table = true;
+			ctx->has_view = true;
 			return false;
 		}
 	}
-	return raw_expression_tree_walker(node, unlogged_table_walker, context);
+	return raw_expression_tree_walker(node, view_walker, context);
 }
 
 /*
@@ -367,7 +435,7 @@ static bool is_system_catalog(char *table_name)
 			query = ISBELONGTOPGCATALOGQUERY;
 		}
 
-		hasreliscatalog_cache = pool_create_relcache(128, query,
+		hasreliscatalog_cache = pool_create_relcache(pool_config->relcache_size, query,
 										int_register_func, int_unregister_func,
 										false);
 		if (hasreliscatalog_cache == NULL)
@@ -386,9 +454,9 @@ static bool is_system_catalog(char *table_name)
 		 */
 		if (!relcache)
 		{
-			relcache = pool_create_relcache(128, ISBELONGTOPGCATALOGQUERY,
+			relcache = pool_create_relcache(pool_config->relcache_size, ISBELONGTOPGCATALOGQUERY,
 											int_register_func, int_unregister_func,
-											true);
+											false);
 			if (relcache == NULL)
 			{
 				pool_error("is_system_catalog: pool_create_relcache error");
@@ -455,7 +523,7 @@ static bool is_temp_table(char *table_name)
 	 */
 	if (!hasrelistemp_cache)
 	{
-		hasrelistemp_cache = pool_create_relcache(128, HASRELITEMPPQUERY,
+		hasrelistemp_cache = pool_create_relcache(pool_config->relcache_size, HASRELITEMPPQUERY,
 										int_register_func, int_unregister_func,
 										false);
 		if (hasrelistemp_cache == NULL)
@@ -476,7 +544,7 @@ static bool is_temp_table(char *table_name)
 	 */
 	if (!relcache)
 	{
-		relcache = pool_create_relcache(128, query,
+		relcache = pool_create_relcache(pool_config->relcache_size, query,
 										int_register_func, int_unregister_func,
 										true);
 		if (relcache == NULL)
@@ -497,7 +565,7 @@ static bool is_temp_table(char *table_name)
  * Judge the table used in a query represented by node is a unlogged
  * table or not.
  */
-static bool is_unlogged_table(char *table_name)
+bool is_unlogged_table(char *table_name)
 {
 /*
  * Query to know if pg_class has relpersistence column or not.
@@ -530,7 +598,7 @@ static bool is_unlogged_table(char *table_name)
 	 */
 	if (!hasrelpersistence_cache)
 	{
-		hasrelpersistence_cache = pool_create_relcache(128, HASRELPERSISTENCEQUERY,
+		hasrelpersistence_cache = pool_create_relcache(pool_config->relcache_size, HASRELPERSISTENCEQUERY,
 													   int_register_func, int_unregister_func,
 													   false);
 		if (hasrelpersistence_cache == NULL)
@@ -561,7 +629,7 @@ static bool is_unlogged_table(char *table_name)
 		 */
 		if (!relcache)
 		{
-			relcache = pool_create_relcache(128, query,
+			relcache = pool_create_relcache(pool_config->relcache_size, query,
 											int_register_func, int_unregister_func,
 											true);
 			if (relcache == NULL)
@@ -581,6 +649,60 @@ static bool is_unlogged_table(char *table_name)
 	{
 		return false;
 	}
+}
+
+/*
+ * Judge the table used in a query is a view or not.
+ */
+bool is_view(char *table_name)
+{
+/*
+ * Query to know if the target table is a view.
+ */
+#define ISVIEWQUERY "SELECT count(*) FROM pg_catalog.pg_class AS c WHERE c.relname = '%s' AND c.relkind = 'v'"
+
+#define ISVIEWQUERY2 "SELECT count(*) FROM pg_catalog.pg_class AS c WHERE c.oid = pgpool_regclass('%s') AND c.relkind = 'v'"
+
+	static POOL_RELCACHE *relcache;
+	POOL_CONNECTION_POOL *backend;
+	bool result;
+	char *query;
+
+	if (table_name == NULL)
+	{
+			return false;
+	}
+
+	backend = pool_get_session_context()->backend;
+
+	/* pgpool_regclass has been installed */
+	if (pool_has_pgpool_regclass())
+	{
+		query = ISVIEWQUERY2;
+	}
+	else
+	{
+		query = ISVIEWQUERY;
+	}
+
+	if (!relcache)
+	{
+		relcache = pool_create_relcache(pool_config->relcache_size, query,
+										int_register_func, int_unregister_func,
+										false);
+		if (relcache == NULL)
+		{
+			pool_error("is_view: pool_create_relcache error");
+			return false;
+		}
+
+	}
+
+	/*
+	 * Search relcache.
+	 */
+	result = pool_search_relcache(relcache, backend, table_name)==0?false:true;
+	return result;
 }
 
 /*
@@ -630,4 +752,335 @@ static bool	insertinto_or_locking_clause_walker(Node *node, void *context)
 		return false;
 	}
 	return raw_expression_tree_walker(node, insertinto_or_locking_clause_walker, ctx);
+}
+
+/*
+ * Return true if this SELECT has non immutable function calls.
+ */
+bool pool_has_non_immutable_function_call(Node *node)
+{
+	SelectContext	ctx;
+
+	if (!IsA(node, SelectStmt))
+		return false;
+
+ 	ctx.has_non_immutable_function_call = false;
+
+	raw_expression_tree_walker(node, non_immutable_function_call_walker, &ctx);
+
+	pool_debug("pool_has_non_immutable_function_call: %d", ctx.has_non_immutable_function_call);
+	return ctx.has_non_immutable_function_call;
+}
+
+/*
+ * Walker function to find non immutable function call.
+ */
+static bool non_immutable_function_call_walker(Node *node, void *context)
+{
+	SelectContext	*ctx = (SelectContext *) context;
+
+	if (node == NULL)
+		return false;
+
+	if (IsA(node, FuncCall))
+	{
+		FuncCall *fcall = (FuncCall *)node;
+		char *fname;
+		int length = list_length(fcall->funcname);
+
+		if (length > 0)
+		{
+			if (length == 1)	/* no schema qualification? */
+			{
+				fname = strVal(linitial(fcall->funcname));
+			}
+			else
+			{
+				fname = strVal(lsecond(fcall->funcname));		/* with schema qualification */
+			}
+
+			pool_debug("non_immutable_function_call_walker: function name: %s", fname);
+
+			/* Check system catalog if the function is immutable */
+			if (is_immutable_function(fname) == false)
+			{
+				/* Non immutable function call found */
+				ctx->has_non_immutable_function_call = true;
+				return false;
+			}
+		}
+	}
+	else if (IsA(node, TypeCast))
+	{
+		/* CURRENT_DATE, CURRENT_TIME, LOCALTIMESTAMP, LOCALTIME etc.*/
+		TypeCast	*tc = (TypeCast *) node;
+
+		if ((isSystemType((Node *) tc->typeName, "date") ||
+			 isSystemType((Node *) tc->typeName, "timestamp") ||
+			 isSystemType((Node *) tc->typeName, "timestamptz") ||
+			 isSystemType((Node *) tc->typeName, "time") ||
+			 isSystemType((Node *) tc->typeName, "timetz")))
+		{
+			ctx->has_non_immutable_function_call = true;
+			return false;
+		}
+	}
+
+	return raw_expression_tree_walker(node, non_immutable_function_call_walker, context);
+}
+
+/*
+ * Check if the function is stable.
+ */
+static bool is_immutable_function(char *fname)
+{
+/*
+ * Query to know if the function is IMMUTABLE
+ */
+#define IS_STABLE_FUNCTION_QUERY "SELECT count(*) FROM pg_catalog.pg_proc AS p WHERE p.proname = '%s' AND p.provolatile = 'i'"
+	bool result;
+	static POOL_RELCACHE *relcache;
+	POOL_CONNECTION_POOL *backend;
+
+	backend = pool_get_session_context()->backend;
+
+	if (!relcache)
+	{
+		relcache = pool_create_relcache(pool_config->relcache_size, IS_STABLE_FUNCTION_QUERY,
+										int_register_func, int_unregister_func,
+										false);
+		if (relcache == NULL)
+		{
+			pool_error("is_immutable_function: pool_create_relcache error");
+			return false;
+		}
+		pool_debug("is_immutable_function: relcache created");
+	}
+
+	result = pool_search_relcache(relcache, backend, fname)==0?0:1;
+	pool_debug("is_immutable_function: search result:%d", result);
+	return result;
+}
+
+/*
+ * Convert table_name(possibly including schema name) to oid
+ */
+int pool_table_name_to_oid(char *table_name)
+{
+/*
+ * Query to convert table name to oid
+ */
+#define TABLE_TO_OID_QUERY "SELECT pgpool_regclass('%s')"
+#define TABLE_TO_OID_QUERY2 "SELECT oid FROM pg_class WHERE relname = '%s'"
+
+	int oid = 0;
+	static POOL_RELCACHE *relcache;
+	POOL_CONNECTION_POOL *backend;
+	char *query;
+
+	if (table_name == NULL)
+	{
+		return oid;
+	}
+
+	backend = pool_get_session_context()->backend;
+
+	if (pool_has_pgpool_regclass())
+	{
+		query = TABLE_TO_OID_QUERY;
+	}
+	else
+	{
+		query = TABLE_TO_OID_QUERY2;
+	}
+
+	/*
+	 * If relcache does not exist, create it.
+	 */
+	if (!relcache)
+	{
+		relcache = pool_create_relcache(pool_config->relcache_size, query,
+										int_register_func, int_unregister_func,
+										true);
+		if (relcache == NULL)
+		{
+			pool_error("table_name_to_oid: pool_create_relcache error");
+			return oid;
+		}
+
+		/* Se do not cache if pgpool_regclass() returns 0, which indicates
+		 * there's no such a table. In this case we do not want to cache the
+		 * state because the table might be created later in this session.
+		 */
+		relcache->no_cache_if_zero = true;	
+	}
+
+	/*
+	 * Search relcache.
+	 */
+	oid = (int)(intptr_t)pool_search_relcache(relcache, backend, table_name);
+	return oid;
+}
+
+/*
+ * Extract table oids from SELECT statement. Returns number of oids.
+ * Oids are returned as an int array. The contents of oid array are
+ * discarded by next call to this function.
+ */
+int pool_extract_table_oids_from_select_stmt(Node *node, SelectContext *ctx)
+{
+	if (!IsA(node, SelectStmt))
+		return 0;
+
+	ctx->num_oids = 0;
+	raw_expression_tree_walker(node, select_table_walker, ctx);
+
+	return ctx->num_oids;
+}
+
+/*
+ * Walker function to extract table oids from SELECT statement.
+ */
+static bool
+select_table_walker(Node *node, void *context)
+{
+	SelectContext	*ctx = (SelectContext *) context;
+	int num_oids;
+
+	if (node == NULL)
+		return false;
+
+	if (IsA(node, RangeVar))
+	{
+		RangeVar *rgv = (RangeVar *)node;
+		char *table;
+		int oid;
+		char *s;
+
+		table = make_table_name_from_rangevar(rgv);
+		oid = pool_table_name_to_oid(table);
+
+		if (oid)
+		{
+			if (POOL_MAX_SELECT_OIDS <= ctx->num_oids)
+			{
+				pool_debug("select_table_walker: number of oids exceeds");
+				return false;
+			}
+
+			num_oids = ctx->num_oids++;
+
+			ctx->table_oids[num_oids] = oid;
+			s = strip_quote(table);
+			strcpy(ctx->table_names[num_oids], s);
+			free(s);
+
+			pool_debug("select_table_walker: ctx->table_names[%d] = %s",
+			           num_oids, ctx->table_names[num_oids]);
+		}
+	}
+
+	return raw_expression_tree_walker(node, select_table_walker, context);
+}
+
+static char *strip_quote(char *str)
+{
+	char *after;
+	int i = 0;
+
+	after = malloc(sizeof(char) * strlen(str) + 1);
+
+	do {
+		if (*str != '"')
+		{
+			after[i] = *str;
+			i++;
+		}
+		str++;
+	} while (*str != '\0');
+
+	after[i] = '\0';
+
+	return after;
+}
+
+/*
+ * makeRangeVarFromNameList
+ *		Utility routine to convert a qualified-name list into RangeVar form.
+ *
+ * Copied from backend/catalog/namespace.c
+ */
+RangeVar *
+makeRangeVarFromNameList(List *names)
+{
+	RangeVar   *rel = makeRangeVar(NULL, NULL, -1);
+
+	switch (list_length(names))
+	{
+		case 1:
+			rel->relname = strVal(linitial(names));
+			break;
+		case 2:
+			rel->schemaname = strVal(linitial(names));
+			rel->relname = strVal(lsecond(names));
+			break;
+		case 3:
+			rel->catalogname = strVal(linitial(names));
+			rel->schemaname = strVal(lsecond(names));
+			rel->relname = strVal(lthird(names));
+			break;
+		default:
+			pool_error("improper relation name (too many dotted names)");
+			break;
+	}
+
+	return rel;
+}
+
+/*
+ * Extract table name from RageVar.  Make schema qualification name if
+ * neccessary.  The returned table name is in static area. So next
+ * call to this function will break previous result.
+ */
+static char *make_table_name_from_rangevar(RangeVar *rangevar)
+{
+	/*
+	 * Table name. Max size is calculated as follows:
+	 * schema name(POOL_NAMEDATALEN byte)
+	 * + single quote(1 byte)
+	 * + table name (POOL_NAMEDATALEN byte)
+	 * + NULL(1 byte)
+	 */
+	static char tablename[POOL_NAMEDATALEN*2+1+1];
+
+	if (rangevar == NULL)
+	{
+		pool_error("make_table_name_from_rangevar: argument is NULL");
+		return "";
+	}
+
+	if (!IsA(rangevar, RangeVar))
+	{
+		pool_error("make_table_name_from_rangevar: argument is not a RangeVar (%d)",
+				   ((Node *)rangevar)->type);
+		return "";
+	}
+
+	*tablename = '\0';
+
+	if (rangevar->schemaname)
+	{
+		strncpy(tablename, rangevar->schemaname, POOL_NAMEDATALEN);
+		strcat(tablename, ".");
+	}
+
+	if (!rangevar->relname)
+	{
+		pool_error("make_table_name_from_rangevar: RangeVar->relname is NULL");
+		return "";
+	}
+
+	strncat(tablename, rangevar->relname, POOL_NAMEDATALEN);
+	pool_debug("make_table_name_from_rangevar: tablename:%s", tablename);
+	return tablename;
 }

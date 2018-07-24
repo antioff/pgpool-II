@@ -596,9 +596,6 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 				SystemDBInfo *si = NULL;
 				si = pool_get_system_db_info();
 
-				/* since PCP clients can only see SystemDBInfo, set system_db_status from the shared memory */
-				si->system_db_status = SYSDB_STATUS;
-
 				if (si == NULL)
 				{
 					char code[] = "SystemDBNotDefined";
@@ -622,6 +619,9 @@ pcp_do_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 					char dist_def_num[16];
 					/* finally, indicate that all data is sent */
 					char fin_code[] = "CommandComplete";
+
+					/* since PCP clients can only see SystemDBInfo, set system_db_status from the shared memory */
+					si->system_db_status = SYSDB_STATUS;
 
 					snprintf(port, sizeof(port), "%d", si->port);
 					snprintf(status, sizeof(status), "%d", si->system_db_status);
@@ -1312,7 +1312,7 @@ static int pool_detach_node(int node_id, bool gracefully)
 	/*
 	 * Wait until all frontends exit
 	 */
-	*InRecovery = 1;	/* This wiil ensure that new incoming
+	*InRecovery = RECOVERY_DETACH;	/* This wiil ensure that new incoming
 						 * connection requests are blocked */
 
 	if (wait_connection_closed())
@@ -1360,7 +1360,7 @@ static int pool_promote_node(int node_id, bool gracefully)
 	/*
 	 * Wait until all frontends exit
 	 */
-	*InRecovery = 1;	/* This wiil ensure that new incoming
+	*InRecovery = RECOVERY_PROMOTE;	/* This wiil ensure that new incoming
 						 * connection requests are blocked */
 
 	if (wait_connection_closed())

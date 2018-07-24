@@ -70,6 +70,12 @@
 /* Define to 1 if you have the `m' library (-lm). */
 #undef HAVE_LIBM
 
+/* Define to 1 if you have the `memcached' library (-lmemcached). */
+#undef HAVE_LIBMEMCACHED
+
+/* Define to 1 if you have the <libmemcached/memcached.h> header file. */
+#undef HAVE_LIBMEMCACHED_MEMCACHED_H
+
 /* Define to 1 if you have the `nsl' library (-lnsl). */
 #undef HAVE_LIBNSL
 
@@ -224,8 +230,14 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
+/* Define to 1 if you have the `vasprintf' function. */
+#undef HAVE_VASPRINTF
+
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
+
+/* Define to 1 if you have the `vsyslog' function. */
+#undef HAVE_VSYSLOG
 
 /* Define to 1 if you have the `wait3' system call. Deprecated, you should no
    longer depend upon `wait3'. */
@@ -288,6 +300,9 @@
 /* Define to 1 if you want float8, int8, etc values to be passed by value.
    (--enable-float8-byval) */
 #undef USE_FLOAT8_BYVAL
+
+/* Define to 1 to build with memcached support */
+#undef USE_MEMCACHED
 
 /* Define to 1 to build with PAM support. (--with-pam) */
 #undef USE_PAM

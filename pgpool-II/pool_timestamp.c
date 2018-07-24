@@ -58,7 +58,6 @@ static void *ts_register_func(POOL_SELECT_RESULT *res);
 static void *ts_unregister_func(void *data);
 static TSRel *relcache_lookup(TSRewriteContext *ctx);
 static bool isStringConst(Node *node, const char *str);
-static bool isSystemType(Node *node, const char *name);
 static bool rewrite_timestamp_walker(Node *node, void *context);
 static bool rewrite_timestamp_insert(InsertStmt *i_stmt, TSRewriteContext *ctx);
 static bool rewrite_timestamp_update(UpdateStmt *u_stmt, TSRewriteContext *ctx);
@@ -67,7 +66,6 @@ static Node *makeTsExpr(TSRewriteContext *ctx);
 static A_Const *makeStringConstFromQuery(POOL_CONNECTION_POOL *backend, char *expression);
 bool raw_expression_tree_walker(Node *node, bool (*walker) (), void *context);
 
-#define		MAX_RELCACHE 32
 POOL_RELCACHE	*ts_relcache;
 
 
@@ -163,7 +161,7 @@ relcache_lookup(TSRewriteContext *ctx)
 
 	if (!ts_relcache)
 	{
-		ts_relcache = pool_create_relcache(MAX_RELCACHE, query, ts_register_func, ts_unregister_func, false);
+		ts_relcache = pool_create_relcache(pool_config->relcache_size, query, ts_register_func, ts_unregister_func, false);
 
 		if (ts_relcache == NULL)
 		{
@@ -210,7 +208,7 @@ isStringConst(Node *node, const char *str)
 }
 
 
-static bool
+bool
 isSystemType(Node *node, const char *name)
 {
 	TypeName	*typename;

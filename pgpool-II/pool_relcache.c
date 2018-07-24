@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -67,6 +67,7 @@ POOL_RELCACHE *pool_create_relcache(int cachesize, char *sql,
 	p->register_func = register_func;
 	p->unregister_func = unregister_func;
 	p->cache_is_session_local = issessionlocal;
+	p->no_cache_if_zero = false;
 	p->cache = ip;
 	
 	return p;
@@ -101,6 +102,7 @@ void *pool_search_relcache(POOL_RELCACHE *relcache, POOL_CONNECTION_POOL *backen
 	int index = 0;
 	int local_session_id;
 	time_t now;
+	void *result;
 
 	/* Eliminate double quotes */
 	rel = malloc(strlen(table)+1);
@@ -189,6 +191,7 @@ void *pool_search_relcache(POOL_RELCACHE *relcache, POOL_CONNECTION_POOL *backen
 			if (relcache->cache[i].session_id != local_session_id)
 			{
 				index = i;
+				relcache->cache[i].refcnt = 0;
 				break;
 			}
 		}
@@ -206,29 +209,38 @@ void *pool_search_relcache(POOL_RELCACHE *relcache, POOL_CONNECTION_POOL *backen
 		}
 	}
 
-	/* Register cache */
-	strlcpy(relcache->cache[index].dbname, dbname, MAX_ITEM_LENGTH);
-	strlcpy(relcache->cache[index].relname, rel, MAX_ITEM_LENGTH);
-	relcache->cache[index].refcnt = 1;
-	relcache->cache[index].session_id = local_session_id;
-	if (pool_config->relcache_expire > 0)
+	if (relcache->cache[index].refcnt != 0)
 	{
-		relcache->cache[index].expire = now + pool_config->relcache_expire;
+		pool_log("pool_search_relcache: cache replacement happend");
 	}
-	else
+
+	/* Register cache */
+	result = (*relcache->register_func)(res);
+
+	if (!relcache->no_cache_if_zero || result)
 	{
-		relcache->cache[index].expire = 0;
+		strlcpy(relcache->cache[index].dbname, dbname, MAX_ITEM_LENGTH);
+		strlcpy(relcache->cache[index].relname, rel, MAX_ITEM_LENGTH);
+		relcache->cache[index].refcnt = 1;
+		relcache->cache[index].session_id = local_session_id;
+		if (pool_config->relcache_expire > 0)
+		{
+			relcache->cache[index].expire = now + pool_config->relcache_expire;
+		}
+		else
+		{
+			relcache->cache[index].expire = 0;
+		}
+		/*
+		 * Call user defined unregister/register fuction.
+		 */
+		(*relcache->unregister_func)(relcache->cache[index].data);
+		relcache->cache[index].data = result;
 	}
 	free(rel);
-
-	/*
-	 * Call user defined unregister/register fuction.
-	 */
-	(*relcache->unregister_func)(relcache->cache[index].data);
-	relcache->cache[index].data = (*relcache->register_func)(res);
 	free_select_result(res);
 
-	return 	relcache->cache[index].data;
+	return 	result;
 }
 
 /*

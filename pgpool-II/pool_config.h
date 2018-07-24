@@ -27,6 +27,11 @@
 #define POOL_CONFIG_H
 
 /*
+ * watchdog
+ */
+#include "watchdog/watchdog.h"
+
+/*
  * Master/slave sub mode
  */
 #define MODE_STREAMREP "stream"		/* Streaming Replication */
@@ -114,6 +119,8 @@ typedef struct {
 	int health_check_period;	/* health check period */
 	char *health_check_user;		/* PostgreSQL user name for health check */
 	char *health_check_password; /* password for health check username */
+	int health_check_max_retries;	/* health check max retries */
+	int health_check_retry_delay;	/* amount of time to wait between retries */
 	int sr_check_period;		/* streming replication check period */
 	char *sr_check_user;		/* PostgreSQL user name streaming replication check */
 	char *sr_check_password;	/* password for sr_check_user */
@@ -169,6 +176,8 @@ typedef struct {
 	int num_reset_queries;		/* number of queries in reset_query_list */
 	int num_white_function_list;		/* number of functions in white_function_list */
 	int num_black_function_list;		/* number of functions in black_function_list */
+	int num_white_memqcache_table_list;		/* number of functions in white_memqcache_table_list */
+	int num_black_memqcache_table_list;		/* number of functions in black_memqcache_table_list */
 	int logsyslog;		/* flag used to start logging to syslog */
 
 	/* ssl configuration */
@@ -179,11 +188,52 @@ typedef struct {
 	char *ssl_ca_cert_dir;	/* path to directory containing CA certificates */
 
 	time_t relcache_expire;		/* relation cache life time in seconds */
+	int relcache_size;		/* number of relation cache life entry */
+	int check_temp_table;		/* enable temporary table check */
 
 	/* followings are for regex support and do not exist in the configuration file */
 	RegPattern *lists_patterns; /* Precompiled regex patterns for black/white lists */
 	int pattc; /* number of regexp pattern */
 	int current_pattern_size; /* size of the regex pattern array */
+
+	int memory_cache_enabled;   /* if true, use the memory cache functionality, false by default */
+	char *memqcache_method;   /* Cache store method. Either 'shmem'(shared memory) or 'memcached'. 'shmem' by default */
+	char *memqcache_memcached_host;   /* Memcached host name. Mandatory if memqcache_method=memcached. */
+	int memqcache_memcached_port;   /* Memcached port number. Mondatory if memqcache_method=memcached. */
+	int memqcache_total_size;   /* Total memory size in bytes for storing memory cache. Mandatory if memqcache_method=shmem. */
+	int memqcache_max_num_cache;   /* Total number of cache entries. Mandatory if memqcache_method=shmem. */
+	int memqcache_expire;   /* Memory cache entry life time specified in seconds. 60 by default. */
+	int memqcache_auto_cache_invalidation; /* If true, invalidation of query cache is triggered by corresponding */
+										   /* DDL/DML/DCL(and memqcache_expire).  If false, it is only triggered */
+										   /* by memqcache_expire.  True by default. */
+	int memqcache_maxcache;   /* Maximum SELECT result size in bytes. */
+	int memqcache_cache_block_size;   /* Cache block size in bytes. 8192 by default */
+	char *memqcache_oiddir;		/* Tempory work directory to record table oids */
+	char **white_memqcache_table_list;		/* list of tables to memqcache */
+	char **black_memqcache_table_list;		/* list of tables not to memqcache */
+
+	RegPattern *lists_memqcache_table_patterns; /* Precompiled regex patterns for black/white lists */
+	int memqcache_table_pattc; /* number of regexp pattern */
+	int current_memqcache_table_pattern_size; /* size of the regex pattern array */
+
+	/*
+	 * add for watchdog
+	 */
+	int use_watchdog;		/* if non 0, use watchdog */
+	char *wd_hostname;		/* watchdog hostname */
+	int wd_port;			/* watchdog port */
+	WdDesc * other_wd;		/* watchdog lists */ 
+	char * trusted_servers;	/* icmp reachable server list (A,B,C) */
+	char * delegate_IP;		/* delegate IP address */
+	int  wd_interval;		/* lifecheck interval (sec) */
+	char * ping_path;		/* path to ping command */
+	char * ifconfig_path;	/* path to ifconfig command */
+	char * if_up_cmd;		/* ifup command */
+	char * if_down_cmd;		/* ifdown command */
+	char * arping_path;	/* path to arping command */
+	char * arping_cmd;		/* arping command */
+	int  wd_life_point;		/* life point (retry times at lifecheck) */
+	char * wd_lifecheck_query;	/* lifecheck query */
 } POOL_CONFIG;
 
 typedef enum {
@@ -203,6 +253,7 @@ extern int set_syslog_facility (char *);
 
 /* methods used for regexp support */
 extern int add_regex_pattern(char *type, char *s);
-extern int growPatternArray (RegPattern item);
+extern int growFunctionPatternArray(RegPattern item);
+extern int growMemqcacheTablePatternArray(RegPattern item);
 
 #endif /* POOL_CONFIG_H */

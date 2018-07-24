@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -139,8 +139,6 @@ int pool_ssl_read(POOL_CONNECTION *cp, void *buf, int size) {
 		case SSL_ERROR_NONE:
 			break;
 		case SSL_ERROR_WANT_READ:
-			n = 0;
-			break;
 		case SSL_ERROR_WANT_WRITE:
 
 			/*
@@ -169,16 +167,64 @@ int pool_ssl_read(POOL_CONNECTION *cp, void *buf, int size) {
 			n = -1;
 			break;
 		default:
-			perror_ssl("SSL_read");
-			n = -1;
+			pool_error("pool_ssl_read: unrecognized error code: %d", err);
+			/*
+			 * We assume that the connection is broken. Returns 0
+			 * rather than -1 in this case because -1 triggers
+			 * unwanted failover in the caller (pool_read).
+			 */
+			n = 0;
 			break;
 	}
 
 	return n;
 }
 
-int pool_ssl_write(POOL_CONNECTION *cp, const void *buf, int size) {
-	return SSL_write(cp->ssl, buf, size);
+int pool_ssl_write(POOL_CONNECTION *cp, const void *buf, int size)
+{
+	int n;
+	int err;
+
+retry:
+	errno = 0;
+	n = SSL_write(cp->ssl, buf, size);
+	err = SSL_get_error(cp->ssl, n);
+	switch (err)
+	{
+		case SSL_ERROR_NONE:
+			break;
+
+		case SSL_ERROR_WANT_READ:
+		case SSL_ERROR_WANT_WRITE:
+			goto retry;
+
+		case SSL_ERROR_SYSCALL:
+			if (n == -1)
+			{
+				pool_error("SSL_write error: %d", err);
+			}
+			else
+			{
+				pool_error("SSL_write error: EOF detected");
+				n = -1;
+			}
+			break;
+
+		case SSL_ERROR_SSL:
+		case SSL_ERROR_ZERO_RETURN:
+			perror_ssl("SSL_write");
+			n = -1;
+			break;
+
+		default:
+			pool_error("pool_ssl_write: unrecognized error code: %d", err);
+			/*
+			 * We assume that the connection is broken.
+			 */
+			n = -1;
+			break;
+	}
+	return n;
 }
 
 static int init_ssl_ctx(POOL_CONNECTION *cp, enum ssl_conn_type conntype) {

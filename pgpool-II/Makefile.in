@@ -80,13 +80,14 @@ am_pgpool_OBJECTS = main.$(OBJEXT) child.$(OBJEXT) pool_auth.$(OBJEXT) \
 	pool_process_reporting.$(OBJEXT) pool_ssl.$(OBJEXT) \
 	pool_timestamp.$(OBJEXT) pool_proto2.$(OBJEXT) \
 	pool_proto_modules.$(OBJEXT) pool_lobj.$(OBJEXT) \
-	pool_process_context.$(OBJEXT) pool_session_context.$(OBJEXT) \
-	pool_query_context.$(OBJEXT) pool_worker_child.$(OBJEXT) \
-	pool_passwd.$(OBJEXT) pool_globals.$(OBJEXT) \
-	pool_select_walker.$(OBJEXT) getopt_long.$(OBJEXT)
+	pool_process_context.$(OBJEXT) pool_memqcache.$(OBJEXT) \
+	pool_session_context.$(OBJEXT) pool_query_context.$(OBJEXT) \
+	pool_worker_child.$(OBJEXT) pool_passwd.$(OBJEXT) \
+	pool_globals.$(OBJEXT) pool_select_walker.$(OBJEXT) \
+	getopt_long.$(OBJEXT)
 pgpool_OBJECTS = $(am_pgpool_OBJECTS)
 pgpool_DEPENDENCIES = parser/libsql-parser.a pcp/libpcp.la \
-	parser/nodes.o
+	parser/nodes.o watchdog/lib-watchdog.a
 pgpool_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(pgpool_LDFLAGS) \
 	$(LDFLAGS) -o $@
@@ -210,7 +211,6 @@ DEFS = @DEFS@ \
 	-DDEFAULT_CONFIGDIR=\"$(sysconfdir)\"
 
 DEPDIR = @DEPDIR@
-DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -237,7 +237,10 @@ LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
-MANIFEST_TOOL = @MANIFEST_TOOL@
+MEMCACHED_DIR = @MEMCACHED_DIR@
+MEMCACHED_INCLUDE_OPT = @MEMCACHED_INCLUDE_OPT@
+MEMCACHED_LINK_OPT = @MEMCACHED_LINK_OPT@
+MEMCACHED_RPATH_OPT = @MEMCACHED_RPATH_OPT@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
@@ -268,7 +271,6 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
-ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__include = @am__include@
@@ -301,6 +303,7 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -332,6 +335,7 @@ pgpool_SOURCES = pool.h pool_type.h version.h pgpool.conf.sample \
 	pool_proto2.c pool_proto_modules.c pool_proto_modules.h \
 	pool_lobj.c pool_lobj.h \
 	pool_process_context.c pool_process_context.h \
+    pool_memqcache.c pool_memqcache.h \
 	pool_session_context.c pool_session_context.h \
 	pool_query_context.c pool_query_context.h \
 	pool_worker_child.c \
@@ -357,7 +361,7 @@ AM_CPPFLAGS = -D_GNU_SOURCE -I @PGSQL_INCLUDE_DIR@
 
 # suggested by libtoolize
 ACLOCAL_AMFLAGS = -I m4
-pgpool_LDADD = -L@PGSQL_LIB_DIR@ -lpq parser/libsql-parser.a pcp/libpcp.la parser/nodes.o
+pgpool_LDADD = -L@PGSQL_LIB_DIR@ -lpq parser/libsql-parser.a pcp/libpcp.la parser/nodes.o watchdog/lib-watchdog.a -lpthread
 @enable_rpath_FALSE@pgpool_LDFLAGS = 
 @enable_rpath_TRUE@pgpool_LDFLAGS = -rpath @PGSQL_LIB_DIR@ -rpath $(libdir)
 AM_YFLAGS = -d
@@ -365,6 +369,7 @@ man_MANS = pgpool.8
 CLEANFILES = pgpool.8
 EXTRA_DIST = pgpool.8.in sample/pgpool.pam \
 		doc/pgpool-ja.html doc/pgpool-en.html doc/pgpool-zh_cn.html \
+		doc/wd-ja.jpg doc/wd-en.jpg \
 		doc/tutorial-ja.html doc/tutorial-en.html doc/tutorial-zh_cn.html \
 	    doc/pgpool.css doc/pgpool-ja.css \
 		doc/where_to_send_queries.pdf doc/where_to_send_queries.odg \
@@ -428,7 +433,7 @@ EXTRA_DIST = pgpool.8.in sample/pgpool.pam \
 		test/timestamp/parse_schedule test/timestamp/run-test \
 		redhat/pgpool.init redhat/pgpool.sysconfig redhat/pgpool.conf.sample.patch
 
-SUBDIRS = parser pcp
+SUBDIRS = parser pcp watchdog
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -554,6 +559,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pool_hba.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pool_ip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pool_lobj.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pool_memqcache.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pool_params.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pool_passwd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pool_path.Po@am__quote@

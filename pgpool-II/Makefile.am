@@ -16,6 +16,7 @@ pgpool_SOURCES = pool.h pool_type.h version.h pgpool.conf.sample \
 	pool_proto2.c pool_proto_modules.c pool_proto_modules.h \
 	pool_lobj.c pool_lobj.h \
 	pool_process_context.c pool_process_context.h \
+    pool_memqcache.c pool_memqcache.h \
 	pool_session_context.c pool_session_context.h \
 	pool_query_context.c pool_query_context.h \
 	pool_worker_child.c \
@@ -45,7 +46,13 @@ AM_CPPFLAGS = -D_GNU_SOURCE -I @PGSQL_INCLUDE_DIR@
 # suggested by libtoolize
 ACLOCAL_AMFLAGS = -I m4
 
-pgpool_LDADD = -L@PGSQL_LIB_DIR@ -lpq parser/libsql-parser.a pcp/libpcp.la parser/nodes.o
+pgpool_LDADD = -L@PGSQL_LIB_DIR@ -lpq parser/libsql-parser.a pcp/libpcp.la parser/nodes.o watchdog/lib-watchdog.a -lpthread
+if enable_rpath
+  pgpool_LDFLAGS = -rpath @PGSQL_LIB_DIR@ -rpath $(libdir)
+else
+  pgpool_LDFLAGS = 
+endif
+
 AM_YFLAGS = -d
 
 man_MANS = pgpool.8
@@ -56,6 +63,7 @@ pgpool.8: pgpool.8.in
 CLEANFILES = pgpool.8
 EXTRA_DIST = pgpool.8.in sample/pgpool.pam \
 		doc/pgpool-ja.html doc/pgpool-en.html doc/pgpool-zh_cn.html \
+		doc/wd-ja.jpg doc/wd-en.jpg \
 		doc/tutorial-ja.html doc/tutorial-en.html doc/tutorial-zh_cn.html \
 	    doc/pgpool.css doc/pgpool-ja.css \
 		doc/where_to_send_queries.pdf doc/where_to_send_queries.odg \
@@ -120,4 +128,4 @@ EXTRA_DIST = pgpool.8.in sample/pgpool.pam \
 		redhat/pgpool.init redhat/pgpool.sysconfig redhat/pgpool.conf.sample.patch
 
 
-SUBDIRS = parser pcp
+SUBDIRS = parser pcp watchdog

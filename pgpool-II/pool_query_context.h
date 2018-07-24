@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2012	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -31,7 +31,13 @@
 #include "parser/nodes.h"
 #include "parser/parsenodes.h"
 #include "parser/pool_memory.h"
+#include "pool_memqcache.h"
 
+/*
+ * Parse state transition.
+ * transition order is:
+ * UNPARSED < PARSE_COMPLETE < BIND_COMPLETE < EXECUTE_COMPLETE
+ */
 typedef enum {
 	POOL_UNPARSED,
 	POOL_PARSE_COMPLETE,
@@ -54,6 +60,14 @@ typedef struct {
 	int  virtual_master_node_id;	   		/* the 1st DB node to send query */
 	POOL_MEMORY_POOL *memory_context;		/* memory context for query */
 	POOL_QUERY_STATE query_state[MAX_NUM_BACKENDS];	/* for extended query protocol */
+	bool is_cache_safe;	/* true if SELECT is safe to cache */
+	POOL_TEMP_QUERY_CACHE *temp_cache;	/* temporary cache */
+	bool is_multi_statement;	/* true if multi statement query */
+	int dboid;	/* DB oid which is used at DROP DATABASE */
+	char *query_w_hex;	/* original_query with bind message hex which used for committing cache of extended query */
+	bool is_parse_error;		/* if true, we could not parse the original
+								 * query and parsed node is actually a dummy query.
+								 */
 } POOL_QUERY_CONTEXT;
 
 extern POOL_QUERY_CONTEXT *pool_init_query_context(void);
@@ -72,12 +86,20 @@ extern POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context, int sen
 extern POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context, char *kind, int len, char *contents, int send_type, int node_id);
 extern Node *pool_get_parse_tree(void);
 extern char *pool_get_query_string(void);
-extern bool is_set_transaction_serializable(Node *node, char *query);
+extern bool is_set_transaction_serializable(Node *node);
 extern bool is_start_transaction_query(Node *node);
 extern bool is_read_write(TransactionStmt *node);
+extern bool is_serializable(TransactionStmt *node);
+extern bool pool_need_to_treat_as_if_default_transaction(POOL_QUERY_CONTEXT *query_context);
 extern bool is_savepoint_query(Node *node);
 extern bool is_2pc_transaction_query(Node *node);
 extern void pool_set_query_state(POOL_QUERY_CONTEXT *query_context, POOL_QUERY_STATE state);
 extern int statecmp(POOL_QUERY_STATE s1, POOL_QUERY_STATE s2);
+extern bool pool_is_cache_safe(void);
+extern void pool_set_cache_safe(void);
+extern void pool_unset_cache_safe(void);
+extern bool pool_is_cache_exceeded(void);
+extern void pool_set_cache_exceeded(void);
+extern void pool_unset_cache_exceeded(void);
 
 #endif /* POOL_QUERY_CONTEXT_H */
