@@ -38,21 +38,16 @@ noargs_start()
 
 
 			if [ -f "$PIDFILE" ]; then
-        			failure "$PIDFILE exists. Probably another instance of pgpool is running ?..."
-		    else
-        		if 
-				#echo $CONFIG
-       start_daemon --user "$PGUSER"  --expect-user root --displayname pgpool -- "$BINARY" "-f $CONFIG 2>&1|logger -t pgpool -p local0.info "
-
-
-#			action "Starting pgpool:" "su -s /bin/sh -c '/usr/bin/pgpool -n -f $CONFIG  2>&1|logger -t pgpool -p local0.info &' postgres"
-			   
-        			then
-	            	echo_success
-        		else
-            	echo_failure
-        		fi
-    		fi
+				failure "$PIDFILE exists. Probably another instance of pgpool is running ?..."
+			else
+			    if start_daemon --user "$PGUSER"  --expect-user root --displayname pgpool -- "$BINARY" "-f $CONFIG 2>&1|logger -t pgpool -p local0.info "
+#				action "Starting pgpool:" "su -s /bin/sh -c '/usr/bin/pgpool -n -f $CONFIG  2>&1|logger -t pgpool -p local0.info &' postgres"
+				then
+					echo_success
+			    else
+				echo_failure
+			    fi
+			fi
 
 	done
 	RETVAL=$?
