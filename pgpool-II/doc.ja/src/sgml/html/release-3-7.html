@@ -9,24 +9,24 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.0 文書"
+TITLE="Pgpool-II 3.7.1 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
 HREF="release.html"><LINK
 REL="PREVIOUS"
-TITLE="リリースノート"
-HREF="release.html"><LINK
+TITLE="リリース 3.7.1"
+HREF="release-3-7-1.html"><LINK
 REL="NEXT"
-TITLE="リリース 3.6.7"
-HREF="release-3-6-7.html"><LINK
+TITLE="リリース 3.6.8"
+HREF="release-3-6-8.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2017-11-21T07:44:59"></HEAD
+CONTENT="2018-01-08T07:46:56"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.0 文書</A
+>Pgpool-II 3.7.1 文書</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="リリースノート"
-HREF="release.html"
+TITLE="リリース 3.7.1"
+HREF="release-3-7-1.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="リリース 3.6.7"
-HREF="release-3-6-7.html"
+TITLE="リリース 3.6.8"
+HREF="release-3-6-8.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-7"
->A.1. リリース 3.7</A
+>A.2. リリース 3.7</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN7279"
->A.1.1. 概要</A
+NAME="AEN7396"
+>A.2.1. 概要</A
 ></H2
 ><P
 >		
@@ -124,11 +124,11 @@ CLASS="PRODUCTNAME"
 > 10の新しい<TT
 CLASS="LITERAL"
 >SQL</TT
->パーサ、ロジカルレプリケーション、およびいくつかの管理関数の名前の変更に対応しています。 
+>パーサ、ロジカルレプリケーション、およびいくつかの管理関数の名前の変更に対応しています。
     </P
 ><P
 >		
-Pgpool-II 3.7 の主な改善点は以下のとおりです。 
+Pgpool-II 3.7 の主な改善点は以下のとおりです。
     </P
 ><P
 ></P
@@ -188,8 +188,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN7303"
->A.1.2. 主な改善点</A
+NAME="AEN7420"
+>A.2.2. 主な改善点</A
 ></H2
 ><P
 ></P
@@ -223,14 +223,14 @@ CLASS="PRODUCTNAME"
 	</P
 ><P
 >	
-この機能追加に伴い、以下の 3つのフェイルオーバに関するパラメータを追加しました。 
+この機能追加に伴い、以下の 3つのフェイルオーバに関するパラメータを追加しました。
 				<P
 ></P
 ></P><UL
 ><LI
 ><P
 >						
-				guc_failover_when_quorum_exists
+				failover_when_quorum_exists
 						</P
 ></LI
 ><LI
@@ -266,7 +266,7 @@ CLASS="FILENAME"
 	</P
 ><P
 >	
-この機能追加に伴い、以下の改善も行いました。 
+この機能追加に伴い、以下の改善も行いました。
 	</P
 ><P
 >	
@@ -379,7 +379,7 @@ CLASS="PRODUCTNAME"
 >ではレプリケーション遅延を検査できないことに注意してください。<A
 HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-PERIOD"
 >sr_check_period</A
->は常に0にする必要があります。 
+>は常に0にする必要があります。
 	</P
 ><P
 >	
@@ -392,7 +392,7 @@ HREF="example-aws.html"
 ><LI
 ><P
 >	
-ロジカルレプリケーションモードを追加しました。(Tatsuo Ishii) 
+ロジカルレプリケーションモードを追加しました。(Tatsuo Ishii)
 	</P
 ><P
 >	
@@ -430,8 +430,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN7374"
->A.1.3. 他の改善点</A
+NAME="AEN7491"
+>A.2.3. 他の改善点</A
 ></H2
 ><P
 ></P
@@ -439,7 +439,7 @@ NAME="AEN7374"
 ><LI
 ><P
 >      
-      Test: Watchdog のテストケースを追加しました。 (Muhammad Usama) 
+      Test: Watchdog のテストケースを追加しました。 (Muhammad Usama)
       </P
 ></LI
 ><LI
@@ -548,8 +548,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN7411"
->A.1.4. 変更点</A
+NAME="AEN7528"
+>A.2.4. 変更点</A
 ></H2
 ><P
 ></P
@@ -573,7 +573,7 @@ HREF="pcp-node-info.html"
 <A
 HREF="runtime-config-running-mode.html#GUC-MASTER-SLAVE-SUB-MODE"
 >master_slave_sub_mode</A
->パラメータのデフォルト値を「stream」に変更しました。(Tatsuo Ishii) 
+>パラメータのデフォルト値を「stream」に変更しました。(Tatsuo Ishii)
 	</P
 ><P
 >	
@@ -586,7 +586,7 @@ CLASS="FILENAME"
 ><LI
 ><P
 >	
-終了時に新しいヘルスチェックプロセスをフォークするようにしました。(Tatsuo Ishii) 
+終了時に新しいヘルスチェックプロセスをフォークするようにしました。(Tatsuo Ishii)
 	</P
 ><P
 >&#13;	</P
@@ -615,8 +615,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN7432"
->A.1.5. 不具合修正</A
+NAME="AEN7549"
+>A.2.5. 不具合修正</A
 ></H2
 ><P
 ></P
@@ -670,7 +670,7 @@ Test: メモリリークテストのバグを修正し、新しいメモリリ�
 	</P
 ><P
 >	
-以前は、ヘルスチェックが再試行されたログだけが記録されていましたが、再試行が成功したかどうかは明らかではありませんでした。 
+以前は、ヘルスチェックが再試行されたログだけが記録されていましたが、再試行が成功したかどうかは明らかではありませんでした。
 	</P
 ></LI
 ><LI
@@ -701,7 +701,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="release.html"
+HREF="release-3-7-1.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -719,7 +719,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="release-3-6-7.html"
+HREF="release-3-6-8.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -729,7 +729,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->リリースノート</TD
+>リリース 3.7.1</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"
@@ -743,7 +743,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->リリース 3.6.7</TD
+>リリース 3.6.8</TD
 ></TR
 ></TABLE
 ></DIV

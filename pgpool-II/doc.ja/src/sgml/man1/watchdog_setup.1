@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2016
-.\"    Manual: Pgpool-II 3.7.0 文書
-.\"    Source: Pgpool-II 3.7.0
+.\"    Manual: Pgpool-II 3.7.1 文書
+.\"    Source: Pgpool-II 3.7.1
 .\"  Language: Japanese
 .\"
-.TH "WATCHDOG_SETUP" "1" "2016" "Pgpool-II 3.7.0" "Pgpool-II 3.7.0 文書"
+.TH "WATCHDOG_SETUP" "1" "2016" "Pgpool-II 3.7.1" "Pgpool-II 3.7.1 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -45,16 +45,16 @@ watchdog_setup
 はテストのために使うツールなので、 実際の業務システムで利用することはおすすめしません。また、heartbeat が使用されていないことにもご注意ください。
 .PP
 watchdog_setup
-が
+は
 \fBpgpool_setup\fR(1)
 をベースとしたツールです。
 .PP
 現在、watchdog_setup
-は「ストリーミングレプリケーションモード」、「ネイティブレプリケーションモード」及び「raw モード」に対応しています。
+は「ストリーミングレプリケーションモード」、「ネイティブレプリケーションモード」、「ロジカルレプリケーションモード」及び「raw モード」に対応しています。
 .SH "オプション"
 .PP
 watchdog_setup
-以下のコマンドライン引数を受け付けます:
+は以下のコマンドライン引数を受け付けます:
 .PP
 \fB\-wn \fR\fB\fInum_pgpool\fR\fR
 .RS 4
@@ -67,11 +67,10 @@ Pgpool\-II
 Pgpool\-II
 と
 PostgreSQL
-のベースとなるポート番号を指定します。 最初の Pgpool\-II のポートは watchdog_base_port となります。 pcp のポートは u、watchdog のポートは watchdog_base_port + 2 となります。wd_heartbeat_port は watchdog_base_port + 3 (heartbeat が使われていない場合でも)。 1 番目の PostgreSQL ノードのポートは watchdog_base_port + 4、 2 番目の PostgreSQL ノードのポートは watchdog_base_port + 5 というようになります。
+のベースとなるポート番号を指定します。 最初の Pgpool\-II のポートは watchdog_base_port となります。 pcp のポートは watchdog_base_port + 1、watchdog のポートは watchdog_base_port + 2 となります。wd_heartbeat_port は watchdog_base_port + 3 (heartbeat が使われていない場合でも)。 1 番目の PostgreSQL ノードのポートは watchdog_base_port + 4、 2 番目の PostgreSQL ノードのポートは watchdog_base_port + 5 というようになります。
 .sp
-If this is omitted,
-50000
-is used\&.
+省略した場合、50000
+が使われます。
 .RE
 .PP
 \fB\-m \fR\fB\fImode\fR\fR
@@ -107,7 +106,7 @@ Pgpool\-II
 .SH "環境変数"
 .PP
 pgpool_setup
-以下の環境変数を使用します:
+は以下の環境変数を使用します:
 .PP
 \fBPGPOOL_SETUP\fR
 .RS 4
@@ -126,7 +125,7 @@ Pgpool\-II
 pgpool\&.conf
 と
 pool_hba\&.conf
-などは PGPOOL_INSTALL_DIR/etc ディレクトリ以にインストールされます。 デフォルトでは /usr/local ディレクトリ以下にインストールされます。
+などは PGPOOL_INSTALL_DIR/etc ディレクトリ以下にインストールされます。 デフォルトでは /usr/local ディレクトリ以下にインストールされます。
 .RE
 .PP
 \fBPGPOOLDIR\fR

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.0 Documentation"
+TITLE="pgpool-II 3.7.1 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2017-11-21T07:44:56"></HEAD
+CONTENT="2018-01-08T07:46:51"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.0 Documentation</A
+>pgpool-II 3.7.1 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PCP-NODE-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN5772"
+NAME="AEN5798"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN5772"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN5775"
+NAME="AEN5801"
 ></A
 ><H2
 >Synopsis</H2
@@ -141,7 +141,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5786"
+NAME="AEN5812"
 ></A
 ><H2
 >Options</H2
@@ -195,7 +195,7 @@ HREF="pcp-common-options.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5805"
+NAME="AEN5831"
 ></A
 ><H2
 >Example</H2
@@ -204,7 +204,7 @@ NAME="AEN5805"
     </P><PRE
 CLASS="PROGRAMLISTING"
 >$ pcp_node_info -h localhost -U postgres 0
-host1 5432 1 1073741823.500000 waiting primary
+host1 5432 1 0.500000 waiting primary
     </PRE
 ><P>
   </P
@@ -259,7 +259,7 @@ CLASS="PROGRAMLISTING"
 Hostname   : host1
 Port       : 5432
 Status     : 1
-Weight     : 0.5
+Weight     : 0.500000
 Status Name: waiting
 Role       : primary
     </PRE

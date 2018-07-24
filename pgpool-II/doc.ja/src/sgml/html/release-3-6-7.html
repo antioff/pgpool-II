@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.0 文書"
+TITLE="Pgpool-II 3.7.1 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
 HREF="release.html"><LINK
 REL="PREVIOUS"
-TITLE="リリース 3.7"
-HREF="release-3-7.html"><LINK
+TITLE="リリース 3.6.8"
+HREF="release-3-6-8.html"><LINK
 REL="NEXT"
 TITLE="リリース 3.6.6"
 HREF="release-3-6-6.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2017-11-21T07:44:59"></HEAD
+CONTENT="2018-01-08T07:46:56"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.0 文書</A
+>Pgpool-II 3.7.1 文書</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="リリース 3.7"
-HREF="release-3-7.html"
+TITLE="リリース 3.6.8"
+HREF="release-3-6-8.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-6-7"
->A.2. リリース 3.6.7</A
+>A.4. リリース 3.6.7</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN7459"
->A.2.1. 不具合修正</A
+NAME="AEN7642"
+>A.4.1. 不具合修正</A
 ></H2
 ><P
 ></P
@@ -152,7 +152,7 @@ CLASS="FUNCTION"
 ><LI
 ><P
 >    
-    たまににフェイルオーバが実行されない watchdog の不具合を修正しました。(Muhammad Usama)
+    たまにフェイルオーバが実行されない watchdog の不具合を修正しました。(Muhammad Usama)
     </P
 ><P
 >    
@@ -160,7 +160,7 @@ CLASS="FUNCTION"
     </P
 ><P
 >    
-    しかし、この処理の問題点は、ある watchdog が自分をクラスタのマスター/コーディネーターとして通知し、スタンバイノードが自分をマスターノードとして認識するのを待っている間に、自分の状態はマスター/コーディネータですが、まだフェイルオーバおよびフェイルオーバロック要求処理することはできませんでした。
+    しかし、この処理の問題点は、ある watchdog が自分をクラスタのマスター/コーディネーターとして通知し、スタンバイノードが自分をマスターノードとして認識するのを待っている間に、自分の状態はマスター/コーディネータですが、まだフェイルオーバおよびフェイルオーバロック要求処理することができない点にありました。
     </P
 ><P
 >    
@@ -168,7 +168,7 @@ CLASS="FUNCTION"
     </P
 ><P
 >    
-    修正案としては、ノードがフェイルオーバおよびフェイルオーバーロック要求を受け入れる前に、完全にマスター状態を取得したことを確認するように修正しました。
+    ノードがフェイルオーバおよびフェイルオーバーロック要求を受け入れる前に、完全にマスター状態を取得したことを確認するように修正しました。
     </P
 ></LI
 ><LI
@@ -185,7 +185,7 @@ TARGET="_top"
     ユーザが 'H' メッセージの直後に応答を読み込もうとすると、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->はハングアップしまていました。
+>はハングアップしていました。
     原因は、'H' が受信されたときに拡張クエリモードがリセットされ、保留メッセージが使用されなかったためです。
     </P
 ></LI
@@ -198,7 +198,7 @@ CLASS="PRODUCTNAME"
 ><LI
 ><P
 >    
-    フェイルオーバの直後にグローバルバックエンドの状態が誤って上書きされる不具合を修正しました。(Tatsuo Ishii) 
+    フェイルオーバの直後にグローバルバックエンドの状態が誤って上書きされる不具合を修正しました。(Tatsuo Ishii)
     </P
 ><P
 >    詳細は <A
@@ -224,13 +224,13 @@ TARGET="_top"
 ><LI
 ><P
 >    
-    OpenSSL 1.1に対応しました。(Tatsuo Ishii, Muhammad Usama) 
+    OpenSSL 1.1に対応しました。(Tatsuo Ishii, Muhammad Usama)
     </P
 ></LI
 ><LI
 ><P
 >    
-    Doc: replicate_select の動作に関する説明を修正しました。(Yugo Nagata) 
+    Doc: replicate_select の動作に関する説明を修正しました。(Yugo Nagata)
     </P
 ></LI
 ></UL
@@ -252,7 +252,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="release-3-7.html"
+HREF="release-3-6-8.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -280,7 +280,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->リリース 3.7</TD
+>リリース 3.6.8</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

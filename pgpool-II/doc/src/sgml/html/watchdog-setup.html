@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.0 Documentation"
+TITLE="pgpool-II 3.7.1 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Other commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2017-11-21T07:44:56"></HEAD
+CONTENT="2018-01-08T07:46:51"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.0 Documentation</A
+>pgpool-II 3.7.1 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="WATCHDOG-SETUP"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN6392"
+NAME="AEN6418"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN6392"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN6395"
+NAME="AEN6421"
 ></A
 ><H2
 >Synopsis</H2
@@ -171,13 +171,13 @@ HREF="pgpool-setup.html"
 >    Currently <SPAN
 CLASS="APPLICATION"
 >watchdog_setup</SPAN
-> supports streaming replication mode, native replication mode and raw mode.
+> supports streaming replication mode, native replication mode, logical replication mode and raw mode.
   </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6415"
+NAME="AEN6441"
 ></A
 ><H2
 >Options</H2
@@ -225,7 +225,7 @@ CLASS="REPLACEABLE"
 ><P
 >	 Specify the starting base port number used by Pgpool-II and
 	 PostgreSQL.  For the first Pgpool-II, Pgpool-II port is
-	 watchdog_base_port. pcp port is u watchdog port is
+	 watchdog_base_port. pcp port is watchdog_base_port + 1, watchdog port is
 	 watchdog_base_port + 2. wd_heartbeat_port is
 	 watchdog_base_port + 3 (though heartbeat is not used).  The
 	 first PostgreSQL node's port is watchdog_base_port + 4,
@@ -321,7 +321,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6463"
+NAME="AEN6489"
 ></A
 ><H2
 >Environment variables</H2
@@ -425,7 +425,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6503"
+NAME="AEN6529"
 ></A
 ><H2
 >Example</H2

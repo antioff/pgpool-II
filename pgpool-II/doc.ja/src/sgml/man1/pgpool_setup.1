@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2016
-.\"    Manual: Pgpool-II 3.7.0 文書
-.\"    Source: Pgpool-II 3.7.0
+.\"    Manual: Pgpool-II 3.7.1 文書
+.\"    Source: Pgpool-II 3.7.1
 .\"  Language: Japanese
 .\"
-.TH "PGPOOL_SETUP" "1" "2016" "Pgpool-II 3.7.0" "Pgpool-II 3.7.0 文書"
+.TH "PGPOOL_SETUP" "1" "2016" "Pgpool-II 3.7.1" "Pgpool-II 3.7.1 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -50,7 +50,7 @@ pgpool_setup
 .SH "オプション"
 .PP
 pgpool_setup
-以下のコマンドライン引数を受け付けます:
+は以下のコマンドライン引数を受け付けます:
 .PP
 \fB\-m \fR\fB\fImode\fR\fR
 .RS 4
@@ -80,7 +80,15 @@ PostgreSQL のノード数を指定します。指定しない場合は、ノー
 .PP
 \fB\-pg \fR\fB\fIpg_base_port\fR\fR
 .RS 4
-PostgreSQL のベースとなるポート番号を指定します。 最初の PostgreSQL ノードのポートは base_port + 2、 2 番目の PostgreSQL ノードのポートは base_port + 3 というようになります。
+PostgreSQL
+のベースとなるポート番号を指定します。 最初の
+PostgreSQL
+ノードのポートは
+pg_base_port、 2 番目の
+PostgreSQL
+ノードのポートは
+pg_base_port
++ 1 というようになります。
 .sp
 省略した場合は、
 base_port+2 が使われます。
@@ -101,7 +109,7 @@ Pgpool\-II
 .SH "環境変数"
 .PP
 pgpool_setup
-以下の環境変数を使用します:
+は以下の環境変数を使用します:
 .PP
 \fBPGPOOL_INSTALL_DIR\fR
 .RS 4
@@ -112,7 +120,7 @@ Pgpool\-II
 pgpool\&.conf
 と
 pool_hba\&.conf
-などは PGPOOL_INSTALL_DIR/etc ディレクトリ以にインストールされます。 デフォルトでは /usr/local ディレクトリ以下にインストールされます。
+などは PGPOOL_INSTALL_DIR/etc ディレクトリ以下にインストールされます。 デフォルトでは /usr/local ディレクトリ以下にインストールされます。
 .RE
 .PP
 \fBPGPOOLDIR\fR

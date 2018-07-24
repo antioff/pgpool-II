@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.0 文書"
+TITLE="Pgpool-II 3.7.1 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="他のコマンド"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2017-11-21T07:44:59"></HEAD
+CONTENT="2018-01-08T07:46:56"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.0 文書</A
+>Pgpool-II 3.7.1 文書</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="WATCHDOG-SETUP"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN6389"
+NAME="AEN6425"
 ></A
 ><H2
 >名前</H2
@@ -107,7 +107,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN6393"
+NAME="AEN6429"
 ></A
 ><H2
 >概要</H2
@@ -159,7 +159,7 @@ CLASS="APPLICATION"
     <SPAN
 CLASS="APPLICATION"
 >watchdog_setup</SPAN
-> が <A
+> は <A
 HREF="pgpool-setup.html"
 >pgpool_setup</A
 > をベースとしたツールです。
@@ -169,13 +169,13 @@ HREF="pgpool-setup.html"
     現在、<SPAN
 CLASS="APPLICATION"
 >watchdog_setup</SPAN
-> は「ストリーミングレプリケーションモード」、「ネイティブレプリケーションモード」及び「raw モード」に対応しています。
+> は「ストリーミングレプリケーションモード」、「ネイティブレプリケーションモード」、「ロジカルレプリケーションモード」及び「raw モード」に対応しています。
   </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6411"
+NAME="AEN6447"
 ></A
 ><H2
 >オプション</H2
@@ -184,7 +184,7 @@ NAME="AEN6411"
     <SPAN
 CLASS="APPLICATION"
 >watchdog_setup</SPAN
-> 以下のコマンドライン引数を受け付けます:
+> は以下のコマンドライン引数を受け付けます:
 
     <P
 ></P
@@ -232,15 +232,15 @@ CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > のベースとなるポート番号を指定します。
          最初の Pgpool-II のポートは watchdog_base_port となります。
-         pcp のポートは u、watchdog のポートは watchdog_base_port + 2 となります。wd_heartbeat_port は watchdog_base_port + 3 (heartbeat が使われていない場合でも)。
+         pcp のポートは watchdog_base_port + 1、watchdog のポートは watchdog_base_port + 2 となります。wd_heartbeat_port は watchdog_base_port + 3 (heartbeat が使われていない場合でも)。
          1 番目の PostgreSQL ノードのポートは watchdog_base_port + 4、
          2 番目の PostgreSQL ノードのポートは watchdog_base_port + 5 というようになります。
        </P
 ><P
->	If this is omitted, <TT
+>    省略した場合、<TT
 CLASS="LITERAL"
 >50000</TT
-> is used.
+> が使われます。
        </P
 ></DD
 ><DT
@@ -334,7 +334,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6463"
+NAME="AEN6499"
 ></A
 ><H2
 >環境変数</H2
@@ -343,7 +343,7 @@ NAME="AEN6463"
     <SPAN
 CLASS="APPLICATION"
 >pgpool_setup</SPAN
-> 以下の環境変数を使用します:
+> は以下の環境変数を使用します:
 
     <P
 ></P
@@ -392,7 +392,7 @@ CLASS="FILENAME"
 CLASS="FILENAME"
 >pool_hba.conf</TT
 >
-        などは PGPOOL_INSTALL_DIR/etc ディレクトリ以にインストールされます。
+        などは PGPOOL_INSTALL_DIR/etc ディレクトリ以下にインストールされます。
         デフォルトでは /usr/local ディレクトリ以下にインストールされます。
        </P
 ></DD
@@ -474,7 +474,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6512"
+NAME="AEN6548"
 ></A
 ><H2
 >出力例</H2

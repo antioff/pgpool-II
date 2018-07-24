@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2016
-.\"    Manual: pgpool-II 3.7.0 Documentation
-.\"    Source: pgpool-II 3.7.0
+.\"    Manual: pgpool-II 3.7.1 Documentation
+.\"    Source: pgpool-II 3.7.1
 .\"  Language: English
 .\"
-.TH "WATCHDOG_SETUP" "1" "2016" "pgpool-II 3.7.0" "pgpool-II 3.7.0 Documentation"
+.TH "WATCHDOG_SETUP" "1" "2016" "pgpool-II 3.7.1" "pgpool-II 3.7.1 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -54,7 +54,7 @@ as a workhorse\&.
 .PP
 Currently
 watchdog_setup
-supports streaming replication mode, native replication mode and raw mode\&.
+supports streaming replication mode, native replication mode, logical replication mode and raw mode\&.
 .SH "OPTIONS"
 .PP
 watchdog_setup
@@ -69,7 +69,7 @@ is used\&.
 .PP
 \fB\-wp \fR\fB\fIwatchdog_base_port\fR\fR
 .RS 4
-Specify the starting base port number used by Pgpool\-II and PostgreSQL\&. For the first Pgpool\-II, Pgpool\-II port is watchdog_base_port\&. pcp port is u watchdog port is watchdog_base_port + 2\&. wd_heartbeat_port is watchdog_base_port + 3 (though heartbeat is not used)\&. The first PostgreSQL node\*(Aqs port is watchdog_base_port + 4, second PostgreSQL node\*(Aqs port is watchdog_base_port + 5 and so on\&.
+Specify the starting base port number used by Pgpool\-II and PostgreSQL\&. For the first Pgpool\-II, Pgpool\-II port is watchdog_base_port\&. pcp port is watchdog_base_port + 1, watchdog port is watchdog_base_port + 2\&. wd_heartbeat_port is watchdog_base_port + 3 (though heartbeat is not used)\&. The first PostgreSQL node\*(Aqs port is watchdog_base_port + 4, second PostgreSQL node\*(Aqs port is watchdog_base_port + 5 and so on\&.
 .sp
 If this is omitted,
 50000

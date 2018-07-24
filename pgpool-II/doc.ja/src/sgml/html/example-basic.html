@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.0 文書"
+TITLE="Pgpool-II 3.7.1 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="設定の例"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2017-11-21T07:44:59"></HEAD
+CONTENT="2018-01-08T07:46:56"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.0 文書</A
+>Pgpool-II 3.7.1 文書</A
 ></TH
 ></TR
 ><TR
@@ -422,8 +422,7 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >からのネットワーク接続を受け入れられるよう適切に設定されている必要があります。
-
-が起動するホストからデータベースサーバに接続できるように設定する必要があります。 <SPAN
+ <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > ではデータベースサーバごとにレプリケーションを行うので、チュートリアルのためのデータベースクラスタを作成したほうがいいでしょう。
@@ -524,8 +523,8 @@ CLASS="PROGRAMLISTING"
 -d オプションはデバッグメッセージの出力を有効にします。
 上記の例はファイルにリダイレクトさせているため、ログメッセージが<TT
 CLASS="LITERAL"
->/tmp/pgpol.log</TT
->追加され続けます。
+>/tmp/pgpool.log</TT
+>に追加され続けます。
 ログをローテートさせたい場合は、ローテート機能を持った外部コマンドにログを渡してください。
 たとえば、Apache2の<A
 HREF="https://httpd.apache.org/docs/2.4/programs/rotatelogs.html"
@@ -555,7 +554,7 @@ CLASS="PROGRAMLISTING"
 
 注意：Linuxディストリビューションによっては、rotatelogsは<TT
 CLASS="LITERAL"
->usr/sbin/rotatelogs2</TT
+>/usr/sbin/rotatelogs2</TT
 >として存在しているかもしれません。
 <TT
 CLASS="LITERAL"
