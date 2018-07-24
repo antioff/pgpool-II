@@ -1,14 +1,13 @@
 [Unit]
-Description=PGPool-II Middleware Between PostgreSQL Servers And PostgreSQL Database Clients
-After=network.target
+Description=PGPool-II
+Documentation=man:pgpool(8)
+Wants=postgresql.service
 
 [Service]
 User=postgres
-Group=postgres
 EnvironmentFile=-/etc/sysconfig/pgpool
-ExecStart=/usr/bin/pgpool -f /etc/pgpool-II/pgpool.conf -n $OPTS
-ExecStop=/usr/bin/pgpool -f /etc/pgpool-II/pgpool.conf $STOP_OPTS stop
-ExecReload=/usr/bin/pgpool -f /etc/pgpool-II/pgpool.conf reload
+ExecStart=/usr/bin/pgpool -n
+ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
 WantedBy=multi-user.target
