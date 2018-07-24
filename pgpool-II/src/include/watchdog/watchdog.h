@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2017	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -27,6 +27,7 @@
 #define WATCHDOG_H
 
 #include <sys/time.h>
+#include "pool_config.h"
 
 #define WD_TIME_INIT(tv)      ((tv).tv_sec = (tv).tv_usec = 0)
 #define WD_TIME_ISSET(tv)     ((tv).tv_sec || (tv).tv_usec)
@@ -84,7 +85,8 @@ typedef enum {
 	WD_EVENT_LOCAL_NODE_FOUND,
 
 	WD_EVENT_NODE_CON_LOST,
-	WD_EVENT_NODE_CON_FOUND
+	WD_EVENT_NODE_CON_FOUND,
+	WD_EVENT_CLUSTER_QUORUM_CHANGED
 
 } WD_EVENTS;
 
@@ -99,6 +101,7 @@ typedef struct SocketConnection
 typedef struct WatchdogNode
 {
 	WD_STATES state;
+	struct timeval current_state_time;		/* time value when the node state last changed*/
 	struct timeval startup_time;			/* startup time value of node */
 	struct timeval last_rcv_time;			/* timestamp when last packet
 											 * was received from the node
@@ -115,6 +118,12 @@ typedef struct WatchdogNode
 	int	private_id;							/* ID assigned to this node
 											 * This id is consumed locally
 											 */
+	int standby_nodes_count;				/* number of standby nodes joined the cluster
+											 * only applicable when this WatchdogNode is
+											 * the master/coordinator node*/
+	int quorum_status;						/* quorum status on the node */
+	bool escalated;							/* true if the Watchdog node has
+											 * performed escalation */
 	SocketConnection server_socket;			/* socket connections for this node initiated by remote */
 	SocketConnection client_socket;			/* socket connections for this node initiated by local*/
 }WatchdogNode;

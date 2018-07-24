@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: PGPOOL SET
 .\"    Author: The Pgpool Global Development Group
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2016
-.\"    Manual: Pgpool-II 3.6.0 文書
-.\"    Source: Pgpool-II 3.6.0
+.\"    Manual: Pgpool-II 3.7.0 文書
+.\"    Source: Pgpool-II 3.7.0
 .\"  Language: Japanese
 .\"
-.TH "PGPOOL SET" "1" "2016" "Pgpool-II 3.6.0" "Pgpool-II 3.6.0 文書"
+.TH "PGPOOL SET" "1" "2016" "Pgpool-II 3.7.0" "Pgpool-II 3.7.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,28 +32,24 @@ PGPOOL_SET \- 実行時パラメータの設定を変更する
 .SH "概要"
 .sp
 .nf
-SET  \fIconfiguration_parameter\fR { TO | = } { \fIvalue\fR | \*(Aq\fIvalue\fR\*(Aq | DEFAULT }
+PGPOOL SET  \fIconfiguration_parameter\fR { TO | = } { \fIvalue\fR | \*(Aq\fIvalue\fR\*(Aq | DEFAULT }
 .fi
 .SH "説明"
 .PP
 \fBPGPOOL SET\fR
 は現行セッションで
 Pgpool\-II
-の設定パラメータを変更します。 このコマンドは
+の設定パラメータを変更します。このコマンドは
 PostgreSQL
-の
-\m[blue]\fB\fBSET\fR\fR\m[]\&\s-2\u[1]\d\s+2
-コマンドと似っていますが、
-PostgreSQL
+の\m[blue]\fB\fBSET\fR\fR\m[]\&\s-2\u[1]\d\s+2
+コマンドと似っていますが、PostgreSQL
 の
 \fBSET\fR
-コマンドと区別するために、
-PGPOOL
-というキーワードが追加されました。
-5章サーバの設定
+コマンドと区別するために、PGPOOL
+というキーワードが追加されました。5章サーバの設定
 に列挙されているパラメータの多くは
 \fBPGPOOL SET\fR
-で変更ですますが、 現行セッションで使用される値にのみ影響することにご注意ください。
+で変更できますが、現行セッションで使用される値にのみ影響することにご注意ください。
 .SH "例"
 .PP
 パラメータ
@@ -105,7 +101,7 @@ PGPOOL SET log_min_messages TO INFO;
 PGPOOL RESET (\fBPGPOOL_RESET\fR(1)), PGPOOL SHOW (\fBPGPOOL_SHOW\fR(1))
 .SH "注記"
 .IP " 1." 4
-    \fBSET\fR
+\fBSET\fR
 .RS 4
 \%http://www.postgresql.jp/document/9.5/html/sql-set.html
 .RE

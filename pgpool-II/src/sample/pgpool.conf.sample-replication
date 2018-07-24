@@ -179,10 +179,6 @@ syslog_ident = 'pgpool'
 
 # - Debug -
 
-debug_level = 0
-                                   # Debug message verbosity level
-                                   # 0 means no message, 1 or more mean verbose
-
 #log_error_verbosity = default          # terse, default, or verbose messages
 
 #client_min_messages = notice           # values in order of decreasing detail:
@@ -216,6 +212,9 @@ debug_level = 0
 
 pid_file_name = '/var/run/pgpool/pgpool.pid'
                                    # PID file name
+                                   # Can be specified as relative to the"
+                                   # location of pgpool.conf file or
+                                   # as an absolute path
                                    # (change requires restart)
 logdir = '/tmp'
                                    # Directory of pgPool status file
@@ -318,10 +317,10 @@ allow_sql_comments = off
 master_slave_mode = off
                                    # Activate master/slave mode
                                    # (change requires restart)
-master_slave_sub_mode = 'slony'
+master_slave_sub_mode = 'stream'
                                    # Master/slave sub mode
-                                   # Valid values are combinations slony or
-                                   # stream. Default is slony.
+                                   # Valid values are combinations stream, slony
+                                   # or logical. Default is stream.
                                    # (change requires restart)
 
 # - Streaming -
@@ -360,7 +359,7 @@ follow_master_command = ''
                                    #   %% = '%' character
 
 #------------------------------------------------------------------------------
-# HEALTH CHECK
+# HEALTH CHECK GLOBAL PARAMETERS
 #------------------------------------------------------------------------------
 
 health_check_period = 0
@@ -385,6 +384,18 @@ connect_timeout = 10000
 								   # the value. 0 means no timeout.
 								   # Note that this value is not only used for health check,
 								   # but also for ordinary conection to backend.
+
+#------------------------------------------------------------------------------
+# HEALTH CHECK PER NODE PARAMETERS (OPTIONAL)
+#------------------------------------------------------------------------------
+health_check_period0 = 0
+health_check_timeout0 = 20
+health_check_user0 = 'nobody'
+health_check_password0 = ''
+health_check_database0 = ''
+health_check_max_retries0 = 0
+health_check_retry_delay0 = 1
+connect_timeout0 = 10000
 
 #------------------------------------------------------------------------------
 # FAILOVER AND FAILBACK
@@ -538,6 +549,24 @@ wd_de_escalation_command = ''
 									# Executes this command when master pgpool resigns from being master.
 									# (change requires restart)
 
+# - Watchdog consensus settings for failover -
+
+failover_when_quorum_exists = on
+									# Only perform backend node failover
+									# when the watchdog cluster holds the quorum
+									# (change requires restart)
+
+failover_require_consensus = on
+									# Perform failover when majority of Pgpool-II nodes
+									# aggrees on the backend node status change
+									# (change requires restart)
+
+allow_multiple_failover_requests_from_node = off
+									# A Pgpool-II node can cast multiple votes
+									# for building the consensus on failover
+									# (change requires restart)
+
+
 # - Lifecheck Setting -
 
 # -- common --
@@ -547,6 +576,7 @@ wd_monitoring_interfaces_list = ''  # Comma separated list of interfaces names t
 									# consider the network is fine
 									# 'any' to enable monitoring on all interfaces except loopback
 									# '' to disable monitoring
+									# (change requires restart)
 
 wd_lifecheck_method = 'heartbeat'
                                     # Method of watchdog lifecheck ('heartbeat' or 'query' or 'external')

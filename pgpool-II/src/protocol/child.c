@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2017	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -60,6 +60,8 @@
 #include "utils/elog.h"
 #include "auth/md5.h"
 #include "auth/pool_passwd.h"
+#include "auth/pool_hba.h"
+
 
 static StartupPacket *read_startup_packet(POOL_CONNECTION *cp);
 static POOL_CONNECTION_POOL *connect_backend(StartupPacket *sp, POOL_CONNECTION *frontend);
@@ -116,6 +118,10 @@ volatile sig_atomic_t got_sighup = 0;
 char remote_host[NI_MAXHOST];	/* client host */
 char remote_port[NI_MAXSERV];	/* client port */
 POOL_CONNECTION* volatile child_frontend = NULL;
+
+#ifdef DEBUG
+bool stop_now = false;
+#endif
 
 /*
 * child main loop
@@ -797,6 +803,8 @@ void cancel_request(CancelPacket *sp)
 		if (con == NULL)
 			return;
 
+		pool_set_db_node_id(con, i);
+
 		len = htonl(sizeof(len) + sizeof(CancelPacket));
 		pool_write(con, &len, sizeof(len));
 
@@ -880,7 +888,7 @@ static POOL_CONNECTION_POOL *connect_backend(StartupPacket *sp, POOL_CONNECTION 
 			{
 
 				/* set DB node id */
-				CONNECTION(backend, i)->db_node_id = i;
+				pool_set_db_node_id(CONNECTION(backend, i), i);
 
 				/* mark this is a backend connection */
 				CONNECTION(backend, i)->isbackend = 1;
@@ -916,10 +924,16 @@ static POOL_CONNECTION_POOL *connect_backend(StartupPacket *sp, POOL_CONNECTION 
  */
 static RETSIGTYPE die(int sig)
 {
-	int save_errno = errno;
+	int save_errno;
 
+	POOL_SETMASK(&BlockSig);
+
+	save_errno = errno;
+
+#ifdef NOT_USED
 	ereport(LOG,
 			(errmsg("child process received shutdown request signal %d", sig)));
+#endif
 
 	exit_request = sig;
 
@@ -929,32 +943,39 @@ static RETSIGTYPE die(int sig)
 			/* Refuse further requests by closing listen socket */
 			if (child_inet_fd)
 			{
+#ifdef NOT_USED
 				ereport(LOG,
 						(errmsg("closing listen socket")));
+#endif
 				close(child_inet_fd);
 			}
 			close(child_unix_fd);
 
 			if (idle == 0)
 			{
+#ifdef NOT_USED
 				ereport(DEBUG1,
 						(errmsg("smart shutdown request received, but child is not in idle state")));
+#endif
 			}
 			break;
 
 		case SIGINT:	/* fast shutdown */
 		case SIGQUIT:	/* immediate shutdown */
+			POOL_SETMASK(&UnBlockSig);
 			child_exit(POOL_EXIT_NO_RESTART);
 			break;
 		default:
+#ifdef NOT_USED
 			ereport(LOG,
 				(errmsg("child process received unknown signal: %d",sig),
 					 errdetail("ignoring...")));
-
+#endif
 			break;
 	}
 
 	errno = save_errno;
+	POOL_SETMASK(&UnBlockSig);
 }
 
 /*
@@ -968,8 +989,10 @@ static RETSIGTYPE close_idle_connection(int sig)
 	ConnectionInfo *info;
 	int save_errno = errno;
 
+#ifdef NOT_USED
 	ereport(DEBUG1,
 			(errmsg("close connection request received")));
+#endif
 
 	for (j=0;j<pool_config->max_pool;j++, p++)
 	{
@@ -982,9 +1005,12 @@ static RETSIGTYPE close_idle_connection(int sig)
 
 		if (MASTER_CONNECTION(p)->closetime > 0)		/* idle connection? */
 		{
+#ifdef NOT_USED
 			ereport(DEBUG1,
 					(errmsg("closing idle connection"),
 					 errdetail("user: %s database: %s", MASTER_CONNECTION(p)->sp->user, MASTER_CONNECTION(p)->sp->database)));
+#endif
+
 			pool_send_frontend_exits(p);
 
 			for (i=0;i<NUM_BACKENDS;i++)
@@ -1028,8 +1054,7 @@ static void enable_authentication_timeout(void)
 {
 	if(pool_config->authentication_timeout <= 0)
 		return;
-	pool_signal(SIGALRM, authentication_timeout);
-	alarm(pool_config->authentication_timeout);
+	pool_alarm(authentication_timeout, pool_config->authentication_timeout);
 	alarm_enabled = true;
 }
 
@@ -1037,8 +1062,7 @@ static void disable_authentication_timeout(void)
 {
 	if(alarm_enabled)
 	{
-		alarm(0);
-		pool_signal(SIGALRM, SIG_IGN);
+		pool_undo_alarm();
 		alarm_enabled = false;
 	}
 }
@@ -1144,8 +1168,14 @@ void child_exit(int code)
 	if(processType != PT_CHILD)
 	{
 		/* should never happen */
+
+		/* Remove call to ereport because child_exit() is called inside a
+		 * signal handler.
+		 */
+#ifdef NOT_USED
         ereport(WARNING,
                 (errmsg("child_exit: called from invalid process. ignored.")));
+#endif
 		return;
 	}
 	exit(code);
@@ -1155,7 +1185,7 @@ void child_exit(int code)
  * create a persistent connection
  */
 POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
-	char *hostname, int port, char *dbname, char *user, char *password, bool retry)
+	int db_node_id,	char *hostname, int port, char *dbname, char *user, char *password, bool retry)
 {
 	POOL_CONNECTION_POOL_SLOT *cp;
 	int fd;
@@ -1199,6 +1229,8 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
 	cp->con = pool_open(fd,true);
 	cp->closetime = 0;
 	cp->con->isbackend = 1;
+	pool_set_db_node_id(cp->con, db_node_id);
+
 	pool_ssl_negotiate_clientserver(cp->con);
 
 	/*
@@ -1275,17 +1307,18 @@ POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
  * make_persistent_db_connection() which does not ereports in case of an error
  */
 POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection_noerror(
-                        char *hostname, int port, char *dbname, char *user, char *password, bool retry)
+	int db_node_id, char *hostname, int port, char *dbname, char *user, char *password, bool retry)
 {
     POOL_CONNECTION_POOL_SLOT *slot = NULL;
     MemoryContext oldContext = CurrentMemoryContext;
     PG_TRY();
     {
-        slot = make_persistent_db_connection(hostname,
-                                                 port,
-                                                 dbname,
-                                                 user,
-                                                 password, retry);
+        slot = make_persistent_db_connection(db_node_id,
+											 hostname,
+											 port,
+											 dbname,
+											 user,
+											 password, retry);
     }
     PG_CATCH();
     {
@@ -1642,7 +1675,7 @@ int select_load_balancing_node(void)
 	/* 
 	 * Check database_redirect_preference_list
 	 */
-	if (STREAM && pool_config->redirect_dbnames)
+	if (SL_MODE && pool_config->redirect_dbnames)
 	{
 		char *database = MASTER_CONNECTION(ses->backend)->sp->database;
 
@@ -1668,7 +1701,7 @@ int select_load_balancing_node(void)
 	/* 
 	 * Check app_name_redirect_preference_list
 	 */
-	if (STREAM && pool_config->redirect_app_names)
+	if (SL_MODE && pool_config->redirect_app_names)
 	{
 		char *app_name = MASTER_CONNECTION(ses->backend)->sp->application_name;
 

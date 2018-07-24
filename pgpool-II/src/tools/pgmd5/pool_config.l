@@ -38,7 +38,6 @@
 #include "utils/fe_ports.h"
 #endif
 
-
 /* to shut off compiler warnings */
 int yylex(void);
 
@@ -68,6 +67,7 @@ static bool ParseConfigFile( const char *config_file, int elevel,
 %option never-interactive
 %option nounput
 %option noyywrap
+%option noinput
 
 SIGN            ("-"|"+")
 DIGIT           [0-9]
@@ -110,10 +110,11 @@ int pool_init_config(void)
 #ifndef POOL_PRIVATE
 	g_pool_config.backend_desc = pool_shared_memory_create(sizeof(BackendDesc));
 	memset(g_pool_config.backend_desc, 0, sizeof(BackendDesc));
-
 #else
 	g_pool_config.backend_desc = palloc0(sizeof(BackendDesc));
 #endif
+	g_pool_config.health_check_params = palloc0(MAX_NUM_BACKENDS*sizeof(HealthCheckParams));
+
 	InitializeConfigOptions();
 
 	return 0;
@@ -533,10 +534,21 @@ char *pool_flag_to_str(unsigned short flag)
 {
 	static char buf[1024];		/* should be large enough */
 
+	*buf = '\0';
+
 	if (POOL_ALLOW_TO_FAILOVER(flag))
 		snprintf(buf, sizeof(buf), "ALLOW_TO_FAILOVER");
 	else if (POOL_DISALLOW_TO_FAILOVER(flag))
 		snprintf(buf, sizeof(buf), "DISALLOW_TO_FAILOVER");
+
+	if (POOL_ALWAYS_MASTER & flag)
+	{
+		if (*buf == '\0')
+			snprintf(buf, sizeof(buf), "ALWAYS_MASTER");
+		else
+			snprintf(buf+strlen(buf), sizeof(buf), "|ALWAYS_MASTER");
+	}
+
 	return buf;
 }
 
@@ -544,11 +556,11 @@ char *pool_flag_to_str(unsigned short flag)
  * Translate the BACKEND_STATUS enum value to string.
  * the function returns the constant string so should not be freed
  */
-char* backend_status_to_str(BACKEND_STATUS status)
+char* backend_status_to_str(BackendInfo *bi)
 {
 	char *statusName;
 
-	switch (status) {
+	switch (bi->backend_status) {
 
 		case CON_UNUSED:
 		statusName = BACKEND_STATUS_CON_UNUSED;
@@ -563,7 +575,12 @@ char* backend_status_to_str(BACKEND_STATUS status)
 		break;
 
 		case CON_DOWN:
-		statusName = BACKEND_STATUS_CON_DOWN;
+		{
+			if (bi->quarantine)
+				statusName = BACKEND_STATUS_QUARANTINE;
+			else
+				statusName = BACKEND_STATUS_CON_DOWN;
+		}
 		break;
 
 		default:

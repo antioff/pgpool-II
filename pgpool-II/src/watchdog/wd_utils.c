@@ -55,7 +55,7 @@ typedef struct {
 void wd_check_network_command_configurations(void)
 {
 	char path[128];
-	char cmd[128];
+	char* command;
 
 	if (pool_config->use_watchdog == 0)
 		return;
@@ -67,34 +67,65 @@ void wd_check_network_command_configurations(void)
 		return;
 
 	/* check setuid bit of ifup command */
-	wd_get_cmd(cmd, pool_config->if_up_cmd);
-	snprintf(path, sizeof(path), "%s/%s", pool_config->if_cmd_path, cmd);
-	if (! has_setuid_bit(path))
+	command = wd_get_cmd(pool_config->if_up_cmd);
+	if (command)
 	{
-		ereport(WARNING,
-			(errmsg("checking setuid bit of if_up_cmd"),
-				 errdetail("ifup[%s] doesn't have setuid bit", path)));
+		snprintf(path, sizeof(path), "%s/%s", pool_config->if_cmd_path, command);
+		pfree(command);
+		if (! has_setuid_bit(path))
+		{
+			ereport(WARNING,
+				(errmsg("checking setuid bit of if_up_cmd"),
+					 errdetail("ifup[%s] doesn't have setuid bit", path)));
+		}
+	}
+	else
+	{
+		ereport(FATAL,
+			(errmsg("invalid configuration for if_up_cmd parameter"),
+					errdetail("unable to get command from \"%s\"",pool_config->if_up_cmd)));
 	}
 	/* check setuid bit of ifdown command */
-	wd_get_cmd(cmd, pool_config->if_down_cmd);
-	snprintf(path, sizeof(path), "%s/%s", pool_config->if_cmd_path, cmd);
-	if (! has_setuid_bit(path))
+
+	command = wd_get_cmd(pool_config->if_down_cmd);
+	if (command)
 	{
-		ereport(WARNING,
-			(errmsg("checking setuid bit of if_down_cmd"),
-				 errdetail("ifdown[%s] doesn't have setuid bit", path)));
+		snprintf(path, sizeof(path), "%s/%s", pool_config->if_cmd_path, command);
+		pfree(command);
+		if (! has_setuid_bit(path))
+		{
+			ereport(WARNING,
+				(errmsg("checking setuid bit of if_down_cmd"),
+					 errdetail("ifdown[%s] doesn't have setuid bit", path)));
+		}
 	}
-	
+	else
+	{
+		ereport(FATAL,
+			(errmsg("invalid configuration for if_down_cmd parameter"),
+					errdetail("unable to get command from \"%s\"",pool_config->if_down_cmd)));
+	}
+
 	/* check setuid bit of arping command */
-	wd_get_cmd(cmd, pool_config->arping_cmd);
-	snprintf(path, sizeof(path), "%s/%s", pool_config->arping_path, cmd);
-	if (! has_setuid_bit(path))
+	command = wd_get_cmd(pool_config->arping_cmd);
+	if (command)
 	{
-		ereport(WARNING,
-			(errmsg("checking setuid bit of arping command"),
-				 errdetail("arping[%s] doesn't have setuid bit", path)));
-		
+		snprintf(path, sizeof(path), "%s/%s", pool_config->arping_path, command);
+		pfree(command);
+		if (! has_setuid_bit(path))
+		{
+			ereport(WARNING,
+				(errmsg("checking setuid bit of arping command"),
+					 errdetail("arping[%s] doesn't have setuid bit", path)));
+		}
 	}
+	else
+	{
+		ereport(FATAL,
+			(errmsg("invalid configuration for arping_cmd parameter"),
+					errdetail("unable to get command from \"%s\"",pool_config->arping_cmd)));
+	}
+
 }
 
 /*
@@ -114,6 +145,42 @@ has_setuid_bit(char * path)
 }
 
 
+#ifdef USE_SSL
+/* HMAC SHA-256*/
+static void calculate_hmac_sha256(const char *data, int len, char *buf)
+{
+	char* key = pool_config->wd_authkey;
+	char str[WD_AUTH_HASH_LEN/2];
+	unsigned int res_len = WD_AUTH_HASH_LEN;
+	HMAC_CTX *ctx = NULL;
+
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+	ctx = HMAC_CTX_new();
+	HMAC_CTX_reset(ctx);
+#else
+	HMAC_CTX ctx_obj;
+	ctx = &ctx_obj;
+	HMAC_CTX_init(ctx);
+#endif
+	HMAC_Init_ex(ctx, key, strlen(key), EVP_sha256(), NULL);
+	HMAC_Update(ctx, (unsigned char*)data, len);
+	HMAC_Final(ctx, (unsigned char*)str, &res_len);
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+	HMAC_CTX_reset(ctx);
+	HMAC_CTX_free(ctx);
+#else
+	HMAC_CTX_cleanup(ctx);
+#endif
+	bytesToHex(str,32,buf);
+	buf[WD_AUTH_HASH_LEN] = '\0';
+}
+
+void
+wd_calc_hash(const char *str, int len, char *buf)
+{
+	calculate_hmac_sha256(str, len, buf);
+}
+#else
 /* calculate hash for authentication using packet contents */
 void
 wd_calc_hash(const char *str, int len, char *buf)
@@ -123,7 +190,7 @@ wd_calc_hash(const char *str, int len, char *buf)
 	size_t pass_len;
 	size_t username_len;
 	size_t authkey_len;
-
+	char tmp_buf[(MD5_PASSWD_LEN+1)*2];
 	/* use first half of authkey as username, last half as password */
 	authkey_len = strlen(pool_config->wd_authkey);
 
@@ -133,16 +200,19 @@ wd_calc_hash(const char *str, int len, char *buf)
 	username_len = authkey_len / 2;
 	pass_len = authkey_len - username_len;
 	if ( snprintf(username, username_len + 1, "%s", pool_config->wd_authkey) < 0
-	  || snprintf(pass, pass_len + 1, "%s", pool_config->wd_authkey + username_len) < 0)
+		|| snprintf(pass, pass_len + 1, "%s", pool_config->wd_authkey + username_len) < 0)
 		goto wd_calc_hash_error;
 
 	/* calculate hash using md5 encrypt */
-	if (! pool_md5_encrypt(pass, username, strlen(username), buf + MD5_PASSWD_LEN + 1))
+	if (! pool_md5_encrypt(pass, username, strlen(username), tmp_buf + MD5_PASSWD_LEN + 1))
 		goto wd_calc_hash_error;
-	buf[(MD5_PASSWD_LEN+1)*2-1] = '\0';
 
-	if (! pool_md5_encrypt(buf+MD5_PASSWD_LEN+1, str, len, buf))
+	tmp_buf[sizeof(tmp_buf)-1] = '\0';
+
+	if (! pool_md5_encrypt(tmp_buf+MD5_PASSWD_LEN+1, str, len, tmp_buf))
 		goto wd_calc_hash_error;
+
+	memcpy(buf, tmp_buf, MD5_PASSWD_LEN);
 	buf[MD5_PASSWD_LEN] = '\0';
 
 	return;
@@ -151,6 +221,7 @@ wd_calc_hash_error:
 	buf[0] = '\0';
 	return;
 }
+#endif
 
 /*
  * string_replace:

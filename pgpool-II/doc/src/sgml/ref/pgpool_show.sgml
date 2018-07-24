@@ -90,7 +90,17 @@ PGPOOL SHOW ALL
             configuration group of all watchdog heartbeat node config parameters.
           </para>
           </listitem>
+          </varlistentry>
+
+	  <varlistentry>
+          <term><literal>health_check</literal></term>
+          <listitem>
+          <para>
+            configuration group of all health check parameters.
+          </para>
+          </listitem>
         </varlistentry>
+
       </variablelist>
     </listitem>
   </varlistentry>
@@ -110,7 +120,7 @@ PGPOOL SHOW ALL
   <title>Examples</title>
 
   <para>
-   Show the current setting of the parameter <varname>port</varname>:
+   Show the current setting of the parameter <xref linkend="guc-port">:
 
 <programlisting>
 PGPOOL SHOW port;

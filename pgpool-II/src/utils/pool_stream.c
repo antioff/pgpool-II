@@ -53,6 +53,7 @@ static MemoryContext SwitchToConnectionContext(bool backend_connection);
 #ifdef DEBUG
 static void dump_buffer(char *buf, int len);
 #endif
+static int pool_write_flush(POOL_CONNECTION *cp, void *buf, int len);
 
 static MemoryContext
     SwitchToConnectionContext(bool backend_connection)
@@ -218,7 +219,7 @@ int pool_read(POOL_CONNECTION *cp, void *buf, int len)
 				/* if fail_over_on_backend_error is true, then trigger failover */
 				if (pool_config->fail_over_on_backend_error)
 				{
-					notice_backend_error(cp->db_node_id, true);
+					notice_backend_error(cp->db_node_id, REQ_DETAIL_SWITCHOVER);
 
                     /* If we are in the main process, we will not exit */
 					child_exit(POOL_EXIT_AND_RESTART);
@@ -365,7 +366,7 @@ char *pool_read2(POOL_CONNECTION *cp, int len)
 				/* if fail_over_on_backend_error is true, then trigger failover */
 				if (pool_config->fail_over_on_backend_error)
 				{
-					notice_backend_error(cp->db_node_id, true);
+					notice_backend_error(cp->db_node_id, REQ_DETAIL_SWITCHOVER);
 					child_exit(POOL_EXIT_AND_RESTART);
                     /* we are in main process */
                     ereport(ERROR,
@@ -435,11 +436,40 @@ int pool_write_noerror(POOL_CONNECTION *cp, void *buf, int len)
 		ereport(DEBUG1,
 				(errmsg("pool_write: to backend: %d kind:%c", cp->db_node_id, c)));
 	}
-    
+
+	if (!cp->isbackend)
+	{
+		char c;
+
+		c = ((char *)buf)[0];
+
+		if (len == 1)
+			ereport(DEBUG1,
+					(errmsg("pool_write: to frontend: kind:%c po:%d", c, cp->wbufpo)));
+		else
+			ereport(DEBUG1,
+					(errmsg("pool_write: to frontend: length:%d po:%d", len, cp->wbufpo)));
+	}
+	
 	while (len > 0)
 	{
 		int remainder = WRITEBUFSZ - cp->wbufpo;
-        
+
+		/*
+		 * If requested data cannot be added to the write buffer, flush the
+		 * buffer and directly write the requested data.  This could avoid
+		 * unwanted write in the middle of message boundary.
+		 */
+		if (remainder < len)
+		{
+			if (pool_flush_it(cp) == -1)
+				return -1;
+
+			if (pool_write_flush(cp, buf, len) < 0)
+				return -1;
+			return 0;
+		}
+
 		if (cp->wbufpo >= WRITEBUFSZ)
 		{
 			/*
@@ -447,16 +477,13 @@ int pool_write_noerror(POOL_CONNECTION *cp, void *buf, int len)
 			 * wbufpo is reset in pool_flush_it().
 			 */
 			if (pool_flush_it(cp) == -1)
-                return -1;
+				return -1;
             remainder = WRITEBUFSZ;
 		}
         
 		/* check buffer size */
-		if (remainder >= len)
-		{
-			/* OK, buffer size is enough. */
-			remainder = len;
-		}
+		remainder = Min(remainder, len);
+
 		memcpy(cp->wbuf+cp->wbufpo, buf, remainder);
 		cp->wbufpo += remainder;
 		buf += remainder;
@@ -486,6 +513,93 @@ int pool_write(POOL_CONNECTION *cp, void *buf, int len)
 
 
 /*
+ * Direct write.
+ * This function does not throws an ereport in case of an error
+ */
+static int pool_write_flush(POOL_CONNECTION *cp, void *buf, int len)
+{
+	int sts;
+	int wlen;
+	int offset;
+	wlen = len;
+
+	ereport(DEBUG1,
+			(errmsg("pool_write_flush_it: write size: %d", wlen)));
+
+	if (wlen == 0)
+	{
+		return 0;
+	}
+
+	offset = 0;
+
+	for (;;)
+	{
+		errno = 0;
+
+		if (cp->ssl_active > 0)
+		{
+		  sts = pool_ssl_write(cp, buf, wlen);
+		}
+		else
+		{
+		  sts = write(cp->fd, buf, wlen);
+		}
+
+		if (sts > 0)
+		{
+			wlen -= sts;
+
+			if (wlen == 0)
+			{
+				/* write completed */
+				break;
+			}
+
+			else if (wlen < 0)
+			{
+				ereport(WARNING,
+						(errmsg("pool_write_flush_it: invalid write size %d", sts)));
+				return -1;
+			}
+
+			else
+			{
+				/* need to write remaining data */
+				ereport(DEBUG1,
+						(errmsg("pool_write_flush_it: write retry: %d", wlen)));
+
+				offset += sts;
+				continue;
+			}
+		}
+
+		else if (errno == EAGAIN || errno == EINTR)
+		{
+			continue;
+		}
+
+		else
+		{
+			/* If this is the backend stream, report error. Otherwise
+			 * just report debug message.
+			 */
+			if (cp->isbackend)
+				ereport(WARNING,
+					(errmsg("write on backend %d failed with error :\"%s\"",cp->db_node_id,strerror(errno)),
+						 errdetail("while trying to write data from offset: %d wlen: %d",offset, wlen)));
+			else
+				ereport(DEBUG1,
+					(errmsg("write on frontend failed with error :\"%s\"",strerror(errno)),
+						 errdetail("while trying to write data from offset: %d wlen: %d",offset, wlen)));
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/*
  * flush write buffer
  * This function does not throws an ereport in case of an error
  */
@@ -495,6 +609,9 @@ int pool_flush_it(POOL_CONNECTION *cp)
 	int wlen;
 	int offset;
 	wlen = cp->wbufpo;
+
+	ereport(DEBUG1,
+			(errmsg("pool_flush_it: flush size: %d", wlen)));
 
 	if (wlen == 0)
 	{
@@ -537,6 +654,9 @@ int pool_flush_it(POOL_CONNECTION *cp)
 			else
 			{
 				/* need to write remaining data */
+				ereport(DEBUG1,
+						(errmsg("pool_flush_it: write retry: %d", wlen)));
+
 				offset += sts;
 				continue;
 			}
@@ -590,7 +710,7 @@ int pool_flush(POOL_CONNECTION *cp)
 			/* if fail_over_on_backend_error is true, then trigger failover */
 			if (pool_config->fail_over_on_backend_error)
 			{
-				notice_backend_error(cp->db_node_id, true);
+				notice_backend_error(cp->db_node_id, REQ_DETAIL_SWITCHOVER);
 				ereport(LOG,
 					(errmsg("unable to flush data to backend"),
 						 errdetail("do not failover because I am the main process")));
@@ -645,7 +765,7 @@ int pool_flush_noerror(POOL_CONNECTION *cp)
             /* if fail_over_on_backend_erro is true, then trigger failover */
             if (pool_config->fail_over_on_backend_error)
             {
-                notice_backend_error(cp->db_node_id, true);
+                notice_backend_error(cp->db_node_id, REQ_DETAIL_SWITCHOVER);
                 child_exit(POOL_EXIT_AND_RESTART);
 				ereport(LOG,
 					(errmsg("unable to flush data to backend"),
@@ -813,7 +933,7 @@ char *pool_read_string(POOL_CONNECTION *cp, int *len, int line)
 							 errdetail("pg_terminate_backend was called on the backend")));
 				}
 
-				notice_backend_error(cp->db_node_id, true);
+				notice_backend_error(cp->db_node_id, REQ_DETAIL_SWITCHOVER);
 				child_exit(POOL_EXIT_AND_RESTART);
                 ereport(ERROR,
                         (errmsg("unable to read data from frontend"),
@@ -879,6 +999,16 @@ char *pool_read_string(POOL_CONNECTION *cp, int *len, int line)
 		}
 	}
 	return cp->sbuf;
+}
+
+/*
+ * Set db node id to connection.
+ */
+void pool_set_db_node_id(POOL_CONNECTION *con, int db_node_id)
+{
+	if (!con)
+		return;
+	con->db_node_id = db_node_id;
 }
 
 /*
@@ -1004,6 +1134,18 @@ int pool_unread(POOL_CONNECTION *cp, void *data, int len)
 	int n = cp->len + len;
 	int realloc_size;
 
+	/*
+	 * Optimization to avoid mmove. If there's enough space in front of
+	 * existing data, we can use it.
+	 */
+	if (cp->po >= len)
+	{
+		memmove(cp->hp + cp->po - len, data, len);
+		cp->po -= len;
+		cp->len = n;
+		return 0;
+	}
+
 	if (cp->bufsz < n)
 	{
 		realloc_size = (n/READBUFSZ+1)*READBUFSZ;
@@ -1013,6 +1155,7 @@ int pool_unread(POOL_CONNECTION *cp, void *data, int len)
         MemoryContextSwitchTo(oldContext);
 		
         cp->hp = p;
+		cp->bufsz = realloc_size;
 	}
 	if (cp->len != 0)
 		memmove(p + len, cp->hp + cp->po, cp->len);

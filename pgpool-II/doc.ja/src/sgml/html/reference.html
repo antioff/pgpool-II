@@ -9,11 +9,11 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.6.0 文書"
+TITLE="Pgpool-II 3.7.0 文書"
 HREF="index.html"><LINK
 REL="PREVIOUS"
-TITLE="AWS設定の例"
-HREF="example-aws.html"><LINK
+TITLE="Auroraの設定例"
+HREF="example-aurora.html"><LINK
 REL="NEXT"
 TITLE="サーバコマンド"
 HREF="server-commands.html"><LINK
@@ -23,7 +23,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:39"></HEAD
+CONTENT="2017-11-21T07:44:59"></HEAD
 ><BODY
 CLASS="PART"
 ><DIV
@@ -41,7 +41,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.6.0 文書</A
+>Pgpool-II 3.7.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -50,8 +50,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="AWS設定の例"
-HREF="example-aws.html"
+TITLE="Auroraの設定例"
+HREF="example-aurora.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -97,7 +97,7 @@ CLASS="TITLE"
 ><DIV
 CLASS="PARTINTRO"
 ><A
-NAME="AEN4726"
+NAME="AEN5397"
 ></A
 ><P
 >  
@@ -358,6 +358,45 @@ HREF="sql-show-pool-cache.html"
     </DT
 ></DL
 ></DD
+><DT
+>V. <A
+HREF="pgpool-adm.html"
+>pgpool_admエクステンション</A
+></DT
+><DD
+><DL
+><DT
+><A
+HREF="pgpool-adm-pcp-node-info.html"
+>pgpool_adm_pcp_node_info</A
+>&nbsp;--&nbsp;指定ノードIDの情報を表示する関数
+  </DT
+><DT
+><A
+HREF="pgpool-adm-pcp-pool-status.html"
+>pgpool_adm_pcp_pool_status</A
+>&nbsp;--&nbsp;pgpool.confのパラメータを取得する関数
+  </DT
+><DT
+><A
+HREF="pgpool-adm-pcp-node-count.html"
+>pgpool_adm_pcp_node_count</A
+>&nbsp;--&nbsp;ノード数を取得する関数
+  </DT
+><DT
+><A
+HREF="pgpool-adm-pcp-attach-node.html"
+>pgpool_adm_pcp_attach_node</A
+>&nbsp;--&nbsp;指定ノードをアタッチする関数
+  </DT
+><DT
+><A
+HREF="pgpool-adm-pcp-detach-node.html"
+>pgpool_adm_pcp_detach_node</A
+>&nbsp;--&nbsp;指定ノードをデタッチする関数
+  </DT
+></DL
+></DD
 ></DL
 ></DIV
 ></DIV
@@ -378,7 +417,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="example-aws.html"
+HREF="example-aurora.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -406,7 +445,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->AWS設定の例</TD
+>Auroraの設定例</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

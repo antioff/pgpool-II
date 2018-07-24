@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.6.0 Documentation"
+TITLE="pgpool-II 3.7.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:07"></HEAD
+CONTENT="2017-11-21T07:44:56"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.6.0 Documentation</A
+>pgpool-II 3.7.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -229,11 +229,44 @@ CLASS="NOTE"
 ><P
 ><B
 >Note: </B
->            When a failover is performed, <SPAN
+>	    The "master node" referes to a node which has the
+	    "youngest (or the smallest) node id" among live the
+	    database nodes. In <A
+HREF="configuring-pgpool.html#RUNNING-MODE"
+>streaming
+	    replication mode</A
+>, this may be different from
+	    primary node. In <A
+HREF="runtime-config-failover.html#FAILOVER-COMMAND-TABLE"
+>Table 5-6</A
+>,
+	    %m is the new master node chosen
+	    by <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>. It is the node
+	    being assigned the youngest (smallest) node id which is
+	    alive. For example if you have 3 nodes, namely node 0, 1,
+	    2. Suppose node 1 the primary and all of them are healthy
+	    (no down node). If node 1 fails, failover_command is
+	    called with %m = 0.
+	  </P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>            When a failover is performed,
+            basically <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > kills all
-            its child processes, which will in turn terminate all the active sessions to
+            its child processes, which will in turn terminate all the
+            active sessions to
             <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -251,6 +284,20 @@ CLASS="PRODUCTNAME"
 > starts new child processes
             which makes it ready again to accept client connections.
           </P
+><P
+>	    However from <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 3.6, In
+	    the steaming replication mode, client sessions will not be
+	    disconnected when a fail-over occurs any more if the
+	    session does not use the failed standby server. If the
+	    primary server goes down, still all sessions will be
+	    disconnected. Health check timeout case will also cause
+	    the full session disconnection. Other health check error,
+	    including retry over case does not trigger full session
+	    disconnection.
+	  </P
 ></BLOCKQUOTE
 ></DIV
 ><P
@@ -529,7 +576,7 @@ CLASS="VARNAME"
 >          Typically <TT
 CLASS="VARNAME"
 >follow_master_command</TT
->&#62; command is used to recover
+> command is used to recover
           the slave from the new primary by calling the pcp_recovery_node command.
         </P
 ><P

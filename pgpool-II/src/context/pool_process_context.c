@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2017	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -21,6 +21,8 @@
  *
  */
 
+#include <unistd.h>
+#include <arpa/inet.h>
 #include "pool.h"
 #include "utils/elog.h"
 #include "context/pool_process_context.h"
@@ -52,6 +54,11 @@ void pool_init_process_context(void)
 	process_context->proc_id = my_proc_id;
 
 	process_context->local_session_id = 0;		/* initialize local session counter */
+
+	process_context->last_alarm_handler = SIG_IGN;
+	process_context->last_alarm_time = 0;
+	process_context->last_alarm_second = 0;
+	process_context->undo_alarm_second = 0;
 }
 
 /*
@@ -232,31 +239,6 @@ ConnectionInfo* pool_coninfo_backend_pid(int backend_pid, int* backend_node_id)
 }
 
 /*
- * returns true if the conInfo object belongs to the current child process
- */
-bool pool_is_my_coninfo(ConnectionInfo* connInfo)
-{
-	int pool;
-	ProcessInfo *pi = pool_get_my_process_info();
-	for (pool = 0; pool < pool_config->max_pool; pool++)
-	{
-		int backend_id;
-		for (backend_id = 0; backend_id < NUM_BACKENDS; backend_id++)
-		{
-			int poolBE = pool*MAX_NUM_BACKENDS+backend_id;
-			ConnectionInfo* cInfo = &pi->connection_info[poolBE];
-			if (cInfo == connInfo)
-			{
-				ereport(DEBUG1,
-						(errmsg("connection Info object is local")));
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-/*
  * sets the flag to mark that the connection will be terminated by the
  * backend and it should not be considered as a backend node failure.
  * This flag is used to handle pg_terminate_backend()
@@ -316,5 +298,49 @@ void pool_coninfo_unset_frontend_connected(int proc_id, int pool_index)
 			return;
 		}
 		con->connected = false;
+	}
+}
+
+/*
+ * Set an alarm clock and a signal handler.
+ * For pool_alarm_undo(), the alarm second and the old handler
+ * are saved, and the remaining time is calculated.
+ */
+void pool_alarm(pool_sighandler_t handler, unsigned int second)
+{
+	POOL_PROCESS_CONTEXT *p = pool_get_process_context();
+	time_t	now = time(NULL);
+
+	alarm(second);
+	p->last_alarm_handler = pool_signal(SIGALRM, handler);
+
+	if (p->last_alarm_second)
+	{
+		p->undo_alarm_second = p->last_alarm_second - (now - p->last_alarm_time);
+		if (p->undo_alarm_second <= 0)
+		  p->undo_alarm_second = 1;
+	}
+
+	p->last_alarm_time = now;
+	p->last_alarm_second = second;
+}
+
+/*
+ * Undo the alarm signal handler using the remaining time.
+ */
+void pool_undo_alarm(void)
+{
+	POOL_PROCESS_CONTEXT *p = pool_get_process_context();
+
+	if (p->undo_alarm_second)
+	{
+		alarm(p->undo_alarm_second);
+		pool_signal(SIGALRM, p->last_alarm_handler);
+		p->undo_alarm_second = 0;
+	}
+	else
+	{
+		alarm(0);
+		pool_signal(SIGALRM, SIG_IGN);
 	}
 }

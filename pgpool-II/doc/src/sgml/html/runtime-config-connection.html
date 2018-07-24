@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.6.0 Documentation"
+TITLE="pgpool-II 3.7.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -19,14 +19,14 @@ TITLE="Setting Parameters"
 HREF="config-setting.html"><LINK
 REL="NEXT"
 TITLE="Running mode"
-HREF="runtime-config-runnung-mode.html"><LINK
+HREF="runtime-config-running-mode.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:07"></HEAD
+CONTENT="2017-11-21T07:44:56"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.6.0 Documentation</A
+>pgpool-II 3.7.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -78,7 +78,7 @@ ALIGN="right"
 VALIGN="top"
 ><A
 TITLE="Running mode"
-HREF="runtime-config-runnung-mode.html"
+HREF="runtime-config-running-mode.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -119,31 +119,32 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-		</DT
+	  </DT
 ><DD
 ><P
->			Specifies the hostname or IP address, on which <SPAN
+>	    Specifies the hostname or IP address, on
+	    which <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->
-			will accept TCP/IP connections. <TT
+> will accept
+	    TCP/IP connections. <TT
 CLASS="LITERAL"
 >'*'</TT
->
-			accepts all incoming connections. <TT
+> accepts all
+	    incoming connections. <TT
 CLASS="LITERAL"
 >''</TT
->
-			disables TCP/IP connections. Default
-			is <TT
+> disables
+	    TCP/IP connections. Default
+	    is <TT
 CLASS="LITERAL"
 >'localhost'</TT
 >. Connections via UNIX
-			domain socket are always accepted.
-		</P
+	    domain socket are always accepted.
+	  </P
 ><P
->			This parameter can only be set at server start.
-		</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ><DT
 ><A
@@ -156,19 +157,19 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-		</DT
+	  </DT
 ><DD
 ><P
->			The port number used
-			by <SPAN
+>	    The port number used
+	    by <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > to listen for
-			connections. Default is 9999.
-		</P
+	    connections. Default is 9999.
+	  </P
 ><P
->			This parameter can only be set at server start.
-		</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ><DT
 ><A
@@ -181,27 +182,28 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-		</DT
+	  </DT
 ><DD
 ><P
->			The directory where the UNIX domain socket accepting connections for
-			<SPAN
+>	    The directory where the UNIX domain socket accepting connections for
+	    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > will be
-			created. Default is <TT
+	    created. Default is <TT
 CLASS="LITERAL"
 >/tmp</TT
->. Be aware that this
-			socket might be deleted by a cron job. We recommend to set this
-			value to <TT
+>. Be aware that
+	    this socket might be deleted by a cron job. We recommend
+	    to set this value to <TT
 CLASS="LITERAL"
 >/var/run</TT
-> or such directory.
-		</P
+> or such
+	    directory.
+	  </P
 ><P
->			This parameter can only be set at server start.
-		</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ><DT
 ><A
@@ -214,28 +216,28 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-		</DT
+	  </DT
 ><DD
 ><P
->			Specifies the hostname or IP address, on which pcp process
-			will accept TCP/IP connections. <TT
+>	    Specifies the hostname or IP address, on which pcp process
+	    will accept TCP/IP connections. <TT
 CLASS="LITERAL"
 >*</TT
 >
-			accepts all incoming connections. <TT
+	    accepts all incoming connections. <TT
 CLASS="LITERAL"
 >"" </TT
 >
-			disables TCP/IP connections. Default
-			is <TT
+	    disables TCP/IP connections. Default
+	    is <TT
 CLASS="LITERAL"
 >*</TT
 >. Connections via UNIX domain
-			socket are always accepted.
-		</P
+	    socket are always accepted.
+	  </P
 ><P
->			This parameter can only be set at server start.
-		</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ><DT
 ><A
@@ -248,15 +250,15 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-		</DT
+	  </DT
 ><DD
 ><P
->			The port number used by PCP
-			process to listen for connections. Default is 9898.
-		</P
+>	    The port number used by PCP
+	    process to listen for connections. Default is 9898.
+	  </P
 ><P
->			This parameter can only be set at server start.
-		</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ><DT
 ><A
@@ -269,25 +271,24 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-		</DT
+	  </DT
 ><DD
 ><P
->			The directory where the UNIX domain socket accepting connections for
-			PCP process will be
-			created. Default is <TT
+>	    The directory where the UNIX domain socket accepting
+	    connections for PCP process will be created. Default
+	    is <TT
 CLASS="LITERAL"
 >/tmp</TT
->. Be aware that
-			this socket might be deleted by a cron job. We recommend
-			to set this value to <TT
+>. Be aware that this socket
+	    might be deleted by a cron job. We recommend to set this
+	    value to <TT
 CLASS="LITERAL"
 >/var/run</TT
-> or such
-			directory.
-		</P
+> or such directory.
+	  </P
 ><P
->			This parameter can only be set at server start.
-		</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ><DT
 ><A
@@ -300,22 +301,22 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-		</DT
+	  </DT
 ><DD
 ><P
->			The number of
-			preforked <SPAN
+>	    The number of
+	    preforked <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > server
-			processes. Default is 32.  num_init_children is also the
-			concurrent connections limit
-			to <SPAN
+	    processes. Default is 32.  num_init_children is also the
+	    concurrent connections limit
+	    to <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > from clients.  If
-			more than num_init_children clients try to connect to
-			<SPAN
+	    more than num_init_children clients try to connect to
+	    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >, <SPAN
@@ -323,98 +324,102 @@ CLASS="emphasis"
 ><I
 CLASS="EMPHASIS"
 >they are
-			blocked (not rejected with an error, like <SPAN
+	      blocked (not rejected with an error,
+	      like <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
->)
-			until a connection to any <SPAN
+>) until a
+	      connection to any <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
-			process is closed</I
+	      process is closed</I
 ></SPAN
 >.  Up to
-			<A
+	    <A
 HREF="runtime-config-connection-pooling.html#GUC-LISTEN-BACKLOG-MULTIPLIER"
 >listen_backlog_multiplier</A
 >*
-			num_init_children can be queued.
-		</P
+	      num_init_children can be queued.
+	  </P
 ><P
->			The queue is inside the kernel called "listen queue". The
-			length of the listen queue is called "backlog".  There is
-			an upper limit of the backlog in some systems, and if
-			num_init_children*<A
+>	    The queue is inside the kernel called "listen queue". The
+	    length of the listen queue is called "backlog".  There is
+	    an upper limit of the backlog in some systems, and if
+	    num_init_children*<A
 HREF="runtime-config-connection-pooling.html#GUC-LISTEN-BACKLOG-MULTIPLIER"
 >listen_backlog_multiplier</A
 >
-			exceeds the number, you need to set the backlog higher.
-			Otherwise, following problems may occur in heavy loaded systems:
-			1) connecting to <SPAN
+	      exceeds the number, you need to set the backlog higher.
+	      Otherwise, following problems may occur in heavy loaded systems:
+	      1) connecting to <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > fails
-			2) connecting to <SPAN
+	      2) connecting to <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > is
-			getting slow because of retries in the kernel.  You can
-			check if the listen queue is actually overflowed by using
-			"netstat -s" command.  If you find something like:
-			</P><PRE
+	      getting slow because of retries in the kernel.  You can
+	      check if the listen queue is actually overflowed by using
+	      "netstat -s" command.  If you find something like:
+	      </P><PRE
 CLASS="PROGRAMLISTING"
->535 times the listen queue of a socket overflowed
-			</PRE
+>		535 times the listen queue of a socket overflowed
+	      </PRE
 ><P>
-			then the listen queue is definitely overflowed.
-			You should increase the backlog in this case (you will be required a super user privilege).
-			</P><PRE
+	      then the listen queue is definitely overflowed.  You
+	      should increase the backlog in this case (you will be
+	      required a super user privilege).
+	      </P><PRE
 CLASS="PROGRAMLISTING"
-># sysctl net.core.somaxconn
-net.core.somaxconn = 128
-# sysctl -w net.core.somaxconn = 256
-			</PRE
+>		# sysctl net.core.somaxconn
+		net.core.somaxconn = 128
+		# sysctl -w net.core.somaxconn = 256
+	      </PRE
 ><P>
-You could add following to /etc/sysctl.conf instead.
-			</P><PRE
+	      You could add following to /etc/sysctl.conf instead.
+	      </P><PRE
 CLASS="PROGRAMLISTING"
->net.core.somaxconn = 256
-			</PRE
+>		net.core.somaxconn = 256
+	      </PRE
 ><P>
-		</P
+	  </P
 ><P
->			Number of connections to each <SPAN
+>	    Number of connections to
+	    each <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
-> is roughly max_pool*num_init_children.
-		</P
+> is roughly
+	    max_pool*num_init_children.
+	  </P
 ><P
->						However, canceling a query creates another
-						connection to the backend; thus, a query cannot be canceled if
-						all the connections are in use. If you want to ensure that queries can
-						be canceled, set this value to twice the expected connections.
-		</P
+>	    However, canceling a query creates another
+	    connection to the backend; thus, a query cannot be canceled if
+	    all the connections are in use. If you want to ensure that queries can
+	    be canceled, set this value to twice the expected connections.
+	  </P
 ><P
->						In addition, <SPAN
+>	    In addition, <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > allows concurrent
-						connections for non superusers up to max_connections -
-						superuser_reserved_connections.
-		</P
+	    connections for non superusers up to max_connections -
+	    superuser_reserved_connections.
+	  </P
 ><P
->			In summary, max_pool, num_init_children, max_connections,
-			superuser_reserved_connections must satisfy the following formula:
-			</P><PRE
+>	    In summary, max_pool, num_init_children, max_connections,
+	    superuser_reserved_connections must satisfy the following formula:
+	    </P><PRE
 CLASS="PROGRAMLISTING"
->max_pool*num_init_children &lt;= (max_connections - superuser_reserved_connections) (no query canceling needed)
-max_pool*num_init_children*2 &lt;= (max_connections - superuser_reserved_connections) (query canceling needed)
-			</PRE
+>	      max_pool*num_init_children &lt;= (max_connections - superuser_reserved_connections) (no query canceling needed)
+	      max_pool*num_init_children*2 &lt;= (max_connections - superuser_reserved_connections) (query canceling needed)
+	    </PRE
 ><P>
-		</P
+	  </P
 ><P
->			This parameter can only be set at server start.
-		</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ></DL
 ></DIV
@@ -443,39 +448,41 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >boolean</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->						If <TT
+>	    If <TT
 CLASS="LITERAL"
 >true</TT
 >, <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > will use the
-						<TT
+	    <TT
 CLASS="FILENAME"
 >pool_hba.conf</TT
-> for the client authentication.
-						See <A
+> for the client
+	    authentication.  See <A
 HREF="auth-pool-hba-conf.html"
 >Section 6.1</A
-> for details on how to configure
-						<TT
+>
+	    for details on how to configure
+	      <TT
 CLASS="FILENAME"
 >pool_hba.conf</TT
 > for client authentication.
-						Default is <TT
+	      Default is <TT
 CLASS="LITERAL"
 >false</TT
 >
-					</P
+	  </P
 ><P
->						This parameter can be changed by reloading the <SPAN
+>	    This parameter can be changed by reloading
+	    the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ></DD
 ><DT
 ><A
@@ -488,26 +495,27 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->						Specify the password file name for md5 authentication.
-						Default value is <TT
+>	    Specify the password file name for md5 authentication.
+	    Default value is <TT
 CLASS="LITERAL"
 >"pool_passwd"</TT
 >.
-						Specifying <TT
+	    Specifying <TT
 CLASS="LITERAL"
 >''</TT
-> (empty) disables the use of password file.
-						See <A
+> (empty) disables the use
+	    of password file.  See <A
 HREF="auth-methods.html#AUTH-MD5"
 >Section 6.2.2</A
-> for more details.
-					</P
+> for more
+	    details.
+	  </P
 ><P
->						This parameter can only be set at server start.
-					</P
+>	    This parameter can only be set at server start.
+	  </P
 ></DD
 ><DT
 ><A
@@ -520,22 +528,24 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->						Specify the timeout in seconds for <SPAN
+>	    Specify the timeout in seconds
+	    for <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
-						authentication. Specifying 0 disables the time out.
-						Default value is 60
-					</P
+	    authentication. Specifying 0 disables the time out.
+	    Default value is 60
+	  </P
 ><P
->						This parameter can be changed by reloading the <SPAN
+>	    This parameter can be changed by reloading
+	    the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ></DD
 ></DL
 ></DIV
@@ -575,7 +585,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="runtime-config-runnung-mode.html"
+HREF="runtime-config-running-mode.html"
 ACCESSKEY="N"
 >Next</A
 ></TD

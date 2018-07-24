@@ -28,9 +28,9 @@
 
 #include "config.h"
 #include "pool_type.h"
+#include "pcp/libpcp_ext.h"
 #include "utils/pool_signal.h"
 #include "parser/nodes.h"
-
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
@@ -165,6 +165,12 @@ typedef struct {
 } ParamStatus;
 
 /*
+ * HbaLines is declared in pool_hba.h
+ * we use forward declaration here
+ */
+typedef struct HbaLine HbaLine;
+
+/*
  * stream connection structure
  */
 typedef struct {
@@ -231,10 +237,11 @@ typedef struct {
 	 */
 	int protoVersion;
 	SockAddr raddr;
-	UserAuth auth_method;
-	char *auth_arg;
+	HbaLine *pool_hba;
 	char *database;
 	char *username;
+	char *remote_hostname;
+	int remote_hostname_resolv;
 	ConnectionInfo *con_info; /* shared memory coninfo used
 						   * for handling the query containing
 						   * pg_terminate_backend*/
@@ -281,6 +288,8 @@ typedef struct {
 	UNIT unit;
 } Interval;
 
+/* Defined in pool_session_context.h */
+extern int pool_get_major_version(void);
 
 /* NUM_BACKENDS now always returns actual number of backends */
 #define NUM_BACKENDS (pool_config->backend_desc->num_backends)
@@ -347,9 +356,11 @@ extern int my_master_node_id;
 #define REPLICATION (pool_config->replication_mode)
 #define MASTER_SLAVE (pool_config->master_slave_mode)
 #define STREAM (MASTER_SLAVE && pool_config->master_slave_sub_mode == STREAM_MODE)
+#define LOGICAL (MASTER_SLAVE && pool_config->master_slave_sub_mode == LOGICAL_MODE)
 #define SLONY (MASTER_SLAVE && pool_config->master_slave_sub_mode == SLONY_MODE)
 #define DUAL_MODE (REPLICATION || MASTER_SLAVE)
 #define RAW_MODE (!REPLICATION && !MASTER_SLAVE)
+#define SL_MODE (STREAM || LOGICAL)	/* streaming or logical replication mode */
 #define MAJOR(p) (pool_get_major_version())
 #define TSTATE(p, i) (CONNECTION(p, i)->tstate)
 #define INTERNAL_TRANSACTION_STARTED(p, i) (CONNECTION(p, i)->is_internal_transaction_started)
@@ -376,6 +387,7 @@ extern int my_master_node_id;
 #define MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION 10 /* time in seconds to keep retrying for a
 											   * watchdog command if the cluster is not
 											   * in stable state */
+#define MAX_IDENTIFIER_LEN		128
 
 #define SERIALIZE_ACCEPT (pool_config->serialize_accept == true && \
 						  pool_config->child_life_time == 0)
@@ -398,15 +410,18 @@ typedef enum {
 	NODE_DOWN_REQUEST,
 	NODE_RECOVERY_REQUEST,
 	CLOSE_IDLE_REQUEST,
-	PROMOTE_NODE_REQUEST
+	PROMOTE_NODE_REQUEST,
+	NODE_QUARANTINE_REQUEST
 } POOL_REQUEST_KIND;
 
 #define REQ_DETAIL_SWITCHOVER	0x00000001		/* failover due to switch over */
+#define REQ_DETAIL_WATCHDOG		0x00000002		/* failover req from watchdog */
+#define REQ_DETAIL_CONFIRMED	0x00000004		/* failover req that does not require majority vote */
+#define REQ_DETAIL_UPDATE		0x00000008		/* failover req is just and update node status request */
 
 typedef struct {
 	POOL_REQUEST_KIND	kind;		/* request kind */
 	unsigned char request_details;	/* option flags kind */
-	unsigned int wd_failover_id;	/* watchdog ID for this failover operation */
 	int node_id[MAX_NUM_BACKENDS];	/* request node id */
 	int count;						/* request node ids count */
 }POOL_REQUEST_NODE;
@@ -470,7 +485,8 @@ typedef enum
 	PT_FOLLOWCHILD,
 	PT_WATCHDOG_UTILITY,
 	PT_PCP,
-	PT_PCP_WORKER
+	PT_PCP_WORKER,
+	PT_HEALTH_CHECK
 } ProcessType;
 
 extern ProcessType processType;
@@ -513,7 +529,12 @@ extern char remote_port[];	/* client port */
 /*
  * public functions
  */
-extern bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id_set, int count, bool switch_over, unsigned int wd_failover_id);
+extern void register_watchdog_quorum_change_interupt(void);
+extern void register_watchdog_state_change_interupt(void);
+extern void register_backend_state_sync_req_interupt(void);
+extern void register_inform_quarantine_nodes_req(void);
+
+extern bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id_set, int count, unsigned char flags);
 extern char *get_config_file_name(void);
 extern char *get_hba_file_name(void);
 extern void do_child(int *fds);
@@ -543,11 +564,11 @@ extern POOL_STATUS ErrorResponse(POOL_CONNECTION *frontend,
 extern void NoticeResponse(POOL_CONNECTION *frontend,
 								  POOL_CONNECTION_POOL *backend);
 
-extern void notice_backend_error(int node_id, bool switch_over);
-extern void degenerate_backend_set(int *node_id_set, int count, bool switch_over, unsigned int wd_failover_id);
-extern bool degenerate_backend_set_ex(int *node_id_set, int count, bool error, bool test_only, bool switch_over, unsigned int wd_failover_id);
-extern void promote_backend(int node_id, unsigned int wd_failover_id);
-extern void send_failback_request(int node_id, bool throw_error, unsigned int wd_failover_id);
+extern void notice_backend_error(int node_id, unsigned char flags);
+extern bool degenerate_backend_set(int *node_id_set, int count, unsigned char flags);
+extern bool degenerate_backend_set_ex(int *node_id_set, int count, unsigned char flags, bool error, bool test_only);
+extern bool promote_backend(int node_id, unsigned char flags);
+extern bool send_failback_request(int node_id, bool throw_error, unsigned char flags);
 
 
 extern void pool_set_timeout(int timeoutval);
@@ -616,17 +637,13 @@ extern POOL_STATUS OneNode_do_command(POOL_CONNECTION *frontend, POOL_CONNECTION
 
 /* child.c */
 extern POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection(
-	char *hostname, int port, char *dbname, char *user, char *password, bool retry);
+	int db_node_id, char *hostname, int port, char *dbname, char *user, char *password, bool retry);
 extern POOL_CONNECTION_POOL_SLOT *make_persistent_db_connection_noerror(
-    char *hostname, int port, char *dbname, char *user, char *password, bool retry);
+    int db_node_id, char *hostname, int port, char *dbname, char *user, char *password, bool retry);
 extern void discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT *cp);
 
 /* define pool_system.c */
 extern void pool_close_libpq_connection(void);
-
-/* pool_hba.c */
-extern int load_hba(char *hbapath);
-extern void ClientAuthentication(POOL_CONNECTION *frontend);
 
 /* pool_ip.c */
 extern void pool_getnameinfo_all(SockAddr *saddr, char *remote_host, char *remote_port);
@@ -674,6 +691,7 @@ extern int compare(const void *p1, const void *p2);
 extern void do_error_execute_command(POOL_CONNECTION_POOL *backend, int node_id, int major);
 extern POOL_STATUS pool_discard_packet_contents(POOL_CONNECTION_POOL *cp);
 extern void pool_dump_valid_backend(int backend_id);
+extern bool pool_push_pending_data(POOL_CONNECTION *backend);
 
 /* pool_auth.c */
 extern void pool_random_salt(char *md5Salt);
@@ -723,5 +741,6 @@ extern int pool_send_to_frontend(char* data, int len, bool flush);
 extern int pool_frontend_exists(void);
 extern pid_t pool_waitpid(int *status);
 extern int write_status_file(void);
+extern void do_health_check_child(int *node_id);
 
 #endif /* POOL_H */

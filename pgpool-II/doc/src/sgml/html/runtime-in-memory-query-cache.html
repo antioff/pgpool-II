@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.6.0 Documentation"
+TITLE="pgpool-II 3.7.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:07"></HEAD
+CONTENT="2017-11-21T07:44:56"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.6.0 Documentation</A
+>pgpool-II 3.7.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -100,10 +100,8 @@ NAME="RUNTIME-IN-MEMORY-QUERY-CACHE"
     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->. It is different
-    from the query cache on disk that In memory query
-    cache is faster because of the in memory nature of the storage.
-    Moreover <SPAN
+>.
+    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > does not
@@ -118,17 +116,45 @@ CLASS="PRODUCTNAME"
     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> returns the value
-    from cache. Since no <ACRONYM
+> returns the value from
+    cache. Since no <ACRONYM
 CLASS="ACRONYM"
 >SQL</ACRONYM
-> parsing nor
-    access to <SPAN
+> parsing nor access
+    to <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
-> are involved, the serving of results
-    from the in memory cache is extremely fast.
+> are involved, the serving
+    of results from the in memory cache is extremely fast.
   </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>      Basically following SELECTs will not be cached:
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>	SELECTs including non immutable functions
+	SELECTs including temp tables, unlogged tables
+	SELECT result is too large (memqcache_maxcache)
+	SELECT FOR SHARE/UPDATE
+	SELECT starting with "/*NO QUERY CACHE*/" comment
+	SELECT including system catalogs
+	SELECT uses TABLESAMPLE
+      </PRE
+><P>
+      However, VIEWs and SELECTs accessing unlogged tables can be
+      cached by specifying in
+      the <A
+HREF="runtime-in-memory-query-cache.html#GUC-WHITE-MEMQCACHE-TABLE-LIST"
+>white_memqcache_table_list</A
+>.
+    </P
+></BLOCKQUOTE
+></DIV
 ><P
 >    On the other hand, it might be slower than the normal path
     in some cases, because it adds some overhead to store cache.
@@ -136,11 +162,14 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II
     </SPAN
-> automatically deletes all the caches related
-    to the table. Therefore, the performance will be degraded by a system
-    with a lot of updates.
-    If the cache_hit_ratio is lower than 70%, you might want
-    to disable in memory cache.
+> automatically deletes all the caches related to the
+    table. Therefore, the performance will be degraded by a system with
+    a lot of updates.  If the query cache hit ratio (it can be checked
+    by using <A
+HREF="sql-show-pool-cache.html"
+>SHOW POOL_CACHE</A
+>) is lower than 70%,
+      you might want to disable in memory cache.
   </P
 ><DIV
 CLASS="SECT2"
@@ -166,18 +195,19 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >boolean</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->						Setting to on enables the memory cache.
-						Default is off.
-					</P
+>	    Setting to on enables the memory cache.
+	    Default is off.
+	  </P
 ><P
->            This parameter can be changed by reloading the <SPAN
+>            This parameter can be changed by reloading
+            the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ></DD
 ></DL
 ></DIV
@@ -206,12 +236,12 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
 >            Specifies the storage type to be used for the cache.
-						Below table contains the list of all valid values for the parameter.
-					</P
+	    Below table contains the list of all valid values for the parameter.
+	  </P
 ><DIV
 CLASS="TABLE"
 ><A
@@ -263,10 +293,10 @@ TARGET="_top"
 CLASS="LITERAL"
 >'shmem'</TT
 >.
-					</P
+	  </P
 ><P
 >            This parameter can only be set at server start.
-					</P
+	  </P
 ></DD
 ></DL
 ></DIV
@@ -305,7 +335,7 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
 >            Specifies the life time of query cache in seconds.
@@ -313,11 +343,12 @@ CLASS="TYPE"
             valid until the table is updated.
           </P
 ><P
->            This parameter can be changed by reloading the <SPAN
+>            This parameter can be changed by reloading
+            the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -325,15 +356,15 @@ CLASS="NOTE"
 ><P
 ><B
 >Note: </B
->              <TT
+>	      <TT
 CLASS="VARNAME"
 >memqcache_expire</TT
 > and
-              <A
+	      <A
 HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-AUTO-CACHE-INVALIDATION"
 >memqcache_auto_cache_invalidation</A
 > are orthogonal to each other.
-            </P
+	    </P
 ></BLOCKQUOTE
 ></DIV
 ></DD
@@ -348,15 +379,15 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >boolean</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->            Setting to on, automatically deletes the cache related to the updated tables.
-            When off, cache is not deleted.
-          </P
+>	    Setting to on, automatically deletes the cache related to the updated tables.
+	    When off, cache is not deleted.
+	  </P
 ><P
->            Default is on.
-          </P
+>	    Default is on.
+	  </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -368,19 +399,19 @@ CLASS="NOTE"
 HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-AUTO-CACHE-INVALIDATION"
 >memqcache_auto_cache_invalidation</A
 >
-              and <A
+		and <A
 HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHEEXPIRE"
 >memqcache_expire</A
 > are orthogonal to each other.
-            </P
+	    </P
 ></BLOCKQUOTE
 ></DIV
 ><P
->            This parameter can be changed by reloading the <SPAN
+>	    This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ></DD
 ><DT
 ><A
@@ -393,23 +424,23 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->            Specifies the maximum size in bytes of the SELECT query result to be cached.
-            The result with data size larger than this value will not be cached by
-            <SPAN
+>	    Specifies the maximum size in bytes of the SELECT query result to be cached.
+	    The result with data size larger than this value will not be cached by
+	    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >.
-            When the caching of data is rejected because of the size constraint the following
-            message is shown.
-              </P><PRE
+	    When the caching of data is rejected because of the size constraint the following
+	    message is shown.
+	    </P><PRE
 CLASS="PROGRAMLISTING"
->LOG:   pid 13756: pool_add_temp_query_cache: data size exceeds memqcache_maxcache. current:4095 requested:111 memq_maxcache:4096
-              </PRE
+>	      LOG:   pid 13756: pool_add_temp_query_cache: data size exceeds memqcache_maxcache. current:4095 requested:111 memq_maxcache:4096
+	    </PRE
 ><P>
-          </P
+	  </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -417,31 +448,31 @@ CLASS="NOTE"
 ><P
 ><B
 >Note: </B
->              For the shared memory query(<TT
+>	      For the shared memory query(<TT
 CLASS="LITERAL"
 >'shmem'</TT
 >) cache the
-              <TT
+	      <TT
 CLASS="VARNAME"
 >memqcache_maxcache</TT
 > must be set lower than
-              <A
+	      <A
 HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-CACHE-BLOCK-SIZE"
 >memqcache_cache_block_size</A
 > and for <TT
 CLASS="LITERAL"
 >'memcached'</TT
 >
-              it must be lower than the size of slab (default is 1 MB).
-            </P
+		it must be lower than the size of slab (default is 1 MB).
+	    </P
 ></BLOCKQUOTE
 ></DIV
 ><P
->            This parameter can be changed by reloading the <SPAN
+>	    This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ></DD
 ><DT
 ><A
@@ -454,19 +485,26 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->            Specifies a comma separated list of table names whose SELECT
-            results should be cached by the <SPAN
+>	    Specifies a comma separated list of table names whose
+	    SELECT results should be cached by
+	    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
+>.  This parameter only
+	    applies to VIEWs and SELECTs accessing unlogged tables.
+	    Regular tables can be cached unless specified
+	    by <A
+HREF="runtime-in-memory-query-cache.html#GUC-BLACK-MEMQCACHE-TABLE-LIST"
+>black_memqcache_table_list</A
 >.
-          </P
+	  </P
 ><P
->            You can use regular expression into the list to match table name
-            (to which ^ and $ are automatically added).
-          </P
+>	    You can use regular expression into the list to match table name
+	    (to which ^ and $ are automatically added).
+	  </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -477,45 +515,27 @@ CLASS="NOTE"
 >              If the queries can refer the table with and without the schema
               qualification then you must add both entries(with and without
               schema name) in the list.
-                </P><PRE
+              </P><PRE
 CLASS="PROGRAMLISTING"
->#For example:
-#If the queries sometime use "table1" and other times "public.table1"
-#to refer the table1 then the white_memqcache_table_list
-#would be configured as follows.
+>		#For example:
+		#If the queries sometime use "table1" and other times "public.table1"
+		#to refer the table1 then the white_memqcache_table_list
+		#would be configured as follows.
 
-white_memqcache_table_list = "table1,public.table1"
+		white_memqcache_table_list = "table1,public.table1"
 
-                </PRE
+              </PRE
 ><P>
 
-            </P
-></BLOCKQUOTE
-></DIV
-><DIV
-CLASS="NOTE"
-><BLOCKQUOTE
-CLASS="NOTE"
-><P
-><B
->Note: </B
->              <TT
-CLASS="VARNAME"
->white_memqcache_table_list</TT
->
-              precedence over <A
-HREF="runtime-in-memory-query-cache.html#GUC-BLACK-MEMQCACHE-TABLE-LIST"
->black_memqcache_table_list</A
->
-            </P
+	    </P
 ></BLOCKQUOTE
 ></DIV
 ><P
->            This parameter can be changed by reloading the <SPAN
+>	    This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ></DD
 ><DT
 ><A
@@ -528,11 +548,11 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->            Specifies a comma separated list of table names whose SELECT
-            results should <SPAN
+>	    Specifies a comma separated list of table names whose SELECT
+	    results should <SPAN
 CLASS="emphasis"
 ><I
 CLASS="EMPHASIS"
@@ -540,13 +560,13 @@ CLASS="EMPHASIS"
 ></SPAN
 > be cached by the <SPAN
 CLASS="PRODUCTNAME"
->            Pgpool-II</SPAN
+>              Pgpool-II</SPAN
 >.
-          </P
+	  </P
 ><P
->            You can use regular expression into the list to match table name
-            (to which ^ and $ are automatically added),
-          </P
+>	    You can use regular expression into the list to match table name
+	    (to which ^ and $ are automatically added),
+	  </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -557,27 +577,45 @@ CLASS="NOTE"
 >              If the queries can refer the table with and without the schema
               qualification then you must add both entries(with and without
               schema name) in the list.
-                </P><PRE
+              </P><PRE
 CLASS="PROGRAMLISTING"
->#For example:
-#If the queries sometime use "table1" and other times "public.table1"
-#to refer the table1 then the black_memqcache_table_list
-#would be configured as follows.
+>		#For example:
+		#If the queries sometime use "table1" and other times "public.table1"
+		#to refer the table1 then the black_memqcache_table_list
+		#would be configured as follows.
 
-black_function_list = "table1,public.table1"
+		black_function_list = "table1,public.table1"
 
-                </PRE
+              </PRE
 ><P>
 
-            </P
+	    </P
 ></BLOCKQUOTE
 ></DIV
 ><P
->            This parameter can be changed by reloading the <SPAN
+>	    This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>              <TT
+CLASS="VARNAME"
+>black_memqcache_table_list</TT
+>
+              precedence over <A
+HREF="runtime-in-memory-query-cache.html#GUC-WHITE-MEMQCACHE-TABLE-LIST"
+>white_memqcache_table_list</A
+>
+	    </P
+></BLOCKQUOTE
+></DIV
 ></DD
 ><DT
 ><A
@@ -590,26 +628,26 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->            Specifies the full path to the directory for storing the
-            <TT
+>	    Specifies the full path to the directory for storing the
+	    <TT
 CLASS="LITERAL"
 >oids</TT
 > of tables used by SELECT queries.
-          </P
+	  </P
 ><P
->            <TT
+>	    <TT
 CLASS="VARNAME"
 >memqcache_oiddir</TT
 > directory contains the sub directories
-            for the databases. The directory name is the OID of the database. In addition, each
-            database directory contains the files for each table used by SELECT statement.
-            Again the name of the file is the OID of the table.
-            These files contains the pointers to query cache which are used as key for
-            deleting the caches.
-          </P
+	    for the databases. The directory name is the OID of the database. In addition, each
+	    database directory contains the files for each table used by SELECT statement.
+	    Again the name of the file is the OID of the table.
+	    These files contains the pointers to query cache which are used as key for
+	    deleting the caches.
+	  </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -625,15 +663,15 @@ CLASS="PRODUCTNAME"
 CLASS="VARNAME"
 >memqcache_oiddir</TT
 >.
-            </P
+	    </P
 ></BLOCKQUOTE
 ></DIV
 ><P
->            This parameter can be changed by reloading the <SPAN
+>	    This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					</P
+	  </P
 ></DD
 ></DL
 ></DIV
@@ -665,14 +703,14 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
->						Specifies the shared memory cache size in bytes.
-					</P
+>	    Specifies the shared memory cache size in bytes.
+	  </P
 ><P
 >            This parameter can only be set at server start.
-					</P
+	  </P
 ></DD
 ><DT
 ><A
@@ -685,11 +723,11 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
 >            Specifies the number of cache entries. This is used to define the size of cache management space.
-					</P
+	  </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -709,7 +747,7 @@ CLASS="VARNAME"
 ></DIV
 ><P
 >            This parameter can only be set at server start.
-					</P
+	  </P
 ></DD
 ><DT
 ><A
@@ -722,7 +760,7 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
 >            Specifies the cache block size. <SPAN
@@ -739,16 +777,16 @@ CLASS="VARNAME"
 >memqcache_cache_block_size</TT
 > are
             not cached.
-					</P
+	  </P
 ><P
->          <TT
+>            <TT
 CLASS="VARNAME"
 >memqcache_cache_block_size</TT
 > must be set to atleast 512.
           </P
 ><P
 >            This parameter can only be set at server start.
-					</P
+	  </P
 ></DD
 ></DL
 ></DIV
@@ -780,7 +818,7 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
 >            Specifies the host name or the IP address on which <TT
@@ -798,10 +836,10 @@ CLASS="LITERAL"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > resides on same server.
-					</P
+	  </P
 ><P
 >            This parameter can only be set at server start.
-					</P
+	  </P
 ></DD
 ><DT
 ><A
@@ -814,7 +852,7 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-					</DT
+	  </DT
 ><DD
 ><P
 >            Specifies the port number of <ACRONYM
@@ -822,10 +860,10 @@ CLASS="ACRONYM"
 >memcached</ACRONYM
 >.
             Default is 11211.
-					</P
+	  </P
 ><P
 >            This parameter can only be set at server start.
-					</P
+	  </P
 ></DD
 ></DL
 ></DIV

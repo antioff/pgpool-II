@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.6.0 Documentation"
+TITLE="pgpool-II 3.7.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Other commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:07"></HEAD
+CONTENT="2017-11-21T07:44:56"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.6.0 Documentation</A
+>pgpool-II 3.7.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PGPOOL-SETUP"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN5570"
+NAME="AEN6273"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN5570"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN5573"
+NAME="AEN6276"
 ></A
 ><H2
 >Synopsis</H2
@@ -160,8 +160,10 @@ CLASS="APPLICATION"
 >    Currently <SPAN
 CLASS="APPLICATION"
 >pgpool_setup</SPAN
-> supports streaming replication mode, native replication mode and raw mode.
-    To support watchdog, see <A
+> supports
+    streaming replication mode, native replication mode, raw mode and
+    logical replication mode.  To support watchdog,
+    see <A
 HREF="watchdog-setup.html"
 >watchdog_setup</A
 > for details.
@@ -170,7 +172,7 @@ HREF="watchdog-setup.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5591"
+NAME="AEN6294"
 ></A
 ><H2
 >Options</H2
@@ -209,15 +211,22 @@ CLASS="LITERAL"
 > (native replication mode), <TT
 CLASS="LITERAL"
 >s</TT
-> (streaming replication mode), or
+> (streaming replication mode),
         <TT
 CLASS="LITERAL"
 >n</TT
-> (raw mode).
-	If this is omitted, <TT
+> (raw mode), <TT
+CLASS="LITERAL"
+>l</TT
+>
+	(logical replication mode) or <TT
+CLASS="LITERAL"
+>y</TT
+> (slony mode).  If this is
+	omitted, <TT
 CLASS="LITERAL"
 >s</TT
-> is used.
+> is assumed.
        </P
 ></DD
 ><DT
@@ -319,7 +328,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5641"
+NAME="AEN6346"
 ></A
 ><H2
 >Environment variables</H2
@@ -411,7 +420,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5676"
+NAME="AEN6381"
 ></A
 ><H2
 >Example</H2

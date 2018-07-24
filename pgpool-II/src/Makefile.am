@@ -2,10 +2,12 @@ AUTOMAKE_OPTIONS = subdir-objects
 libs_dir = $(top_srcdir)/src/libs
 AM_CPPFLAGS = -D_GNU_SOURCE -I @PGSQL_INCLUDE_DIR@
 bin_PROGRAMS = pgpool
+HEALTHCHECK_DEBUG=0
 
 pgpool_SOURCES = main/main.c \
 	main/pool_globals.c \
 	main/pgpool_main.c \
+	main/health_check.c \
 	config/pool_config.l \
 	config/pool_config_variables.c \
 	pcp_con/pcp_child.c \
@@ -54,14 +56,16 @@ pgpool_SOURCES = main/main.c \
     utils/statistics.c
 
 DEFS = @DEFS@ \
-	-DDEFAULT_CONFIGDIR=\"$(sysconfdir)\"
+	-DDEFAULT_CONFIGDIR=\"$(sysconfdir)\" \
+	-DHEALTHCHECK_OPTS=$(HEALTHCHECK_DEBUG)
 
 sysconf_DATA = sample/pgpool.conf.sample \
 			   sample/pcp.conf.sample \
 			   sample/pool_hba.conf.sample \
 			   sample/pgpool.conf.sample-replication \
 			   sample/pgpool.conf.sample-master-slave \
-			   sample/pgpool.conf.sample-stream
+			   sample/pgpool.conf.sample-stream \
+			   sample/pgpool.conf.sample-logical
 
 pkgdata_DATA = sql/insert_lock.sql \
 			   sample/pgpool.pam
@@ -85,7 +89,7 @@ EXTRA_DIST = sample/pgpool.pam \
 		sample/pgpool_remote_start sample/pgpool_recovery sample/pgpool_recovery_pitr \
 		sample/pgpool.conf.sample sample/pool_hba.conf.sample \
 		sample/pgpool.conf.sample-replication sample/pgpool.conf.sample-master-slave \
-		sample/pgpool.conf.sample-stream sample/pcp.conf.sample \
+		sample/pgpool.conf.sample-stream sample/pgpool.conf.sample-logical sample/pcp.conf.sample \
 		sql/Makefile \
 		sql/insert_lock.sql \
 		sql/pgpool-recovery/pgpool-recovery.c \
@@ -135,10 +139,10 @@ EXTRA_DIST = sample/pgpool.pam \
 		test/pdo-test/SQLlist/test1.sql test/pdo-test/SQLlist/test2.sql \
 		test/pdo-test/mod/database.inc test/pdo-test/mod/errorhandler.inc \
 		test/pgpool_setup test/regression \
-		redhat/pgpool.init redhat/pgpool.sysconfig redhat/pgpool.conf.sample.patch \
-                pgpool.spec
-	   
-
-
+		redhat/pgpool.init \
+		redhat/pgpool_rhel7.sysconfig redhat/pgpool_rhel6.sysconfig \
+	   	redhat/pgpool.conf.sample.patch \
+		redhat/pgpool.service \
+		pgpool.spec
 
 SUBDIRS = parser libs watchdog . tools include

@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2017	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -25,6 +25,8 @@
 
 #ifndef POOL_CONFIG_H
 #define POOL_CONFIG_H
+
+#include "pcp/libpcp_ext.h"
 
 /*
  * watchdog
@@ -54,7 +56,8 @@ typedef struct {
 typedef enum MasterSlaveSubModes
 {
 	SLONY_MODE = 1,
-	STREAM_MODE
+	STREAM_MODE,
+	LOGICAL_MODE
 }MasterSlaveSubModes;
 
 typedef enum LogStandbyDelayModes
@@ -81,7 +84,8 @@ typedef enum WdLifeCheckMethod
 /*
  * Flags for backendN_flag
  */
-#define POOL_FAILOVER	0x0001	/* allow or disallow failover */
+#define POOL_FAILOVER	(1 << 0)	/* allow or disallow failover */
+#define POOL_ALWAYS_MASTER	(1 << 1)	/* this backend is always master */
 #define POOL_DISALLOW_TO_FAILOVER(x) ((unsigned short)(x) & POOL_FAILOVER)
 #define POOL_ALLOW_TO_FAILOVER(x) (!(POOL_DISALLOW_TO_FAILOVER(x)))
 
@@ -108,6 +112,20 @@ typedef struct {
 
 #define WD_INFO(wd_id) (pool_config->wd_remote_nodes.wd_remote_node_info[(wd_id)])
 #define WD_HB_IF(if_id) (pool_config->hb_if[(if_id)])
+
+/*
+ * Per node health check parameters
+*/
+typedef struct {
+	int health_check_timeout;				/* health check timeout */
+	int health_check_period;				/* health check period */
+	char *health_check_user;				/* PostgreSQL user name for health check */
+	char *health_check_password;			/* password for health check username */
+	char *health_check_database;			/* database name for health check username */
+	int health_check_max_retries;			/* health check max retries */
+	int health_check_retry_delay;			/* amount of time to wait between retries */
+	int connect_timeout;					/* timeout value before giving up connecting to backend */
+} HealthCheckParams;
 
 /*
  * configuration parameters
@@ -177,6 +195,7 @@ typedef struct {
 	int health_check_max_retries;			/* health check max retries */
 	int health_check_retry_delay;			/* amount of time to wait between retries */
 	int connect_timeout;					/* timeout value before giving up connecting to backend */
+	HealthCheckParams *health_check_params;	/* per node health check parameters */
 	int sr_check_period;					/* streaming replication check period */
 	char *sr_check_user;					/* PostgreSQL user name for streaming replication check */
 	char *sr_check_password;				/* password for sr_check_user */
@@ -209,10 +228,6 @@ typedef struct {
  	bool log_statement;						/* logs all SQL statements */
  	bool log_per_node_statement;			/* logs per node detailed SQL statements */
 	char *lobj_lock_table;					/* table name to lock for rewriting lo_creat */
-
-	int debug_level;						/* debug message verbosity level.
-											 * 0: no message, 1 <= : more verbose
-										 	 */
 
 	BackendDesc *backend_desc;				/* PostgreSQL Server description. Placed on shared memory */
 
@@ -285,6 +300,11 @@ typedef struct {
 	 * add for watchdog
 	 */
 	bool use_watchdog;						/* Enables watchdog */
+	bool failover_when_quorum_exists;		/* Do failover only when wd cluster holds the quorum */
+	bool failover_require_consensus;		/* Only do failover when majority aggrees */
+	bool allow_multiple_failover_requests_from_node; /* One Pgpool-II node can send multiple
+													   * failover requests to build consensus
+													   */
 	WdLifeCheckMethod wd_lifecheck_method;	/* method of lifecheck. 'heartbeat' or 'query' */
 	bool clear_memqcache_on_escalation;		/* Clear query cache on shmem when escalating ?*/
 	char *wd_escalation_command;			/* Executes this command at escalation on new active pgpool.*/
@@ -340,7 +360,7 @@ extern int pool_init_config(void);
 extern bool pool_get_config(const char *config_file, ConfigContext context);
 extern int eval_logical(const char *str);
 extern char *pool_flag_to_str(unsigned short flag);
-extern char* backend_status_to_str(BACKEND_STATUS status);
+extern char* backend_status_to_str(BackendInfo *bi);
 
 /* methods used for regexp support */
 extern int add_regex_pattern(const char *type, char *s);

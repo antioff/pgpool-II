@@ -32,8 +32,6 @@
 #include "watchdog/wd_ipc_defines.h"
 #include "pool.h"
 
-#define WD_JSON_KEY_DATA_REQ_TYPE	"DataRequestType"
-
 
 POOL_CONFIG* get_pool_config_from_json(char* json_data, int data_len)
 {
@@ -227,7 +225,10 @@ char* get_pool_config_json(void)
 	return json_str;
 }
 
-char* get_data_request_json(char* request_type, unsigned int sharedKey, char* authKey)
+/* The function returs the simple JSON string that contains
+ * only one KEY,VALUE along with the authkey key value if provided
+ */
+char* get_simple_request_json(char *key, char* value, unsigned int sharedKey, char* authKey)
 {
 	char* json_str;
 
@@ -238,11 +239,16 @@ char* get_data_request_json(char* request_type, unsigned int sharedKey, char* au
 	if (authKey != NULL && strlen(authKey) > 0)
 		jw_put_string(jNode, WD_IPC_AUTH_KEY, authKey); /*  put the auth key*/
 
-	jw_put_string(jNode, WD_JSON_KEY_DATA_REQ_TYPE, request_type);
+	jw_put_string(jNode, key, value);
 	jw_finish_document(jNode);
 	json_str = pstrdup(jw_get_json_string(jNode));
 	jw_destroy(jNode);
 	return json_str;
+}
+
+char* get_data_request_json(char* request_type, unsigned int sharedKey, char* authKey)
+{
+	return get_simple_request_json(WD_JSON_KEY_DATA_REQ_TYPE, request_type, sharedKey, authKey);
 }
 
 bool parse_data_request_json(char* json_data, int data_len, char** request_type)
@@ -292,6 +298,13 @@ char* get_backend_node_status_json(WatchdogNode* wdNode)
 	for (i=0;i< pool_config->backend_desc->num_backends;i++)
 	{
 		BACKEND_STATUS backend_status = pool_config->backend_desc->backend_info[i].backend_status;
+		if (backend_status == CON_DOWN && pool_config->backend_desc->backend_info[i].quarantine)
+		{
+			/* since quarantine nodes are not cluster wide
+			 * so send CON_WATI status for quarantine nodes
+			 */
+			backend_status = CON_CONNECT_WAIT;
+		}
 		jw_put_int_value(jNode, backend_status);
 	}
 	/* put the primary node id */
@@ -354,13 +367,47 @@ WDPGBackendStatus* get_pg_backend_node_status_from_json(char* json_data, int dat
 	return backendStatus;
 }
 
+char* get_beacon_message_json(WatchdogNode* wdNode)
+{
+	char* json_str;
+	struct timeval current_time;
+	long seconds_since_current_state;
+	long seconds_since_node_startup;
+
+	gettimeofday(&current_time,NULL);
+
+	seconds_since_current_state = WD_TIME_DIFF_SEC(current_time, wdNode->current_state_time);
+	seconds_since_node_startup = WD_TIME_DIFF_SEC(current_time, wdNode->startup_time);
+
+	JsonNode* jNode = jw_create_with_object(true);
+
+	jw_put_int(jNode, "State", wdNode->state);
+	jw_put_long(jNode, "SecondsSinceStartup", seconds_since_node_startup);
+	jw_put_long(jNode, "SecondsSinceCurrentState", seconds_since_current_state);
+	jw_put_int(jNode, "QuorumStatus", wdNode->quorum_status);
+	jw_put_int(jNode, "AliveNodeCount", wdNode->standby_nodes_count);
+	jw_put_bool(jNode, "Escalated", wdNode->escalated == 0?false:true);
+
+	jw_finish_document(jNode);
+	json_str = pstrdup(jw_get_json_string(jNode));
+	jw_destroy(jNode);
+	return json_str;
+}
 
 char* get_watchdog_node_info_json(WatchdogNode* wdNode, char* authkey)
 {
 	char* json_str;
+	long seconds_since_current_state;
+	long seconds_since_node_startup;
+	struct timeval current_time;
+
+	gettimeofday(&current_time,NULL);
+
+	seconds_since_current_state = WD_TIME_DIFF_SEC(current_time, wdNode->current_state_time);
+	seconds_since_node_startup = WD_TIME_DIFF_SEC(current_time, wdNode->startup_time);
+
 	JsonNode* jNode = jw_create_with_object(true);
 
-	jw_put_long(jNode, "StartupTimeSecs", wdNode->startup_time.tv_sec);
 	jw_put_int(jNode, "State", wdNode->state);
 	jw_put_int(jNode, "WdPort", wdNode->wd_port);
 	jw_put_int(jNode, "PgpoolPort", wdNode->pgpool_port);
@@ -369,6 +416,12 @@ char* get_watchdog_node_info_json(WatchdogNode* wdNode, char* authkey)
 	jw_put_string(jNode, "NodeName",wdNode->nodeName);
 	jw_put_string(jNode, "HostName",wdNode->hostname);
 	jw_put_string(jNode, "VIP",wdNode->delegate_ip);
+
+	jw_put_long(jNode, "SecondsSinceStartup", seconds_since_node_startup);
+	jw_put_long(jNode, "SecondsSinceCurrentState", seconds_since_current_state);
+	jw_put_int(jNode, "QuorumStatus", wdNode->quorum_status);
+	jw_put_int(jNode, "AliveNodeCount", wdNode->standby_nodes_count);
+	jw_put_bool(jNode, "Escalated", wdNode->escalated == 0?false:true);
 
 	if(authkey)
 		jw_put_string(jNode, "authkey",authkey);
@@ -392,7 +445,42 @@ WatchdogNode* get_watchdog_node_from_json(char* json_data, int data_len, char** 
 		goto ERROR_EXIT;
 
 	if (json_get_long_value_for_key(root, "StartupTimeSecs", &wdNode->startup_time.tv_sec))
-		goto ERROR_EXIT;
+	{
+		bool escalated;
+		long seconds_since_node_startup;
+		long seconds_since_current_state;
+		struct timeval current_time;
+
+		gettimeofday(&current_time,NULL);
+
+		/*The new version does not have StartupTimeSecs Key */
+		if (json_get_long_value_for_key(root, "SecondsSinceStartup", &seconds_since_node_startup))
+			goto ERROR_EXIT;
+		if (json_get_long_value_for_key(root, "SecondsSinceCurrentState", &seconds_since_current_state))
+			goto ERROR_EXIT;
+		if (json_get_bool_value_for_key(root, "Escalated", &escalated))
+			goto ERROR_EXIT;
+		if (json_get_int_value_for_key(root, "QuorumStatus", &wdNode->quorum_status))
+			goto ERROR_EXIT;
+		if (json_get_int_value_for_key(root, "AliveNodeCount", &wdNode->standby_nodes_count))
+			goto ERROR_EXIT;
+
+		if (escalated)
+			wdNode->escalated = 1;
+		else
+			wdNode->escalated = 0;
+
+		/* create the time */
+		wdNode->current_state_time.tv_sec = current_time.tv_sec - seconds_since_current_state;
+		wdNode->startup_time.tv_sec = current_time.tv_sec - seconds_since_node_startup;
+		wdNode->current_state_time.tv_usec = wdNode->startup_time.tv_usec = 0;
+	}
+	else
+	{
+		/* we do this to know that we got the info from older version*/
+		wdNode->current_state_time.tv_sec = 0;
+	}
+
 	if (json_get_int_value_for_key(root, "State", (int*)&wdNode->state))
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "WdPort", &wdNode->wd_port))
@@ -435,6 +523,44 @@ WatchdogNode* get_watchdog_node_from_json(char* json_data, int data_len, char** 
 	return NULL;
 }
 
+bool parse_beacon_message_json(char* json_data, int data_len,
+							   int* state,
+							   long* seconds_since_node_startup,
+							   long* seconds_since_current_state,
+							   int* quorumStatus,
+							   int* standbyNodesCount,
+							   bool* escalated)
+{
+	json_value *root = NULL;
+
+	root = json_parse(json_data,data_len);
+	/* The root node must be object */
+	if (root == NULL || root->type != json_object)
+		goto ERROR_EXIT;
+
+	if (json_get_int_value_for_key(root, "State", state))
+		goto ERROR_EXIT;
+	if (json_get_long_value_for_key(root, "SecondsSinceStartup", seconds_since_node_startup))
+		goto ERROR_EXIT;
+	if (json_get_long_value_for_key(root, "SecondsSinceCurrentState", seconds_since_current_state))
+		goto ERROR_EXIT;
+	if (json_get_bool_value_for_key(root, "Escalated", escalated))
+		goto ERROR_EXIT;
+	if (json_get_int_value_for_key(root, "QuorumStatus", quorumStatus))
+		goto ERROR_EXIT;
+	if (json_get_int_value_for_key(root, "AliveNodeCount", standbyNodesCount))
+		goto ERROR_EXIT;
+
+	if (root)
+		json_value_free(root);
+
+	return true;
+
+ERROR_EXIT:
+	if (root)
+		json_value_free(root);
+	return false;
+}
 
 char* get_lifecheck_node_status_change_json(int nodeID, int nodeStatus, char* message, char* authKey)
 {
@@ -571,7 +697,7 @@ WDNodeInfo* get_WDNodeInfo_from_wd_node_json(json_value* source)
 	
 }
 
-char* get_wd_node_function_json(char* func_name, int *node_id_set, int count, unsigned int sharedKey, char* authKey)
+char* get_wd_node_function_json(char* func_name, int *node_id_set, int count, unsigned char flags, unsigned int sharedKey, char* authKey)
 {
 	char* json_str;
 	int  i;
@@ -583,6 +709,7 @@ char* get_wd_node_function_json(char* func_name, int *node_id_set, int count, un
 		jw_put_string(jNode, WD_IPC_AUTH_KEY, authKey); /*  put the auth key*/
 
 	jw_put_string(jNode, "Function", func_name);
+	jw_put_int(jNode, "Flags", (int)flags);
 	jw_put_int(jNode, "NodeCount", count);
 	if (count > 0)
 	{
@@ -598,7 +725,7 @@ char* get_wd_node_function_json(char* func_name, int *node_id_set, int count, un
 	return json_str;
 }
 
-bool parse_wd_node_function_json(char* json_data, int data_len, char** func_name, int **node_id_set, int *count)
+bool parse_wd_node_function_json(char* json_data, int data_len, char** func_name, int **node_id_set, int *count, unsigned char *flags)
 {
 	json_value *root, *value;
 	char* ptr;
@@ -631,6 +758,12 @@ bool parse_wd_node_function_json(char* json_data, int data_len, char** func_name
 	}
 	*func_name = pstrdup(ptr);
 	/* If it is a node function ?*/
+	if (json_get_int_value_for_key(root, "Flags", flags))
+	{
+		/*node count not found, But we don't care much about this*/
+		*flags = 0;
+		/* it may be from the old version */
+	}
 	if (json_get_int_value_for_key(root, "NodeCount", &node_count))
 	{
 		/*node count not found, But we don't care much about this*/

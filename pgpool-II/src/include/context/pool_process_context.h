@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2015	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -46,6 +46,11 @@ typedef struct {
 
 	int local_session_id;	/* local session id */
 
+	pool_sighandler_t last_alarm_handler;
+	time_t	last_alarm_time;
+	unsigned int last_alarm_second;
+	unsigned int undo_alarm_second;
+
 } POOL_PROCESS_CONTEXT;
 
 extern void pool_init_process_context(void);
@@ -60,8 +65,10 @@ extern void pool_coninfo_set_frontend_connected(int proc_id, int pool_index);
 extern void pool_coninfo_unset_frontend_connected(int proc_id, int pool_index);
 
 extern ConnectionInfo* pool_coninfo_backend_pid(int backend_pid, int* backend_node_id);
-extern bool pool_is_my_coninfo(ConnectionInfo* connInfo);
 extern void pool_set_connection_will_be_terminated(ConnectionInfo* connInfo);
 extern void pool_unset_connection_will_be_terminated(ConnectionInfo* connInfo);
+
+extern void pool_alarm(pool_sighandler_t handler, unsigned int second);
+extern void pool_undo_alarm(void);
 
 #endif /* POOL_PROCESS_CONTEXT_H */

@@ -48,7 +48,7 @@ static void output_proccount_result(PCPResultInfo* pcpResInfo, bool verbose);
 static void output_poolstatus_result(PCPResultInfo* pcpResInfo, bool verbose);
 static void output_nodeinfo_result(PCPResultInfo* pcpResInfo, bool verbose);
 static void output_nodecount_result(PCPResultInfo* pcpResInfo, bool verbose);
-static char* backend_status_to_string(BACKEND_STATUS status);
+static char* backend_status_to_string(BackendInfo *bi);
 
 typedef enum
 {
@@ -466,19 +466,21 @@ output_nodeinfo_result(PCPResultInfo* pcpResInfo, bool verbose)
 
 	if (verbose)
 	{
-		printf("Hostname   : %s\nPort       : %d\nStatus     : %d\nWeight     : %f\nStatus Name: %s\n",
+		printf("Hostname   : %s\nPort       : %d\nStatus     : %d\nWeight     : %f\nStatus Name: %s\nRole       : %s\n",
 			   backend_info->backend_hostname,
 			   backend_info->backend_port,
 			   backend_info->backend_status,
 			   backend_info->backend_weight/RAND_MAX,
-			   backend_status_to_string(backend_info->backend_status));
+			   backend_status_to_string(backend_info),
+			   role_to_str(backend_info->role));
 	} else {
-		printf("%s %d %d %f %s\n",
+		printf("%s %d %d %f %s %s\n",
 			   backend_info->backend_hostname,
 			   backend_info->backend_port,
 			   backend_info->backend_status,
 			   backend_info->backend_weight/RAND_MAX,
-			   backend_status_to_string(backend_info->backend_status));
+			   backend_status_to_string(backend_info),
+			   role_to_str(backend_info->role));
 	}
 }
 
@@ -625,6 +627,8 @@ output_watchdog_info_result(PCPResultInfo* pcpResInfo, bool verbose)
 			quorumStatus = "QUORUM EXIST";
 		else if (cluster->quorumStatus == -1)
 			quorumStatus = "QUORUM ABSENT";
+		else if (cluster->quorumStatus == -2)
+			quorumStatus = "NO MASTER NODE";
 		else
 			quorumStatus = "UNKNOWN";
 
@@ -774,11 +778,11 @@ get_progname(const char *argv0)
  * Translate the BACKEND_STATUS enum value to string.
  * the function returns the constant string so should not be freed
  */
-static char* backend_status_to_string(BACKEND_STATUS status)
+static char* backend_status_to_string(BackendInfo *bi)
 {
 	char *statusName;
 
-	switch (status) {
+	switch (bi->backend_status) {
 
 		case CON_UNUSED:
 			statusName = BACKEND_STATUS_CON_UNUSED;
@@ -793,7 +797,12 @@ static char* backend_status_to_string(BACKEND_STATUS status)
 			break;
 
 		case CON_DOWN:
-			statusName = BACKEND_STATUS_CON_DOWN;
+		{
+			if (bi->quarantine)
+				statusName = BACKEND_STATUS_QUARANTINE;
+			else
+				statusName = BACKEND_STATUS_CON_DOWN;
+		}
 			break;
 
 		default:
@@ -801,4 +810,13 @@ static char* backend_status_to_string(BACKEND_STATUS status)
 			break;
 	}
 	return statusName;
+}
+
+/* Convert enum role to string */
+char *role_to_str(SERVER_ROLE role)
+{
+	static char *role_str[] = {"master", "slave", "primary", "standby"};
+	if (role < ROLE_MASTER || role > ROLE_STANDBY)
+		return "unknown";
+	return role_str[role];
 }

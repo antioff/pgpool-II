@@ -9,11 +9,11 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.6.0 Documentation"
+TITLE="pgpool-II 3.7.0 Documentation"
 HREF="index.html"><LINK
 REL="PREVIOUS"
-TITLE="AWS Configuration Example"
-HREF="example-aws.html"><LINK
+TITLE="Aurora Configuration Example"
+HREF="example-aurora.html"><LINK
 REL="NEXT"
 TITLE="Server commands"
 HREF="server-commands.html"><LINK
@@ -23,7 +23,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:07"></HEAD
+CONTENT="2017-11-21T07:44:56"></HEAD
 ><BODY
 CLASS="PART"
 ><DIV
@@ -41,7 +41,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.6.0 Documentation</A
+>pgpool-II 3.7.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -50,8 +50,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="AWS Configuration Example"
-HREF="example-aws.html"
+TITLE="Aurora Configuration Example"
+HREF="example-aurora.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -97,21 +97,21 @@ CLASS="TITLE"
 ><DIV
 CLASS="PARTINTRO"
 ><A
-NAME="AEN4750"
+NAME="AEN5453"
 ></A
 ><P
->    This part contains reference information for the <SPAN
+>      This part contains reference information for the <SPAN
 CLASS="PRODUCTNAME"
 >Pgool-II</SPAN
 >.
-  </P
+    </P
 ><P
->    The reference entries are also available as traditional
-    <SPAN
+>      The reference entries are also available as traditional
+      <SPAN
 CLASS="QUOTE"
 >"man"</SPAN
 > pages.
-  </P
+    </P
 ></DIV
 ><DIV
 CLASS="TOC"
@@ -306,6 +306,42 @@ HREF="sql-show-pool-cache.html"
     </DT
 ></DL
 ></DD
+><DT
+>V. <A
+HREF="pgpool-adm.html"
+>pgpool_adm extension</A
+></DT
+><DD
+><DL
+><DT
+><A
+HREF="pgpool-adm-pcp-node-info.html"
+>pgpool_adm_pcp_node_info</A
+>&nbsp;--&nbsp;	a function to display the information on the given node
+	ID</DT
+><DT
+><A
+HREF="pgpool-adm-pcp-pool-status.html"
+>pgpool_adm_pcp_pool_status</A
+>&nbsp;--&nbsp;	a function to retrieves parameters in pgpool.conf.</DT
+><DT
+><A
+HREF="pgpool-adm-pcp-node-count.html"
+>pgpool_adm_pcp_node_count</A
+>&nbsp;--&nbsp;    a function to retrieves number of backend nodes.
+  </DT
+><DT
+><A
+HREF="pgpool-adm-pcp-attach-node.html"
+>pgpool_adm_pcp_attach_node</A
+>&nbsp;--&nbsp;	a function to attach given node	ID</DT
+><DT
+><A
+HREF="pgpool-adm-pcp-detach-node.html"
+>pgpool_adm_pcp_detach_node</A
+>&nbsp;--&nbsp;	a function to detach given node ID</DT
+></DL
+></DD
 ></DL
 ></DIV
 ></DIV
@@ -326,7 +362,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="example-aws.html"
+HREF="example-aurora.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -354,7 +390,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->AWS Configuration Example</TD
+>Aurora Configuration Example</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.6.0 文書"
+TITLE="Pgpool-II 3.7.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
 HREF="runtime-config.html"><LINK
 REL="PREVIOUS"
 TITLE="動作モード"
-HREF="runtime-config-runnung-mode.html"><LINK
+HREF="runtime-config-running-mode.html"><LINK
 REL="NEXT"
 TITLE="コネクションプーリング"
 HREF="runtime-config-connection-pooling.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:39"></HEAD
+CONTENT="2017-11-21T07:44:59"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.6.0 文書</A
+>Pgpool-II 3.7.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -54,7 +54,7 @@ ALIGN="left"
 VALIGN="top"
 ><A
 TITLE="動作モード"
-HREF="runtime-config-runnung-mode.html"
+HREF="runtime-config-running-mode.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -402,6 +402,32 @@ CLASS="PRODUCTNAME"
 			ALLOW_TO_FAILOVERと同時には指定できません。
 			</TD
 ></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>ALWAYS_MASTER</TT
+></TD
+><TD
+>ストリーミングレプリケーションでのみ有効です。
+                 ストリーミングレプリケーションモードについては<A
+HREF="configuring-pgpool.html#RUNNING-MODE"
+>項4.3.2</A
+>をご覧ください。
+                 このフラグがバックエンドのどれかにセットされていると、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はバックエンドにアクセスしてプライマリノードを探すのではなく、このフラグがセットされているノードをプライマリノードと見なします。
+		 これは、<SPAN
+CLASS="PRODUCTNAME"
+>Amazon Aurora for PostgreSQL Compatibility</SPAN
+>のような、マスターサーバに固定のホスト名が割り当てられるシステムで有用です。
+		  設定例については<A
+HREF="example-aurora.html"
+>項7.5</A
+>をご覧ください。
+                 </TD
+></TR
 ></TBODY
 ></TABLE
 ></DIV
@@ -432,7 +458,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="runtime-config-runnung-mode.html"
+HREF="runtime-config-running-mode.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD

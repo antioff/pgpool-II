@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2017	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -26,6 +26,7 @@
 #include "context/pool_session_context.h"
 #include "utils/pool_stream.h"
 #include "pool_config.h"
+#include "auth/pool_hba.h"
 #include "auth/pool_passwd.h"
 #include "utils/elog.h"
 #include "utils/palloc.h"
@@ -218,7 +219,7 @@ int pool_do_auth(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *cp)
 		/* If MD5 auth is not active in pool_hba.conf, it cannot be
 		 * used with other than raw mode.
 		 */
-		if (frontend->auth_method != uaMD5 && !RAW_MODE && NUM_BACKENDS > 1)
+		if ((frontend->pool_hba == NULL || frontend->pool_hba->auth_method != uaMD5) && !RAW_MODE && NUM_BACKENDS > 1)
 		{
 			pool_send_error_message(frontend, protoMajor, AUTHFAIL_ERRORCODE,
 									"MD5 authentication is unsupported in replication and master-slave modes.",
@@ -1097,10 +1098,6 @@ int pool_read_message_length(POOL_CONNECTION_POOL *cp)
 {
 	int length, length0;
 	int i;
-	POOL_SYNC_MAP_STATE use_sync_map = pool_use_sync_map();
-
-	/* Check whether we can use the sync map or not */
-	use_sync_map = pool_use_sync_map();
 
 	/* read message from master node */
 	pool_read(CONNECTION(cp, MASTER_NODE_ID), &length0, sizeof(length0));
@@ -1112,12 +1109,7 @@ int pool_read_message_length(POOL_CONNECTION_POOL *cp)
 
 	for (i=0;i<NUM_BACKENDS;i++)
 	{
-		if (!VALID_BACKEND(i) || IS_MASTER_NODE_ID(i) || use_sync_map == POOL_SYNC_MAP_EMPTY)
-		{
-			continue;
-		}
-
-		if (use_sync_map == POOL_SYNC_MAP_IS_VALID && !pool_is_set_sync_map(i))
+		if (!VALID_BACKEND(i) || IS_MASTER_NODE_ID(i))
 		{
 			continue;
 		}

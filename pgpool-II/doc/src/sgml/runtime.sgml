@@ -111,6 +111,18 @@ password: <userinput>your_password</userinput>
   <sect2 id="running-mode">
     <title>Running mode of Pgpool-II</title>
 
+    <indexterm zone="running-mode">
+      <primary>streaming replication mode</primary>
+    </indexterm>
+
+    <indexterm zone="running-mode">
+      <primary>master slave mode</primary>
+    </indexterm>
+
+    <indexterm zone="running-mode">
+      <primary>native replication mode</primary>
+    </indexterm>
+
     <para>
       There are four different running modes in <productname>Pgpool-II</>: streaming
       replication mode, master slave mode, native replication mode and
@@ -135,6 +147,17 @@ password: <userinput>your_password</userinput>
       and most recommended way to use <productname>Pgpool-II</>. Load balancing is
       possible in the mode.  The sample configuration file
       is <filename>$prefix/etc/pgpool.conf.sample-stream</filename>.
+    </para>
+
+    <para>
+      The logical replication mode can be used
+      with <productname>PostgreSQL</> servers operating logical
+      replication. In this mode, <productname>PostgreSQL</> is
+      responsible for synchronizing tables. Load balancing is possible
+      in the mode. Since logical replication does not replicate all
+      tables, it's user's responsibility to replicate the table which
+      could be load balanced.  The sample configuration file
+      is <filename>$prefix/etc/pgpool.conf.sample-logical</filename>.
     </para>
 
     <para>

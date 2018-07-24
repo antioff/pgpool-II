@@ -27,10 +27,11 @@ Vendor:         Pgpool Global Development Group
 URL:            http://www.pgppol.net/
 Source0:        pgpool-II-%{version}.tar.gz
 Source1:        pgpool.init
-Source2:        pgpool.sysconfig
+Source2:        pgpool_rhel6.sysconfig
 %if %{systemd_enabled}
 Source3:        pgpool.service
 %endif
+Source4:        pgpool_rhel7.sysconfig
 Patch1:         pgpool-II-head.patch
 %if %{pg_version} >=94 && %{rhel} >= 7
 Patch2:         pgpool_socket_dir.patch
@@ -96,6 +97,7 @@ Postgresql extensions libraries and sql files for pgpool-II.
            --sysconfdir=%{_sysconfdir}/%{short_name}/
 
 make %{?_smp_mflags}
+make %{?_smp_mflags} -C doc
 
 %install
 rm -rf %{buildroot}
@@ -111,6 +113,7 @@ make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool-recovery
 # because 9.4 or later has to_regclass.
 make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool-regclass
 %endif
+make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool_adm
 
 install -d %{buildroot}%{_datadir}/%{short_name}
 install -d %{buildroot}%{_sysconfdir}/%{short_name}
@@ -132,10 +135,23 @@ install -m 755 %{SOURCE1} %{buildroot}%{_initrddir}/pgpool
 %endif
 
 install -d %{buildroot}%{_sysconfdir}/sysconfig
-install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/sysconfig/pgpool
+%if 0%{rhel} && 0%{rhel} <= 6
+    install -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/sysconfig/pgpool
+%else
+    install -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/pgpool
+%endif
 
 # nuke libtool archive and static lib
 rm -f %{buildroot}%{_libdir}/libpcp.{a,la}
+
+mkdir html
+mv doc/src/sgml/html html/en
+mv doc.ja/src/sgml/html html/ja
+
+install -d %{buildroot}%{_mandir}/man1
+install doc/src/sgml/man1/*.1 %{buildroot}%{_mandir}/man1
+install -d %{buildroot}%{_mandir}/man8
+install doc/src/sgml/man8/*.8 %{buildroot}%{_mandir}/man8
 
 %clean
 rm -rf %{buildroot}
@@ -185,7 +201,7 @@ fi
 %files
 %defattr(-,root,root,-)
 %dir %{_datadir}/%{short_name}
-%doc README TODO COPYING INSTALL AUTHORS ChangeLog doc/src/sgml
+%doc README TODO COPYING INSTALL AUTHORS ChangeLog html
 %{_bindir}/pgpool
 %{_bindir}/pcp_attach_node
 %{_bindir}/pcp_detach_node
@@ -201,12 +217,14 @@ fi
 %{_bindir}/pg_md5
 %{_bindir}/pgpool_setup
 %{_bindir}/watchdog_setup
-#%{_mandir}/man8/pgpool*
+%{_mandir}/man8/*.8.gz
+%{_mandir}/man1/*.1.gz
 %{_datadir}/%{short_name}/insert_lock.sql
 %{_datadir}/%{short_name}/pgpool.pam
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-master-slave
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-logical
 %{_libdir}/libpcp.so.*
 %if %{systemd_enabled}
 %ghost %{_varrundir}
@@ -232,6 +250,9 @@ fi
 %{pghome}/share/extension/pgpool_recovery--1.1.sql
 %{pghome}/share/extension/pgpool_recovery.control
 %{pghome}/lib/pgpool-recovery.so
+%{pghome}/share/extension/pgpool_adm--1.0.sql
+%{pghome}/share/extension/pgpool_adm.control
+%{pghome}/lib/pgpool_adm.so
 # From PostgreSQL 9.4 pgpool-regclass.so is not needed anymore
 # because 9.4 or later has to_regclass.
 %if %{pg_version} <= 93
@@ -242,6 +263,9 @@ fi
 %endif
 
 %changelog
+* Tue Nov 22 2016 Bo Peng <pengbo@sraoss.co.jp> 3.6.0
+- Update to 3.6.0
+
 * Mon Dec 28 2015 Yugo Nagata <nagata@sraoss.co.jp> 3.5.0
 - Add Chinese document
 

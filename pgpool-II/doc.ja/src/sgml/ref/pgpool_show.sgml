@@ -126,7 +126,20 @@ PGPOOL SHOW ALL
             すべての watchdog heartbeat ノードのパラメータの設定値。
           </para>
           </listitem>
-        </varlistentry>
+          </varlistentry>
+
+	  <varlistentry>
+          <term><literal>health_check</literal></term>
+          <listitem>
+            <para>
+	      <!--
+            configuration group of all health check parameters.
+		-->
+	      すべてのhealth checkパラメータの設定値。
+          </para>
+          </listitem>
+          </varlistentry>
+
       </variablelist>
     </listitem>
   </varlistentry>
@@ -155,7 +168,7 @@ PGPOOL SHOW ALL
   <!--
    Show the current setting of the parameter <varname>port</varname>:
    -->
-   パラメータ <varname>port</varname> の現在の設定値を表示:
+   パラメータ <xref linkend="guc-port"> の現在の設定値を表示:
 
 <programlisting>
 PGPOOL SHOW port;

@@ -22,32 +22,38 @@
 <indexdiv><title>A</title>
 
 <indexentry>
+  <primaryie>allow_multiple_failover_requests_from_node configuration parameter,
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR" role="AEN3813">Controlling the Failover behavior</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
   <primaryie>allow_sql_comments configuration parameter,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2509">Load Balancing Settings</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2558">Load Balancing Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>app_name_redirect_preference_list configuration parameter,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2448">Load Balancing Settings</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2497">Load Balancing Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>arping_cmd configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3637">Virtual IP control</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3704">Virtual IP control</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>arping_path configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3625">Virtual IP control</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3692">Virtual IP control</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>authentication_timeout configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1321">Authentication Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1354">Authentication Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -56,49 +62,49 @@
 
 <indexentry>
   <primaryie>backend_data_directory configuration parameter,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1671">Backend Data Settings</ulink>
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1709">Backend Data Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>backend_flag configuration parameter,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1684">Backend Data Settings</ulink>
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1722">Backend Data Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>backend_hostname configuration parameter,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1615">Backend Connection Settings</ulink>
-  </primaryie>
-</indexentry>
-
-<indexentry>
-  <primaryie>backend_port configuration parameter,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1640">Backend Connection Settings</ulink>
-  </primaryie>
-</indexentry>
-
-<indexentry>
-  <primaryie>backend_weight configuration parameter,
     <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1653">Backend Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
+  <primaryie>backend_port configuration parameter,
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1678">Backend Connection Settings</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>backend_weight configuration parameter,
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1691">Backend Connection Settings</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
   <primaryie>bison,
-    <ulink url="install-requirements.html" role="AEN789">Requirements</ulink>
+    <ulink url="install-requirements.html" role="AEN794">Requirements</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>black_function_list configuration parameter,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2359">Load Balancing Settings</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2408">Load Balancing Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>black_memqcache_table_list configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3296">Common configurations</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3359">Common configurations</ulink>
   </primaryie>
 </indexentry>
 
@@ -107,31 +113,31 @@
 
 <indexentry>
   <primaryie>check_temp_table configuration parameter,
-    <ulink url="runtime-misc.html" role="AEN4039">Misc Configuration Parameters</ulink>
+    <ulink url="runtime-misc.html" role="AEN4177">Misc Configuration Parameters</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>check_unlogged_table configuration parameter,
-    <ulink url="runtime-misc.html" role="AEN4055">Misc Configuration Parameters</ulink>
+    <ulink url="runtime-misc.html" role="AEN4193">Misc Configuration Parameters</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>child_life_time configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1818">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1864">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>child_max_connections configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1859">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1905">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>clear_memqcache_on_escalation configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3655">Behaivor on escalation and de-escalation</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3722">Behaivor on escalation and de-escalation</ulink>
   </primaryie>
 </indexentry>
 
@@ -143,19 +149,19 @@
 
 <indexentry>
   <primaryie>client_idle_limit configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1841">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1887">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>client_idle_limit_in_recovery configuration parameter,
-    <ulink url="runtime-online-recovery.html" role="AEN3029">Online Recovery</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN3090">Online Recovery</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>client_min_messages configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN2008">When To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN2054">When To Log</ulink>
   </primaryie>
 </indexentry>
 
@@ -163,7 +169,7 @@
   <primaryie>configuration
   </primaryie>
   <secondaryie>of the server,
-    <ulink url="runtime-config.html" role="AEN1117">Server Configuration</ulink>
+    <ulink url="runtime-config.html" role="AEN1150">Server Configuration</ulink>
   </secondaryie>
 </indexentry>
 
@@ -175,19 +181,19 @@
 
 <indexentry>
   <primaryie>connection_cache configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1722">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1768">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>connection_life_time configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1878">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1924">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>connect_timeout configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2634">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2688">Health Check</ulink>
   </primaryie>
 </indexentry>
 
@@ -196,19 +202,19 @@
 
 <indexentry>
   <primaryie>database_redirect_preference_list configuration parameter,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2407">Load Balancing Settings</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2456">Load Balancing Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>delay_threshold configuration parameter,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3115">Streaming Replication Check</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3176">Streaming Replication Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>delegate_IP configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3576">Virtual IP control</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3643">Virtual IP control</ulink>
   </primaryie>
 </indexentry>
 
@@ -217,7 +223,7 @@
 
 <indexentry>
   <primaryie>enable_pool_hba configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1291">Authentication Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1324">Authentication Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -226,37 +232,49 @@
 
 <indexentry>
   <primaryie>failback_command configuration parameter,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2715">Failover and Failback Settings</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2776">Failover and Failback Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>failover_command configuration parameter,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2654">Failover and Failback Settings</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2708">Failover and Failback Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>failover_if_affected_tuples_mismatch configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1437">Replication mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1475">Replication mode</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>failover_require_consensus configuration parameter,
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR" role="AEN3795">Controlling the Failover behavior</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>failover_when_quorum_exists configuration parameter,
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR" role="AEN3770">Controlling the Failover behavior</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>fail_over_on_backend_error configuration parameter,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2831">Failover and Failback Settings</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2892">Failover and Failback Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>flex,
-    <ulink url="install-requirements.html" role="AEN785">Requirements</ulink>
+    <ulink url="install-requirements.html" role="AEN790">Requirements</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>follow_master_command configuration parameter,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2770">Failover and Failback Settings</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2831">Failover and Failback Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -265,61 +283,61 @@
 
 <indexentry>
   <primaryie>health_check_database configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2587">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2641">Health Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_max_retries configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2605">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2659">Health Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_password configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2573">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2627">Health Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_period configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2549">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2603">Health Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_retry_delay configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2622">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2676">Health Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_timeout configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2536">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2590">Health Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_user configuration parameter,
-    <ulink url="runtime-config-health-check.html" role="AEN2560">Health Check</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2614">Health Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>heartbeat_destination configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3843">Lifecheck Heartbeat mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3981">Lifecheck Heartbeat mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>heartbeat_destination_port configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3860">Lifecheck Heartbeat mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3998">Lifecheck Heartbeat mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>heartbeat_device configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3875">Lifecheck Heartbeat mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN4013">Lifecheck Heartbeat mode configuration</ulink>
   </primaryie>
 </indexentry>
 
@@ -336,31 +354,31 @@
 
 <indexentry>
   <primaryie>if_cmd_path configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3589">Virtual IP control</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3656">Virtual IP control</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>if_down_cmd configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3614">Virtual IP control</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3681">Virtual IP control</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>if_up_cmd configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3601">Virtual IP control</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3668">Virtual IP control</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ignore_leading_white_space configuration parameter,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2326">Load Balancing Settings</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2375">Load Balancing Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>insert_lock configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1507">Replication mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1545">Replication mode</ulink>
   </primaryie>
 </indexentry>
 
@@ -375,91 +393,91 @@
 
 <indexentry>
   <primaryie>lex,
-    <ulink url="install-requirements.html" role="AEN787">Requirements</ulink>
+    <ulink url="install-requirements.html" role="AEN792">Requirements</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>listen_addresses configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1184">Connection Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1217">Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>listen_backlog_multiplier configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1754">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1800">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>load_balance_mode configuration parameter,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2312">Load Balancing Settings</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2361">Load Balancing Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>lobj_lock_table configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1565">Replication mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1603">Replication mode</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>logdir configuration parameter,
-    <ulink url="runtime-misc.html" role="AEN4084">Misc Configuration Parameters</ulink>
+    <ulink url="runtime-misc.html" role="AEN4222">Misc Configuration Parameters</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_connections configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2096">What To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2142">What To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_destination configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1939">Where To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1985">Where To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_error_verbosity configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2107">What To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2153">What To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_hostname configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2083">What To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2129">What To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_line_prefix configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2126">What To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2172">What To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_min_messages configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN2030">When To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN2076">When To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_per_node_statement configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2070">What To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2116">What To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_standby_delay configuration parameter,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3131">Streaming Replication Check</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3192">Streaming Replication Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_statement configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2058">What To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2104">What To Log</ulink>
   </primaryie>
 </indexentry>
 
@@ -468,98 +486,104 @@
 
 <indexentry>
   <primaryie>make,
-    <ulink url="install-requirements.html" role="AEN754">Requirements</ulink>
+    <ulink url="install-requirements.html" role="AEN759">Requirements</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>master slave mode,
+    <ulink url="configuring-pgpool.html#RUNNING-MODE" role="RUNNING-MODE">Running mode of Pgpool-II</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>master_slave_mode configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1347">Master slave mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1380">Master slave mode</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>master_slave_sub_mode configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1361">Master slave mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1394">Master slave mode</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>max_pool configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1739">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1785">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>MD5,
-    <ulink url="auth-methods.html#AUTH-MD5" role="AEN4290">MD5 Password Authentication</ulink>,
+    <ulink url="auth-methods.html#AUTH-MD5" role="AEN4516">MD5 Password Authentication</ulink>,
     <ulink url="auth-methods.html#SETTING-MD5-AUTHENTICATION" role="SETTING-MD5-AUTHENTICATION">Setting md5 Authentication</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memory_cache_enabled configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-ENABLING" role="AEN3177">Enabling in memory query cache</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-ENABLING" role="AEN3243">Enabling in memory query cache</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_auto_cache_invalidation configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3241">Common configurations</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3307">Common configurations</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_cache_block_size configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3358">Configurations to use shared memory</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3425">Configurations to use shared memory</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_expire configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3226">Common configurations</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3292">Common configurations</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_maxcache configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3257">Common configurations</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3323">Common configurations</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_max_num_cache configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3345">Configurations to use shared memory</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3412">Configurations to use shared memory</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_memcached_host configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3377">Configurations to use memcached</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3444">Configurations to use memcached</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_memcached_port configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3391">Configurations to use memcached</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3458">Configurations to use memcached</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_method configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CHOOSE-STORAGE" role="AEN3191">Choosing cache storage</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CHOOSE-STORAGE" role="AEN3257">Choosing cache storage</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_oiddir configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3313">Common configurations</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3380">Common configurations</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_total_size configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3335">Configurations to use shared memory</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3402">Configurations to use shared memory</ulink>
   </primaryie>
 </indexentry>
 
@@ -567,8 +591,14 @@
 <indexdiv><title>N</title>
 
 <indexentry>
+  <primaryie>native replication mode,
+    <ulink url="configuring-pgpool.html#RUNNING-MODE" role="RUNNING-MODE">Running mode of Pgpool-II</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
   <primaryie>num_init_children configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1257">Connection Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1290">Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -577,19 +607,19 @@
 
 <indexentry>
   <primaryie>other_pgpool_hostname configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN3973">Watchdog servers configurations</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN4111">Watchdog servers configurations</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>other_pgpool_port configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN3984">Watchdog servers configurations</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN4122">Watchdog servers configurations</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>other_wd_port0 configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN3995">Watchdog servers configurations</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN4133">Watchdog servers configurations</ulink>
   </primaryie>
 </indexentry>
 
@@ -604,7 +634,7 @@
 
 <indexentry>
   <primaryie>pcp configuration,
-    <ulink url="configuring-pcp-conf.html" role="AEN1026">Configuring pcp.conf</ulink>
+    <ulink url="configuring-pcp-conf.html" role="AEN1049">Configuring pcp.conf</ulink>
   </primaryie>
 </indexentry>
 
@@ -628,7 +658,7 @@
 
 <indexentry>
   <primaryie>pcp_listen_addresses configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1222">Connection Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1255">Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -652,7 +682,7 @@
 
 <indexentry>
   <primaryie>pcp_port configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1235">Connection Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1268">Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -682,7 +712,7 @@
 
 <indexentry>
   <primaryie>pcp_socket_dir configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1245">Connection Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1278">Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -706,19 +736,49 @@
 
 <indexentry>
   <primaryie>Pgpool-II configuration,
-    <ulink url="configuring-pgpool.html" role="AEN1058">Configuring Pgpool-II</ulink>
+    <ulink url="configuring-pgpool.html" role="AEN1081">Configuring Pgpool-II</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>Pgpool-II user,
-    <ulink url="pgpool-ii-user.html" role="AEN1015">The Pgpool-II User Account</ulink>
+    <ulink url="pgpool-ii-user.html" role="AEN1038">The Pgpool-II User Account</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>pgpool.conf,
-    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1152">Parameter Interaction via the Configuration File</ulink>
+    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1185">Parameter Interaction via the Configuration File</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_attach_node,
+    <ulink url="pgpool-adm-pcp-attach-node.html" role="pgpool-adm-pcp-attach-node">pgpool_adm_pcp_attach_node</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_detach_node,
+    <ulink url="pgpool-adm-pcp-detach-node.html" role="pgpool-adm-pcp-detach-node">pgpool_adm_pcp_detach_node</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_node_count,
+    <ulink url="pgpool-adm-pcp-node-count.html" role="pgpool-adm-pcp-node-count">pgpool_adm_pcp_node_count</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_node_info,
+    <ulink url="pgpool-adm-pcp-node-info.html" role="pgpool-adm-pcp-node-info">pgpool_adm_pcp_node_info</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_pool_status,
+    <ulink url="pgpool-adm-pcp-pool-status.html" role="pgpool-adm-pcp-pool-status">pgpool_adm_pcp_pool_status</ulink>
   </primaryie>
 </indexentry>
 
@@ -736,13 +796,13 @@
 
 <indexentry>
   <primaryie>pid_file_name configuration parameter,
-    <ulink url="runtime-misc.html" role="AEN4072">Misc Configuration Parameters</ulink>
+    <ulink url="runtime-misc.html" role="AEN4210">Misc Configuration Parameters</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ping_path configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3562">Upstream server connection</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3629">Upstream server connection</ulink>
   </primaryie>
 </indexentry>
 
@@ -754,13 +814,13 @@
 
 <indexentry>
   <primaryie>pool_passwd configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1308">Authentication Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1341">Authentication Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>port configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1198">Connection Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1231">Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -769,61 +829,61 @@
 
 <indexentry>
   <primaryie>recovery_1st_stage_command configuration parameter,
-    <ulink url="runtime-online-recovery.html" role="AEN2937">Online Recovery</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN2998">Online Recovery</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_2nd_stage_command configuration parameter,
-    <ulink url="runtime-online-recovery.html" role="AEN2977">Online Recovery</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN3038">Online Recovery</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_password configuration parameter,
-    <ulink url="runtime-online-recovery.html" role="AEN2924">Online Recovery</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN2985">Online Recovery</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_timeout configuration parameter,
-    <ulink url="runtime-online-recovery.html" role="AEN3017">Online Recovery</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN3078">Online Recovery</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_user configuration parameter,
-    <ulink url="runtime-online-recovery.html" role="AEN2912">Online Recovery</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN2973">Online Recovery</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>relcache_expire configuration parameter,
-    <ulink url="runtime-misc.html" role="AEN4009">Misc Configuration Parameters</ulink>
+    <ulink url="runtime-misc.html" role="AEN4147">Misc Configuration Parameters</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>relcache_size configuration parameter,
-    <ulink url="runtime-misc.html" role="AEN4024">Misc Configuration Parameters</ulink>
+    <ulink url="runtime-misc.html" role="AEN4162">Misc Configuration Parameters</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>replicate_select configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1454">Replication mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1492">Replication mode</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>replication_mode configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1402">Replication mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1440">Replication mode</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>replication_stop_on_mismatch configuration parameter,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1416">Replication mode</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1454">Replication mode</ulink>
   </primaryie>
 </indexentry>
 
@@ -835,7 +895,7 @@
 
 <indexentry>
   <primaryie>reset_query_list configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1889">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1935">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -844,13 +904,13 @@
 
 <indexentry>
   <primaryie>search_primary_node_timeout configuration parameter,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2850">Failover and Failback Settings</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2911">Failover and Failback Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>serialize_accept configuration parameter,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1774">Connection Pooling Settings</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1820">Connection Pooling Settings</ulink>
   </primaryie>
 </indexentry>
 
@@ -863,90 +923,121 @@
 <indexentry>
   <primaryie>SHOW,
     <ulink url="sql-pgpool-show.html" role="sql-pgpool-show">PGPOOL SHOW</ulink>,
-    <ulink url="sql-show-pool-status.html" role="sql-show-pool-status">SHOW POOL STATUS</ulink>,
-    <ulink url="sql-show-pool-nodes.html" role="sql-show-pool-nodes">SHOW POOL NODES</ulink>,
-    <ulink url="sql-show-pool-processes.html" role="sql-show-pool-processes">SHOW POOL_PROCESSES</ulink>,
-    <ulink url="sql-show-pool-pools.html" role="sql-show-pool-pools">SHOW POOL_POOLS</ulink>,
-    <ulink url="sql-show-pool-version.html" role="sql-show-pool-version">SHOW POOL_VERSION</ulink>,
     <ulink url="sql-show-pool-cache.html" role="sql-show-pool-cache">SHOW POOL_CACHE</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
+  <primaryie>SHOW POOL_NODES,
+    <ulink url="sql-show-pool-nodes.html" role="sql-show-pool-nodes">SHOW POOL NODES</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_POOLS,
+    <ulink url="sql-show-pool-pools.html" role="sql-show-pool-pools">SHOW POOL_POOLS</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_PROCESSES,
+    <ulink url="sql-show-pool-processes.html" role="sql-show-pool-processes">SHOW POOL_PROCESSES</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_STATUS,
+    <ulink url="sql-show-pool-status.html" role="sql-show-pool-status">SHOW POOL STATUS</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_VERSION,
+    <ulink url="sql-show-pool-version.html" role="sql-show-pool-version">SHOW POOL_VERSION</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
   <primaryie>SIGHUP,
-    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1159">Parameter Interaction via the Configuration File</ulink>
+    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1192">Parameter Interaction via the Configuration File</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>socket_dir configuration parameter,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1209">Connection Settings</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1242">Connection Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_database configuration parameter,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3103">Streaming Replication Check</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3164">Streaming Replication Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_password configuration parameter,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3089">Streaming Replication Check</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3150">Streaming Replication Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_period configuration parameter,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3060">Streaming Replication Check</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3121">Streaming Replication Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_user configuration parameter,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3071">Streaming Replication Check</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3132">Streaming Replication Check</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl configuration parameter,
-    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3407">SSL Settings</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3474">SSL Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_ca_cert configuration parameter,
-    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3450">SSL Settings</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3517">SSL Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_ca_cert_dir configuration parameter,
-    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3464">SSL Settings</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3531">SSL Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_cert configuration parameter,
-    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3439">SSL Settings</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3506">SSL Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_key configuration parameter,
-    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3428">SSL Settings</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS" role="AEN3495">SSL Settings</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>streaming replication mode,
+    <ulink url="configuring-pgpool.html#RUNNING-MODE" role="RUNNING-MODE">Running mode of Pgpool-II</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>syslog_facility configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1966">Where To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN2012">Where To Log</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>syslog_ident configuration parameter,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1990">Where To Log</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN2036">Where To Log</ulink>
   </primaryie>
 </indexentry>
 
@@ -955,7 +1046,7 @@
 
 <indexentry>
   <primaryie>trusted_servers configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3550">Upstream server connection</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3617">Upstream server connection</ulink>
   </primaryie>
 </indexentry>
 
@@ -964,7 +1055,7 @@
 
 <indexentry>
   <primaryie>use_watchdog configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-ENABLE-WATCHDOG" role="AEN3493">Enable watchdog</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-ENABLE-WATCHDOG" role="AEN3560">Enable watchdog</ulink>
   </primaryie>
 </indexentry>
 
@@ -1001,121 +1092,121 @@
 
 <indexentry>
   <primaryie>wd_authkey configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3527">Watchdog communication</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3594">Watchdog communication</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_de_escalation_command configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3681">Behaivor on escalation and de-escalation</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3748">Behaivor on escalation and de-escalation</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_escalation_command configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3670">Behaivor on escalation and de-escalation</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3737">Behaivor on escalation and de-escalation</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_heartbeat_deadtime configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3829">Lifecheck Heartbeat mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3967">Lifecheck Heartbeat mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_heartbeat_keepalive configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3816">Lifecheck Heartbeat mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3954">Lifecheck Heartbeat mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_heartbeat_port configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3802">Lifecheck Heartbeat mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3940">Lifecheck Heartbeat mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_hostname configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3506">Watchdog communication</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3573">Watchdog communication</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_interval configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3754">Life checking Pgpool-II </ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3892">Life checking Pgpool-II </ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_ipc_socket_dir configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3780">Life checking Pgpool-II </ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3918">Life checking Pgpool-II </ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_dbname configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3922">Lifecheck Query mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4060">Lifecheck Query mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_method configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3703">Life checking Pgpool-II </ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3841">Life checking Pgpool-II </ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_password configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3954">Lifecheck Query mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4092">Lifecheck Query mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_query configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3906">Lifecheck Query mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4044">Lifecheck Query mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_user configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3938">Lifecheck Query mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4076">Lifecheck Query mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_life_point configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3892">Lifecheck Query mode configuration</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4030">Lifecheck Query mode configuration</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_monitoring_interfaces_list configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3736">Life checking Pgpool-II </ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3874">Life checking Pgpool-II </ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_port configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3517">Watchdog communication</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3584">Watchdog communication</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_priority configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3765">Life checking Pgpool-II </ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3903">Life checking Pgpool-II </ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>white_function_list configuration parameter,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2338">Load Balancing Settings</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2387">Load Balancing Settings</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>white_memqcache_table_list configuration parameter,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3276">Common configurations</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3342">Common configurations</ulink>
   </primaryie>
 </indexentry>
 
@@ -1124,7 +1215,7 @@
 
 <indexentry>
   <primaryie>yacc,
-    <ulink url="install-requirements.html" role="AEN791">Requirements</ulink>
+    <ulink url="install-requirements.html" role="AEN796">Requirements</ulink>
   </primaryie>
 </indexentry>
 

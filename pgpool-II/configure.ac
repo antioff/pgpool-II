@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [3.6.0], [pgpool-hackers@pgpool.net], [pgpool-II])
+AC_INIT([pgpool-II], [3.7.0], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -325,7 +325,7 @@ if test "$with_openssl" = yes || test "$with_openssl" = auto; then
         ])
 
    AC_CHECK_LIB(crypto, CRYPTO_new_ex_data, [], [AC_MSG_ERROR([library 'crypto' is required for OpenSSL])])
-   AC_CHECK_LIB(ssl,    SSL_library_init, [], [AC_MSG_ERROR([library 'ssl' is required for OpenSSL])])
+   AC_CHECK_LIB(ssl,    SSL_new, [], [AC_MSG_ERROR([library 'ssl' is required for OpenSSL])])
 fi
 
 AC_ARG_WITH(pam,

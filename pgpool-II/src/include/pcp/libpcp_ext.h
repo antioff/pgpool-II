@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2017	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -25,8 +25,10 @@
 
 #ifndef LIBPCP_EXT_H
 #define LIBPCP_EXT_H
+
 #include <signal.h>
 #include <stdio.h>
+
 /*
  * startup packet definitions (v2) stolen from PostgreSQL
  */
@@ -53,6 +55,21 @@ typedef enum {
 #define BACKEND_STATUS_CON_CONNECT_WAIT	"waiting"
 #define BACKEND_STATUS_CON_UP			"up"
 #define BACKEND_STATUS_CON_DOWN			"down"
+#define BACKEND_STATUS_QUARANTINE		"quarantine"
+
+/*
+ * Backend status record file
+ */
+typedef struct {
+	BACKEND_STATUS status[MAX_NUM_BACKENDS];
+} BackendStatusRecord;
+
+typedef enum {
+	ROLE_MASTER,
+	ROLE_SLAVE,
+	ROLE_PRIMARY,
+	ROLE_STANDBY
+} SERVER_ROLE;
 
 /*
  * PostgreSQL backend descriptor. Placed on shared memory area.
@@ -65,7 +82,9 @@ typedef struct {
 	double unnormalized_weight; /* descripted parameter */
 	char backend_data_directory[MAX_PATH_LENGTH];
 	unsigned short flag;		/* various flags */
-	unsigned long long int standby_delay;		/* The replication delay against the primary */
+	bool quarantine;			/* true if node is CON_DOWN because of quarantine */
+	uint64 standby_delay;		/* The replication delay against the primary */
+	SERVER_ROLE role;	/* Role of server. Only used by pcp_node_info */
 } BackendInfo;
 
 typedef struct {
@@ -101,7 +120,7 @@ typedef struct {
 							 * might be out of control of
 							 * pgpool-II. So we use "char" here.
 							 */
-	char		swallow_termination;
+	volatile char		swallow_termination;
 							/* Flag to mark that if the connection will
 							 * be terminated by the backend. it should
 							 * not be treated as a backend node failure.
@@ -136,7 +155,7 @@ typedef struct {
 #define POOLCONFIG_MAXDESCLEN 80
 #define POOLCONFIG_MAXIDENTLEN 63
 #define POOLCONFIG_MAXPORTLEN 6
-#define POOLCONFIG_MAXSTATLEN 8
+#define POOLCONFIG_MAXSTATLEN 12
 #define POOLCONFIG_MAXWEIGHTLEN 20
 #define POOLCONFIG_MAXDATELEN 128
 #define POOLCONFIG_MAXCOUNTLEN 16
@@ -270,6 +289,8 @@ extern int pcp_result_slot_count(PCPResultInfo* res);
 extern char *pcp_get_last_error(PCPConnInfo* pcpConn);
 
 extern int pcp_result_is_empty(PCPResultInfo* res);
+
+extern char *role_to_str(SERVER_ROLE role);
 /* ------------------------------
  * pcp_error.c
  * ------------------------------

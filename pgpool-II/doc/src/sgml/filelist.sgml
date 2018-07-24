@@ -41,6 +41,7 @@
 <!ENTITY high-availability      SYSTEM "high-availability.sgml">
 <!ENTITY installation  SYSTEM "installation.sgml">
 <!ENTITY installation-rpm  SYSTEM "installation-rpm.sgml">
+<!ENTITY installation-tips  SYSTEM "installation-tips.sgml">
 <!ENTITY installw      SYSTEM "install-windows.sgml">
 <!ENTITY maintenance   SYSTEM "maintenance.sgml">
 <!ENTITY manage-ag     SYSTEM "manage-ag.sgml">
@@ -180,7 +181,13 @@
 <!ENTITY sourcerepo SYSTEM "sourcerepo.sgml">
 
 <!ENTITY release    SYSTEM "release.sgml">
+<!ENTITY release-3.7    SYSTEM "release-3.7.sgml">
 <!ENTITY release-3.6    SYSTEM "release-3.6.sgml">
+<!ENTITY release-3.5    SYSTEM "release-3.5.sgml">
+<!ENTITY release-3.4    SYSTEM "release-3.4.sgml">
+<!ENTITY release-3.3    SYSTEM "release-3.3.sgml">
+<!ENTITY release-3.2    SYSTEM "release-3.2.sgml">
+<!ENTITY release-3.1    SYSTEM "release-3.1.sgml">
 <!ENTITY release-old    SYSTEM "release-old.sgml">
 
 <!ENTITY acronyms   SYSTEM "acronyms.sgml">

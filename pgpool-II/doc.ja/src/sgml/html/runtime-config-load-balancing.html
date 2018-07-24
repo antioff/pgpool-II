@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.6.0 文書"
+TITLE="Pgpool-II 3.7.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:39"></HEAD
+CONTENT="2017-11-21T07:44:59"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.6.0 文書</A
+>Pgpool-II 3.7.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -100,10 +100,10 @@ NAME="RUNTIME-CONFIG-LOAD-BALANCING"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >のSELECTクエリの負荷分散はマスタースレーブモード（<A
-HREF="runtime-config-runnung-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE"
+HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE"
 >項5.3.1</A
 >）とレプリケーションモード（<A
-HREF="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
+HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
 >項5.3.2</A
 >）で動作します。
 有効時、<SPAN
@@ -153,6 +153,20 @@ CLASS="EMPHASIS"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >はこれをマスターノード（マスタースレーブモードではプライマリノード）に送信します。
+    </P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>どのDBノードが負荷分散ノードになっているかは、<A
+HREF="sql-show-pool-nodes.html"
+>SHOW POOL NODES</A
+>を利用して確認できます。
     </P
 ></BLOCKQUOTE
 ></DIV
@@ -295,7 +309,7 @@ HREF="runtime-config-load-balancing.html#GUC-ALLOW-SQL-COMMENTS"
 >allow_sql_comments</A
 >をonにします。
 <A
-HREF="runtime-config-runnung-mode.html#GUC-REPLICATE-SELECT"
+HREF="runtime-config-running-mode.html#GUC-REPLICATE-SELECT"
 >replicate_select</A
 >も参照してください。
     </P
@@ -486,7 +500,7 @@ HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD"
 ></P><UL
 ><LI
 ><P
->BEGINなどのトランザクション開始コマンドは、プライマリノードに送られます。
+>BEGINなどのトランザクション開始コマンドは、プライマリノードとスタンバイノードの両方に送られます。
          </P
 ></LI
 ><LI

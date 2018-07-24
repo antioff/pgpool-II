@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.6.0 文書"
+TITLE="Pgpool-II 3.7.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの準備と運用"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:39"></HEAD
+CONTENT="2017-11-21T07:44:59"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.6.0 文書</A
+>Pgpool-II 3.7.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -175,6 +175,23 @@ CLASS="PRODUCTNAME"
 サンプルの設定ファイルは<TT
 CLASS="FILENAME"
 >$prefix/etc/pgpool.conf.sample-stream</TT
+>です。
+    </P
+><P
+>  
+ロジカルレプリケーションモードはロジカルレプリケーションを使用する<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバと一緒に使うことができます。
+このモードでは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>がテーブルを同期する責任を持ちます。
+このモードでは負荷分散が可能です。
+ロジカルレプリケーションは必ずしもすべてのテーブルをレプリケーションしないので、負荷分散させるテーブルがレプリケーションされるようにするのはユーザの責任です。
+サンプルの設定ファイルは<TT
+CLASS="FILENAME"
+>$prefix/etc/pgpool.conf.sample-logical</TT
 >です。
     </P
 ><P

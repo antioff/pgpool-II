@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2017	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -54,12 +54,25 @@ typedef enum {
 } POOL_SYNC_MAP_STATE;
 
 /*
+ * Status of sent message
+ */
+typedef enum {
+	POOL_SENT_MESSAGE_CREATED,	/* initial state of sent meesage */
+	POOL_SENT_MESSAGE_CLOSED	/* sent meesage closed but close complete message has not arrived yet */
+} POOL_SENT_MESSAGE_STATE;
+/*
  * Message content of extended query
  */
 typedef struct {
-	char kind;	/* one of 'P':Parse, 'B':Bind or 'Q':Query(PREPARE) */
-	int len;	/* in host byte order */
+	/*
+	 * One of 'P':Parse, 'B':Bind or 'Q':Query (PREPARE).  If kind = 'B', it
+	 * is assumed that the message is a portal.
+	 */
+	char kind;
+
+	int len;	/* message length in host byte order */
 	char *contents;
+	POOL_SENT_MESSAGE_STATE state;		/* message state */
 	int num_tsparams;
 	char *name;		/* object name of prepared statement or portal */
 	POOL_QUERY_CONTEXT *query_context;
@@ -74,7 +87,8 @@ typedef struct {
 } POOL_SENT_MESSAGE;
 
 /*
- * List of POOL_SENT_MESSAGE
+ * List of POOL_SENT_MESSAGE (XXX this should have been implemented using a
+ * list, rather than an array)
  */
 typedef struct {
 	int capacity;	/* capacity of list */
@@ -83,27 +97,43 @@ typedef struct {
 } POOL_SENT_MESSAGE_LIST;
 
 /*
- * Received message queue used in extended protocol/streaming replication
- * mode.  The queue is an FIFO, allow to de-queue in the middle of the queue
- * however.  When Parse/Bind/Close message are received, each message is
- * en-queued.  The information is used to process those response messages,
- * when Parse complete/Bind completes and Close compete message are received
- * because they don't have any information regarding statement/portal.
+ * Received message queue used in extended query/streaming replication mode.
+ * The queue is an FIFO.  When Parse/Bind/Describe/Execute/Close message are
+ * received, each message is en-queued.  The information is used to process
+ * those response messages, when Parse complete/Bind completes, Parameter
+ * description, row description, command complete and close compete message
+ * are received because they don't have any information regarding
+ * statement/portal.
  *
  * The memory used for the queue lives in the session context mememory.
  */
 
 typedef enum {
-	POOL_PARSE,
+	POOL_PARSE = 0,
 	POOL_BIND,
-	POOL_CLOSE
+	POOL_EXECUTE,
+	POOL_DESCRIBE,
+	POOL_CLOSE,
+	POOL_SYNC
 } POOL_MESSAGE_TYPE;
 
 typedef struct {
 	POOL_MESSAGE_TYPE type;
 	char *contents;		/* message packet contents excluding message kind */
 	int contents_len;	/* message packet length */
+	char query[QUERY_STRING_BUFFER_LEN];	/* copy of original query */
+	char statement[MAX_IDENTIFIER_LEN];	/* prepared statment name if any */
+	char portal[MAX_IDENTIFIER_LEN];	/* portal name if any */
+	bool is_rows_returned;		/* true if the message could produce row data */
+	bool not_forward_to_frontend;		/* Do not forward response from backend to frontend.
+										 * This is used by parse_before_bind()
+										 */
+	int node_ids[2];	/* backend node ids this message was sent to. -1 means no message was sent. */
+	POOL_QUERY_CONTEXT *query_context;	/* query context */
 } POOL_PENDING_MESSAGE;
+
+/* Return true if node_id is one of node_ids */
+#define IS_SENT_NODE_ID(msg, node_id)	(msg->node_ids[0] == node_id || msg->node_ids[1] == node_id)
 
 /*
  * Per session context:
@@ -121,6 +151,14 @@ typedef struct {
 
 	/* If true, we are doing extended query message */
 	bool doing_extended_query_message;
+
+	/* If true, we have rewritten where_to_send map in the current query
+	 * context. pool_unset_query_in_progress() should restore the data from
+	 * where_to_send_save.  For now, this is only necessary while doing
+	 * extended query protocol and in streaming replication mode.
+	 */
+	bool need_to_restore_where_to_send;
+	bool where_to_send_save[MAX_NUM_BACKENDS];
 
 	/* If true, the command in progress has finished successfully. */
 	bool command_success;
@@ -186,35 +224,23 @@ typedef struct {
 	long long int num_selects;	/* number of successful SELECTs in this transaction */
 
 	/*
-	 * Used for managing sync message response in streaming replication
-	 * mode. In streaming replication mode, there are at most two nodes
-	 * involved. One is always primary, and the other (if any) could be
-	 * standby. If the load balancing manager chooses the primary as the load
-	 * balancing node, only the primary node is involved. Every time extended
-	 * protocol is sent to backend, we set true on the member of array
-	 * below. It is cleared after sync message is processed and command
-	 * complete or error response message is processed.
-	 */
-	bool sync_map[MAX_NUM_BACKENDS];
-
-	/*
-	 * True if parse/bind/describe/close messages are sent to backend but
-	 * still sync or flush is not sent. If the flag is true, do_query issues
-	 * flush and stashes responses such as "parse complete" sent from backend,
-	 * then inserts them to pool_read buffer after finishing the job not to
-	 * confuse the message sequence.
-	 */
-	bool is_pending_response;
-
-	/*
-	 * Parse/Bind/Close message queue.
+	 * Parse/Bind/Decribe/Execute/Close message queue.
 	 */
 	List *pending_messages;
+
+	/*
+	 * The last pending message. Reset at Ready for query.
+	 */
+	POOL_PENDING_MESSAGE *previous_message;
 
 	/* Protocol major version number */
 	int major;
 	/* Protocol minor version number */
 	int minor;
+#ifdef NOT_USED
+	/* Preferred "master" node id. Only used for SimpleForwardToFrontend. */
+	int preferred_master_node_id;
+#endif
 } POOL_SESSION_CONTEXT;
 
 extern void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend);
@@ -241,7 +267,8 @@ extern bool pool_remove_sent_message(char kind, const char *name);
 extern void pool_remove_sent_messages(char kind);
 extern void pool_clear_sent_message_list(void);
 extern void pool_sent_message_destroy(POOL_SENT_MESSAGE *message);
-extern POOL_SENT_MESSAGE *pool_get_sent_message(char kind, const char *name);
+extern POOL_SENT_MESSAGE *pool_get_sent_message(char kind, const char *name, POOL_SENT_MESSAGE_STATE state);
+extern void pool_set_sent_message_state(POOL_SENT_MESSAGE *message);
 extern void pool_unset_writing_transaction(void);
 extern void pool_set_writing_transaction(void);
 extern bool pool_is_writing_transaction(void);
@@ -256,25 +283,35 @@ extern void pool_set_command_success(void);
 extern bool pool_is_command_success(void);
 extern void pool_copy_prep_where(bool *src, bool *dest);
 extern bool can_query_context_destroy(POOL_QUERY_CONTEXT *qc);
-extern void pool_set_sync_map(int node_id);
-extern bool pool_is_set_sync_map(int node_id);
-extern int pool_get_nth_sync_map(int nth);
-extern void pool_clear_sync_map(void);
-extern bool pool_use_sync_map(void);
-extern void pool_set_pending_response(void);
-extern void pool_unset_pending_response(void);
-extern bool pool_is_pending_response(void);
 extern void pool_pending_messages_init (void);
 extern void pool_pending_messages_destroy(void);
-extern POOL_PENDING_MESSAGE *pool_pending_messages_create(char kind, int len, char *contents);
+extern POOL_PENDING_MESSAGE *pool_pending_message_create(char kind, int len, char *contents);
+extern void pool_pending_message_free_pending_message(POOL_PENDING_MESSAGE *message);
+extern void pool_pending_message_dest_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CONTEXT *query_context);
+void pool_pending_message_query_context_dest_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CONTEXT *query_context);
+extern void pool_pending_message_query_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CONTEXT *query_context);
 extern void pool_pending_message_add(POOL_PENDING_MESSAGE* message);
-extern POOL_PENDING_MESSAGE *pool_pending_message_remove(POOL_MESSAGE_TYPE type);
+extern POOL_PENDING_MESSAGE *pool_pending_message_head_message(void);
+extern POOL_PENDING_MESSAGE *pool_pending_message_pull_out(void);
+extern POOL_PENDING_MESSAGE *pool_pending_message_get(POOL_MESSAGE_TYPE type);
 extern char pool_get_close_message_spec(POOL_PENDING_MESSAGE *msg);
 extern char *pool_get_close_message_name(POOL_PENDING_MESSAGE *msg);
+extern void pool_pending_message_reset_previous_message(void);
+extern void pool_pending_message_set_previous_message(POOL_PENDING_MESSAGE *message);
+extern POOL_PENDING_MESSAGE *pool_pending_message_get_previous_message(void);
+extern bool pool_pending_message_exists(void);
+extern const char *pool_pending_message_type_to_string(POOL_MESSAGE_TYPE type);
+extern void pool_check_pending_message_and_reply(POOL_MESSAGE_TYPE type, char kind);
+extern POOL_PENDING_MESSAGE *pool_pending_message_find_lastest_by_query_context(POOL_QUERY_CONTEXT *qc);
+extern void dump_pending_message(void);
 extern void pool_set_major_version(int major);
-extern int pool_get_major_version(void);
 extern void pool_set_minor_version(int minor);
 extern int pool_get_minor_version(void);
+#ifdef NOT_USED
+extern void pool_set_preferred_master_node_id(int node_id);
+extern int pool_get_preferred_master_node_id(void);
+extern void pool_reset_preferred_master_node_id(void);
+#endif
 
 #ifdef NOT_USED
 extern void pool_add_prep_where(char *name, bool *map);

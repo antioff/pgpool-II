@@ -353,8 +353,7 @@ void pool_connection_pool_timer(POOL_CONNECTION_POOL *backend)
 		(errmsg("setting backend connection close timer"),
 			 errdetail("setting alarm after %d seconds", pool_config->connection_life_time)));
 
-	pool_signal(SIGALRM, pool_backend_timer_handler);
-	alarm(pool_config->connection_life_time);
+	pool_alarm(pool_backend_timer_handler, pool_config->connection_life_time);
 }
 
 /*
@@ -444,8 +443,7 @@ void pool_backend_timer(void)
 		nearest = pool_config->connection_life_time - (now - nearest);
 		if (nearest <= 0)
 		  nearest = 1;
-		pool_signal(SIGALRM, pool_backend_timer_handler);
-		alarm(nearest);
+		pool_alarm(pool_backend_timer_handler, nearest);
 	}
 
 	POOL_SETMASK(&UnBlockSig);
@@ -562,7 +560,7 @@ static bool connect_with_timeout(int fd, struct addrinfo *walk, char *host, int 
 			return false;
 		}
 
-		if (health_check_timer_expired && getpid() == mypid)		/* has health check timer expired */
+		if (health_check_timer_expired)		/* has health check timer expired */
 		{
 			ereport(LOG,
 				(errmsg("failed to connect to PostgreSQL server on \"%s:%d\" using INET socket",host,port),
@@ -696,9 +694,18 @@ static bool connect_with_timeout(int fd, struct addrinfo *walk, char *host, int 
 					continue;
 				}
 
-				ereport(LOG,
-					(errmsg("failed to connect to PostgreSQL server on \"%s:%d\" using INET socket",host,port),
-						 errdetail("select() system call failed with an error \"%s\"",strerror(errno))));
+				else if (health_check_timer_expired && errno == EINTR)
+				{
+					ereport(LOG,
+							(errmsg("failed to connect to PostgreSQL server on \"%s:%d\" using INET socket",host,port),
+							 errdetail("health check timer expired")));
+				}
+				else
+				{
+					ereport(LOG,
+							(errmsg("failed to connect to PostgreSQL server on \"%s:%d\" using INET socket",host,port),
+							 errdetail("select() system call failed with an error \"%s\"",strerror(errno))));
+				}
 				close(fd);
 				return false;
 			}
@@ -838,6 +845,22 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 			continue;
 		}
 
+		/*
+		 * Make sure that the global backend status in the shared memory
+		 * agrees the local status checked by VALID_BACKEND. It is possible
+		 * that the local status is up, while the global status has been
+		 * changed to down by failover.
+		 */
+		if (BACKEND_INFO(i).backend_status != CON_UP &&
+			BACKEND_INFO(i).backend_status != CON_CONNECT_WAIT)
+		{
+			ereport(DEBUG1,
+					(errmsg("creating new connection to backend"),
+					errdetail("skipping backend slot %d because global backend_status = %d",
+						   i, BACKEND_INFO(i).backend_status)));
+			continue;
+		}
+
 		s = palloc(sizeof(POOL_CONNECTION_POOL_SLOT));
 
 		if (create_cp(s, i) == NULL)
@@ -847,7 +870,7 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 			 */
 			if (pool_config->fail_over_on_backend_error)
 			{
-				notice_backend_error(i, true);
+				notice_backend_error(i, REQ_DETAIL_SWITCHOVER);
 				ereport(FATAL,
 					(errmsg("failed to create a backend connection"),
 						 errdetail("executing failover on backend")));
@@ -858,7 +881,7 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 				 * If we are in streaming replication mode and the node is a
 				 * standby node, then we skip this node to avoid fail over.
 				 */
-				if (STREAM && !IS_PRIMARY_NODE_ID(i))
+				if (SL_MODE && !IS_PRIMARY_NODE_ID(i))
 				{
 					ereport(LOG,
 							(errmsg("failed to create a backend %d connection", i),

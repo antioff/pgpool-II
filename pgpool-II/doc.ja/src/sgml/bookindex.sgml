@@ -45,7 +45,7 @@
   <primaryie>設定
   </primaryie>
   <secondaryie>サーバの,
-    <ulink url="runtime-config.html" role="AEN1101">サーバの設定</ulink>
+    <ulink url="runtime-config.html" role="AEN1128">サーバの設定</ulink>
   </secondaryie>
 </indexentry>
 
@@ -53,32 +53,38 @@
 <indexdiv><title>A</title>
 
 <indexentry>
+  <primaryie>allow_multiple_failover_requests_from_node 設定パラメータ,
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR" role="AEN3791">フェイルオーバの挙動の制御</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
   <primaryie>allow_sql_comments 設定パラメータ,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2497">負荷分散の設定</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2540">負荷分散の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>app_name_redirect_preference_list 設定パラメータ,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2436">負荷分散の設定</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2479">負荷分散の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>arping_cmd設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3628">仮想IP制御</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3683">仮想IP制御</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>arping_path設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3616">仮想IP制御</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3671">仮想IP制御</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>authentication_timeout 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1305">認証設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1332">認証設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -87,49 +93,49 @@
 
 <indexentry>
   <primaryie>backend_data_directory 設定パラメータ,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1655">バックエンドデータの設定</ulink>
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1687">バックエンドデータの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>backend_flag 設定パラメータ,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1669">バックエンドデータの設定</ulink>
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA" role="AEN1701">バックエンドデータの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>backend_hostname 設定パラメータ,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1597">バックエンド接続の設定</ulink>
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1629">バックエンド接続の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>backend_port 設定パラメータ,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1623">バックエンド接続の設定</ulink>
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1655">バックエンド接続の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>backend_weight 設定パラメータ,
-    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1636">バックエンド接続の設定</ulink>
+    <ulink url="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-CONNECTION-SETTINGS" role="AEN1668">バックエンド接続の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>bison,
-    <ulink url="install-requirements.html" role="AEN776">必要条件</ulink>
+    <ulink url="install-requirements.html" role="AEN781">必要条件</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>black_function_list 設定パラメータ,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2347">負荷分散の設定</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2390">負荷分散の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>black_memqcache_table_list 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3284">共通設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3339">共通設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -138,67 +144,67 @@
 
 <indexentry>
   <primaryie>check_temp_table 設定パラメータ,
-    <ulink url="runtime-misc.html" role="AEN4021">その他の設定パラメータ</ulink>
+    <ulink url="runtime-misc.html" role="AEN4148">その他の設定パラメータ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>check_unlogged_table 設定パラメータ,
-    <ulink url="runtime-misc.html" role="AEN4037">その他の設定パラメータ</ulink>
+    <ulink url="runtime-misc.html" role="AEN4164">その他の設定パラメータ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>child_life_time 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1808">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1848">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>child_max_connections 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1849">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1889">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>clear_memqcache_on_escalation設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3646">昇格および降格時の振る舞い</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3701">昇格および降格時の振る舞い</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>client_idle_limit 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1831">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1871">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>client_idle_limit_in_recovery 設定パラメータ,
-    <ulink url="runtime-online-recovery.html" role="AEN3021">オンラインリカバリ</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN3069">オンラインリカバリ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>client_min_messages 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN1997">いつログを取得するか</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN2037">いつログを取得するか</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>connection_cache 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1709">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1749">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>connection_life_time 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1868">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1908">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>connect_timeout 設定パラメータ,
-    <ulink url="runtime-config-health-check.html" role="AEN2621">ヘルスチェック</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2669">ヘルスチェック</ulink>
   </primaryie>
 </indexentry>
 
@@ -207,19 +213,19 @@
 
 <indexentry>
   <primaryie>database_redirect_preference_list 設定パラメータ,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2395">負荷分散の設定</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2438">負荷分散の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>delay_threshold 設定パラメータ,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3105">ストリーミングレプリケーションのチェック</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3153">ストリーミングレプリケーションのチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>delegate_IP設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3567">仮想IP制御</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3622">仮想IP制御</ulink>
   </primaryie>
 </indexentry>
 
@@ -228,7 +234,7 @@
 
 <indexentry>
   <primaryie>enable_pool_hba 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1275">認証設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1302">認証設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -237,37 +243,49 @@
 
 <indexentry>
   <primaryie>failback_command 設定パラメータ,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2702">フェイルオーバとフェイルバックの設定</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2750">フェイルオーバとフェイルバックの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>failover_command 設定パラメータ,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2641">フェイルオーバとフェイルバックの設定</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2689">フェイルオーバとフェイルバックの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>failover_if_affected_tuples_mismatch 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1421">レプリケーションモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1453">レプリケーションモード</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>failover_require_consensus 設定パラメータ,
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR" role="AEN3771">フェイルオーバの挙動の制御</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>failover_when_quorum_exists 設定パラメータ,
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR" role="AEN3749">フェイルオーバの挙動の制御</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>fail_over_on_backend_error 設定パラメータ,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2819">フェイルオーバとフェイルバックの設定</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2867">フェイルオーバとフェイルバックの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>flex,
-    <ulink url="install-requirements.html" role="AEN772">必要条件</ulink>
+    <ulink url="install-requirements.html" role="AEN777">必要条件</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>follow_master_command 設定パラメータ,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2757">フェイルオーバとフェイルバックの設定</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2805">フェイルオーバとフェイルバックの設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -276,61 +294,61 @@
 
 <indexentry>
   <primaryie>health_check_database 設定パラメータ,
-    <ulink url="runtime-config-health-check.html" role="AEN2575">ヘルスチェック</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2623">ヘルスチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_max_retries 設定パラメータ,
-    <ulink url="runtime-config-health-check.html" role="AEN2592">ヘルスチェック</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2640">ヘルスチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_password 設定パラメータ,
-    <ulink url="runtime-config-health-check.html" role="AEN2561">ヘルスチェック</ulink>
-  </primaryie>
-</indexentry>
-
-<indexentry>
-  <primaryie>health_check_period 設定パラメータ,
-    <ulink url="runtime-config-health-check.html" role="AEN2537">ヘルスチェック</ulink>
-  </primaryie>
-</indexentry>
-
-<indexentry>
-  <primaryie>health_check_retry_delay 設定パラメータ,
     <ulink url="runtime-config-health-check.html" role="AEN2609">ヘルスチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
+  <primaryie>health_check_period 設定パラメータ,
+    <ulink url="runtime-config-health-check.html" role="AEN2585">ヘルスチェック</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>health_check_retry_delay 設定パラメータ,
+    <ulink url="runtime-config-health-check.html" role="AEN2657">ヘルスチェック</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
   <primaryie>health_check_timeout 設定パラメータ,
-    <ulink url="runtime-config-health-check.html" role="AEN2524">ヘルスチェック</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2572">ヘルスチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>health_check_user 設定パラメータ,
-    <ulink url="runtime-config-health-check.html" role="AEN2548">ヘルスチェック</ulink>
+    <ulink url="runtime-config-health-check.html" role="AEN2596">ヘルスチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>heartbeat_destination_port設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3843">死活監視：ハートビートモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3970">死活監視：ハートビートモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>heartbeat_destination設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3826">死活監視：ハートビートモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3953">死活監視：ハートビートモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>heartbeat_device設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3858">死活監視：ハートビートモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3985">死活監視：ハートビートモードの設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -339,31 +357,31 @@
 
 <indexentry>
   <primaryie>if_cmd_path設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3580">仮想IP制御</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3635">仮想IP制御</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>if_down_cmd設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3605">仮想IP制御</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3660">仮想IP制御</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>if_up_cmd設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3592">仮想IP制御</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL" role="AEN3647">仮想IP制御</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ignore_leading_white_space 設定パラメータ,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2315">負荷分散の設定</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2358">負荷分散の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>insert_lock 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1491">レプリケーションモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1523">レプリケーションモード</ulink>
   </primaryie>
 </indexentry>
 
@@ -372,91 +390,91 @@
 
 <indexentry>
   <primaryie>lex,
-    <ulink url="install-requirements.html" role="AEN774">必要条件</ulink>
+    <ulink url="install-requirements.html" role="AEN779">必要条件</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>listen_addresses 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1168">接続設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1195">接続設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>listen_backlog_multiplier 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1743">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1783">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>load_balance_mode 設定パラメータ,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2301">負荷分散の設定</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2344">負荷分散の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>lobj_lock_table 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1546">レプリケーションモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1578">レプリケーションモード</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>logdir 設定パラメータ,
-    <ulink url="runtime-misc.html" role="AEN4066">その他の設定パラメータ</ulink>
+    <ulink url="runtime-misc.html" role="AEN4193">その他の設定パラメータ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_connections 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2085">何をログに</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2125">何をログに</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_destination 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1928">ログの出力先</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1968">ログの出力先</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_error_verbosity 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2096">何をログに</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2136">何をログに</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_hostname 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2072">何をログに</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2112">何をログに</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_line_prefix 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2116">何をログに</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2156">何をログに</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_min_messages 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN2019">いつログを取得するか</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHEN-TO-LOG" role="AEN2059">いつログを取得するか</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_per_node_statement 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2059">何をログに</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2099">何をログに</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_standby_delay 設定パラメータ,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3121">ストリーミングレプリケーションのチェック</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3169">ストリーミングレプリケーションのチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>log_statement 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2047">何をログに</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG" role="AEN2087">何をログに</ulink>
   </primaryie>
 </indexentry>
 
@@ -465,98 +483,98 @@
 
 <indexentry>
   <primaryie>make,
-    <ulink url="install-requirements.html" role="AEN741">必要条件</ulink>
+    <ulink url="install-requirements.html" role="AEN746">必要条件</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>master_slave_mode 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1331">マスタースレーブモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1358">マスタースレーブモード</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>master_slave_sub_mode 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1345">マスタースレーブモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE" role="AEN1372">マスタースレーブモード</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>max_pool 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1726">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1766">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>MD5,
-    <ulink url="auth-methods.html#AUTH-MD5" role="AEN4267">MD5パスワード認証</ulink>,
+    <ulink url="auth-methods.html#AUTH-MD5" role="AEN4489">MD5パスワード認証</ulink>,
     <ulink url="auth-methods.html#SETTING-MD5-AUTHENTICATION" role="SETTING-MD5-AUTHENTICATION">md5認証の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memory_cache_enabled 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-ENABLING" role="AEN3165">インメモリクエリキャッシュを有効にする</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-ENABLING" role="AEN3219">インメモリクエリキャッシュを有効にする</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_auto_cache_invalidation 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3229">共通設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3283">共通設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_cache_block_size 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3346">共有メモリ使用時の設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3401">共有メモリ使用時の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_expire 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3214">共通設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3268">共通設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_maxcache 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3245">共通設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3299">共通設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_max_num_cache 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3333">共有メモリ使用時の設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3388">共有メモリ使用時の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_memcached_host 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3365">memcached使用時の設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3420">memcached使用時の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_memcached_port 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3379">memcached使用時の設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-MEMCACHED-CONFIG" role="AEN3434">memcached使用時の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_method 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CHOOSE-STORAGE" role="AEN3179">キャッシュストレージの選択</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CHOOSE-STORAGE" role="AEN3233">キャッシュストレージの選択</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_oiddir 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3301">共通設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3356">共通設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>memqcache_total_size 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3323">共有メモリ使用時の設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG" role="AEN3378">共有メモリ使用時の設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -565,7 +583,7 @@
 
 <indexentry>
   <primaryie>num_init_children 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1241">接続設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1268">接続設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -574,19 +592,19 @@
 
 <indexentry>
   <primaryie>other_pgpool_hostname設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN3956">Watchdogサーバの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN4083">Watchdogサーバの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>other_pgpool_port設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN3967">Watchdogサーバの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN4094">Watchdogサーバの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>other_wd_port0設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN3978">Watchdogサーバの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION" role="AEN4105">Watchdogサーバの設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -619,7 +637,7 @@
 
 <indexentry>
   <primaryie>pcp_listen_addresses 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1206">接続設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1233">接続設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -643,7 +661,7 @@
 
 <indexentry>
   <primaryie>pcp_port 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1219">接続設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1246">接続設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -673,7 +691,7 @@
 
 <indexentry>
   <primaryie>pcp_socket_dir 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1229">接続設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1256">接続設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -691,7 +709,7 @@
 
 <indexentry>
   <primaryie>pcpの設定,
-    <ulink url="configuring-pcp-conf.html" role="AEN1010">pcp.confの設定</ulink>
+    <ulink url="configuring-pcp-conf.html" role="AEN1033">pcp.confの設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -703,19 +721,49 @@
 
 <indexentry>
   <primaryie>Pgpool-IIの設定,
-    <ulink url="configuring-pgpool.html" role="AEN1042">Pgpool-IIの設定</ulink>
+    <ulink url="configuring-pgpool.html" role="AEN1065">Pgpool-IIの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>Pgpool-IIユーザ,
-    <ulink url="pgpool-ii-user.html" role="AEN999">Pgpool-IIユーザアカウント</ulink>
+    <ulink url="pgpool-ii-user.html" role="AEN1022">Pgpool-IIユーザアカウント</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>pgpool.conf,
-    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1136">設定ファイルによるパラメータ操作</ulink>
+    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1163">設定ファイルによるパラメータ操作</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_attach_node,
+    <ulink url="pgpool-adm-pcp-attach-node.html" role="pgpool-adm-pcp-attach-node">pgpool_adm_pcp_attach_node</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_detach_node,
+    <ulink url="pgpool-adm-pcp-detach-node.html" role="pgpool-adm-pcp-detach-node">pgpool_adm_pcp_detach_node</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_node_count,
+    <ulink url="pgpool-adm-pcp-node-count.html" role="pgpool-adm-pcp-node-count">pgpool_adm_pcp_node_count</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_node_info,
+    <ulink url="pgpool-adm-pcp-node-info.html" role="pgpool-adm-pcp-node-info">pgpool_adm_pcp_node_info</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>pgpool_adm_pcp_pool_status,
+    <ulink url="pgpool-adm-pcp-pool-status.html" role="pgpool-adm-pcp-pool-status">pgpool_adm_pcp_pool_status</ulink>
   </primaryie>
 </indexentry>
 
@@ -733,13 +781,13 @@
 
 <indexentry>
   <primaryie>pid_file_name 設定パラメータ,
-    <ulink url="runtime-misc.html" role="AEN4054">その他の設定パラメータ</ulink>
+    <ulink url="runtime-misc.html" role="AEN4181">その他の設定パラメータ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ping_path設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3553">上流サーバへの接続</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3608">上流サーバへの接続</ulink>
   </primaryie>
 </indexentry>
 
@@ -751,13 +799,13 @@
 
 <indexentry>
   <primaryie>pool_passwd 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1292">認証設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS" role="AEN1319">認証設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>port 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1182">接続設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1209">接続設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -766,61 +814,61 @@
 
 <indexentry>
   <primaryie>recovery_1st_stage_command 設定パラメータ,
-    <ulink url="runtime-online-recovery.html" role="AEN2925">オンラインリカバリ</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN2973">オンラインリカバリ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_2nd_stage_command 設定パラメータ,
-    <ulink url="runtime-online-recovery.html" role="AEN2967">オンラインリカバリ</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN3015">オンラインリカバリ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_password 設定パラメータ,
-    <ulink url="runtime-online-recovery.html" role="AEN2913">オンラインリカバリ</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN2961">オンラインリカバリ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_timeout 設定パラメータ,
-    <ulink url="runtime-online-recovery.html" role="AEN3009">オンラインリカバリ</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN3057">オンラインリカバリ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>recovery_user 設定パラメータ,
-    <ulink url="runtime-online-recovery.html" role="AEN2901">オンラインリカバリ</ulink>
+    <ulink url="runtime-online-recovery.html" role="AEN2949">オンラインリカバリ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>relcache_expire 設定パラメータ,
-    <ulink url="runtime-misc.html" role="AEN3992">その他の設定パラメータ</ulink>
+    <ulink url="runtime-misc.html" role="AEN4119">その他の設定パラメータ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>relcache_size 設定パラメータ,
-    <ulink url="runtime-misc.html" role="AEN4006">その他の設定パラメータ</ulink>
+    <ulink url="runtime-misc.html" role="AEN4133">その他の設定パラメータ</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>replicate_select 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1438">レプリケーションモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1470">レプリケーションモード</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>replication_mode 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1386">レプリケーションモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1418">レプリケーションモード</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>replication_stop_on_mismatch 設定パラメータ,
-    <ulink url="runtime-config-runnung-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1400">レプリケーションモード</ulink>
+    <ulink url="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE" role="AEN1432">レプリケーションモード</ulink>
   </primaryie>
 </indexentry>
 
@@ -832,7 +880,7 @@
 
 <indexentry>
   <primaryie>reset_query_list 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1880">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1920">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -841,13 +889,13 @@
 
 <indexentry>
   <primaryie>search_primary_node_timeout 設定パラメータ,
-    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2839">フェイルオーバとフェイルバックの設定</ulink>
+    <ulink url="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS" role="AEN2887">フェイルオーバとフェイルバックの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>serialize_accept 設定パラメータ,
-    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1764">コネクションプールの設定</ulink>
+    <ulink url="runtime-config-connection-pooling.html#RUNTIME-CONFIG-CONNECTION-POOLING-SETTINGS" role="AEN1804">コネクションプールの設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -860,90 +908,115 @@
 <indexentry>
   <primaryie>SHOW,
     <ulink url="sql-pgpool-show.html" role="sql-pgpool-show">PGPOOL SHOW</ulink>,
-    <ulink url="sql-show-pool-status.html" role="sql-show-pool-status">SHOW POOL STATUS</ulink>,
-    <ulink url="sql-show-pool-nodes.html" role="sql-show-pool-nodes">SHOW POOL NODES</ulink>,
-    <ulink url="sql-show-pool-processes.html" role="sql-show-pool-processes">SHOW POOL_PROCESSES</ulink>,
-    <ulink url="sql-show-pool-pools.html" role="sql-show-pool-pools">SHOW POOL_POOLS</ulink>,
-    <ulink url="sql-show-pool-version.html" role="sql-show-pool-version">SHOW POOL_VERSION</ulink>,
     <ulink url="sql-show-pool-cache.html" role="sql-show-pool-cache">SHOW POOL_CACHE</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
+  <primaryie>SHOW POOL_NODES,
+    <ulink url="sql-show-pool-nodes.html" role="sql-show-pool-nodes">SHOW POOL NODES</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_POOLS,
+    <ulink url="sql-show-pool-pools.html" role="sql-show-pool-pools">SHOW POOL_POOLS</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_PROCESSES,
+    <ulink url="sql-show-pool-processes.html" role="sql-show-pool-processes">SHOW POOL_PROCESSES</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_STATUS,
+    <ulink url="sql-show-pool-status.html" role="sql-show-pool-status">SHOW POOL STATUS</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
+  <primaryie>SHOW POOL_VERSION,
+    <ulink url="sql-show-pool-version.html" role="sql-show-pool-version">SHOW POOL_VERSION</ulink>
+  </primaryie>
+</indexentry>
+
+<indexentry>
   <primaryie>SIGHUP,
-    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1143">設定ファイルによるパラメータ操作</ulink>
+    <ulink url="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE" role="AEN1170">設定ファイルによるパラメータ操作</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>socket_dir 設定パラメータ,
-    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1193">接続設定</ulink>
+    <ulink url="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS" role="AEN1220">接続設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_database 設定パラメータ,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3093">ストリーミングレプリケーションのチェック</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3141">ストリーミングレプリケーションのチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_password 設定パラメータ,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3080">ストリーミングレプリケーションのチェック</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3128">ストリーミングレプリケーションのチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_period 設定パラメータ,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3052">ストリーミングレプリケーションのチェック</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3100">ストリーミングレプリケーションのチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>sr_check_user 設定パラメータ,
-    <ulink url="runtime-streaming-replication-check.html" role="AEN3063">ストリーミングレプリケーションのチェック</ulink>
+    <ulink url="runtime-streaming-replication-check.html" role="AEN3111">ストリーミングレプリケーションのチェック</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl 設定パラメータ,
-    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3395">SSLの設定</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3450">SSLの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_ca_cert 設定パラメータ,
-    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3441">SSLの設定</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3496">SSLの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_ca_cert_dir 設定パラメータ,
-    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3455">SSLの設定</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3510">SSLの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_cert 設定パラメータ,
-    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3430">SSLの設定</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3485">SSLの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>ssl_key 設定パラメータ,
-    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3419">SSLの設定</ulink>
+    <ulink url="runtime-ssl.html#RUNTIME-SSL-SETTINGS" role="AEN3474">SSLの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>syslog_facility 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1955">ログの出力先</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1995">ログの出力先</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>syslog_ident 設定パラメータ,
-    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN1979">ログの出力先</ulink>
+    <ulink url="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG" role="AEN2019">ログの出力先</ulink>
   </primaryie>
 </indexentry>
 
@@ -952,7 +1025,7 @@
 
 <indexentry>
   <primaryie>trusted_servers設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3541">上流サーバへの接続</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-UPSTREAM-CONNECTIONS" role="AEN3596">上流サーバへの接続</ulink>
   </primaryie>
 </indexentry>
 
@@ -961,7 +1034,7 @@
 
 <indexentry>
   <primaryie>use_watchdog設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-ENABLE-WATCHDOG" role="AEN3484">Watchdogを有効にする</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-ENABLE-WATCHDOG" role="AEN3539">Watchdogを有効にする</ulink>
   </primaryie>
 </indexentry>
 
@@ -1004,121 +1077,121 @@
 
 <indexentry>
   <primaryie>wd_authkey設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3518">Watchdog通信</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3573">Watchdog通信</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_de_escalation_command設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3671">昇格および降格時の振る舞い</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3726">昇格および降格時の振る舞い</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_escalation_command設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3660">昇格および降格時の振る舞い</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION" role="AEN3715">昇格および降格時の振る舞い</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_heartbeat_deadtime設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3815">死活監視：ハートビートモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3942">死活監視：ハートビートモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_heartbeat_keepalive設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3802">死活監視：ハートビートモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3929">死活監視：ハートビートモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_heartbeat_port設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3789">死活監視：ハートビートモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT" role="AEN3916">死活監視：ハートビートモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_hostname設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3497">Watchdog通信</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3552">Watchdog通信</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_interval configuration parameter,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3742">Pgpool-IIの死活監視</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3869">Pgpool-IIの死活監視</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_ipc_socket_dir設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3768">Pgpool-IIの死活監視</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3895">Pgpool-IIの死活監視</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_dbname設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3905">死活監視：クエリモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4032">死活監視：クエリモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_method設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3693">Pgpool-IIの死活監視</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3820">Pgpool-IIの死活監視</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_password設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3937">死活監視：クエリモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4064">死活監視：クエリモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_query設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3889">死活監視：クエリモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4016">死活監視：クエリモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_lifecheck_user設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3921">死活監視：クエリモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4048">死活監視：クエリモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_life_point設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN3875">死活監視：クエリモードの設定</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-QUERY" role="AEN4002">死活監視：クエリモードの設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_monitoring_interfaces_list設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3725">Pgpool-IIの死活監視</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3852">Pgpool-IIの死活監視</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_port 設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3508">Watchdog通信</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG" role="AEN3563">Watchdog通信</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>wd_priority設定パラメータ,
-    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3753">Pgpool-IIの死活監視</ulink>
+    <ulink url="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK" role="AEN3880">Pgpool-IIの死活監視</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>white_function_list 設定パラメータ,
-    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2326">負荷分散の設定</ulink>
+    <ulink url="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS" role="AEN2369">負荷分散の設定</ulink>
   </primaryie>
 </indexentry>
 
 <indexentry>
   <primaryie>white_memqcache_table_list 設定パラメータ,
-    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3264">共通設定</ulink>
+    <ulink url="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG" role="AEN3318">共通設定</ulink>
   </primaryie>
 </indexentry>
 
@@ -1127,7 +1200,7 @@
 
 <indexentry>
   <primaryie>yacc,
-    <ulink url="install-requirements.html" role="AEN778">必要条件</ulink>
+    <ulink url="install-requirements.html" role="AEN783">必要条件</ulink>
   </primaryie>
 </indexentry>
 

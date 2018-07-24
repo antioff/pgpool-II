@@ -29,7 +29,7 @@
 #include "config.h"
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "pcp/libpcp_ext.h"
+#include <stddef.h>
 #include "libpq-fe.h"
 /* Define common boolean type. C++ and BEOS already has it so exclude them. */
 #ifdef c_plusplus
@@ -58,6 +58,21 @@ typedef char bool;
 #endif /* not C++ */
 #endif /* __BEOS__ */
 
+/* ----------------------------------------------------------------
+ *              Section 5:  offsetof, lengthof, endof, alignment
+ * ----------------------------------------------------------------
+ */
+/*
+ * offsetof
+ *      Offset of a structure/union field within that structure/union.
+ *
+ *      XXX This is supposed to be part of stddef.h, but isn't on
+ *      some systems (like SunOS 4).
+ */
+#ifndef offsetof
+#define offsetof(type, field)   ((long) &((type *)0)->field)
+#endif
+
 #define PointerIsValid(pointer) ((const void*)(pointer) != NULL)
 typedef signed char int8;		/* == 8 bits */
 typedef signed short int16;		/* == 16 bits */
@@ -76,10 +91,13 @@ typedef unsigned int uint32;	/* == 32 bits */
 #ifdef HAVE_LONG_INT_64
 /* Plain "long int" fits, use it */
 typedef long int int64;
+typedef unsigned long int uint64;
+
 #define pool_atoi64 atol
 #elif defined(HAVE_LONG_LONG_INT_64)
 /* We have working support for "long long int", use that */
 typedef long long int int64;
+typedef unsigned long long int uint64;
 #define pool_atoi64 atoll
 #else
 /* neither HAVE_LONG_INT_64 nor HAVE_LONG_LONG_INT_64 */
@@ -90,13 +108,6 @@ typedef enum {
 	LOAD_UNSELECTED = 0,
 	LOAD_SELECTED
 } LOAD_BALANCE_STATUS;
-
-/*
- * Backend status record file
- */
-typedef struct {
-	BACKEND_STATUS status[MAX_NUM_BACKENDS];
-} BackendStatusRecord;
 
 extern int assert_enabled;
 extern void ExceptionalCondition(const char *conditionName,
@@ -166,22 +177,6 @@ typedef struct
 }
 SockAddr;
 
-/* UserAuth type used for HBA which indicates the authentication method */
-typedef enum UserAuth
-{
-	uaReject,
-	/*  uaKrb4, */
-	/*  uaKrb5, */
-	uaTrust,
-	/*  uaIdent, */
-	/*  uaPassword, */
-	/*  uaCrypt, */
-	uaMD5
-#ifdef USE_PAM
-	,uaPAM
-#endif /* USE_PAM */
-}
-UserAuth;
 
 #define AUTH_REQ_OK         0   /* User is authenticated  */
 #define AUTH_REQ_KRB4       1   /* Kerberos V4 */
@@ -215,7 +210,6 @@ typedef unsigned int AuthRequest;
 typedef uint8 bits8;			/* >= 8 bits */
 typedef uint16 bits16;			/* >= 16 bits */
 typedef uint32 bits32;			/* >= 32 bits */
-typedef unsigned long long int uint64;
 
 /*
  * stdint.h limits aren't guaranteed to be present and aren't guaranteed to

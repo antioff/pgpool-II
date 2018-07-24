@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.6.0 文書"
+TITLE="Pgpool-II 3.7.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2016-11-21T10:54:39"></HEAD
+CONTENT="2017-11-21T07:44:59"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.6.0 文書</A
+>Pgpool-II 3.7.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -92,7 +92,7 @@ CLASS="SECT1"
 ><H1
 CLASS="SECT1"
 ><A
-NAME="RUNTIME-CONFIG-RUNNUNG-MODE"
+NAME="RUNTIME-CONFIG-RUNNING-MODE"
 >5.3. 動作モード</A
 ></H1
 ><DIV
@@ -167,10 +167,10 @@ CLASS="NOTE"
 ><B
 >注意: </B
 ><A
-HREF="runtime-config-runnung-mode.html#GUC-MASTER-SLAVE-MODE"
+HREF="runtime-config-running-mode.html#GUC-MASTER-SLAVE-MODE"
 >master_slave_mode</A
 >と<A
-HREF="runtime-config-runnung-mode.html#GUC-REPLICATION-MODE"
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
 >replication_mode</A
 >は相互に排他的で、一度に一方しか有効にすることができません。
 						</P
@@ -245,6 +245,18 @@ CLASS="LITERAL"
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >の組み込みレプリケーションシステム（ストリーミングレプリケーション）に適合</TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>'logical'</TT
+></TD
+><TD
+><SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>の組み込みレプリケーションシステム（ロジカルレプリケーション）に適合</TD
 ></TR
 ></TBODY
 ></TABLE
@@ -321,10 +333,10 @@ CLASS="NOTE"
 ><B
 >注意: </B
 ><A
-HREF="runtime-config-runnung-mode.html#GUC-REPLICATION-MODE"
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
 >replication_mode</A
 >と<A
-HREF="runtime-config-runnung-mode.html#GUC-MASTER-SLAVE-MODE"
+HREF="runtime-config-running-mode.html#GUC-MASTER-SLAVE-MODE"
 >master_slave_mode</A
 >は相互に排他的で、一度に一方しか有効にすることができません。
 						</P
@@ -508,10 +520,10 @@ ALIGN="CENTER"
 ><TD
 >ANY</TD
 ><TD
+COLSPAN="3"
 ALIGN="CENTER"
 >Y</TD
 ><TD
-COLSPAN="3"
 ALIGN="CENTER"
 >N</TD
 ></TR
@@ -538,13 +550,13 @@ ALIGN="CENTER"
 									</TD
 ><TD
 ALIGN="CENTER"
+>ANY</TD
+><TD
+ALIGN="CENTER"
 >Y</TD
 ><TD
 ALIGN="CENTER"
 >N</TD
-><TD
-ALIGN="CENTER"
->ANY</TD
 ><TD
 ALIGN="CENTER"
 >ANY</TD
