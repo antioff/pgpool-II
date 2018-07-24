@@ -3057,7 +3057,7 @@ static int update_successful_outgoing_cons(fd_set* wmask, int pending_fds_count)
 					if (valopt)
 					{
 						ereport(DEBUG1,
-							(errmsg("error in outbond connection to %s:%d",wdNode->hostname,wdNode->wd_port),
+							(errmsg("error in outbound connection to %s:%d",wdNode->hostname,wdNode->wd_port),
 								 errdetail("%s",strerror(valopt))));
 						close_socket_connection(&wdNode->client_socket);
 						wdNode->client_socket.sock_state = WD_SOCK_ERROR;
@@ -3066,7 +3066,7 @@ static int update_successful_outgoing_cons(fd_set* wmask, int pending_fds_count)
 					{
 						wdNode->client_socket.sock_state = WD_SOCK_CONNECTED;
 						ereport(LOG,
-								(errmsg("new outbond connection to %s:%d ",wdNode->hostname,wdNode->wd_port)));
+								(errmsg("new outbound connection to %s:%d ",wdNode->hostname,wdNode->wd_port)));
 						/* set socket to blocking again */
 						pool_unset_nonblock(wdNode->client_socket.sock);
 						watchdog_state_machine(WD_EVENT_NEW_OUTBOUND_CONNECTION, wdNode, NULL, NULL);
@@ -3075,7 +3075,7 @@ static int update_successful_outgoing_cons(fd_set* wmask, int pending_fds_count)
 				else
 				{
 					ereport(DEBUG1,
-						(errmsg("error in outbond connection to %s:%d ",wdNode->hostname,wdNode->wd_port),
+						(errmsg("error in outbound connection to %s:%d ",wdNode->hostname,wdNode->wd_port),
 							 errdetail("getsockopt faile with error \"%s\"",strerror(errno))));
 					close_socket_connection(&wdNode->client_socket);
 					wdNode->client_socket.sock_state = WD_SOCK_ERROR;
@@ -4996,7 +4996,7 @@ static int watchdog_state_machine_initializing(WD_EVENTS event, WatchdogNode* wd
 			{
 				ereport(LOG,
 					(errmsg("I am the only alive node in the watchdog cluster"),
-						 errhint("skiping stand for coordinator state")));
+						 errhint("skipping stand for coordinator state")));
 
 				/*
 				 * I am the alone node in the cluster at the moment
@@ -6380,6 +6380,10 @@ static void verify_pool_configurations(WatchdogNode* wdNode, POOL_CONFIG* config
 	WD_VERIFY_RECEIVED_CONFIG_PARAMETER_VAL_BOOL(config, wdNode, insert_lock);
 	WD_VERIFY_RECEIVED_CONFIG_PARAMETER_VAL_BOOL(config, wdNode, memory_cache_enabled);
 	WD_VERIFY_RECEIVED_CONFIG_PARAMETER_VAL_BOOL(config, wdNode, clear_memqcache_on_escalation);
+
+	WD_VERIFY_RECEIVED_CONFIG_PARAMETER_VAL_BOOL(config, wdNode, failover_when_quorum_exists);
+	WD_VERIFY_RECEIVED_CONFIG_PARAMETER_VAL_BOOL(config, wdNode, failover_require_consensus);
+	WD_VERIFY_RECEIVED_CONFIG_PARAMETER_VAL_BOOL(config, wdNode, allow_multiple_failover_requests_from_node);
 
 	if (config->backend_desc->num_backends != pool_config->backend_desc->num_backends)
 	{

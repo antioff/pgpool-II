@@ -907,7 +907,8 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 		/*
 		 * Take care of "writing transaction" flag.
 		 */
-		if (!is_select_query(node, query) && !is_start_transaction_query(node))
+		if (!is_select_query(node, query) && !is_start_transaction_query(node) &&
+			!is_commit_or_rollback_query(node))
 		{
 			ereport(DEBUG1,
 					(errmsg("Execute: TSTATE:%c",
@@ -3270,6 +3271,8 @@ static POOL_STATUS parse_before_bind(POOL_CONNECTION *frontend,
 
 	if (!SL_MODE && parse_was_sent)
 	{
+		pool_set_query_in_progress();
+
 		while (kind != '1')
 		{
 			PG_TRY();
@@ -3651,7 +3654,7 @@ void pool_at_command_success(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *ba
 	if (!pool_is_command_success())
 	{
 		ereport(ERROR,
-				(errmsg("pool_at_command_success: command did not suceed")));
+				(errmsg("pool_at_command_success: command did not succeed")));
 	}
 
 	node = pool_get_parse_tree();

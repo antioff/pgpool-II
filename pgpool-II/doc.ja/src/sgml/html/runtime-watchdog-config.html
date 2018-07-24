@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.1 文書"
+TITLE="Pgpool-II 3.7.2 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2018-01-08T07:46:56"></HEAD
+CONTENT="2018-02-13T05:38:47"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.1 文書</A
+>Pgpool-II 3.7.2 文書</A
 ></TH
 ></TR
 ><TR
@@ -549,7 +549,7 @@ CLASS="TYPE"
     これにより、新しいアクティブの<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->が旧アクティブと非整合な古いクエリキャッシュが使うことを防止します。
+>が旧アクティブと非整合な古いクエリキャッシュを使うことを防止します。
         </P
 ><P
 >デフォルトはonです。
@@ -581,7 +581,7 @@ CLASS="TYPE"
 >マスターwatchdogに昇格した時に、ここで指定したコマンドがwatchdogによって実行されます。
         </P
 ><P
->コマンドは、そのノードに仮想/浮動IPが設定されていた場合、それが立ち上がる直前のタイミングで実行されます。
+>コマンドは、そのノードに仮想IPが設定されていた場合、それが立ち上がる直前のタイミングで実行されます。
         </P
 ><P
 >このパラメータは、サーバ起動時にのみ設定できます。
@@ -1305,14 +1305,13 @@ CLASS="TYPE"
 >      <TT
 CLASS="VARNAME"
 >heartbeat_destination_port</TT
-> is only applicable if the
-      <A
+>は、<A
 HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
 >wd_lifecheck_method</A
-> is set to <TT
+> が <TT
 CLASS="LITERAL"
 >'heartbeat'</TT
->
+>に設定されている場合のみ有効です。 
     </P
 ><P
 >このパラメータは、サーバ起動時にのみ設定できます。

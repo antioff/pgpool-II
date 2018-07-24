@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.1 Documentation"
+TITLE="pgpool-II 3.7.2 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Setup and Operation"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-01-08T07:46:51"></HEAD
+CONTENT="2018-02-13T05:38:42"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.1 Documentation</A
+>pgpool-II 3.7.2 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -247,8 +247,8 @@ CLASS="PRODUCTNAME"
       responsible for synchronizing
       databases. Since <SPAN
 CLASS="PRODUCTNAME"
->Slony</SPAN
-> is being obsoletd by
+>Slony-I</SPAN
+> is being obsoleted by
       streaming replication, we do not recommend to use this mode
       unless you have specific reason to
       use <SPAN
@@ -301,7 +301,7 @@ CLASS="PRODUCTNAME"
       data on node B based on the data seen on node A, then data
       consistency between node A and B might be lost. To avoid the
       problem, user need to issue an explict lock on the data. This is
-      another why reason we recommend to use streaming replication
+      another reason why we recommend to use streaming replication
       mode with <TT
 CLASS="LITERAL"
 >synchronous_commit = remote_apply</TT
