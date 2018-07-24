@@ -1,4 +1,6 @@
-copy: *.conf
-copy: *.init
-copy: *.patch
-tar.gz: pgpool-II
+tar: pgpool-II
+copy?: *.conf
+copy?: *.init
+copy?: *.service
+copy?: *.tmpfiles
+copy?: *.patch
