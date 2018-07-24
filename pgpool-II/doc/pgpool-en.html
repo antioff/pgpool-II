@@ -7,7 +7,7 @@
 </head>
 
 <!-- hhmts start -->
-Last modified: Tue Jul 23 08:04:32 JST 2013
+Last modified: Fri May 16 16:43:17 JST 2014
 <!-- hhmts end -->
 
 <body bgcolor="#ffffff">
@@ -29,7 +29,7 @@ Last modified: Tue Jul 23 08:04:32 JST 2013
         <li><a href="#parallel">Parallel Mode</a></li>
         <li><a href="#hba">Client authentication</a></li>
         <li><a href="#query_cache">Setting Query cache method</a></li>
-        <li><a href="#memqcache">On memory query Cache</a></li>
+        <li><a href="#memqcache">In memory query Cache</a></li>
         <li><a href="#start">Starting/Stopping pgpool-II</a></li>
         <li><a href="#reload">Reloading pgpool-II configuration files</a></li>
         <li><a href="#show-commands">SHOW commands</a></li>
@@ -96,6 +96,10 @@ and a PostgreSQL database client. It provides the following features:</p>
     an error immediately.</p>
 
 <li>Parallel Query</li>
+    <p class="version_notice">
+    <em class="caution">DEPRECATED</em> :
+    This mode is deprecated and will be removed in the future release (possibly 3.5).
+    </p>
     <p>Using the parallel query feature, data can be split
     among multiple servers, so that a query can be executed on all the
     servers concurrently, reducing the overall execution time. Parallel query
@@ -215,7 +219,7 @@ enable OpenSSL support in pgpool-II.</p>
           <span class="version">V3.1 -</span></td></tr>
       <tr><th class="nodec"><code>--with-memcached=path</code></th>
       <td>pgpool-II binaries will use <a href="#memcached_params">memcached</a>
-          for <a href="#memqcache">on memory query cache</a>.
+          for <a href="#memqcache">in memory query cache</a>.
           You have to install <a href="http://libmemcached.org/libMemcached.html">libmemcached</a>.
           <span class="version">V3.2 -</span></td>
       </tr>
@@ -299,18 +303,39 @@ cloned to create new databases.
 pgpool_recovery, pgpool_remote_start, pgpool_switch_xlog.</p>
 <p>And, pgpoolAdmin of the tool to control pgpool-II can stop, restart and reload the backend PostgreSQL nodes,
 and it needs the function named pgpool_pgctl.</p>
-<p>Here is the way to install there functions.</p>
+<p>
+Also pgpoolAdmin needs function pgpool_pgctl to stop/restart/reload config PostgreSQL.
+</p>
+<p>
+You can install those 4 functions in a same manner as pgpool_regclass.
+However, unlike pgpool_regclass, you only need to install those functions to template1 database.
+</p>
+
+<p>Here is the way to install those functions.</p>
+<p>
 <pre>
-$ cd pgpool-II-x.x.x/sql/pgpool-regclass
+$ cd pgpool-II-x.x.x/sql/pgpool-recovery
 $ make
 $ make install
+</pre>
+
+<p>After this:<p>
+<pre>
 $ psql -f pgpool-recovery.sql template1
 </pre>
 
-<h4>Configuring pgpool.pgctl <span class="version">V3.0 -</span></h4>
+<p>or<p>
 
-<p>The function pgpool_pgctl executes the value of ppool.pgctl in postgresql.conf as the pg_ctl command.
-To use this function, you have to this custom parameter.</p>
+<pre>
+$ psql template1
+=# CREATE EXTENSION pgpool_recovery;
+</pre>
+</p>
+
+<h4>Configuring pgpool.pg_ctl <span class="version">V3.3 -</span></h4>
+
+<p>The function pgpool_pgctl executes the command whose path is specified by "pgpool.pg_ctl" in postgresql.conf.
+To use this function, you have to specify this parameter.</p>
 <pre>
 ex)
 $ cat &gt;&gt; /usr/local/pgsql/postgresql.conf
@@ -540,6 +565,18 @@ comment and will be ignored.</p>
     This parameter can only be set at server start.</p>
     </dd>
 
+<dt><a name="PCP_LISTEN_ADDRESS"></a>pcp_listen_addresses</dt>
+    <dd>
+    <p>Specifies the hostname or IP address, on which pcp process will accept
+    TCP/IP connections. <code>'*'</code> accepts
+    all incoming connections. <code>''</code> disables TCP/IP
+    connections. Default is <code>'*'</code>. Connections via UNIX
+    domain socket are always accepted.
+    </p>
+    <p>
+    This parameter can only be set at server start.</p>
+    </dd>
+
 <dt><a name="PCP_PORT"></a>pcp_port</dt>
     <dd>
     <p>The port number where PCP process accepts connections. Default is 9898.
@@ -583,7 +620,38 @@ comment and will be ignored.</p>
     num_init_children is also the concurrent connections limit to pgpool-II from clients.
     If more than num_init_children clients try to connect to pgpool-II,
     they are blocked (not rejected) until a connection to any pgpool-II process is closed.
-    Up to 2*num_init_children can be queued.
+    Up to listen_backlog_multiplier*num_init_children can be queued.
+		</p>
+		<p>
+		The queued is inside the kernel called "listen queue". The length of the listen queue is called "backlog".
+		There is an upper limit of the backlog in some systems, and if num_init_children*listen_backlog_multiplier exceeds the number, you need to set the backlong higher. Otherwise, following problems may occur in heavy loaded systems: 1) connecting to pgpool-II fails 2) connecting to pgpool-II is getting slow because of retries in the kernel.
+		You can check if the listen queue is actually overflowed by using "netstat -s" command.
+		If you find something like:
+		</p>
+		<pre>
+535 times the listen queue of a socket overflowed
+		</pre>
+		</p>
+		<p>
+then the listen queue is definitely overflowed.
+		You should increase the backlog in this case (you will be required a super user privilege).
+		</p>
+		<p>
+		<pre>
+# sysctl net.core.somaxconn
+net.core.somaxconn = 128
+# sysctl -w net.core.somaxconn = 256
+		</pre>
+		</p>
+		<p>
+You could add following to /etc/sysctl.conf instead.
+		</p>
+		<p>
+		<pre>
+net.core.somaxconn = 256
+		</pre>
+    </p>
+		<p>
     Number of connections to each PostgreSQL is roughly max_pool*num_init_children</p>
 
     <p>Some hints in addition to above:</p>
@@ -609,6 +677,19 @@ max_pool*num_init_children*2 &lt;= (max_connections - superuser_reserved_connect
     This parameter can only be set at server start.</p>
     </dd>
 
+<dt><a name="LISTEN_BACKLOG_MULTIPLIERE"></a>listen_backlog_multiplier <span class="version">V3.4 -</span></dt>
+    <dd>
+		<p>
+		Controls the length of connection queue from frontend to pgpool-II.	The default is 2.
+		The queue length (actually "backlog" parameter of listen system call) is defined as listen_backlog_multiplier * num_init_children.
+		If the queue length is not long enough, you should increase the parameter.
+		Some systems have upper limit of the backlog parameter of listen system call.
+		See <a href="#NUM_INIT_CHILDREN">num_init_children</a> for more details.
+		</p>
+		<p>
+		This parameter can only be set at server start.</p>
+	</dd>
+		
 <dt><a name="CHILD_LIFE_TIME"></a>child_life_time</dt>
     <dd>
     <p>A pgpool-II child process' life time in seconds.
@@ -703,7 +784,7 @@ local0.*    /var/log/pgpool.log
       <p>to the syslog daemon's configuration file to make it work.</p>
     </dd>
 
-<dt><a name="PRINT_TIMESTAMP"></a>print_timestamp</dt>
+<dt><a name="PRINT_TIMESTAMP"></a>print_timestamp <span class="version">- V3.4 (REMOVED)</span></dt>
     <dd>
     <p>Add timestamps to the logs when set to true. Default is true.
     </p>
@@ -712,10 +793,83 @@ local0.*    /var/log/pgpool.log
     </p>
     </dd>
 
+<dt><a name="PRINT_USER"></a>print_user <span class="version">- V3.4 (REMOVED)</span></dt>
+    <dd>
+    <p>Add session user names to the logs when set to true. Default is false.
+    </p>
+    <p>
+    You need to reload pgpool.conf if you change print_user.
+    </p>
+    </dd>
+
+	<dt><a name="LOG_LINE_PREFIX"></a>log_line_prefix</dt>
+	<dd>
+	<p>
+	This is a printf-style string that is output at the beginning of each log line.
+	% characters begin "escape sequences" that are replaced with information outlined below.
+	All unrecognized escapes are ignored. Other characters are copied straight to the log line.
+
+	Default is '%t: pid %p: ', which prints timestamp and process
+	id, which keeps backward compatibily with pre-3.4.
+	</p>
+	<table border>
+	<tr class="header"><th>Escape</th><th>Effect</th></tr>
+	<tr><td>%a</td><td>Client application name.</td></tr>
+	<tr><td>%p</td><td>Process ID (PID).</td></tr>
+	<tr><td>%P</td><td>Process name.</td></tr>
+	<tr><td>%t</td><td>Time stamp.</td></tr>
+	<tr><td>%d</td><td>Database name.</td></tr>
+	<tr><td>%u</td><td>User name.</td></tr>
+	<tr><td>%l</td><td>Log line number for each process.</td></tr>
+	<tr><td>%%</td><td>'%' character</td></tr>
+	</table>
+	<p>
+	You need to reload pgpool.conf if you change log_line_prefix
+	</p>
+	</dd>
+
+<dt><a name="LOG_ERROR_VERBOSITY"></a>log_error_verbosity</dt>
+    <dd>
+    <p>
+    Controls the amount of detail emitted for each message that is logged.
+    Valid values are TERSE, DEFAULT, and VERBOSE, each adding more fields to displayed messages.
+    TERSE excludes the logging of DETAIL, HINT, and CONTEXT error information.
+    </p>
+    <p>
+    You need to reload pgpool.conf if you change this value.
+    </p>
+    </dd>
+
 <dt><a name="LOG_CONNECTIONS"></a>log_connections</dt>
     <dd>
     <p>
     If true, all incoming connections will be printed to the log.
+    </p>
+    <p>
+    You need to reload pgpool.conf if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="CLIENT_MIN_MESSAGES"></a>client_min_messages</dt>
+    <dd>
+    <p>
+    Controls which minimum message levels are sent to the client.
+    Valid values are DEBUG5, DEBUG4, DEBUG3, DEBUG2, DEBUG1, LOG, NOTICE,
+    WARNING, ERROR, FATAL, and PANIC. Each level includes all the
+    levels that follow it. The default is NOTICE.
+    </p>
+    <p>
+    You need to reload pgpool.conf if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="LOG_MIN_MESSAGES"></a>log_min_messages</dt>
+    <dd>
+    <p>
+    Controls which minimum message levels are emitted to log.
+    Valid values are DEBUG5, DEBUG4, DEBUG3, DEBUG2, DEBUG1, INFO, NOTICE,
+    WARNING, ERROR, LOG, FATAL, and PANIC. Each level includes all the
+    levels that follow it. The default is WARNING.    
     </p>
     <p>
     You need to reload pgpool.conf if you change this value.
@@ -893,6 +1047,19 @@ local0.*    /var/log/pgpool.log
       </p>
     </dd>
 
+<dt><a name="CONNECT_TIMEOUT"></a>connect_timeout <span class="version">V3.4 -</span></dt>
+    <dd>
+	  <p>Timeout value in milliseconds before giving up connecting to
+		backend using connect() system call.  Default is 10000 ms (10
+		second). Flaky network user may want to increase the value. 0
+		means no timeout.  Note that this value is not only used for
+		health check, but also for creating ordinary conection pools.
+	  </p>
+    <p>
+      You need to reload pgpool.conf if you change connect_timeout.
+    </p>
+    </dd>
+
 <dt><a name="SEARCH_PRIMARY_NODE_TIMEOUT"></a>search_primary_node_timeout <span class="version">V3.3 -</span></dt>
     <dd>
     <p>The parameter specifies the maximum amount of time in seconds to search
@@ -1039,6 +1206,19 @@ local0.*    /var/log/pgpool.log
     <p>pgpool-II ignores white spaces at the beginning of SQL
     queries while in the load balance mode. It is useful if used with
     APIs like DBI/DBD:Pg which adds white spaces against the user's will.
+    </p>
+    <p>
+    You need to reload pgpool.conf if you change this value.
+    </p>
+    </dd>
+
+	<dt id="ALLOW_SQL_COMMENTS">allow_sql_comments <span class="version">V3.4 〜</span></dt>
+    <dd>
+    <p>
+	  If on, ignore SQL comments when judging if load balance or
+	  query cache is possible.
+	  If off, SQL comments effectively prevent the judgment
+	  (pre 3.4 behavior).
     </p>
     <p>
     You need to reload pgpool.conf if you change this value.
@@ -1278,6 +1458,17 @@ local0.*    /var/log/pgpool.log
     </p>
     </dd>
 
+<dt><a name="CHECK_UNLOGGED_TABLE"></a>check_unlogged_table <span class="version">V3.4 -</span></dt>
+    <dd>
+    <p>
+    If on, enable unlogged table check in SELECT statements. This
+    initiates queries against system catalog of primary/master thus
+    increases load of primary/master.  If you are absolutely sure that your
+    system never uses unlogged (for example, you are using PostgreSQL 9.0 or before) tables and you want to save access
+    to primary/master, you could turn this off.  Default is on.
+    </p>
+    </dd>
+		
 </dl>
 
 <h2>Generating SSL certificates</h2>
@@ -1653,17 +1844,25 @@ end of transaction block
     then pgpool-II executes $PGDATA/sync-command.
     </p>
     <p>
-    recovery_1st_stage_command will receive 3 parameters as follows:
+    recovery_1st_stage_command will receive 4 parameters as follows:
     </p>
     <ol>
         <li>path to master(primary) database cluster</li>
         <li>PostgreSQL host name to be recovered</li>
         <li>path to database cluster to be recovered</li>
+		<li>master database port number</li>
     </ol>
     <p>
     Note that pgpool-II <b>accepts</b> connections and queries while
     recovery_1st_stage command is executed. You can retrieve and update data during this stage.
     </p>
+	<p>
+	<font color="red">
+	CAUTION:
+	</font>
+	recovery_1st_stage_command runs as an SQL command from PostgreSQL's point of view. If you enable PostgreSQL's statement_time_out and it's shorter than the execution time of the recovery_1st_stage_command, PostgreSQL cancels the command.
+	Typical symptoms of this is, rsync used in the command is killed by signal 2 for example.
+	</p>
     <p>
     This parameter can be changed without restarting.
     </p>
@@ -1679,12 +1878,13 @@ end of transaction block
     pgpool-II executes $PGDATA/sync-command.
     </p>
     <p>
-    recovery_2nd_stage_command will receive 3 parameters as follows:
+    recovery_2nd_stage_command will receive 4 parameters as follows:
     </p>
     <ol>
         <li>path to master(primary) database cluster</li>
         <li>PostgreSQL host name to be recovered</li>
         <li>path to database cluster to be recovered</li>
+		<li>port number of database cluster to be recovered</li>
     </ol>
     </p>
     <p>
@@ -1695,6 +1895,13 @@ end of transaction block
     until all clients have closed their connections. The command is only executed
     when no client is connected to pgpool-II anymore.
     </p>
+	<p>
+	<font color="red">
+	CAUTION:
+	</font>
+	recovery_2nd_stage_command runs as an SQL command from PostgreSQL's point of view. If you enable PostgreSQL's statement_time_out and it's shorter than the execution time of the recovery_2nd_stage_command, PostgreSQL cancels the command.
+	Typical symptoms of this is, rsync used in the command is killed by signal 2 for example.
+	</p>
     <p>
     This parameter can be changed without restarting.
     </p>
@@ -1826,7 +2033,9 @@ comments just in front of the SELECT query:
 /*REPLICATION*/ SELECT ...
 </pre>
 </p>
-
+<p>
+If you want to use comments without supressing load balancing, you can set <a href="#ALLOW_SQL_COMMENTS">allow_sql_comments</a> to on.
+</p>
 <p>
 Please refer to <a href="#replicate_select">replicate_select</a> as well.
 See also a <a href="where_to_send_queries.pdf">flow chart</a>.
@@ -1842,9 +2051,11 @@ balancing. You need to call setAutoCommit(true) to enable autocommit.
 
 <h2 id="failover_in_replication_mode">Failover in Replication Mode</h2>
 
-<p>pgpool-II degenerates a dead backend and continues the
-service. The service can be continued if there is at least one backend
-alive.</p>
+<p>
+pgpool-II detaches a dead backend from the pool, maintaining the database 
+service via the remaining backends provided that there is at least one healthy 
+backend.
+</p>
 
 <h2 id="errors_in_replication_mode">Specific errors in replication mode</h2>
 <p>
@@ -1852,7 +2063,7 @@ In replication mode, if pgpool finds that the number of affected tuples
 by INSERT, UPDATE, DELETE are not same,
 it sends erroneous SQL statement to all DB nodes to abort the transaction
 if failover_if_affected_tuples_mismatch is set to false
-(degeneration occurs if it is set to true).
+(fail-over occurs if it is set to true).
 In this case you will see following error messages on client terminal:
 </p>
 <pre>
@@ -1879,6 +2090,12 @@ You will see number of updated rows in PostgreSQL log
 <p>This mode is used to couple pgpool-II with another master/slave
 replication software (like Slony-I and Streaming replication), which is responsible
 for doing the actual data replication.
+</p>
+<p>
+Please note that the number of slaves is not necessarily limited to just 1.
+Actually you could have up to 127 slaves (0 slaves is allowed).
+</p>
+<p>
 DB nodes' information (<a href="#BACKEND_HOSTNAME">backend_hostname</a>,
 <a href="#BACKEND_PORT">backend_port</a>, <a href="#BACKEND_WEIGHT">backend_weight</a>,
 <a href="#BACKEND_FLAG">backend_flag</a> and <a href="#BACKEND_DATA_DIRECTORY">backend_data_directory</a>
@@ -2066,7 +2283,7 @@ chmod 755 failover_stream.sh
 </pre>
     </li>
 
-    <li>Set failover_commmand in pgpool.conf.
+    <li>Set <a href="#FAILOVER_COMMAND">failover_commmand</a> in pgpool.conf.
 <pre>
 failover_command = '/usr/local/src/pgsql/9.0-beta/bin/failover_stream.sh %d %H /tmp/trigger_file0'
 </pre>
@@ -2202,6 +2419,84 @@ Lastly, queries that pgpool-II's parser thinks to be an error are sent to the
 primary node.
 </p>
 
+<p>
+You can use database name and application name for smaller granularity
+in specifying load balance.
+</p>
+
+<p>
+<dl>
+  <dt id="DATABASE_REDIRECT_PREFERENCE_LIST">database_redirect_preference_list <span class="version">V3.4 〜</span></dt>
+    <dd>
+    <p>
+	  you can set "database name:node id" pair to specify the node id when connecting to the database.
+	  For example, by specifying "test:1",  pgpool-II always redirects SELECT to node 1 in case of connecting to database "test".
+	  You can specify multiple "database name:node id" pair by separating them using comma (,).
+	  Regular expressions are accepted for database name.
+	  Special keyword "primary" indicates the primary node and "standby" indicates one of standby nodes.
+    </p>
+	<p>
+	  Here is an example.
+	<pre>
+database_redirect_preference_list = 'postgres:primary,mydb[01]:1,mydb2:standby'
+	</pre>
+	</p>
+	<p>
+	  SELECTs will be redirected to primary if you connect to postgres database.
+	  Connecting to mydb0 or mydb1 will redirect SELECTs to node 1.
+	  Connecting to mydb2 will redirect SELECTs to one of standby nodes.
+	</p>
+    <p>
+    You need to reload pgpool.conf if you change this directive.
+    </p>
+    </dd>
+
+  <dt id="APP_NAME_REDIRECT_PREFERENCE_LIST">app_name_redirect_preference_list <span class="version">V3.4 〜</span></dt>
+    <dd>
+    <p>
+	  you can set "application name:node id" pair to specify the node id when the application is used.
+	  "Application name" is a name specified by a client when it connects to database.
+	You can use it in PostgreSQL 9.0 or later.
+	  For example, application of psql command is "psql".
+	  pgpool-II recognize application names only when clients sends a start up packet.
+	  Clients can send application names later on but pgpool-II will not recognize them.
+	</p>
+	<p>
+	  The notion of app_name_redirect_preference_list is same as database_redirect_preference_list.
+	  Thus you can use regular expressions for application name.
+    </p>
+	<p>
+	  Here is an example.
+	<pre>
+app_name_redirect_preference_list = 'psql:primary,myapp1:1,myapp2:standby'
+	</pre>
+	</p>
+	<p>
+	  In this example, psql sends SELECTs to primary node, myapp1 sends to node 1, and myapp2 sends to one of standby nodes.
+	</p>
+	<p>
+	  app_name_redirect_preference_list takes precedence over database_redirect_preference_list.
+	  See the next example.
+	  <pre>
+		database_redirect_preference_list = 'bigdb:primary'
+		app_name_redirect_preference_list = 'myapp:2'
+	  </pre>
+	</p>
+	<p>
+	  Applications connecting to bigdb database send SELECTs to primary node.
+	  However myapp sends SELECTs to node 2 even if it connects to bigdb.
+	  This is useful in a scenario: myapp2 sends very heavy SELECTs to execute analysis jobs.
+	  You want to use node 2 solely for analysis purpose.
+	</p>
+    <p>
+    You need to reload pgpool.conf if you change this directive.
+    </p>
+    </dd>
+</dl>
+</p>
+
+
+
 <h2 id="online_recovery_in_stream_mode">Online recovery with Streaming Replication</h2>
 <p>
 In master/slave mode with streaming replication, online recovery can be performed.
@@ -2314,6 +2609,11 @@ For your reference, here are the steps taken in the recovery procedure.
 
 <h1 id="parallel">Parallel Mode</h1>
 
+<p class="version_notice">
+  <em class="caution">DEPRECATED</em> :
+  This mode is deprecated and will be removed in the future release (possibly 3.5).
+</p>
+
 <p>This mode activates parallel execution of queries.
 Tables can be split, and data distributed to each node.
 Moreover, the replication and the load balancing features can be used at the same time.
@@ -2336,9 +2636,11 @@ pgpool-II. The System DB's configuration is done in
 <dl>
 <dt><a name="SYSTEM_DB_HOSTNAME"></a>system_db_hostname</dt>
     <dd>
-    <p>The hostname where the System DB is. Specifying the
-    empty string ('') means the System DB is on the same host as
-    pgpool-II, and will be accessed via a UNIX domain socket.</p>
+    <p>The hostname where the System DB exists. When this starts
+    with "/", this is regarded as a directory name containing socket files,
+    and UNIX domain socket is used to access instead of TCP/IP.
+    When this is empty, <code>"/tmp"</code> is used.
+    </p>
     </dd>
 
 <dt><a name="SYSTEM_DB_PORT"></a>system_db_port</dt>
@@ -2499,12 +2801,6 @@ Here are the limitations of pool_hba.
 </p>
 
 <ul>
-<li>"hostssl" connection type is not supported</li>
-    <p>
-    Even if the SSL support is enabled, "hostssl" cannot be used.
-    See <a href="#ssl">SSL</a> for more details.
-    </p>
-
 <li>"samegroup" for DATABASE field is not supported</li>
     <p>
     Since pgpool does not know anything about users in the backend server,
@@ -2562,10 +2858,10 @@ A sample service-configuration file is installed as "share/pgpool.pam" under the
 
 <!-- ================================================================================ -->
 
-<h1 id="query_cache">Setting Query cache method <span class="version">- V3.1 (DEPRECATED)</span></h1>
+<h1 id="query_cache">Setting Query cache method <span class="version">- V3.4 (REMOVED)</span></h1>
 
-<strong>Caution: this (on disk) query cache functionality will be removed in the near future.
-Please use <a href="#memqcache">on memory query cache</a> instead.
+<strong>Caution: this (on disk) query cache functionality is removed from V3.4.
+Please use <a href="#memqcache">in memory query cache</a> instead.
 </strong>
 
 <p>The Query cache can be used in all modes in pgpool-II.
@@ -2604,18 +2900,18 @@ You need to delete the cache data from the cache table or restart pgpool-II with
 
 <!-- ================================================================================ -->
 
-<h1><a name="memqcache"></a>On memory query Cache <span class="version">V3.2 -</span></h1>
+<h1><a name="memqcache"></a>In memory query Cache <span class="version">V3.2 -</span></h1>
 
 <p>
-You can use on memory query cache in any mode.
+You can use in memory query cache in any mode.
 It is different from the above query cache on the point that
-on memory query cache is faster because cache storage is on memory.
+in memory query cache is faster because cache storage is in memory.
 Moreover you don't need to restart pgpool-II when the cache is outdated
 because the underlying table gets updated.
 </p>
 
 <p>
-On memory cache saves pair of SELECT statements
+In memory cache saves pair of SELECT statements
 (with its Bind parameters if the SELECT is an extended query).
 If the same SELECTs comes in, it returns the value from cache.
 Since no SQL parsing nor access to PostgreSQL are involved, it's extremely fast.
@@ -2625,13 +2921,13 @@ Since no SQL parsing nor access to PostgreSQL are involved, it's extremely fast.
 On the other hand, it might be slower than the normal path because it adds some overhead to store cache.
 Moreover when a table is updated, pgpool automatically deletes all the caches related to the table.
 So the performance will be degraded by a system with a lot of updates.
-If the cache_hit_ratio is lower than 70%, you might want to disable on memory cache.
+If the cache_hit_ratio is lower than 70%, you might want to disable in memory cache.
 </p>
 
 <h2 id="MEMORY_CACHE_RESTRICTIONS">Restrictions</h2>
 <ul>
     <li>
-    On memory query cache deletes the all cache of an updated table automatically
+    In memory query cache deletes the all cache of an updated table automatically
     with monitoring if the executed query is UPDATE, INSERT, ALTER TABLE and so on.
     But pgpool-II isn't able to recognize implicit updates due to triggers, foreign keys and
     DROP TABLE CASCADE.
@@ -2649,7 +2945,7 @@ If the cache_hit_ratio is lower than 70%, you might want to disable on memory ca
     </li>
 </ul>
 
-<h2 id="MEMORY_CACHE_ENABLED">Enabling on memory query cache</h2>
+<h2 id="MEMORY_CACHE_ENABLED">Enabling in memory query cache</h2>
 <p>
 To enable the memory cache functionality, set this to on (default is off).
 </p>
@@ -2675,7 +2971,7 @@ memqcache_method = 'shmem'
 </pre>
 
 
-<h2 id="memqcache_cases">When on memory query cache is prohibited</h2>
+<h2 id="memqcache_cases">When in memory query cache is prohibited</h2>
 <p>
 
 Not All of SELECTs and WITH can be cached. In some cases including followings,
@@ -2796,7 +3092,7 @@ These are the parameters used with both of shmem and memcached.
 
 <h2 id="monitoring_memqcache">Monitoring caches</h2>
 <p>
-This explains how to monitor on memory query cache.
+This explains how to monitor in memory query cache.
 To know if a SELECT result is from query cache or not,
 enable <a href="#LOG_PER_NODE_STATEMENT">log_per_node_statement</a>.
 </p>
@@ -2975,7 +3271,7 @@ before starting pgpool-II.
 </p>
 
 <pre>
-pgpool [-c][-f config_file][-a hba_file][-F pcp_config_file][-n][-D][-d]
+pgpool [-c][-f config_file][-a hba_file][-F pcp_config_file][-n][-D][-d][x]
 </pre>
 
 <table border>
@@ -2993,11 +3289,13 @@ pgpool [-c][-f config_file][-a hba_file][-F pcp_config_file][-n][-D][-d]
       <td>Discard pgpool_status file and do not restore previous status
       <span class="version">V3.0 -</span></td></tr>
   <tr><td>-C</td><td>--clear-oidmaps</td>
-      <td>Discard oid maps in <a href="#MEMQCACHE_OIDDIR">memqcache_oiddir</a> for on memory query cache
+      <td>Discard oid maps in <a href="#MEMQCACHE_OIDDIR">memqcache_oiddir</a> for in memory query cache
       (only when <a href="#MEMQCACHE_METHOD">memqcache_method</a> is 'memcached',
       if shmem, discard whenever pgpool starts).
       <span class="version">V3.2 -</span></td></tr>
   <tr><td>-d</td><td>--debug</td><td>debug mode</tr>
+  <tr><td>-x</td><td>--debug-assertions</td>
+      <td>Turns on various assertion checks, This is a debugging aid</td></tr>
 </table>
 
 <h2 id="stop_pgpool">Stop pgpool-II</h2>
@@ -3022,7 +3320,27 @@ pgpool [-f config_file][-F pcp_config_file] [-m {s[mart]|f[ast]|i[mmediate]}] st
 </table>
 
 <p>
-pgpool records backend status into the [logdir]/pgpool_status file. When pgpool
+pgpool records backend status into the [logdir]/pgpool_status file.
+From pgpool-II 3.4.0 the file format of pgpool_status has been changed: it's an ordinary ASCII file and you can read and edit the contents by using your favorite text editor.
+For example, if you add new backend and restart pgpool-II, you might have wait for long time until pgpool-II detects the new backend and performs failover.
+By editing pgpool_status to set the backend to be down status, you could avoid the situation because pgpool-II's health check skips down nodes.
+Each line in the file corresponding to each backend node status.
+The first backend status is the first line, and and the seconds backend status is the second line and so on.
+The backend status is represented by any of "up", "down", "unused" (case ignored).
+Here is an example of pgpool_status:
+<pre>
+up
+down
+up
+</pre>
+</p>
+
+<p>
+Note that pre-3.4.0 pgpool-II uses binary format pgpool_status. Pgpool-II 3.4.0 or later can read the file as well. However pre-3.4.0 pgpool-II cannot read ASCII format pgpool_status file.
+</p>
+
+<p>
+When pgpool
 restarts, it reads this file and restores the backend status. This will prevent
 a difference in data among DB nodes which might be caused by following scenario:
 </p>
@@ -3170,7 +3488,7 @@ It has 11 columns:
     <li>pool_connected is a true (1) if a frontend is currently using this backend.</li>
 </ul>
 </p>
-<p>It'll always return <a href="#NUM_INIT_CHILDREN">num_init_children</a> * <a href="#MAX_POOL">max_pool</a> lines.</p>
+<p>It'll always return <a href="#NUM_INIT_CHILDREN">num_init_children</a> * <a href="#MAX_POOL">max_pool</a> * number_of_backends lines.</p>
 <pre>
   pool_pid |     start_time      | pool_id | backend_id | database | username  |     create_time     | majorversion | minorversion | pool_counter | pool_backendpid | pool_connected
 ----------+---------------------+---------+------------+----------+-----------+---------------------+--------------+--------------+--------------+-----------------+----------------
@@ -3210,7 +3528,7 @@ benchs2=# show pool_version;
 </pre>
 
 <h2 id="pool_cache">pool_cache <span class="version">V3.0 -</span></h2>
-<p>"SHOW pool_cache" displays cache storage statistics if <a href="#memqcache">on memory query cache</a> is enabled.
+<p>"SHOW pool_cache" displays cache storage statistics if <a href="#memqcache">in memory query cache</a> is enabled.
 Here is an example of it:
 </p>
 
@@ -3944,7 +4262,7 @@ However, for security reason, to set custom commands to <a href="#IF_UP_CMD">if_
 <p>
 Watchdog's life-checking starts after after all of the pgpool-IIs has started.
 This doesn't start if not all "other" nodes are alive
-Until this, failover of the virtual IP never occurs. 
+Until this, failover of the virtual IP never occurs.
 </p>
 
 <h2>Configuring watchdog (pgpool.conf)</h2>
@@ -4018,6 +4336,7 @@ All following options are required to be specified in watchdog process.
     Each server is required to respond to ping.
     Specify a comma separated list of servers such as "hostA,hostB,hostC".
     If none of the server are pingable, watchdog regards it as failure of the pgpool-II.
+    Therefore, it is recommended to specify multiple servers.
     </p>
     <p>
     If this option is empty, watchdog doesn't check up stream connections.
@@ -4733,7 +5052,7 @@ BackendError will be displayed.</p>
 <dt>Desc.</dt>
 <dd>
 <p>
-Detaches the given node from pgpool-II.
+Detaches the given node from pgpool-II. Exisiting connections to pgpool-II are forced to be disconnected.
 If -g is given, wait until all clients are disconnected (unless
 client_idle_limit_in_recovery is -1 or recovery_timeout is expired).
 </p>
@@ -4981,11 +5300,6 @@ pgpool-II.
     </li>
     <li>In all the other modes, trust, clear text password, crypt, md5,
         and pam methods are supported.</li>
-    <li>pgpool-II does not support pg_hba.conf-like access controls. If
-        TCP/IP connections are enabled, pgpool-II accepts all the
-        connections from any host. If needed, use iptables and such to
-        control access from other hosts. (PostgreSQL server accepting
-        pgpool-II connections can use pg_hba.conf, of course).</li>
     </ul>
 
 <h2>Large objects</h2>
@@ -5110,28 +5424,38 @@ TABLE ... ON COMMIT DROP</code> inside the transaction block.</p>
 
 <p>Here are the queries which cannot be processed by pgpool-II</p>
 
+<h3 id="ng_prepare">PREPARE (for parallel mode)</h3>
+<p>
+Prepared statements created by <code>PREPARE</code> are not supported.
+</p>
+
 <h3 id="ng_insert">INSERT (for parallel mode)</h3>
 
-<p>You cannot use <code>DEFAULT</code> with the
-partitioning key column. For example, if the column x in the table t
-was the partitioning key column,
+<p>You cannot use <code>DEFAULT</code> for the
+partitioning key column. For example, if a column x in a table t
+is the partitioning key column,
 </p>
 
 <pre>
 INSERT INTO t(x) VALUES (DEFAULT);
 </pre>
 <p>
-is invalid. Also, functions cannot be used for this value either.
+isn't supported. Also, you cannot use functions for the value as below.
 </p>
 
 <pre>
 INSERT INTO t(x) VALUES (func());
 </pre>
 <p>
-Constant values must be used to INSERT with the partitioning
-key. <code>SELECT INTO</code> and <code>INSERT INTO ... SELECT</code>
-are also not supported.
+You must use explicit constant values for the partitioning key column.
 </p>
+<p>
+In addition, none of <code>SELECT INTO</code>, <code>INSERT INTO ... SELECT</code>,
+and multiple rows <code>INSERT</code> using <code>VALUES</code> as follows are supported.
+</p>
+<pre>
+INSERT INTO t(x) VALUES (1),(2),(3);
+</pre>
 
 <h3 id="ng_update">UPDATE (for parallel mode)</h3>
 
@@ -5332,7 +5656,8 @@ fail. Also, the System DB must be PostgreSQL 7.4 or later.</p>
 <h2 id="caution_query_cache">Query Cache</h2>
 
 <p>With <a href="#query_cache">on disk query cache, invalidation must be done manually.
-This does not apply to <a href="#memqcache">on memory query cache</a>. Cache invalidation is automatically done with on memory query cache.</p>
+This does not apply to <a href="#memqcache">in memory query cache</a>.
+Cache invalidation is automatically done with on memory query cache.</p>
 
 
 <p class="top_link"><a href="#Top">back to top</a></p>
@@ -5704,7 +6029,7 @@ else, it is assumed numeric. avg() is processed as sum()/count() (sum divided by
 <div class="copyright" style="clear: both">
 <hr>
 <copyright>
-Copyright &copy; 2003 &ndash; 2013 pgpool Global Development Group
+Copyright &copy; 2003 &ndash; 2014 pgpool Global Development Group
 </copyright>
 </div>
 </body>
