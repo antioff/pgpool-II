@@ -1,0 +1,168 @@
+From 4b0f1cbceacbd913692af5d32f00e76347637407 Mon Sep 17 00:00:00 2001
+From: Alexey Shabalin <shaba@altlinux.org>
+Date: Tue, 24 Jul 2018 20:41:42 +0300
+Subject: [PATCH] pgpool alt config
+
+---
+ pgpool-II/src/include/pool.h                         | 6 +++---
+ pgpool-II/src/sample/pgpool.conf.sample              | 6 +++---
+ pgpool-II/src/sample/pgpool.conf.sample-logical      | 6 +++---
+ pgpool-II/src/sample/pgpool.conf.sample-master-slave | 6 +++---
+ pgpool-II/src/sample/pgpool.conf.sample-replication  | 6 +++---
+ pgpool-II/src/sample/pgpool.conf.sample-stream       | 6 +++---
+ 6 files changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/pgpool-II/src/include/pool.h b/pgpool-II/src/include/pool.h
+index f87995c..4280f5d 100644
+--- a/pgpool-II/src/include/pool.h
++++ b/pgpool-II/src/include/pool.h
+@@ -72,13 +72,13 @@
+ #define HBA_CONF_FILE_NAME "pool_hba.conf"
+ 
+ /* pid file directory */
+-#define DEFAULT_LOGDIR "/tmp"
++#define DEFAULT_LOGDIR "/var/log/pgpool"
+ 
+ /* Unix domain socket directory */
+-#define DEFAULT_SOCKET_DIR "/tmp"
++#define DEFAULT_SOCKET_DIR "/var/run/pgpool"
+ 
+ /* Unix domain socket directory for watchdog IPC */
+-#define DEFAULT_WD_IPC_SOCKET_DIR "/tmp"
++#define DEFAULT_WD_IPC_SOCKET_DIR "/var/run/pgpool"
+ 
+ /* pid file name */
+ #define DEFAULT_PID_FILE_NAME "/var/run/pgpool/pgpool.pid"
+diff --git a/pgpool-II/src/sample/pgpool.conf.sample b/pgpool-II/src/sample/pgpool.conf.sample
+index ee91e4c..0fb9290 100644
+--- a/pgpool-II/src/sample/pgpool.conf.sample
++++ b/pgpool-II/src/sample/pgpool.conf.sample
+@@ -28,10 +28,10 @@ listen_addresses = 'localhost'
+                                    # Host name or IP address to listen on:
+                                    # '*' for all, '' for no TCP/IP connections
+                                    # (change requires restart)
+-port = 9999
++port = 5433
+                                    # Port number
+                                    # (change requires restart)
+-socket_dir = '/tmp'
++socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+@@ -53,7 +53,7 @@ pcp_listen_addresses = '*'
+ pcp_port = 9898
+                                    # Port number for pcp
+                                    # (change requires restart)
+-pcp_socket_dir = '/tmp'
++pcp_socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path for pcp
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+diff --git a/pgpool-II/src/sample/pgpool.conf.sample-logical b/pgpool-II/src/sample/pgpool.conf.sample-logical
+index d10f7bb..fe1cd42 100644
+--- a/pgpool-II/src/sample/pgpool.conf.sample-logical
++++ b/pgpool-II/src/sample/pgpool.conf.sample-logical
+@@ -28,10 +28,10 @@ listen_addresses = 'localhost'
+                                    # Host name or IP address to listen on:
+                                    # '*' for all, '' for no TCP/IP connections
+                                    # (change requires restart)
+-port = 9999
++port = 5433
+                                    # Port number
+                                    # (change requires restart)
+-socket_dir = '/tmp'
++socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+@@ -47,7 +47,7 @@ pcp_listen_addresses = '*'
+ pcp_port = 9898
+                                    # Port number for pcp
+                                    # (change requires restart)
+-pcp_socket_dir = '/tmp'
++pcp_socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path for pcp
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+diff --git a/pgpool-II/src/sample/pgpool.conf.sample-master-slave b/pgpool-II/src/sample/pgpool.conf.sample-master-slave
+index 98a5447..8cf3196 100644
+--- a/pgpool-II/src/sample/pgpool.conf.sample-master-slave
++++ b/pgpool-II/src/sample/pgpool.conf.sample-master-slave
+@@ -28,10 +28,10 @@ listen_addresses = 'localhost'
+                                    # Host name or IP address to listen on:
+                                    # '*' for all, '' for no TCP/IP connections
+                                    # (change requires restart)
+-port = 9999
++port = 5433
+                                    # Port number
+                                    # (change requires restart)
+-socket_dir = '/tmp'
++socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+@@ -53,7 +53,7 @@ pcp_listen_addresses = '*'
+ pcp_port = 9898
+                                    # Port number for pcp
+                                    # (change requires restart)
+-pcp_socket_dir = '/tmp'
++pcp_socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path for pcp
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+diff --git a/pgpool-II/src/sample/pgpool.conf.sample-replication b/pgpool-II/src/sample/pgpool.conf.sample-replication
+index 694598e..054ccd3 100644
+--- a/pgpool-II/src/sample/pgpool.conf.sample-replication
++++ b/pgpool-II/src/sample/pgpool.conf.sample-replication
+@@ -28,10 +28,10 @@ listen_addresses = 'localhost'
+                                    # Host name or IP address to listen on:
+                                    # '*' for all, '' for no TCP/IP connections
+                                    # (change requires restart)
+-port = 9999
++port = 5433
+                                    # Port number
+                                    # (change requires restart)
+-socket_dir = '/tmp'
++socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+@@ -53,7 +53,7 @@ pcp_listen_addresses = '*'
+ pcp_port = 9898
+                                    # Port number for pcp
+                                    # (change requires restart)
+-pcp_socket_dir = '/tmp'
++pcp_socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path for pcp
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+diff --git a/pgpool-II/src/sample/pgpool.conf.sample-stream b/pgpool-II/src/sample/pgpool.conf.sample-stream
+index 01e1755..91d989b 100644
+--- a/pgpool-II/src/sample/pgpool.conf.sample-stream
++++ b/pgpool-II/src/sample/pgpool.conf.sample-stream
+@@ -28,10 +28,10 @@ listen_addresses = 'localhost'
+                                    # Host name or IP address to listen on:
+                                    # '*' for all, '' for no TCP/IP connections
+                                    # (change requires restart)
+-port = 9999
++port = 5433
+                                    # Port number
+                                    # (change requires restart)
+-socket_dir = '/tmp'
++socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+@@ -47,7 +47,7 @@ pcp_listen_addresses = '*'
+ pcp_port = 9898
+                                    # Port number for pcp
+                                    # (change requires restart)
+-pcp_socket_dir = '/tmp'
++pcp_socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path for pcp
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+--
+libgit2 0.26.3
+
