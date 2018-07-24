@@ -75,16 +75,15 @@ EXTRA_DIST = pgpool.8.in sample/pgpool.pam \
 		sql/pgpool-recovery/pgpool-recovery.c \
 		sql/pgpool-recovery/pgpool-recovery.sql.in \
 		sql/pgpool-recovery/uninstall_pgpool-recovery.sql \
+		sql/pgpool-recovery/pgpool_recovery--1.0.sql \
+		sql/pgpool-recovery/pgpool_recovery.control \
 		sql/pgpool-recovery/Makefile \
 		sql/pgpool-regclass/pgpool-regclass.c \
 		sql/pgpool-regclass/pgpool-regclass.sql.in \
 		sql/pgpool-regclass/uninstall_pgpool-regclass.sql \
+		sql/pgpool-regclass/pgpool_regclass--1.0.sql \
+		sql/pgpool-regclass/pgpool_regclass.control \
 		sql/pgpool-regclass/Makefile \
-		sql/pgpool-walrecrunning/README \
-		sql/pgpool-walrecrunning/pgpool-walrecrunning.c \
-		sql/pgpool-walrecrunning/pgpool-walrecrunning.sql.in \
-		sql/pgpool-walrecrunning/uninstall_pgpool-walrecrunning.sql \
-		sql/pgpool-walrecrunning/Makefile \
 		pgpool_adm/Makefile pgpool_adm/TODO pgpool_adm/pgpool_adm--1.0.sql \
 		pgpool_adm/pgpool_adm.c pgpool_adm/pgpool_adm.control \
 		pgpool_adm/pgpool_adm.h pgpool_adm/pgpool_adm.sql.in \
@@ -125,7 +124,12 @@ EXTRA_DIST = pgpool.8.in sample/pgpool.pam \
 		test/timestamp/expected/insert.out test/timestamp/expected/update.out \
 		test/timestamp/expected/misc.out test/timestamp/main.c \
 		test/timestamp/parse_schedule test/timestamp/run-test \
-		redhat/pgpool.init redhat/pgpool.sysconfig redhat/pgpool.conf.sample.patch
-
+		test/pgpool_setup \
+		redhat/pgpool.init redhat/pgpool.sysconfig redhat/pgpool.conf.sample.patch \
+		redhat/rpm_installer/getsources.sh redhat/rpm_installer/config_for_script \
+		redhat/rpm_installer/install.sh redhat/rpm_installer/uninstall.sh \
+		redhat/rpm_installer/basebackup-replication.sh redhat/rpm_installer/basebackup-stream.sh \
+		redhat/rpm_installer/pgpool_recovery_pitr redhat/rpm_installer/pgpool_remote_start \
+		redhat/rpm_installer/recovery.conf redhat/rpm_installer/failover.sh
 
 SUBDIRS = parser pcp watchdog

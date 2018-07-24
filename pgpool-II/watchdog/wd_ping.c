@@ -3,10 +3,10 @@
  *
  * Handles watchdog connection, and protocol communication with pgpool-II
  *
- * pgpool: a language independent connection pool server for PostgreSQL 
+ * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -42,7 +42,7 @@ static void * exec_ping(void * arg);
 static double get_result (char * ping_data);
 
 /**
- * Try to conect to trusted servers.
+ * Try to connect to trusted servers.
  */
 int
 wd_is_upper_ok(char * server_list)
@@ -60,12 +60,19 @@ wd_is_upper_ok(char * server_list)
 
 	if (server_list == NULL)
 	{
+		pool_error("wd_is_upper_ok: server_list is NULL");
 		return WD_NG;
 	}
 	len = strlen(server_list)+2;
 	buf = malloc(len);
+	if (buf == NULL)
+	{
+		pool_error("wd_is_upper_ok: malloc failed");
+		return WD_NG;
+	}
+
 	memset(buf,0,len);
-	strncpy(buf,server_list,len);
+	strlcpy(buf,server_list,len);
 	/* thread init */
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -79,7 +86,7 @@ wd_is_upper_ok(char * server_list)
 		{
 			*ep = '\0';
 		}
-		strncpy(thread_arg[cnt].hostname,bp,sizeof(thread_arg[cnt].hostname));
+		strlcpy(thread_arg[cnt].hostname,bp,sizeof(thread_arg[cnt].hostname));
 		rc = pthread_create(&thread[cnt], &attr, exec_ping, (void*)&thread_arg[cnt]);
 
 		cnt ++;
@@ -93,7 +100,7 @@ wd_is_upper_ok(char * server_list)
 		}
 		if (cnt >= MAX_WATCHDOG_NUM)
 		{
-			pool_debug("wd_is_upper_ok: trusted server num is out of range(%d)",cnt);	
+			pool_debug("wd_is_upper_ok: trusted server num is out of range(%d)",cnt);
 			break;
 		}
 	}
@@ -111,7 +118,6 @@ wd_is_upper_ok(char * server_list)
 		{
 			rtn = WD_OK;
 		}
-		pthread_detach(thread[i]);
 		i++;
 	}
 	free(buf);
@@ -119,7 +125,7 @@ wd_is_upper_ok(char * server_list)
 }
 
 /**
- * check if IP addres is unused.
+ * check if IP address is unused.
  */
 int
 wd_is_unused_ip(char * ip)
@@ -142,7 +148,7 @@ wd_is_unused_ip(char * ip)
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
 	/* set hostname as a thread_arg */
-	strncpy(thread_arg.hostname,ip,sizeof(thread_arg.hostname));
+	strlcpy(thread_arg.hostname,ip,sizeof(thread_arg.hostname));
 
 	rc = pthread_create(&thread, &attr, exec_ping, (void*)&thread_arg);
 	pthread_attr_destroy(&attr);
@@ -156,12 +162,14 @@ wd_is_unused_ip(char * ip)
 	{
 		rtn = WD_OK;
 	}
-	pthread_detach(thread);
 
 	return rtn;
 }
 
 
+/**
+ * Thread to execute ping against "trusted hosts" or delegate IP.
+ */
 static void *
 exec_ping(void * arg)
 {
@@ -173,15 +181,16 @@ exec_ping(void * arg)
 	int pid, i = 0;
 	int r_size = 0;
 	char result[256];
-	char ping_path[128];
+	char ping_path[WD_MAX_PATH_LEN];
 
-	sprintf(ping_path,"%s/ping",pool_config->ping_path);
+	snprintf(ping_path,sizeof(ping_path),"%s/ping",pool_config->ping_path);
 	thread_arg = (WdInfo *)arg;
 	memset(result,0,sizeof(result));
+
 	if (pipe(pfd) == -1)
 	{
-		fprintf(stderr,"pipe open error:%s\n",strerror(errno));
-		return NULL;
+		pool_error("exec_ping: pipe open error:%s", strerror(errno));
+		return WD_NG;
 	}
 
 	args[i++] = "ping";
@@ -191,12 +200,23 @@ exec_ping(void * arg)
 	args[i++] = NULL;
 
 	pid = fork();
+	if (pid == -1)
+	{
+		pool_error("exec_ping: fork() failed. reason: %s", strerror(errno));
+		exit(1);
+	}
 	if (pid == 0)
 	{
 		close(STDOUT_FILENO);
 		dup2(pfd[1], STDOUT_FILENO);
 		close(pfd[0]);
 		status = execv(ping_path,args);
+
+		if (status == -1)
+		{
+			pool_error("exec_ping: execv(%s) failed. reason: %s", ping_path, strerror(errno));
+			exit(1);
+		}
 		exit(0);
 	}
 	else
@@ -210,25 +230,48 @@ exec_ping(void * arg)
 			{
 				if (errno == EINTR)
 					continue;
-				return NULL;
+
+				pool_error("exec_ping: wait() failed. reason: %s", strerror(errno));
+				close(pfd[0]);
+				return WD_NG;
 			}
 
-			if (WIFEXITED(status) == 0 || WEXITSTATUS(status) != 0)
-				return NULL;
+			if (WIFEXITED(status) == 0)
+			{
+				pool_error("exec_ping: %s exited abnormally", ping_path);
+				close(pfd[0]);
+				return WD_NG;
+			}
+			else if (WEXITSTATUS(status) != 0)
+			{
+				pool_debug("exec_ping: failed to ping %s", thread_arg->hostname);
+				return WD_NG;
+			}
 			else
+			{
+				pool_debug("exec_ping: succeed to ping %s", thread_arg->hostname);
 				break;
+			}
 		}
+
 		i = 0;
 		while  (( (r_size = read (pfd[0], &result[i], sizeof(result)-i)) > 0) && (errno == EINTR))
 		{
 			i += r_size;
 		}
+
 		close(pfd[0]);
 	}
-	rtn = (get_result (result) > 0)?WD_OK:WD_NG;
+
+	/* Check whether average RTT > 0 */
+	rtn = (get_result (result) > 0) ? WD_OK : WD_NG;
+
 	pthread_exit((void *)rtn);
 }
 
+/**
+ * Get average round-trip time of ping result.
+ */
 static double
 get_result (char * ping_data)
 {
@@ -239,36 +282,46 @@ get_result (char * ping_data)
 
 	if (ping_data == NULL)
 	{
+		pool_error("get_result: no ping data");
 		return -1;
 	}
+
+	pool_debug("get_result: ping data: %s", ping_data);
+
 	/*
 	 skip result until average data
-	 tipical result of ping is as follows,
+	 typical result of ping is as follows,
 	 "rtt min/avg/max/mdev = 0.045/0.045/0.046/0.006 ms"
 	 we can find the average data beyond the 4th '/'.
 	 */
 	sp = ping_data;
 	for ( i = 0 ; i < 4 ; i ++)
 	{
-		sp = strchr(sp,'/');	
+		sp = strchr(sp,'/');
 		if (sp == NULL)
 		{
 			return -1;
 		}
 		sp ++;
 	}
+
 	ep = strchr (sp,'/');
 	if (ep == NULL)
 	{
 		return -1;
 	}
+
 	*ep = '\0';
 	errno = 0;
+
 	/* convert to numeric data from text */
 	msec = strtod(sp,(char **)NULL);
+
 	if (errno != 0)
 	{
+		pool_error("get_result: strtod() failed. reason: %s", strerror(errno));
 		return -1;
 	}
+
 	return msec;
 }

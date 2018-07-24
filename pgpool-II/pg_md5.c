@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -41,7 +41,7 @@
 #include <libgen.h>
 
 /* Maximum number of characters allowed for input. */
-#define MAX_INPUT_SIZE	128
+#define MAX_INPUT_SIZE	MAX_USER_NAME_LEN
 
 static void	print_usage(const char prog[], int exit_code);
 static void	set_tio_attr(int enable);
@@ -133,6 +133,7 @@ main(int argc, char *argv[])
 
 			exit(EXIT_FAILURE);
 		}
+		printf("\n");
 		set_tio_attr(0);
 
 		/* Remove LF at the end of line, if there is any. */
@@ -190,7 +191,7 @@ main(int argc, char *argv[])
 static void update_pool_passwd(char *conf_file, char *username, char *password)
 {
 	struct passwd *pw;
-	char	 md5[MD5_PASSWD_LEN+1];
+	char	 md5[POOL_PASSWD_LEN+1];
 	char pool_passwd[POOLMAXPATHLEN+1];
 	char dirnamebuf[POOLMAXPATHLEN+1];
 	char *dirp;
@@ -246,6 +247,7 @@ print_usage(const char prog[], int exit_code)
   --md5auth, -m        Produce md5 authentication password.\n\
   --username, -u USER  When producing a md5 authentication password,\n\
                        create the pool_passwd entry for USER.\n\
+  --config-file, -f CONFIG-FILE  Specify pgpool.conf.\n\
   --help, -h           This help menu.\n\
 \n\
 Warning: At most %d characters are allowed for input.\n\

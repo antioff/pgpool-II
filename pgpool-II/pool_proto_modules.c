@@ -82,7 +82,7 @@ char query_string_buffer[QUERY_STRING_BUFFER_LEN];
 
 /*
  * query string produced by nodeToString() in simpleQuery().
- * this variable only usefull when enable_query_cache is true.
+ * this variable only useful when enable_query_cache is true.
  */
 char *parsed_query = NULL;
 
@@ -370,7 +370,7 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 		/*
 		 * If the table is to be cached, set is_cache_safe TRUE and register table oids.
 		 */ 
-		if (pool_config->memory_cache_enabled)
+		if (pool_config->memory_cache_enabled && query_context->is_multi_statement == false)
 		{
 			bool is_select_query = false;
 			int num_oids;
@@ -453,7 +453,7 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 		if (!RAW_MODE)
 		{
 			/*
-			 * If there's only one node to send the commad, there's no
+			 * If there's only one node to send the command, there's no
 			 * point to start a transaction.
 			 */
 			if (pool_multi_node_to_be_sent(query_context))
@@ -706,10 +706,15 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 		bool foundp;
 		POOL_STATUS status;
 		char *search_query = NULL;
+		int len;
+		char *tmp;
+#define STR_ALLOC_SIZE 1024
 
-		search_query = (char *)malloc(sizeof(char) * strlen(query) + 1);
+		len = strlen(query)+1;
+		search_query = (char *)malloc(len);
 		if (search_query == NULL)
 		{
+			pool_error("Execute: malloc failed");
 			return POOL_END;
 		}
 		strcpy(search_query, query);
@@ -722,45 +727,65 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 			/* Extract binary contents from bind message */
 			char *query_in_bind_msg = bind_msg->contents + bind_msg->param_offset;
 			char hex_str[4];  /* 02X chars + white space + null end */
-			int max_search_query_size = 0;
-			int i = 0;
-			char *tmp;
+			int i;
+			int alloc_len;
+
+			alloc_len = (len/STR_ALLOC_SIZE+1)*STR_ALLOC_SIZE;
+			search_query = realloc(search_query, alloc_len);
+			if (search_query == NULL)
+			{
+				pool_error("Execute: realloc failed");
+				return POOL_END;
+			}
 
 			for (i = 0; i < bind_msg->len - bind_msg->param_offset; i++)
 			{
-				while (max_search_query_size <= sizeof(char) * strlen(search_query))
+				int hexlen;
+
+				snprintf(hex_str, sizeof(hex_str), (i == 0) ? " %02X" : "%02X", 0xff & query_in_bind_msg[i]);
+				hexlen = strlen(hex_str);
+
+				if ((len+hexlen) > alloc_len)
 				{
-					max_search_query_size += 1024;
-					tmp = (char *)realloc(search_query, sizeof(char) * max_search_query_size);
-					if (tmp == NULL)
+					alloc_len += STR_ALLOC_SIZE;
+					search_query = realloc(search_query, alloc_len);
+					if (search_query == NULL)
 					{
+						pool_error("Execute: realloc failed");
 						return POOL_END;
 					}
-					search_query = tmp;
-					tmp = NULL;
 				}
-
-				sprintf(hex_str, (i == 0) ? " %02X" : "%02X", (unsigned int)query_in_bind_msg[i]);
 				strcat(search_query, hex_str);
+				len += hexlen;
 			}
 
 			query_context->query_w_hex = search_query;
 
 			/*
-			 * When a transaction is comitted, query_context->temp_cache->query is used
+			 * When a transaction is committed, query_context->temp_cache->query is used
 			 * to create md5 hash to search for query cache.
 			 * So overwrite the query text in temp cache to the one with the hex of bind message.
 			 * If not, md5 hash will be created by the query text without bind message, and
 			 * it will happen to find cache never or to get a wrong result.
+			 * 
+			 * However, It is possible that temp_cache does not exist.
+			 * Consider following scenario:
+			 * - In the previous execute cache is overflowed, and
+			 *   temp_cache discarded.
+			 * - In the subsequent bind/execute uses the same portal
 			 */
-			tmp = (char *)malloc(sizeof(char) * strlen(search_query) + 1);
-			if (tmp == NULL)
+			if (query_context->temp_cache)
 			{
-				return POOL_END;
+				tmp = (char *)malloc(sizeof(char) * strlen(search_query) + 1);
+				if (tmp == NULL)
+				{
+					pool_error("Execute: malloc failed");
+					return POOL_END;
+				}
+				free(query_context->temp_cache->query);
+				query_context->temp_cache->query = tmp;
+				strcpy(query_context->temp_cache->query, search_query);
 			}
-			free(query_context->temp_cache->query);
-			query_context->temp_cache->query = tmp;
-			strcpy(query_context->temp_cache->query, search_query);
 		}
 
 		/* If the query is SELECT from table to cache, try to fetch cached result. */
@@ -779,11 +804,13 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 		}
 	}
 
-	/*
-	 * Decide where to send query
-	 */
 	session_context->query_context = query_context;
-	pool_where_to_send(query_context, query, node);
+	/*
+	 * Calling pool_where_to_send here is dangerous because the node
+	 * parse/bind has been sent could be change by
+	 * pool_where_to_send() and it leads to "portal not found"
+	 * etc. errors.
+	 */
 
 	/* check if query is "COMMIT" or "ROLLBACK" */
 	commit = is_commit_or_rollback_query(node);
@@ -1023,7 +1050,8 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 			if (rewrite_query != NULL)
 			{
 				int alloc_len = len - strlen(stmt) + strlen(rewrite_query);
-				contents = palloc(alloc_len);
+				contents = pool_memory_realloc(session_context->memory_context,
+                                                                      msg->contents, alloc_len);
 				strcpy(contents, name);
 				strcpy(contents + strlen(name) + 1, rewrite_query);
 				memcpy(contents + strlen(name) + strlen(rewrite_query) + 2,
@@ -1104,7 +1132,10 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 		}
 
 		if (is_strict_query(query_context->parse_tree))
+		{
 			start_internal_transaction(frontend, backend, query_context->parse_tree);
+			allow_close_transaction = 1;
+		}
 
 		if (insert_stmt_with_lock)
 		{
@@ -1152,7 +1183,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 		{
 			/*
 			 * Check if other than deadlock error detected.  If so, emit
-			 * log. This is usefull when invalid encoding error occurs. In
+			 * log. This is useful when invalid encoding error occurs. In
 			 * this case, PostgreSQL does not report what statement caused
 			 * that error and make users confused.
 			 */
@@ -1257,7 +1288,7 @@ POOL_STATUS Bind(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 	}
 
 	/*
-	 * If the query can ce cached, save its offset of query text in bind message's content.
+	 * If the query can be cached, save its offset of query text in bind message's content.
 	 */
 	if (query_context->is_cache_safe)
 	{
@@ -1275,11 +1306,12 @@ POOL_STATUS Bind(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 	}
 
 	session_context->query_context = query_context;
-	pool_where_to_send(query_context, query_context->original_query,
-					   query_context->parse_tree);
 
 	if (pool_config->load_balance_mode && pool_is_writing_transaction())
 	{
+		pool_where_to_send(query_context, query_context->original_query,
+						   query_context->parse_tree);
+
 		if (parse_before_bind(frontend, backend, parse_msg) != POOL_CONTINUE)
 			return POOL_END;
 	}
@@ -1354,9 +1386,13 @@ POOL_STATUS Describe(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 	}
 
 	session_context->query_context = query_context;
-	pool_where_to_send(query_context, query_context->original_query,
-					   query_context->parse_tree);
 
+	/*
+	 * Calling pool_where_to_send here is dangerous because the node
+	 * parse/bind has been sent could be change by
+	 * pool_where_to_send() and it leads to "portal not found"
+	 * etc. errors.
+	 */
 	pool_debug("Describe: waiting for master completing the query");
 	if (pool_extended_send_and_wait(query_context, "D", len, contents, 1, MASTER_NODE_ID)
 		!= POOL_CONTINUE)
@@ -1692,7 +1728,7 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 				 * If the query was COMMIT/ABORT, clear the history
 				 * that we had a writing command in the transaction
 				 * and forget the transaction isolation level.  This
-				 * is neccessary if succeeding transaction is not an
+				 * is necessary if succeeding transaction is not an
 				 * explicit one.
 				 */
 				else if (is_commit_or_rollback_query(node))
@@ -1724,15 +1760,30 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 						return POOL_END;
 				}
 
-				/*
-				 * If the query was not READ SELECT, and we are in an
-				 * explicit transaction, remember that we had a write
-				 * query in this transaction.
-				 */
-				else if (!is_select_query(node, query) &&
-						 TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID) == 'T')
+				else if (!is_select_query(node, query))
 				{
-					pool_set_writing_transaction();
+					/*
+					 * If the query was not READ SELECT, and we are in an
+					 * explicit transaction, remember that we had a write
+					 * query in this transaction.
+					 */
+					if (TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID) == 'T')
+					{
+						pool_set_writing_transaction();
+					}
+
+					/*
+					 * If the query was CREATE TEMP TABLE, discard
+					 * temp table relcache because we might have had
+					 * persistent table relation cache which has table
+					 * name as the temp table.
+					 */
+					if (IsA(node, CreateStmt))
+					{
+						CreateStmt *create_table_stmt = (CreateStmt *)node;
+						if (create_table_stmt->relation->relpersistence)
+							discard_temp_table_relcache();
+					}
 				}
 			}
 
@@ -1742,7 +1793,7 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 				/* If we are doing extended query and the state is after EXECUTE,
 				 * then we can commit cache.
 				 * We check latter condition by looking at query_context->query_w_hex.
-				 * This check is neccessary for certain frame work such as PHP PDO.
+				 * This check is necessary for certain frame work such as PHP PDO.
 				 * It sends Sync message right after PARSE and it produces
 				 * "Ready for query" message from backend.
 				 */
@@ -1764,10 +1815,14 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 		/*
 		 * If PREPARE or extended query protocol commands caused error,
 		 * remove the temporary saved message.
+		 * (except when ReadyForQuery() is called during Parse() of extended queries)
 		 */
 		else
 		{
-			if (session_context->uncompleted_message)
+			if ((pool_is_doing_extended_query_message() &&
+				 session_context->query_context->query_state[MASTER_NODE_ID] != POOL_UNPARSED &&
+			     session_context->uncompleted_message) ||
+			    (!pool_is_doing_extended_query_message() && session_context->uncompleted_message))
 			{
 				pool_add_sent_message(session_context->uncompleted_message);
 				pool_remove_sent_message(session_context->uncompleted_message->kind,
@@ -2026,7 +2081,7 @@ POOL_STATUS CommandComplete(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *bac
 	rows = extract_ntuples(p);
 
 	/*
-	 * Save number of affcted tuples of master node.
+	 * Save number of affected tuples of master node.
 	 */
 	session_context->ntuples[MASTER_NODE_ID] = rows;
 
@@ -2066,7 +2121,7 @@ POOL_STATUS CommandComplete(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *bac
 			int n = extract_ntuples(p);
 
 			/*
-			 * Save number of affcted tuples.
+			 * Save number of affected tuples.
 			 */
 			session_context->ntuples[i] = n;
 
@@ -2084,7 +2139,7 @@ POOL_STATUS CommandComplete(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *bac
 				{
 					/*
 					 * Remember that we have different number of UPDATE/DELETE
-					 * affcted tuples in backends.
+					 * affected tuples in backends.
 					 */
 					session_context->mismatch_ntuples = true;
 				}
@@ -2348,7 +2403,8 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 									POOL_CONNECTION_POOL *backend)
 {
 	char fkind;
-	char *contents = NULL;
+	char *bufp = NULL;
+	char *contents;
 	POOL_STATUS status;
 	int len;
 	POOL_SESSION_CONTEXT *session_context;
@@ -2378,15 +2434,15 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 			return POOL_END;
 		len = ntohl(len) - 4;
 		if (len > 0)
-			contents = pool_read2(frontend, len);
+			bufp = pool_read2(frontend, len);
 	}
 	else
 	{
 		if (fkind != 'F')
-			contents = pool_read_string(frontend, &len, 0);
+			bufp = pool_read_string(frontend, &len, 0);
 	}
 
-	if (len > 0 && contents == NULL)
+	if (len > 0 && bufp == NULL)
 		return POOL_END;
 
 	if (fkind != 'S' && pool_is_ignore_till_sync())
@@ -2402,6 +2458,19 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 
 	pool_unset_doing_extended_query_message();
 
+	/*
+	 * Allocate buffer and copy the packet contents.  Because inside
+	 * these protocol modules, pool_read2 maybe called and modify its
+	 * buffer contents.
+	 */
+	contents = malloc(len);
+	if (contents == NULL)
+	{
+		pool_error("ProcessFrontendResponse: cannot allocate memory. request size:%d", len);
+		return POOL_ERROR;
+	}
+	memcpy(contents, bufp, len);
+
 	switch (fkind)
 	{
 		POOL_QUERY_CONTEXT *query_context;
@@ -2411,6 +2480,7 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 		POOL_MEMORY_POOL *old_context;
 
 		case 'X':	/* Terminate */
+			free(contents);
 			return POOL_END;
 
 		case 'Q':	/* Query */
@@ -2471,6 +2541,7 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 			if (!query_context)
 			{
 				pool_error("ProcessFrontendResponse: pool_init_query_context failed");
+				free(contents);
 				return POOL_END;
 			}
 			old_context = pool_memory_context_switch_to(query_context->memory_context);
@@ -2503,6 +2574,7 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 			pool_error("ProcessFrontendResponse: unknown message type %c(%02x)", fkind, fkind);
 			status = POOL_ERROR;
 	}
+	free(contents);
 
 	if (status != POOL_CONTINUE)
 		status = POOL_ERROR;

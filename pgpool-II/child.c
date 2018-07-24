@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -125,7 +125,7 @@ void do_child(int unix_fd, int inet_fd)
 	signal(SIGPIPE, SIG_IGN);
 
 #ifdef NONE_BLOCK
-	/* set listen fds to none block */
+	/* set listen fds to none-blocking */
 	pool_set_nonblock(unix_fd);
 	if (inet_fd)
 	{
@@ -154,6 +154,15 @@ void do_child(int unix_fd, int inet_fd)
 	if (pool_init_cp())
 	{
 		child_exit(1);
+	}
+
+	/*
+	 * Open pool_passwd in child process.  This is necessary to avoid the
+	 * file descriptor race condition reported in [pgpool-general: 1141].
+	 */
+	if (strcmp("", pool_config->pool_passwd))
+	{
+		pool_reopen_passwd_file();
 	}
 
 	timeout.tv_sec = pool_config->child_life_time;
@@ -267,7 +276,7 @@ void do_child(int unix_fd, int inet_fd)
 		}
 
 		/*
-		 * Ok, negotiaton with frontend has been done. Let's go to the
+		 * Ok, negotiation with frontend has been done. Let's go to the
 		 * next step.  Connect to backend if there's no existing
 		 * connection which can be reused by this frontend.
 		 * Authentication is also done in this step.
@@ -351,7 +360,7 @@ void do_child(int unix_fd, int inet_fd)
 		 */
 		pool_init_session_context(frontend, backend);
 
-		/* Mark this connection pool is conncted from frontend */
+		/* Mark this connection pool is connected from frontend */
 		pool_coninfo_set_frontend_connected(pool_get_process_context()->proc_id, pool_pool_index());
 
 		/* query process loop */
@@ -405,14 +414,14 @@ void do_child(int unix_fd, int inet_fd)
 					}
 					break;
 
-				/* error occured. discard backend connection pool
+				/* error occurred. discard backend connection pool
                    and disconnect connection to the frontend */
 				case POOL_ERROR:
 					pool_log("do_child: exits with status 1 due to error");
 					child_exit(1);
 					break;
 
-				/* fatal error occured. just exit myself... */
+				/* fatal error occurred. just exit myself... */
 				case POOL_FATAL:
 					notice_backend_error(1);
 					child_exit(1);
@@ -435,7 +444,7 @@ void do_child(int unix_fd, int inet_fd)
 		/* Destroy session context */
 		pool_session_context_destroy();
 
-		/* Mark this connection pool is not conncted from frontend */
+		/* Mark this connection pool is not connected from frontend */
 		pool_coninfo_unset_frontend_connected(pool_get_process_context()->proc_id, pool_pool_index());
 
 		accepted = 0;
@@ -524,7 +533,7 @@ static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *time
 
 	/*
 	 * following code fragment computes remaining timeout val in a
-	 * portable way. Linux does this automazically but other platforms do not.
+	 * portable way. Linux does this automatically but other platforms do not.
 	 */
 	if (timeoutval)
 	{
@@ -641,7 +650,8 @@ static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *time
 		if (pool_config->enable_pool_hba)
 		{
 			load_hba(get_hba_file_name());
-			pool_reopen_passwd_file();
+			if (strcmp("", pool_config->pool_passwd))
+				pool_reopen_passwd_file();
 		}
 		if (pool_config->parallel_mode)
 			pool_memset_system_db_info(system_db_info->info);
@@ -787,7 +797,7 @@ static POOL_CONNECTION *do_accept(int unix_fd, int inet_fd, struct timeval *time
 		return NULL;
 	}
 
-	/* save ip addres for hba */
+	/* save ip address for hba */
 	memcpy(&cp->raddr, &saddr, sizeof(SockAddr));
 	if (cp->raddr.addr.ss_family == 0)
 		cp->raddr.addr.ss_family = AF_UNIX;
@@ -824,19 +834,21 @@ static StartupPacket *read_startup_packet(POOL_CONNECTION *cp)
 	/* read startup packet length */
 	if (pool_read(cp, &len, sizeof(len)))
 	{
+		pool_error("read_startup_packet: incorrect packet length (%d)", len);
+		pool_free_startup_packet(sp);
+		alarm(0);
+		pool_signal(SIGALRM, SIG_IGN);
 		return NULL;
 	}
 	len = ntohl(len);
 	len -= sizeof(len);
 
-	if (len <= 0)
+	if (len <= 0 || len >= MAX_STARTUP_PACKET_LENGTH)
 	{
 		pool_error("read_startup_packet: incorrect packet length (%d)", len);
-	}
-	else if (len >= MAX_STARTUP_PACKET_LENGTH)
-	{
-		pool_error("read_startup_packet: invalid startup packet");
 		pool_free_startup_packet(sp);
+		alarm(0);
+		pool_signal(SIGALRM, SIG_IGN);
 		return NULL;
 	}
 
@@ -977,6 +989,28 @@ static StartupPacket *read_startup_packet(POOL_CONNECTION *cp)
 			return NULL;
 	}
 
+	/* Check a user name was given. */
+	if (sp->major != 1234 &&
+	    (sp->user == NULL || sp->user[0] == '\0'))
+	{
+		pool_send_fatal_message(cp, sp->major, "28000",
+		                        "no PostgreSQL user name specified in startup packet",
+								"",
+								"",
+								__FILE__, __LINE__);
+		pool_error("read_startup_packet: no PostgreSQL user name specified in startup packet");
+		pool_free_startup_packet(sp);
+		alarm(0);
+		pool_signal(SIGALRM, SIG_IGN);
+		return NULL;
+	}
+
+	/* The database defaults to ther user name. */
+	if (sp->database == NULL || sp->database[0] == '\0')
+	{
+		sp->database = strdup(sp->user);
+	}
+
 	pool_debug("Protocol Major: %d Minor: %d database: %s user: %s",
 			   sp->major, sp->minor, sp->database, sp->user);
 	alarm(0);
@@ -985,8 +1019,8 @@ static StartupPacket *read_startup_packet(POOL_CONNECTION *cp)
 }
 
 /*
-* send startup packet
-*/
+ * send startup packet
+ */
 int send_startup_packet(POOL_CONNECTION_POOL_SLOT *cp)
 {
 	int len;
@@ -999,7 +1033,7 @@ int send_startup_packet(POOL_CONNECTION_POOL_SLOT *cp)
 /*
  * Reuse existing connection
  */
-static bool connect_using_existing_connection(POOL_CONNECTION *frontend, 
+static bool connect_using_existing_connection(POOL_CONNECTION *frontend,
 											  POOL_CONNECTION_POOL *backend,
 											  StartupPacket *sp)
 {
@@ -1167,7 +1201,7 @@ void cancel_request(CancelPacket *sp)
 		pool_close(con);
 
 		/*
-		 * this is needed to enure that the next DB node executes the
+		 * this is needed to ensure that the next DB node executes the
 		 * query supposed to be canceled.
 		 */
 		sleep(1);
@@ -1391,6 +1425,12 @@ void pool_free_startup_packet(StartupPacket *sp)
  */
 void child_exit(int code)
 {
+	if (getpid() == mypid)
+	{
+		pool_log("child_exit: called from pgpool main. ignored.");
+		return;
+	}
+
 	/* count down global connection counter */
 	if (accepted)
 		connection_count_down();
@@ -1410,7 +1450,8 @@ void child_exit(int code)
 	}
 
 	/* let backend know now we are exiting */
-	send_frontend_exits();
+	if (pool_connection_pool)
+		send_frontend_exits();
 
 	exit(code);
 }
@@ -1586,7 +1627,8 @@ void discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT *cp)
 }
 
 /*
- * do authentication for cp
+ * Do authentication. Assuming the only caller is
+ * *make_persistent_db_connection().
  */
 static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 {
@@ -1597,6 +1639,7 @@ static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 	char state;
 	char *p;
 	int pid, key;
+	bool keydata_done;
 
 	/*
 	 * read kind expecting 'R' packet (authentication response)
@@ -1728,8 +1771,12 @@ static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 	}
 
 	/*
-	 * read pid etc.
+	 * Read backend key data and wait until Ready for query arriving or
+	 * error happens.
 	 */
+
+	keydata_done = false;
+
 	for (;;)
 	{
 		status = pool_read(cp->con, &kind, sizeof(kind));
@@ -1742,6 +1789,7 @@ static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 		switch (kind)
 		{
 			case 'K':	/* backend key data */
+				keydata_done = true;
 				pool_debug("s_do_auth: backend key data received");
 
 				/* read message length */
@@ -1771,21 +1819,9 @@ static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 					return -1;
 				}
 				cp->key = key;
+				break;
 
-				/* read kind expecting 'Z' (ready for query) */
-				status = pool_read(cp->con, &kind, sizeof(kind));
-				if (status < 0)
-				{
-					pool_error("s_do_auth: error while reading kind");
-					return -1;
-				}
-
-				if (kind != 'Z')
-				{
-					pool_error("s_do_auth: expecting Z got %c", kind);
-					return -1;
-				}
-
+			case 'Z':	/* Ready for query */
 				/* read message length */
 				status = pool_read(cp->con, &length, sizeof(length));
 				if (status < 0)
@@ -1805,16 +1841,22 @@ static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 
 				pool_debug("s_do_auth: transaction state: %c", state);
 				cp->con->tstate = state;
+
+				if (!keydata_done)
+				{
+					pool_error("s_do_auth: ready for query arrived before receiving keydata");
+				}
 				return 0;
 				break;
 
 			case 'S':	/* parameter status */
-				pool_debug("s_do_auth: parameter status data received");
-
+			case 'N':	/* notice response */
+			case 'E':	/* error response */
+				/* Just throw away data */
 				status = pool_read(cp->con, &length, sizeof(length));
 				if (status < 0)
 				{
-					pool_error("s_do_auth: error while reading message length");
+					pool_error("s_do_auth: error while reading message length. kind:%c", kind);
 					return -1;
 				}
 
@@ -1827,7 +1869,7 @@ static int s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 				break;
 
 			default:
-				pool_error("s_do_auth: unknown response \"%c\" before processing BackendKeyData",
+				pool_error("s_do_auth: unknown response \"%c\" while processing BackendKeyData",
 						   kind);
 				break;
 		}

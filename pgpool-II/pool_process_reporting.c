@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -186,6 +186,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	strncpy(status[i].name, "enable_pool_hba", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->enable_pool_hba);
 	strncpy(status[i].desc, "if true, use pool_hba.conf for client authentication", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "pool_passwd", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->pool_passwd);
+	strncpy(status[i].desc, "file name of pool_passwd for md5 authentication", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	strncpy(status[i].name, "authentication_timeout", POOLCONFIG_MAXNAMELEN);
@@ -565,6 +570,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	strncpy(status[i].desc, "max time in seconds to wait for the recovering node's postmaster", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	strncpy(status[i].name, "search_primary_node_timeout", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->search_primary_node_timeout);
+	strncpy(status[i].desc, "max time in seconds to search for primary node after failover", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	strncpy(status[i].name, "client_idle_limit_in_recovery", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->client_idle_limit_in_recovery);
 	strncpy(status[i].desc, "if idle for this seconds, child connection closes in recovery 2nd statge", POOLCONFIG_MAXDESCLEN);
@@ -625,6 +635,21 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	strncpy(status[i].desc, "non 0 if operating in use_watchdog", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	strncpy(status[i].name, "wd_lifecheck_method", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_lifecheck_method);
+	strncpy(status[i].desc, "method of watchdog lifecheck", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "clear_memqcache_on_escalation", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->clear_memqcache_on_escalation);
+	strncpy(status[i].desc, "If true, clear all the query caches in shared memory when escalation occurs", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "wd_escalation_command", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_escalation_command);
+	strncpy(status[i].desc, "command executed when escalation occurs", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	strncpy(status[i].name, "trusted_servers", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->trusted_servers);
 	strncpy(status[i].desc, "upper server list to observe connection", POOLCONFIG_MAXDESCLEN);
@@ -633,6 +658,11 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	strncpy(status[i].name, "delegate_IP", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->delegate_IP);
 	strncpy(status[i].desc, "delegate IP address of master pgpool", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "wd_hostname", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_hostname);
+	strncpy(status[i].desc, "Host name or IP address of this watchdog", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	strncpy(status[i].name, "wd_port", POOLCONFIG_MAXNAMELEN);
@@ -675,6 +705,21 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	strncpy(status[i].desc, "send ARP REQUESTi to neighbour host", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	strncpy(status[i].name, "wd_heartbeat_port", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->wd_heartbeat_port);
+	strncpy(status[i].desc, "port number for receiving heartbeat signal", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "wd_heartbeat_keepalive", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->wd_heartbeat_keepalive);
+	strncpy(status[i].desc, "interval time of sending heartbeat siganl (sec)", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "wd_heartbeat_deadtime", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->wd_heartbeat_deadtime);
+	strncpy(status[i].desc, "deadtime interval for heartbeat siganl (sec)", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	strncpy(status[i].name, "wd_life_point", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->wd_life_point);
 	strncpy(status[i].desc, "retry times of life check", POOLCONFIG_MAXDESCLEN);
@@ -683,6 +728,21 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 	strncpy(status[i].name, "wd_lifecheck_query", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_lifecheck_query);
 	strncpy(status[i].desc, "lifecheck query to pgpool from watchdog", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "wd_lifecheck_dbname", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_lifecheck_dbname);
+	strncpy(status[i].desc, "database name connected for lifecheck", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "wd_lifecheck_user", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_lifecheck_user);
+	strncpy(status[i].desc, "watchdog user monitoring pgpools in lifecheck", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	strncpy(status[i].name, "wd_lifecheck_password", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->wd_lifecheck_password);
+	strncpy(status[i].desc, "password for watchdog user in lifecheck", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	/*
@@ -848,6 +908,24 @@ POOL_REPORT_CONFIG* get_config(int *nrows)
 		snprintf(status[i].desc, POOLCONFIG_MAXDESCLEN, "pgpool #%d watchdog port number", j);
 		i++;
 
+	}
+
+	for (j =0; j < pool_config->num_hb_if; j++)
+	{
+		snprintf(status[i].name, POOLCONFIG_MAXNAMELEN, "heartbeat_device%d", j);
+		snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", WD_HB_IF(j).if_name);
+		snprintf(status[i].desc, POOLCONFIG_MAXDESCLEN, "name of NIC device #%d for sending hearbeat", j);
+		i++;
+
+		snprintf(status[i].name, POOLCONFIG_MAXNAMELEN, "heartbeat_destination%d", j);
+		snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", WD_HB_IF(j).addr);
+		snprintf(status[i].desc, POOLCONFIG_MAXDESCLEN, "destination host for sending heartbeat using NIC device %d", j);
+		i++;
+
+		snprintf(status[i].name, POOLCONFIG_MAXNAMELEN, "heartbeat_destination_port%d", j);
+		snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", WD_HB_IF(j).dest_port);
+		snprintf(status[i].desc, POOLCONFIG_MAXDESCLEN, "destination port for sending heartbeat using NIC device %d", j);
+		i++;
 	}
 
 	*nrows = i;
@@ -1087,7 +1165,7 @@ POOL_REPORT_POOLS* get_pools(int *nrows)
 	{
 		proc_id = process_info[child].pid;
 		pi = pool_get_process_info(proc_id);
-    
+
 		for (pool = 0; pool < pool_config->max_pool; pool++)
 		{
 			for (backend_id = 0; backend_id < NUM_BACKENDS; backend_id++)
@@ -1284,7 +1362,7 @@ POOL_REPORT_PROCESSES* get_processes(int *nrows)
     {
 		proc_id = process_info[child].pid;
 	    pi = pool_get_process_info(proc_id);
-    
+
         snprintf(processes[child].pool_pid, POOLCONFIG_MAXCOUNTLEN, "%d", proc_id);
 	    strftime(processes[child].start_time, POOLCONFIG_MAXDATELEN, "%Y-%m-%d %H:%M:%S", localtime(&pi->start_time));
 	    strncpy(processes[child].database, "", POOLCONFIG_MAXIDENTLEN);
@@ -1477,7 +1555,7 @@ void version_reporting(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
  */
 void cache_reporting(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
 {
-	static char *field_names[] = {"num_cache_hits", "num_selects", "cache_hit_ratio", "num_hash_entries", "used_hash_entries", "num_cache_entries", "used_cache_enrties_size", "free_cache_entries_size", "fragment_cache_entries_size"};
+	static char *field_names[] = {"num_cache_hits", "num_selects", "cache_hit_ratio", "num_hash_entries", "used_hash_entries", "num_cache_entries", "used_cache_entries_size", "free_cache_entries_size", "fragment_cache_entries_size"};
 	short num_fields = sizeof(field_names)/sizeof(char *);
 	int i;
 	short s;

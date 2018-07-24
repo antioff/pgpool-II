@@ -3,10 +3,10 @@
  *
  * Handles watchdog connection, and protocol communication with pgpool-II
  *
- * pgpool: a language independent connection pool server for PostgreSQL 
+ * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -33,6 +33,7 @@
 #include <sys/un.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -43,6 +44,7 @@
 #include "pool_config.h"
 #include "watchdog.h"
 #include "wd_ext.h"
+#include "pool_memqcache.h"
 
 typedef enum {
 	WD_SEND_TO_MASTER = 0,
@@ -54,6 +56,8 @@ int wd_startup(void);
 int wd_declare(void);
 int wd_stand_for_master(void);
 int wd_notice_server_down(void);
+int wd_update_info(void);
+int wd_authentication_failed(int sock);
 int wd_create_send_socket(char * hostname, int port);
 int wd_create_recv_socket(int port);
 int wd_accept(int sock);
@@ -66,16 +70,24 @@ int wd_send_failback_request(int node_id);
 int wd_degenerate_backend_set(int *node_id_set, int count);
 int wd_promote_backend(int node_id);
 int wd_set_node_mask (WD_PACKET_NO packet_no, int *node_id_set, int count);
+int wd_send_packet_no(WD_PACKET_NO packet_no );
+int wd_send_lock_packet(WD_PACKET_NO packet_no, WD_LOCK_ID lock_id);
 
-static int wd_send_packet_no(WD_PACKET_NO packet_no );
-static void * wd_negotiation(void * arg);
+static int wd_send_node_packet(WD_PACKET_NO packet_no, int *node_id_set, int count);
+static int wd_chk_node_mask (WD_PACKET_NO packet_no, int *node_id_set, int count);
+
+void wd_calc_hash(const char *str, int len, char *buf);
+int wd_packet_to_string(WdPacket pkt, char *str, int maxlen);
+
+static void * wd_thread_negotiation(void * arg);
+static int send_packet_for_all(WdPacket *packet);
 static int send_packet_4_nodes(WdPacket *packet, WD_SEND_TYPE type);
 static int hton_wd_packet(WdPacket * to, WdPacket * from);
 static int ntoh_wd_packet(WdPacket * to, WdPacket * from);
 static int hton_wd_node_packet(WdPacket * to, WdPacket * from);
 static int ntoh_wd_node_packet(WdPacket * to, WdPacket * from);
-static int wd_send_node_packet(WD_PACKET_NO packet_no, int *node_id_set, int count);
-static int wd_chk_node_mask (WD_PACKET_NO packet_no, int *node_id_set, int count);
+static int hton_wd_lock_packet(WdPacket * to, WdPacket * from);
+static int ntoh_wd_lock_packet(WdPacket * to, WdPacket * from);
 
 int
 wd_startup(void)
@@ -105,7 +117,7 @@ wd_stand_for_master(void)
 	int rtn;
 
 	/* send stand for master packet */
-	pool_debug("wd_declare: send the packet to be the new master");
+	pool_debug("wd_stand_for_master: send the packet to be the new master");
 	rtn = wd_send_packet_no(WD_STAND_FOR_MASTER);
 	return rtn;
 }
@@ -121,22 +133,48 @@ wd_notice_server_down(void)
 	return rtn;
 }
 
-static int
-wd_send_packet_no(WD_PACKET_NO packet_no )
+int
+wd_update_info(void)
 {
 	int rtn;
+
+	/* send info request packet */
+	rtn = wd_send_packet_no(WD_INFO_REQ);
+	return rtn;
+}
+
+/* send authentication failed packet */
+int
+wd_authentication_failed(int sock)
+{
+	int rtn;
+	WdPacket send_packet;
+
+	memset(&send_packet, 0, sizeof(WdPacket));
+
+	send_packet.packet_no = WD_AUTH_FAILED;
+	memcpy(&(send_packet.wd_body.wd_info), WD_MYSELF, sizeof(WdInfo));
+
+	rtn = wd_send_packet(sock, &send_packet);
+
+	return rtn;
+}
+
+int
+wd_send_packet_no(WD_PACKET_NO packet_no )
+{
+	int rtn = WD_OK;
 	WdPacket packet;
 
 	memset(&packet, 0, sizeof(WdPacket));
-	/* set add request packet */
+
+	/* set packet no and self information */
 	packet.packet_no = packet_no;
-	memcpy(&(packet.wd_body.wd_info),WD_List,sizeof(WdInfo));
-	/* send packet to all watchdogs */	
-	rtn = send_packet_4_nodes(&packet, WD_SEND_TO_MASTER );
-	if (rtn == WD_OK)
-	{
-		rtn = send_packet_4_nodes(&packet, WD_SEND_WITHOUT_MASTER);
-	}
+	memcpy(&(packet.wd_body.wd_info), WD_MYSELF, sizeof(WdInfo));
+
+	/* send packet for all watchdogs */
+	rtn = send_packet_for_all(&packet);
+
 	return rtn;
 }
 
@@ -153,16 +191,19 @@ wd_create_send_socket(char * hostname, int port)
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
 		/* socket create failed */
+		pool_error("wd_create_send_socket: Failed to create socket. reason: %s", strerror(errno));
 		return -1;
 	}
 
 	/* set socket option */
 	if ( setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one)) == -1 )
 	{
+		pool_error("wd_create_send_socket: setsockopt(TCP_NODELAY) failed. reason: %s", strerror(errno));
 		return -1;
 	}
 	if ( setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *) &one, sizeof(one)) == -1 )
 	{
+		pool_error("wd_create_send_socket: setsockopt(SO_KEEPALIVE) failed. reason: %s", strerror(errno));
 		return -1;
 	}
 
@@ -187,54 +228,11 @@ wd_create_send_socket(char * hostname, int port)
 	/* try to connect */
 	for (;;)
 	{
-		fd_set wmask;
-		fd_set emask;
-		struct timeval timeout;
-		int sockErrVal = 0;
-		int rtn;
-		socklen_t sockErrValLen = sizeof(int);
-
-		timeout.tv_sec = WD_SEND_TIMEOUT;
-		timeout.tv_usec = 0;
-
-		FD_ZERO(&wmask);
-		FD_ZERO(&emask);
-		FD_SET(sock,&wmask);
-		FD_SET(sock,&emask);
-
-		rtn = select(sock+1, NULL, &wmask, &emask, &timeout );
-		if ( rtn < 0 )
+		if (connect(sock,(struct sockaddr*)&addr, len) < 0)
 		{
-			if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
-			{
+			if (errno == EINTR)
 				continue;
-			}
-			/* connection failed */
-			break;
-		}
-		else if ( rtn == 0 )
-		{
-			/* timeout */
-			break;
-		}
-		else if ( FD_ISSET(sock, &emask) )
-		{
-			/* socket exception occured */
-			break;
-		}
-
-		if ( getsockopt(sock, SOL_SOCKET, SO_ERROR, (void*)&sockErrVal, &sockErrValLen) == 0 && sockErrVal != 0 )
-		{
-			/* error occured on this socket while connecting to target */
-			break;
-		}
-
-		rtn = connect(sock,(struct sockaddr*)&addr, len);
-		if ( rtn < 0 )
-		{
-			if ( errno == EINPROGRESS || errno == EALREADY || errno == EWOULDBLOCK || errno == EINTR || errno == 0 )
-				continue;
-			else if ( errno == EISCONN )
+			else if (errno == EISCONN)
 			{
 				return sock;
 			}
@@ -259,29 +257,34 @@ wd_create_recv_socket(int port)
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
 		/* socket create failed */
+		pool_error("wd_create_recv_socket: Failed to create socket. reason: %s", strerror(errno));
 		return -1;
     }
     if ( fcntl(sock, F_SETFL, O_NONBLOCK) == -1)
     {
 		/* failed to set nonblock */
+		pool_error("wd_create_recv_socket: Failed to set nonblock. reason: %s", strerror(errno));
 		close(sock);
         return -1;
     }
     if ( setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof(one)) == -1 )
     {
 		/* setsockopt(SO_REUSEADDR) failed */
+		pool_error("wd_create_recv_socket: setspockopt(SO_REUSEADDR) failed. reason: %s", strerror(errno));
 		close(sock);
         return -1;
     }
     if ( setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one)) == -1 )
     {
         /* setsockopt(TCP_NODELAY) failed */
+		pool_error("wd_create_recv_socket: setsockopt(TCP_NODELAY) failed. reason: %s", strerror(errno));
 		close(sock);
         return -1;
     }
     if ( setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *) &one, sizeof(one)) == -1 )
     {
         /* setsockopt(SO_KEEPALIVE) failed */
+		pool_error("wd_create_recv_socket: setsockopt(SO_KEEPALIVE) failed. reason: %s", strerror(errno));
 		close(sock);
         return -1;
     }
@@ -294,6 +297,13 @@ wd_create_recv_socket(int port)
     if ( bind(sock, (struct sockaddr *) & addr, len) < 0 )
     {
 		/* bind failed */
+		char *host = "", *serv = "";
+		char hostname[NI_MAXHOST], servname[NI_MAXSERV];
+		if (getnameinfo((struct sockaddr *) &addr, len, hostname, sizeof(hostname), servname, sizeof(servname), 0) == 0) {
+			host = hostname;
+			serv = servname;
+		}
+		pool_error("wd_create_recv_socket: bind(%s:%s) failed. reason: %s", host, serv, strerror(errno));
 		close(sock);
         return -1;
     }
@@ -301,6 +311,7 @@ wd_create_recv_socket(int port)
     if ( listen(sock, MAX_WATCHDOG_NUM * 2) < 0 )
     {
 		/* listen failed */
+		pool_error("wd_create_recv_socket: listen() failed. reason: %s", strerror(errno));
 		close(sock);
         return -1;
     }
@@ -342,7 +353,7 @@ wd_accept(int sock)
 		}
 		else if ( FD_ISSET(sock, &emask) )
 		{
-			/* socket exception occured */
+			/* socket exception occurred */
 			break;
 		}
 		else if ( FD_ISSET(sock, &rmask) )
@@ -383,10 +394,16 @@ wd_send_packet(int sock, WdPacket * snd_pack)
 	{
 		hton_wd_packet((WdPacket *)&buf,snd_pack);
 	}
-	else
+	else if ((snd_pack->packet_no >= WD_START_RECOVERY) &&
+	         (snd_pack->packet_no <= WD_NODE_FAILED))
 	{
 		hton_wd_node_packet((WdPacket *)&buf,snd_pack);
 	}
+	else
+	{
+		hton_wd_lock_packet((WdPacket *)&buf,snd_pack);
+	}
+
 	send_ptr = (char*)&buf;
 	buf_size = sizeof(WdPacket);
 
@@ -398,7 +415,7 @@ wd_send_packet(int sock, WdPacket * snd_pack)
 		FD_ZERO(&wmask);
 		FD_SET(sock,&wmask);
 		rtn = select(sock+1, (fd_set *)NULL, &wmask, (fd_set *)NULL, &timeout);
-	  
+
 		if (rtn < 0 )
 		{
 			if (errno == EAGAIN || errno == EINTR)
@@ -409,7 +426,7 @@ wd_send_packet(int sock, WdPacket * snd_pack)
 		}
 		else if (rtn & FD_ISSET(sock, &wmask))
 		{
-			s = send(sock,send_ptr + send_size,buf_size - send_size ,flag); 
+			s = send(sock,send_ptr + send_size,buf_size - send_size ,flag);
 			if (s < 0)
 			{
 				if (errno == EINTR || errno == EAGAIN)
@@ -450,13 +467,14 @@ wd_recv_packet(int sock, WdPacket * recv_pack)
 	memset(&buf,0,sizeof(WdPacket));
 	for (;;)
 	{
-		r = recv(sock,read_ptr + read_size ,len - read_size, 0); 
+		r = recv(sock,read_ptr + read_size ,len - read_size, 0);
 		if (r < 0)
 		{
 			if (errno == EINTR || errno == EAGAIN)
 				continue;
 			else
 			{
+				pool_error("wd_recv_packet: recv failed");
 				return WD_NG;
 			}
 		}
@@ -465,16 +483,22 @@ wd_recv_packet(int sock, WdPacket * recv_pack)
 			read_size += r;
 			if (read_size == len)
 			{
-				
+
 				if ((ntohl(buf.packet_no) >= WD_INVALID) &&
 					(ntohl(buf.packet_no) <= WD_READY ))
 				{
 					ntoh_wd_packet(recv_pack,&buf);
 				}
-				else
+				else if (ntohl((buf.packet_no) >= WD_START_RECOVERY) &&
+	         			(ntohl(buf.packet_no) <= WD_NODE_FAILED))
 				{
 					ntoh_wd_node_packet(recv_pack,&buf);
 				}
+				else
+				{
+					ntoh_wd_lock_packet(recv_pack,&buf);
+				}
+
 				return WD_OK;
 			}
 		}
@@ -487,16 +511,27 @@ wd_recv_packet(int sock, WdPacket * recv_pack)
 }
 
 static void *
-wd_negotiation(void * arg)
+wd_thread_negotiation(void * arg)
 {
 	WdPacketThreadArg * thread_arg;
 	int sock;
 	uintptr_t rtn;
 	WdPacket recv_packet;
 	WdInfo * p;
+	char pack_str[WD_MAX_PACKET_STRING];
+	int pack_str_len;
 
 	thread_arg = (WdPacketThreadArg *)arg;
 	sock = thread_arg->sock;
+
+	gettimeofday(&(thread_arg->packet->send_time), NULL);
+
+	if (strlen(pool_config->wd_authkey))
+	{
+		/* calculate hash from packet */
+		pack_str_len = wd_packet_to_string(*(thread_arg->packet), pack_str, sizeof(pack_str));
+		wd_calc_hash(pack_str, pack_str_len, thread_arg->packet->hash);
+	}
 
 	/* packet send to target watchdog */
 	rtn = (uintptr_t)wd_send_packet(sock, thread_arg->packet);
@@ -515,6 +550,7 @@ wd_negotiation(void * arg)
 		pthread_exit((void *)rtn);
 	}
 	rtn = WD_OK;
+
 	switch (thread_arg->packet->packet_no)
 	{
 		case WD_ADD_REQ:
@@ -535,7 +571,16 @@ wd_negotiation(void * arg)
 				rtn = WD_NG;
 			}
 			break;
+		case WD_STAND_FOR_LOCK_HOLDER:
+		case WD_DECLARE_LOCK_HOLDER:
+			if (recv_packet.packet_no == WD_LOCK_HOLDER_EXIST)
+			{
+				rtn = WD_NG;
+			}
+			break;
 		case WD_DECLARE_NEW_MASTER:
+		case WD_RESIGN_LOCK_HOLDER:
+
 			if (recv_packet.packet_no != WD_READY)
 			{
 				rtn = WD_NG;
@@ -545,13 +590,38 @@ wd_negotiation(void * arg)
 		case WD_FAILBACK_REQUEST:
 		case WD_DEGENERATE_BACKEND:
 		case WD_PROMOTE_BACKEND:
-			rtn = (recv_packet.packet_no == WD_NODE_FAILED)?WD_NG:WD_OK;
+			rtn = (recv_packet.packet_no == WD_NODE_FAILED) ? WD_NG : WD_OK;
+			break;
+		case WD_UNLOCK_REQUEST:
+			rtn = (recv_packet.packet_no == WD_LOCK_FAILED) ? WD_NG : WD_OK;
+			break;
+		case WD_AUTH_FAILED:
+			pool_log("wd_thread_negotiation: watchdog authentication failed");
+			rtn = WD_NG;
 			break;
 		default:
 			break;
 	}
 	close(sock);
 	pthread_exit((void *)rtn);
+}
+
+static int
+send_packet_for_all(WdPacket *packet)
+{
+	int rtn = WD_OK;
+
+	/* send packet to master watchdog */
+	if (WD_MYSELF->status != WD_MASTER)
+		rtn = send_packet_4_nodes(packet, WD_SEND_TO_MASTER );
+
+	/* send packet to other watchdogs */
+	if (rtn == WD_OK)
+	{
+		rtn = send_packet_4_nodes(packet, WD_SEND_WITHOUT_MASTER);
+	}
+
+	return rtn;
 }
 
 static int
@@ -570,24 +640,28 @@ send_packet_4_nodes(WdPacket *packet, WD_SEND_TYPE type)
 	{
 		return WD_NG;
 	}
-	if ((type == WD_SEND_TO_MASTER) && (p->status == WD_MASTER))
-	{
-		return WD_OK;
-	}
 
 	/* thread init */
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-	/* send packet to all watchdogs */
+
+	/* skip myself */
 	p++;
+	WD_MYSELF->is_contactable = true;
+
+	/* send packet to other watchdogs */
 	cnt = 0;
 	while (p->status != WD_END)
 	{
-		if (p->status == WD_DOWN)
+		/* don't send packet to pgpool in down */
+		if (p->status == WD_DOWN || 
+		    (packet->packet_no != WD_ADD_REQ && p->status == WD_INIT))
 		{
+			p->is_contactable = false;
 			p++;
 			continue;
 		}
+
 		if (type == WD_SEND_TO_MASTER )
 		{
 			if (p->status != WD_MASTER)
@@ -604,26 +678,41 @@ send_packet_4_nodes(WdPacket *packet, WD_SEND_TYPE type)
 				continue;
 			}
 		}
+
 		sock = wd_create_send_socket(p->hostname, p->wd_port);
 		if (sock == -1)
 		{
+			pool_log("send_packet_4_nodes: packet for %s:%d is canceled", p->hostname, p->wd_port);
+			p->is_contactable = false;
 			p++;
 			continue;
 		}
+		else
+		{
+			p->is_contactable = true;
+		}
+
 		thread_arg[cnt].sock = sock;
 		thread_arg[cnt].target = p;
 		thread_arg[cnt].packet = packet;
-		rc = pthread_create(&thread[cnt], &attr, wd_negotiation, (void*)&thread_arg[cnt]);
+		rc = pthread_create(&thread[cnt], &attr, wd_thread_negotiation, (void*)&thread_arg[cnt]);
+
 		cnt ++;
 		p++;
 	}
 
 	pthread_attr_destroy(&attr);
+
+	/* no packet is sent */
 	if (cnt == 0)
 	{
 		return WD_OK;
 	}
+
+	/* default return value */
 	if ((packet->packet_no == WD_STAND_FOR_MASTER) ||
+		(packet->packet_no == WD_STAND_FOR_LOCK_HOLDER) ||
+		(packet->packet_no == WD_DECLARE_LOCK_HOLDER) ||
 		(packet->packet_no == WD_START_RECOVERY))
 	{
 		rtn = WD_OK;
@@ -632,6 +721,8 @@ send_packet_4_nodes(WdPacket *packet, WD_SEND_TYPE type)
 	{
 		rtn = WD_NG;
 	}
+
+	/* receive the results */
 	for (i=0; i<cnt; )
 	{
 		int result;
@@ -641,22 +732,28 @@ send_packet_4_nodes(WdPacket *packet, WD_SEND_TYPE type)
 			usleep(100);
 			continue;
 		}
+
+		/*  aggregate results according to the packet type */
 		if ((packet->packet_no == WD_STAND_FOR_MASTER) ||
+			(packet->packet_no == WD_STAND_FOR_LOCK_HOLDER) ||
+			(packet->packet_no == WD_DECLARE_LOCK_HOLDER) ||
 			(packet->packet_no == WD_START_RECOVERY))
 		{
+			/* if any result is NG then return NG */
 			if (result == WD_NG)
 			{
 				rtn = WD_NG;
 			}
 		}
+
 		else
 		{
+			/* if any result is OK then return OK */
 			if (result == WD_OK)
 			{
 				rtn = WD_OK;
 			}
 		}
-		pthread_detach(thread[i]);
 		i++;
 	}
 
@@ -668,20 +765,30 @@ hton_wd_packet(WdPacket * to, WdPacket * from)
 {
 	WdInfo * to_info = NULL;
 	WdInfo * from_info = NULL;
+
 	if ((to == NULL) || (from == NULL))
 	{
 		return WD_NG;
 	}
+
 	to_info = &(to->wd_body.wd_info);
 	from_info = &(from->wd_body.wd_info);
+
 	to->packet_no = htonl(from->packet_no);
+	to->send_time.tv_sec = htonl(from->send_time.tv_sec);
+	to->send_time.tv_usec = htonl(from->send_time.tv_usec);
+
+	memcpy(to->hash, from->hash, sizeof(to->hash));
+
 	to_info->status = htonl(from_info->status);
 	to_info->tv.tv_sec = htonl(from_info->tv.tv_sec);
 	to_info->tv.tv_usec = htonl(from_info->tv.tv_usec);
 	to_info->pgpool_port = htonl(from_info->pgpool_port);
 	to_info->wd_port = htonl(from_info->wd_port);
-	memcpy(to_info->hostname,from_info->hostname,sizeof(to_info->hostname));
-	memcpy(to_info->delegate_ip,from_info->delegate_ip,sizeof(to_info->delegate_ip));
+
+	memcpy(to_info->hostname, from_info->hostname, sizeof(to_info->hostname));
+	memcpy(to_info->delegate_ip, from_info->delegate_ip, sizeof(to_info->delegate_ip));
+
 	return WD_OK;
 }
 
@@ -690,20 +797,30 @@ ntoh_wd_packet(WdPacket * to, WdPacket * from)
 {
 	WdInfo * to_info = NULL;
 	WdInfo * from_info = NULL;
+
 	if ((to == NULL) || (from == NULL))
 	{
 		return WD_NG;
 	}
+
 	to_info = &(to->wd_body.wd_info);
 	from_info = &(from->wd_body.wd_info);
+
 	to->packet_no = ntohl(from->packet_no);
+	to->send_time.tv_sec = ntohl(from->send_time.tv_sec);
+	to->send_time.tv_usec = ntohl(from->send_time.tv_usec);
+
+	memcpy(to->hash, from->hash, sizeof(to->hash));
+
 	to_info->status = ntohl(from_info->status);
 	to_info->tv.tv_sec = ntohl(from_info->tv.tv_sec);
 	to_info->tv.tv_usec = ntohl(from_info->tv.tv_usec);
 	to_info->pgpool_port = ntohl(from_info->pgpool_port);
 	to_info->wd_port = ntohl(from_info->wd_port);
-	memcpy(to_info->hostname,from_info->hostname,sizeof(to_info->hostname));
-	memcpy(to_info->delegate_ip,from_info->delegate_ip,sizeof(to_info->delegate_ip));
+
+	memcpy(to_info->hostname, from_info->hostname, sizeof(to_info->hostname));
+	memcpy(to_info->delegate_ip, from_info->delegate_ip, sizeof(to_info->delegate_ip));
+
 	return WD_OK;
 }
 
@@ -713,40 +830,109 @@ hton_wd_node_packet(WdPacket * to, WdPacket * from)
 	WdNodeInfo * to_info = NULL;
 	WdNodeInfo * from_info = NULL;
 	int i;
+
 	if ((to == NULL) || (from == NULL))
 	{
 		return WD_NG;
 	}
+
 	to_info = &(to->wd_body.wd_node_info);
 	from_info = &(from->wd_body.wd_node_info);
+
 	to->packet_no = htonl(from->packet_no);
+	to->send_time.tv_sec = htonl(from->send_time.tv_sec);
+	to->send_time.tv_usec = htonl(from->send_time.tv_usec);
+
+	memcpy(to->hash, from->hash, sizeof(to->hash));
+
+	to_info->node_num = htonl(from_info->node_num);
+
 	for (i = 0 ; i < from_info->node_num ; i ++)
 	{
 		to_info->node_id_set[i] = htonl(from_info->node_id_set[i]);
 	}
-	to_info->node_num = htonl(from_info->node_num);
+
 	return WD_OK;
 }
 
 static int
 ntoh_wd_node_packet(WdPacket * to, WdPacket * from)
 {
-
 	WdNodeInfo * to_info = NULL;
 	WdNodeInfo * from_info = NULL;
 	int i;
+
 	if ((to == NULL) || (from == NULL))
 	{
 		return WD_NG;
 	}
+
 	to_info = &(to->wd_body.wd_node_info);
 	from_info = &(from->wd_body.wd_node_info);
-	to->packet_no = htonl(from->packet_no);
+
+	to->packet_no = ntohl(from->packet_no);
+	to->send_time.tv_sec = ntohl(from->send_time.tv_sec);
+	to->send_time.tv_usec = ntohl(from->send_time.tv_usec);
+
+	memcpy(to->hash, from->hash, sizeof(to->hash));
+
 	to_info->node_num = ntohl(from_info->node_num);
+
 	for (i = 0 ; i < to_info->node_num ; i ++)
 	{
 		to_info->node_id_set[i] = ntohl(from_info->node_id_set[i]);
 	}
+
+	return WD_OK;
+}
+
+static int
+hton_wd_lock_packet(WdPacket * to, WdPacket * from)
+{
+	WdLockInfo * to_info = NULL;
+	WdLockInfo * from_info = NULL;
+
+	if ((to == NULL) || (from == NULL))
+	{
+		return WD_NG;
+	}
+
+	to_info = &(to->wd_body.wd_lock_info);
+	from_info = &(from->wd_body.wd_lock_info);
+
+	to->packet_no = htonl(from->packet_no);
+	to->send_time.tv_sec = htonl(from->send_time.tv_sec);
+	to->send_time.tv_usec = htonl(from->send_time.tv_usec);
+
+	memcpy(to->hash, from->hash, sizeof(to->hash));
+
+	to_info->lock_id = htonl(from_info->lock_id);
+
+	return WD_OK;
+}
+
+static int
+ntoh_wd_lock_packet(WdPacket * to, WdPacket * from)
+{
+	WdLockInfo * to_info = NULL;
+	WdLockInfo * from_info = NULL;
+
+	if ((to == NULL) || (from == NULL))
+	{
+		return WD_NG;
+	}
+
+	to_info = &(to->wd_body.wd_lock_info);
+	from_info = &(from->wd_body.wd_lock_info);
+
+	to->packet_no = ntohl(from->packet_no);
+	to->send_time.tv_sec = ntohl(from->send_time.tv_sec);
+	to->send_time.tv_usec = ntohl(from->send_time.tv_usec);
+
+	memcpy(to->hash, from->hash, sizeof(to->hash));
+
+	to_info->lock_id = ntohl(from_info->lock_id);
+
 	return WD_OK;
 }
 
@@ -755,18 +941,36 @@ wd_escalation(void)
 {
 	int rtn;
 
-	pool_log("wd_escalation: escalated to master pgpool");
+	pool_log("wd_escalation: escalatting to master pgpool");
+
+	/* clear shared memory cache */
+	if (pool_config->memory_cache_enabled && pool_is_shmem_cache() &&
+	    pool_config->clear_memqcache_on_escalation)
+	{
+		pool_log("wd_escalation: clear all the query cache on shared memory");
+		pool_clear_memory_cache();
+	}
+
+	/* execute escalation command */
+	if (strlen(pool_config->wd_escalation_command))
+	{
+		system(pool_config->wd_escalation_command);
+	}
 
 	/* interface up as delegate IP */
-	wd_IP_up();
+	if (strlen(pool_config->delegate_IP) != 0)
+		wd_IP_up();
+
 	/* set master status to the wd list */
-	wd_set_wd_list(pool_config->wd_hostname, pool_config->port, pool_config->wd_port, pool_config->delegate_IP, NULL, WD_MASTER);
+	wd_set_wd_list(pool_config->wd_hostname, pool_config->port,
+	               pool_config->wd_port, pool_config->delegate_IP,
+	               NULL, WD_MASTER);
 
 	/* send declare packet */
 	rtn = wd_declare();
 	if (rtn == WD_OK)
 	{
-		pool_log("wd_escalation:  escaleted to delegate_IP holder");
+		pool_log("wd_escalation: escalated to master pgpool successfully");
 	}
 
 	return rtn;
@@ -798,6 +1002,7 @@ wd_send_failback_request(int node_id)
 	int rtn = 0;
 	int n = node_id;
 
+	/* if failback packet is received already, do nothing */
 	if (wd_chk_node_mask(WD_FAILBACK_REQUEST,&n,1))
 	{
 		return WD_OK;
@@ -813,10 +1018,12 @@ wd_degenerate_backend_set(int *node_id_set, int count)
 {
 	int rtn = 0;
 
+	/* if degenerate packet is received already, do nothing */
 	if (wd_chk_node_mask(WD_DEGENERATE_BACKEND,node_id_set,count))
 	{
 		return WD_OK;
 	}
+
 	/* send degenerate packet */
 	rtn = wd_send_node_packet(WD_DEGENERATE_BACKEND, node_id_set, count);
 	return rtn;
@@ -828,10 +1035,12 @@ wd_promote_backend(int node_id)
 	int rtn = 0;
 	int n = node_id;
 
+	/* if promote packet is received already, do nothing */
 	if (wd_chk_node_mask(WD_PROMOTE_BACKEND,&n,1))
 	{
 		return WD_OK;
 	}
+
 	/* send promote packet */
 	rtn = wd_send_node_packet(WD_PROMOTE_BACKEND, &n, 1);
 	return rtn;
@@ -849,16 +1058,31 @@ wd_send_node_packet(WD_PACKET_NO packet_no, int *node_id_set, int count)
 	memcpy(packet.wd_body.wd_node_info.node_id_set,node_id_set,sizeof(int)*count);
 	packet.wd_body.wd_node_info.node_num = count;
 
-	/* send packet to all watchdogs */	
-	rtn = send_packet_4_nodes(&packet, WD_SEND_TO_MASTER );
-	if (rtn == WD_OK)
-	{
-		rtn = send_packet_4_nodes(&packet, WD_SEND_WITHOUT_MASTER);
-	}
+	/* send packet to all watchdogs */
+	rtn = send_packet_for_all(&packet);
+
 	return rtn;
 }
 
+int
+wd_send_lock_packet(WD_PACKET_NO packet_no,  WD_LOCK_ID lock_id)
+{
+	int rtn = 0;
+	WdPacket packet;
 
+	memset(&packet, 0, sizeof(WdPacket));
+
+	/* set add request packet */
+	packet.packet_no = packet_no;
+	packet.wd_body.wd_lock_info.lock_id= lock_id;
+
+	/* send packet to all watchdogs */
+	rtn = send_packet_for_all(&packet);
+
+	return rtn;
+}
+
+/* check mask, and if maskted return 1 and clear it, otherwise return 0 */
 static int
 wd_chk_node_mask (WD_PACKET_NO packet_no, int *node_id_set, int count)
 {
@@ -879,6 +1103,7 @@ wd_chk_node_mask (WD_PACKET_NO packet_no, int *node_id_set, int count)
 	return rtn;
 }
 
+/* set mask */
 int
 wd_set_node_mask (WD_PACKET_NO packet_no, int *node_id_set, int count)
 {
@@ -893,4 +1118,41 @@ wd_set_node_mask (WD_PACKET_NO packet_no, int *node_id_set, int count)
 		*(WD_Node_List + offset) |= mask;
 	}
 	return rtn;
+}
+
+/* calculate hash for authentication using packet contents */
+void
+wd_calc_hash(const char *str, int len, char *buf)
+{
+	char pass[(MAX_PASSWORD_SIZE + 1) / 2];
+	char username[(MAX_PASSWORD_SIZE + 1) / 2];
+	size_t pass_len;
+	size_t username_len;
+	size_t authkey_len;
+
+	/* use first half of authkey as username, last half as password */
+	authkey_len = strlen(pool_config->wd_authkey);
+
+	username_len = authkey_len / 2;
+	pass_len = authkey_len - username_len;
+	snprintf(username, username_len + 1, pool_config->wd_authkey);
+	snprintf(pass, pass_len + 1, pool_config->wd_authkey + username_len);
+
+	/* calculate hash using md5 encrypt */
+	pool_md5_encrypt(pass, username, strlen(username), buf + MD5_PASSWD_LEN + 1);
+	buf[(MD5_PASSWD_LEN+1)*2-1] = '\0';
+
+	pool_md5_encrypt(buf+MD5_PASSWD_LEN+1, str, len, buf);
+	buf[MD5_PASSWD_LEN] = '\0';
+}
+
+int
+wd_packet_to_string(WdPacket pkt, char *str, int maxlen)
+{
+	int len;
+
+	len = snprintf(str, maxlen, "no=%d tv_sec=%ld tv_usec=%ld",
+	               pkt.packet_no, pkt.send_time.tv_sec, pkt.send_time.tv_usec);
+
+	return len;
 }

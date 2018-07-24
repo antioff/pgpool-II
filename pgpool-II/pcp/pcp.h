@@ -25,6 +25,7 @@
 #define PCP_H
 
 #include "pool_type.h"
+#include "watchdog/watchdog.h"
 
 #define MAX_USER_PASSWD_LEN    128
 
@@ -41,7 +42,7 @@ typedef enum {
 	SOCKERR,			/* thrown by socket() or setsockopt() */
 	HOSTERR,			/* thrown by gethostbyname() */
 	BACKENDERR,			/* server dependent error */
-	AUTHERR				/* authorization faiure */
+	AUTHERR				/* authorization failure */
 } ErrorCode;
 
 /* --------------------------------

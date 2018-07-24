@@ -3,10 +3,10 @@
  *
  * $Header$
  *
- * pgpool: a language independent connection pool server for PostgreSQL 
+ * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -139,7 +139,7 @@ int pool_init_config(void)
 		pool_error("failed to allocate pool_config->cwother_wd");
 		return -1;
 	}
-	memset(pool_config->other_wd,0,sizeof(WdDesc));
+	memset(pool_config->other_wd, 0, sizeof(WdDesc));
 
 	/* set hardcoded default values */
 	pool_config->listen_addresses = "localhost";
@@ -215,6 +215,7 @@ int pool_init_config(void)
     pool_config->recovery_1st_stage_command = "";
     pool_config->recovery_2nd_stage_command = "";
 	pool_config->recovery_timeout = 90;
+	pool_config->search_primary_node_timeout = 10;
 	pool_config->client_idle_limit_in_recovery = 0;
 	pool_config->lobj_lock_table = "";
 	pool_config->ssl = 0;
@@ -233,17 +234,21 @@ int pool_init_config(void)
 	 * add for watchdog
 	 */
 	pool_config->use_watchdog = 0;
-	pool_config->trusted_servers = NULL;
-	pool_config->delegate_IP = NULL;
+	pool_config->wd_lifecheck_method = MODE_HEARTBEAT;
+	pool_config->clear_memqcache_on_escalation = 1;	
+    pool_config->wd_escalation_command = "";
+	pool_config->trusted_servers = "";
+	pool_config->delegate_IP = "";
 	res = gethostname(localhostname,sizeof(localhostname));
 	if(res !=0 )
 	{
-		pool_debug("faild to get this hostname");
+		pool_debug("failed to get this hostname");
 	}
 	pool_config->wd_hostname = localhostname;
 	pool_config->wd_port = 9000;
 	pool_config->other_wd->num_wd = 0;
 	pool_config->wd_interval = 10;
+	pool_config->wd_authkey = "";
 	pool_config->ping_path = "/bin";
 	pool_config->ifconfig_path = "/sbin";
 	pool_config->if_up_cmd = "ifconfig eth0:0 inet $_IP_$ netmask 255.255.255.0";
@@ -252,7 +257,13 @@ int pool_init_config(void)
 	pool_config->arping_cmd = "arping -U $_IP_$ -w 1";
 	pool_config->wd_life_point = 3;
 	pool_config->wd_lifecheck_query = "SELECT 1";
-
+	pool_config->wd_lifecheck_dbname = "template1";
+	pool_config->wd_lifecheck_user = "nobody";
+	pool_config->wd_lifecheck_password = "";
+	pool_config->wd_heartbeat_port = 9694;
+	pool_config->wd_heartbeat_keepalive = 2;
+	pool_config->wd_heartbeat_deadtime = 30;
+	pool_config->num_hb_if = 0;
 
     pool_config->memory_cache_enabled = 0;
     pool_config->memqcache_method = "shmem";
@@ -276,7 +287,7 @@ int pool_init_config(void)
 	res = gethostname(localhostname,sizeof(localhostname));
 	if(res !=0 )
 	{
-		pool_debug("faild to get this hostname");
+		pool_debug("failed to get this hostname");
 	}
 	pool_config->pgpool2_hostname = localhostname;
 
@@ -287,7 +298,7 @@ int pool_init_config(void)
 	return 0;
 }
 
-/* 
+/*
  * Add regex expression to patterns array
  * The supported type are: black_function_list and white_function_list
  * Return 0 on error, 1 on success
@@ -363,7 +374,7 @@ int add_regex_pattern(char *type, char *s)
 	return 1;
 }
 
-/* 
+/*
  * Dynamically grow the regex pattern array
  * The array start with PATTERN_ARR_SIZE storage place, if required
  * it will grow of PATTERN_ARR_SIZE more each time.
@@ -444,7 +455,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		token = yylex();
 		if (token == 0)
 		{
-			break; 	 
+			break;
 		}
 		if (token == POOL_PARSE_ERROR)
 		{
@@ -1433,6 +1444,20 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			pool_config->recovery_timeout = v;
 		}
 
+		else if (!strcmp(key, "search_primary_node_timeout") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v < 0)
+			{
+				pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->search_primary_node_timeout = v;
+		}
+
 		else if (!strcmp(key, "client_idle_limit_in_recovery") &&
 				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
 		{
@@ -1850,17 +1875,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->log_per_node_statement = v;
 		}
-       	else if (!strcmp(key, "log_statement") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
-		{
-			int v = eval_logical(yytext);
-
-			if (v < 0)
-			{
-				pool_error("pool_config: invalid value %s for %s", yytext, key);
-				return(-1);
-			}
-			pool_config->log_statement = v;
-		}
 
 		else if (!strcmp(key, "lobj_lock_table") && CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
 		{
@@ -1944,7 +1958,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			{
 				WD_INFO(slot).wd_port = atoi(yytext);
 				WD_INFO(slot).status = WD_INIT;
-				pool_config->other_wd->num_wd = slot+1;
+				pool_config->other_wd->num_wd = slot + 1;
 			}
 		}
 		else if (!strcmp(key, "use_watchdog") && CHECK_CONTEXT(INIT_CONFIG, context))
@@ -1959,6 +1973,40 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->use_watchdog = v;
 		}
+
+		else if (!strcmp(key, "clear_memqcache_on_escalation") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = eval_logical(yytext);
+
+			if (v < 0)
+			{
+				pool_error("pool_config: invalid value %s for %s", yytext, key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->clear_memqcache_on_escalation = v;
+		}
+
+		else if (!strcmp(key, "wd_escalation_command") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_escalation_command = str;
+		}
+
 		else if (!strcmp(key, "trusted_servers") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
@@ -2186,6 +2234,217 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 				pool_config->wd_lifecheck_query = str;
 		}
 
+		else if (!strcmp(key, "wd_lifecheck_dbname") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_lifecheck_dbname = str;
+		}
+
+		else if (!strcmp(key, "wd_lifecheck_user") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_lifecheck_user = str;
+		}
+
+		else if (!strcmp(key, "wd_lifecheck_password") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_lifecheck_password = str;
+		}
+
+		else if (!strcmp(key, "wd_lifecheck_method") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+
+			if (strcmp(str, MODE_HEARTBEAT) && strcmp(str, MODE_QUERY))
+			{
+				pool_error("pool_config: %s must be either \"heartbeat\" or \"query\"", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_lifecheck_method = str;
+		}
+		else if (!strcmp(key, "wd_heartbeat_port") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v <= 0)
+			{
+				pool_error("pool_config: %s must be higher than 1 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_heartbeat_port = v;
+		}
+		else if (!strcmp(key, "wd_heartbeat_keepalive") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v <= 0)
+			{
+				pool_error("pool_config: %s must be higher than 1 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_heartbeat_keepalive = v;
+		}
+		else if (!strcmp(key, "wd_heartbeat_deadtime") && CHECK_CONTEXT(INIT_CONFIG, context))
+		{
+			int v = atoi(yytext);
+
+			if (token != POOL_INTEGER || v <= 0)
+			{
+				pool_error("pool_config: %s must be higher than 1 numeric value", key);
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_heartbeat_deadtime = v;
+		}
+		else if (!strcmp(key, "wd_authkey") &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context))
+		{
+			char *str;
+
+			if (token != POOL_STRING && token != POOL_UNQUOTED_STRING && token != POOL_KEY)
+			{
+				PARSE_ERROR();
+				fclose(fd);
+				return(-1);
+			}
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			pool_config->wd_authkey = str;
+		}
+
+		else if (!strncmp(key, "heartbeat_device", 16) &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
+				 mypid == getpid()) /* this parameter must be modified by parent pid */
+		{
+			int slot;
+			char *str;
+
+			slot = atoi(key + 16) ;
+			if (slot < 0 || slot >= WD_MAX_IF_NUM)
+			{
+				pool_error("pool_config: pgpool number %s for heartbeat_device out of range", key);
+				fclose(fd);
+				return(-1);
+			}
+
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
+				strlcpy(WD_HB_IF(slot).if_name, str, WD_MAX_IF_NAME_LEN);
+
+		}
+		/* this must be prior to hertbeat_destination */
+		else if (!strncmp(key, "heartbeat_destination_port", 26) &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
+				 mypid == getpid()) /* this parameter must be modified by parent pid */
+		{
+			int slot;
+
+			slot = atoi(key + 26) ;
+			if (slot < 0 || slot >= WD_MAX_IF_NUM)
+			{
+				pool_error("pool_config: pgpool number %s for heartbeat_destination_port out of range", key);
+				fclose(fd);
+				return(-1);
+			}
+
+			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
+			{
+				WD_HB_IF(slot).dest_port = atoi(yytext);
+				pool_config->num_hb_if = slot + 1;
+			}
+		}
+		else if (!strncmp(key, "heartbeat_destination", 21) &&
+				 CHECK_CONTEXT(INIT_CONFIG|RELOAD_CONFIG, context) &&
+				 mypid == getpid()) /* this parameter must be modified by parent pid */
+		{
+			int slot;
+			char *str;
+
+			slot = atoi(key + 21) ;
+			if (slot < 0 || slot >= WD_MAX_IF_NUM)
+			{
+				pool_error("pool_config: pgpool number %s for heartbeat_destination out of range", key);
+				fclose(fd);
+				return(-1);
+			}
+
+			str = extract_string(yytext, token);
+			if (str == NULL)
+			{
+				fclose(fd);
+				return(-1);
+			}
+			if (context == INIT_CONFIG || (context == RELOAD_CONFIG ))
+				strlcpy(WD_HB_IF(slot).addr, str, WD_MAX_HOST_NAMELEN);
+		}
 
         else if (!strcmp(key, "ssl") && CHECK_CONTEXT(INIT_CONFIG, context))
 		{
@@ -2234,7 +2493,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->ssl_key = str;
 		}
-		else if (!strcmp(key, "ssl_ca_cert") && 
+		else if (!strcmp(key, "ssl_ca_cert") &&
 		         CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
@@ -2253,7 +2512,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			}
 			pool_config->ssl_ca_cert = str;
 		}
-		else if (!strcmp(key, "ssl_ca_cert_dir") && 
+		else if (!strcmp(key, "ssl_ca_cert_dir") &&
 		         CHECK_CONTEXT(INIT_CONFIG, context))
 		{
 			char *str;
@@ -2412,18 +2671,6 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
             }
             pool_config->memqcache_total_size = v;
         }
-        else if (!strcmp(key, "memqcache_total_size") && CHECK_CONTEXT(INIT_CONFIG, context))
-        {
-            int v = atoi(yytext);
-
-            if (token != POOL_INTEGER || v < 0)
-            {
-                pool_error("pool_config: %s must be equal or higher than 0 numeric value", key);
-                fclose(fd);
-                return(-1);
-            }
-            pool_config->memqcache_total_size = v;
-        }
         else if (!strcmp(key, "memqcache_max_num_cache") && CHECK_CONTEXT(INIT_CONFIG, context))
         {
             int v = atoi(yytext);
@@ -2569,7 +2816,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 
     if (log_destination_changed)
     {
-        // log_destination has changed, we need to open syslog or close it
+        /* log_destination has changed, we need to open syslog or close it */
 		if (!strcmp(pool_config->log_destination, "stderr"))
         {
 	        closelog();
@@ -2598,15 +2845,15 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 			total_weight += BACKEND_INFO(i).unnormalized_weight;
 			pool_config->backend_desc->num_backends = i+1;
 			
-			/* intialize backend_hostname with a default socket path if empty */
-			if (*(BACKEND_INFO(i).backend_hostname) == '\0') 
+			/* initialize backend_hostname with a default socket path if empty */
+			if (*(BACKEND_INFO(i).backend_hostname) == '\0')
 			{
 				if (pool_config->backend_socket_dir == NULL)
 				{
 					pool_debug("pool_config: empty backend_hostname%d, use PostgreSQL's default unix socket path (%s)", i, DEFAULT_SOCKET_DIR);
 					strlcpy(BACKEND_INFO(i).backend_hostname, DEFAULT_SOCKET_DIR, MAX_DB_HOST_NAMELEN);
 				}
-				else /* DEPRECATED. backward compatibility with older version. Use backend_socket_dir*/ 
+				else /* DEPRECATED. backward compatibility with older version. Use backend_socket_dir*/
 				{
 					pool_debug("pool_config: empty backend_hostname%d, use backend_socket_dir as unix socket path (%s)", i, pool_config->backend_socket_dir);
 					strlcpy(BACKEND_INFO(i).backend_hostname, pool_config->backend_socket_dir, MAX_DB_HOST_NAMELEN);
@@ -2618,7 +2865,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 	pool_debug("num_backends: %d total_weight: %f",
 			   pool_config->backend_desc->num_backends, total_weight);
 	/*
-	 * Normalize load balacing weights. What we are doing here is,
+	 * Normalize load balancing weights. What we are doing here is,
 	 * assign 0 to RAND_MAX to each backend's weight according to the
 	 * value weightN.  For example, if two backends are assigned 1.0,
 	 * then each backend will get RAND_MAX/2 normalized weight.
@@ -2648,7 +2895,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 		system_db_info = malloc(sizeof(POOL_SYSTEMDB_CONNECTION_POOL));
 		if (system_db_info == NULL)
 		{
-			pool_error("failed to allocate sytem_db_info");
+			pool_error("failed to allocate system_db_info");
 			return -1;
 		}
 		memset(system_db_info, 0, sizeof(*system_db_info));
@@ -2712,7 +2959,7 @@ int pool_get_config(char *confpath, POOL_CONFIG_CONTEXT context)
 #endif
 	}
 
-	if (strcmp(pool_config->recovery_1st_stage_command, "") || 
+	if (strcmp(pool_config->recovery_1st_stage_command, "") ||
 		strcmp(pool_config->recovery_2nd_stage_command, ""))
 	{
 		for (i=0;i<MAX_CONNECTION_SLOTS;i++)

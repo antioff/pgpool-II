@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -35,6 +35,7 @@
 #include "pool.h"
 #include "pool_config.h"
 #include "watchdog.h"
+#include "wd_ext.h"
 
 int wd_IP_up(void);
 int wd_IP_down(void);
@@ -45,36 +46,67 @@ int
 wd_IP_up(void)
 {
 	int rtn = WD_OK;
-	char path[128];
+	char path[WD_MAX_PATH_LEN];
 	char cmd[128];
+
+	if (strlen(pool_config->delegate_IP) == 0)
+		return WD_NG;
+
 	if (WD_List->delegate_ip_flag == 0)
 	{
 		WD_List->delegate_ip_flag = 1;
+
 		wd_get_cmd(cmd,pool_config->if_up_cmd);
-		sprintf(path,"%s/%s",pool_config->ifconfig_path,cmd);
+		snprintf(path,sizeof(path),"%s/%s",pool_config->ifconfig_path,cmd);
 		rtn = exec_ifconfig(path,pool_config->if_up_cmd);
 
 		wd_get_cmd(cmd,pool_config->arping_cmd);
-		sprintf(path,"%s/%s",pool_config->arping_path,cmd);
+		snprintf(path,sizeof(path),"%s/%s",pool_config->arping_path,cmd);
 		rtn = exec_ifconfig(path,pool_config->arping_cmd);
 	}
 	return rtn;
 }
+
 int
 wd_IP_down(void)
 {
 	int rtn = WD_OK;
-	char path[128];
+	char path[WD_MAX_PATH_LEN];
 	char cmd[128];
+	int i;
+
+	if (strlen(pool_config->delegate_IP) == 0)
+		return WD_NG;
+
 	if (WD_List->delegate_ip_flag == 1)
 	{
 		WD_List->delegate_ip_flag = 0;
 		wd_get_cmd(cmd,pool_config->if_down_cmd);
-		sprintf(path,"%s/%s",pool_config->ifconfig_path,cmd);
+		snprintf(path, sizeof(path), "%s/%s", pool_config->ifconfig_path, cmd);
 		rtn = exec_ifconfig(path,pool_config->if_down_cmd);
+
+		if (rtn == WD_OK)
+		{
+			for (i = 0; i < 3; i++)
+			{
+				if (wd_is_unused_ip(pool_config->delegate_IP))
+					break;
+			}
+
+			if (i >= 3)
+				rtn = WD_NG;
+		}
+
+		if (rtn == WD_OK)
+			pool_log("wd_IP_down: ifconfig down succeeded");
+		else
+			pool_error("wd_IP_down: ifconfig down failed");
+	}
+	else
+	{
+		pool_debug("wd_IP_down: not delegate IP holder");
 	}
 
-	pool_log("wd_IP_down: ifconfig down %s", (rtn == WD_OK) ? "succeeded" : "failed");
 	return rtn;
 }
 
@@ -112,7 +144,7 @@ exec_ifconfig(char * path,char * command)
 		return WD_NG;
 	}
 	memset(buf,0,sizeof(buf));
-	strncpy(buf,command,sizeof(buf));
+	strlcpy(buf,command,sizeof(buf));
 	bp = buf;
 	while (*bp == ' ')
 	{

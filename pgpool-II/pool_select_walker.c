@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -137,7 +137,7 @@ bool pool_has_view(Node *node)
 }
 
 /*
- * Return true if this SELECT has INSERT INTO or FOR SHARE or FOR UDPATE.
+ * Return true if this SELECT has INSERT INTO or FOR SHARE or FOR UPDATE.
  */
 bool pool_has_insertinto_or_locking_clause(Node *node)
 {
@@ -368,6 +368,7 @@ static bool
 view_walker(Node *node, void *context)
 {
 	SelectContext	*ctx = (SelectContext *) context;
+	char *relname;
 
 	if (node == NULL)
 		return false;
@@ -375,10 +376,10 @@ view_walker(Node *node, void *context)
 	if (IsA(node, RangeVar))
 	{
 		RangeVar *rgv = (RangeVar *)node;
+		relname = make_table_name_from_rangevar(rgv);
+		pool_debug("view_walker: relname: %s", relname);
 
-		pool_debug("view_walker: relname: %s", rgv->relname);
-
-		if (is_view(rgv->relname))
+		if (is_view(relname))
 		{
 			ctx->has_view = true;
 			return false;
@@ -454,7 +455,19 @@ static bool is_system_catalog(char *table_name)
 		 */
 		if (!relcache)
 		{
-			relcache = pool_create_relcache(pool_config->relcache_size, ISBELONGTOPGCATALOGQUERY,
+			char *query;
+
+			/* pgpool_regclass has been installed */
+			if (pool_has_pgpool_regclass())
+			{
+				query = ISBELONGTOPGCATALOGQUERY2;
+			}
+			else
+			{
+				query = ISBELONGTOPGCATALOGQUERY;
+			}
+
+			relcache = pool_create_relcache(pool_config->relcache_size, query,
 											int_register_func, int_unregister_func,
 											false);
 			if (relcache == NULL)
@@ -480,6 +493,8 @@ static bool is_system_catalog(char *table_name)
  * Judge the table used in a query represented by node is a temporary
  * table or not.
  */
+static POOL_RELCACHE *is_temp_table_relcache;
+
 static bool is_temp_table(char *table_name)
 {
 /*
@@ -507,7 +522,6 @@ static bool is_temp_table(char *table_name)
 	int hasrelistemp;
 	bool result;
 	static POOL_RELCACHE *hasrelistemp_cache;
-	static POOL_RELCACHE *relcache;
 	char *query;
 	POOL_CONNECTION_POOL *backend;
 
@@ -542,12 +556,12 @@ static bool is_temp_table(char *table_name)
 	/*
 	 * If relcache does not exist, create it.
 	 */
-	if (!relcache)
+	if (!is_temp_table_relcache)
 	{
-		relcache = pool_create_relcache(pool_config->relcache_size, query,
-										int_register_func, int_unregister_func,
-										true);
-		if (relcache == NULL)
+		is_temp_table_relcache = pool_create_relcache(pool_config->relcache_size, query,
+													  int_register_func, int_unregister_func,
+													  true);
+		if (is_temp_table_relcache == NULL)
 		{
 			pool_error("is_temp_table: pool_create_relcache error");
 			return false;
@@ -557,8 +571,20 @@ static bool is_temp_table(char *table_name)
 	/*
 	 * Search relcache.
 	 */
-	result = pool_search_relcache(relcache, backend, table_name)==0?false:true;
+	result = pool_search_relcache(is_temp_table_relcache, backend, table_name)==0?false:true;
 	return result;
+}
+
+/*
+ * Discard relcache used by is_temp_table_relcache().
+ */
+void discard_temp_table_relcache(void)
+{
+	if (is_temp_table_relcache)
+	{
+		pool_discard_relcache(is_temp_table_relcache);
+		is_temp_table_relcache = NULL;
+	}
 }
 
 /*
@@ -713,16 +739,19 @@ bool pool_has_pgpool_regclass(void)
 /*
  * Query to know if pgpool_regclass exists.
  */
-#define HASPGPOOL_REGCLASSQUERY "SELECT count(*) FROM pg_catalog.pg_proc AS p WHERE p.proname = '%s'"
+#define HASPGPOOL_REGCLASSQUERY "SELECT count(*) from (SELECT has_function_privilege('%s', 'pgpool_regclass(cstring)', 'execute') WHERE EXISTS(SELECT * FROM pg_catalog.pg_proc AS p WHERE p.proname = 'pgpool_regclass')) AS s"
+
 	bool result;
 	static POOL_RELCACHE *relcache;
 	POOL_CONNECTION_POOL *backend;
+	char *user;
 
 	backend = pool_get_session_context()->backend;
+	user = MASTER_CONNECTION(backend)->sp->user;
 
 	if (!relcache)
 	{
-		relcache = pool_create_relcache(32, HASPGPOOL_REGCLASSQUERY,
+		relcache = pool_create_relcache(pool_config->relcache_size, HASPGPOOL_REGCLASSQUERY,
 										int_register_func, int_unregister_func,
 										false);
 		if (relcache == NULL)
@@ -732,7 +761,7 @@ bool pool_has_pgpool_regclass(void)
 		}
 	}
 
-	result = pool_search_relcache(relcache, backend, "pgpool_regclass")==0?0:1;
+	result = pool_search_relcache(relcache, backend, user)==0?0:1;
 	return result;
 }
 
@@ -1039,7 +1068,7 @@ makeRangeVarFromNameList(List *names)
 
 /*
  * Extract table name from RageVar.  Make schema qualification name if
- * neccessary.  The returned table name is in static area. So next
+ * necessary.  The returned table name is in static area. So next
  * call to this function will break previous result.
  */
 static char *make_table_name_from_rangevar(RangeVar *rangevar)

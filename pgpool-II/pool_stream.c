@@ -5,7 +5,7 @@
 * pgpool: a language independent connection pool server for PostgreSQL
 * written by Tatsuo Ishii
 *
-* Copyright (c) 2003-2012	PgPool Global Development Group
+* Copyright (c) 2003-2013	PgPool Global Development Group
 *
 * Permission to use, copy, modify, and distribute this software and
 * its documentation for any purpose and without fee is hereby
@@ -87,7 +87,7 @@ POOL_CONNECTION *pool_open(int fd)
 	cp->sbuf = NULL;
 	cp->sbufsz = 0;
 	cp->buf2 = NULL;
-	cp->sbufsz = 0;
+	cp->bufsz2 = 0;
 
 	cp->fd = fd;
 	return cp;
@@ -137,7 +137,7 @@ int pool_read(POOL_CONNECTION *cp, void *buf, int len)
 	{
 		if (pool_check_fd(cp))
 		{
-			if (!IS_MASTER_NODE_ID(cp->db_node_id))
+			if (!IS_MASTER_NODE_ID(cp->db_node_id) && (getpid() != mypid))
 			{
 				pool_log("pool_read: data is not ready in DB node: %d. abort this session",
 						 cp->db_node_id);
@@ -168,14 +168,19 @@ int pool_read(POOL_CONNECTION *cp, void *buf, int len)
 
 			if (cp->isbackend)
 			{
-				/* if fail_over_on_backend_erro is true, then trigger failover */
+				/* if fail_over_on_backend_error is true, then trigger failover */
 				if (pool_config->fail_over_on_backend_error)
 				{
 					notice_backend_error(cp->db_node_id);
 					child_exit(1);
+					pool_log("pool_read: do not failover because I am the main process");
+					return -1;
 				}
 				else
+				{
+					pool_log("pool_read: do not failover because fail_over_on_backend_error is off");
 					return -1;
+				}
 			}
 			else
 			{
@@ -288,14 +293,19 @@ char *pool_read2(POOL_CONNECTION *cp, int len)
 
 			if (cp->isbackend)
 			{
-				/* if fail_over_on_backend_erro is true, then trigger failover */
+				/* if fail_over_on_backend_error is true, then trigger failover */
 				if (pool_config->fail_over_on_backend_error)
 				{
 					notice_backend_error(cp->db_node_id);
 					child_exit(1);
+					pool_log("pool_read2: do not failover because I am the main process");
+					return NULL;
 				}
 				else
+				{
+					pool_log("pool_read2: do not failover because fail_over_on_backend_error is off");
 					return NULL;
+				}
 			}
 			else
 			{
@@ -424,7 +434,7 @@ int pool_flush_it(POOL_CONNECTION *cp)
 			}
 			else if (FD_ISSET(cp->fd, &exceptmask))
 			{
-				pool_log("pool_flush_it: exception occured");
+				pool_log("pool_flush_it: exception occurred");
 				cp->wbufpo = 0;
 				return -1;
 			}
@@ -497,14 +507,19 @@ int pool_flush(POOL_CONNECTION *cp)
 	{
 		if (cp->isbackend)
 		{
-			/* if fail_over_on_backend_erro is true, then trigger failover */
+			/* if fail_over_on_backend_error is true, then trigger failover */
 			if (pool_config->fail_over_on_backend_error)
 			{
 				notice_backend_error(cp->db_node_id);
 				child_exit(1);
+				pool_log("pool_flush: do not failover because I am the main process");
+				return -1;
 			}
 			else
+			{
+				pool_log("pool_flush: do not failover because fail_over_on_backend_error is off");
 				return -1;
+			}
 		}
 		else
 		{
@@ -641,6 +656,7 @@ char *pool_read_string(POOL_CONNECTION *cp, int *len, int line)
 			{
 				notice_backend_error(cp->db_node_id);
 				child_exit(1);
+				return NULL;
 			}
 			else
 			{
@@ -840,6 +856,66 @@ int pool_unread(POOL_CONNECTION *cp, void *data, int len)
 	cp->len = n;
 	cp->po = 0;
 	return 0;
+}
+
+/*
+ * pool_push: Push data into buffer stack.
+ */
+int pool_push(POOL_CONNECTION *cp, void *data, int len)
+{
+	char *p;
+
+	pool_debug("pool_push: len: %d", len);
+
+	if (cp->bufsz3 == 0)
+	{
+		p = cp->buf3 = malloc(len);
+		if (p == NULL)
+		{
+			pool_error("pool_push: malloc failed. len:%d", len);
+			return -1;
+		}
+	}
+	else
+	{
+		p = cp->buf3 + cp->bufsz3;
+		cp->buf3 = realloc(cp->buf3, cp->bufsz3 + len);
+	}
+
+	memcpy(p, data, len);
+	cp->bufsz3 += len;
+
+	return 0;
+}
+
+/*
+ * pool_pop: Pop data from buffer stack and put back data using
+ * pool_unread.
+ */
+void pool_pop(POOL_CONNECTION *cp, int *len)
+{
+	if (cp->bufsz3 == 0)
+	{
+		*len = 0;
+		pool_debug("pool_pop: len: %d", *len);
+		return;
+	}
+
+	pool_unread(cp, cp->buf3, cp->bufsz3);
+	*len = cp->bufsz3;
+	free(cp->buf3);
+	cp->bufsz3 = 0;
+	cp->buf3 = NULL;
+	pool_debug("pool_pop: len: %d", *len);
+}
+
+/*
+ * pool_stacklen: Returns buffer stack length
+ * pool_unread.
+ */
+int pool_stacklen(POOL_CONNECTION *cp)
+{
+	return cp->bufsz3;
 }
 
 /*

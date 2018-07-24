@@ -117,7 +117,7 @@ typedef struct {
 	char *table_name;		/* table name */
 	char *dist_key_col_name;/* column name for dist key */
 	int  dist_key_col_id;	/* column index id for dist key */
-	int  col_num;			/* number of clumn*/
+	int  col_num;			/* number of column*/
 	char **col_list;		/* column list */
 	char **type_list;		/* type list */
 	char *dist_def_func;	/* function name of distribution rule */
@@ -129,7 +129,7 @@ typedef struct {
 	char *dbname;     /* database name */
 	char *schema_name;    /* schema name */
 	char *table_name;   /* table name */
-	int  col_num;     /* number of clumn*/
+	int  col_num;     /* number of column*/
 	char **col_list;    /* column list */
 	char **type_list;   /* type list */
 	char *prepare_name;   /* prepared statement name */
@@ -155,7 +155,6 @@ typedef struct {
 	QueryCacheTableInfo query_cache_table_info; /* query cache db session info */
 	BACKEND_STATUS system_db_status;
 } SystemDBInfo;
-
 /*
  * reporting types
  */
@@ -218,6 +217,8 @@ typedef struct {
 	char version[POOLCONFIG_MAXVALLEN+1];
 } POOL_REPORT_VERSION;
 
+struct WdInfo;
+
 extern int pcp_connect(char *hostname, int port, char *username, char *password);
 extern void pcp_disconnect(void);
 extern int pcp_terminate_pgpool(char mode);
@@ -237,6 +238,7 @@ extern void pcp_enable_debug(void);
 extern void pcp_disable_debug(void);
 extern int pcp_promote_node(int nid);
 extern int pcp_promote_node_gracefully(int nid);
+extern struct WdInfo *pcp_watchdog_info(int nid);
 
 /* ------------------------------
  * pcp_error.c

@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -125,7 +125,7 @@ typedef struct
 typedef struct CancelPacket
 {
 	int			protoVersion;		/* Protocol version */
-	int			pid;	/* bcckend process id */
+	int			pid;	/* backend process id */
 	int			key;	/* cancel key */
 } CancelPacket;
 
@@ -164,6 +164,9 @@ typedef struct {
 	char *buf2;	/* buffer for pool_read2 */
 	int bufsz2;	/* its size in bytes */
 
+	char *buf3;	/* buffer for pool_push/pop */
+	int bufsz3;	/* its size in bytes */
+
 	int isbackend;		/* this connection is for backend if non 0 */
 	int db_node_id;		/* DB node id for this connection */
 
@@ -185,7 +188,7 @@ typedef struct {
 	char salt[4];		/* password salt */
 
 	/*
-	 * following are used to remember current session paramter status.
+	 * following are used to remember current session parameter status.
 	 * re-used connection will need them (V3 only)
 	 */
 	ParamStatus params;
@@ -377,7 +380,7 @@ typedef struct {
 /* description of row. corresponding to RowDescription message */
 typedef struct {
 	char *attrname;		/* attribute name */
-	int oid;	/* 0 or non 0 if it's a table oblect */
+	int oid;	/* 0 or non 0 if it's a table object */
 	int attrnumber;		/* attribute number starting with 1. 0 if it's not a table */
 	int typeoid;		/* data type oid */
 	int	size;	/* data length minus means variable data type */
@@ -609,6 +612,7 @@ extern void free_select_result(POOL_SELECT_RESULT *result);
 extern int compare(const void *p1, const void *p2);
 extern POOL_STATUS do_error_execute_command(POOL_CONNECTION_POOL *backend, int node_id, int major);
 extern POOL_STATUS pool_discard_packet_contents(POOL_CONNECTION_POOL *cp);
+extern void pool_dump_valid_backend(int backend_id);
 
 /* pool_auth.c */
 extern void pool_random_salt(char *md5Salt);

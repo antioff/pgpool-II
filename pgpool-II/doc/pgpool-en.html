@@ -7,7 +7,7 @@
 </head>
 
 <!-- hhmts start -->
-Last modified: Tue Jul 31 14:35:58 JST 2012
+Last modified: Tue Jul 23 08:04:32 JST 2013
 <!-- hhmts end -->
 
 <body bgcolor="#ffffff">
@@ -17,6 +17,7 @@ Last modified: Tue Jul 31 14:35:58 JST 2012
     <div id="navcontainer">
       <ul id="navlist">
         <li id="active"><a href="#Whatis" id="current">What is pgpool</a></li>
+        <li><a href="#license">License</a></li>
         <li><a href="#platform">Supported Platforms</a></li>
         <li><a href="#install">pgpool-II Installation</a></li>
         <li><a href="#config">Configuring pgpool-II</a></li>
@@ -36,9 +37,9 @@ Last modified: Tue Jul 31 14:35:58 JST 2012
         <li><a href="#backup">Backup</a></li>
         <li><a href="#deploy">Deploying pgpool-II</a></li>
         <li><a href="#watchdog">Watchdog</a></li>
+        <li><a href="#pcp_command">PCP commands</a></li>
         <li><a href="#troubleshooting">Troubleshooting</a></li>
         <li><a href="#restriction">Restrictions</a></li>
-        <li><a href="#reference">References</a></li>
         <li><a href="#internal">internal</a></li>
       </ul>
     </div>
@@ -120,6 +121,27 @@ See <a href="#restriction">Restrictions</a> for more details.</strong>
 
 <!-- ================================================================================ -->
 
+<h1>License<a name="license"></a></h1>
+
+<p>Copyright (c) 2003-2013        PgPool Global Development Group</p>
+<p><br></p>
+<p>
+Permission to use, copy, modify, and distribute this software and
+its documentation for any purpose and without fee is hereby
+granted, provided that the above copyright notice appear in all
+copies and that both that copyright notice and this permission
+notice appear in supporting documentation, and that the name of the
+author not be used in advertising or publicity pertaining to
+distribution of the software without specific, written prior
+permission. The author makes no representations about the
+suitability of this software for any purpose.  It is provided "as
+is" without express or implied warranty.
+</p>
+
+<p class="top_link"><a href="#Top">back to top</a></p>
+
+<!-- ================================================================================ -->
+
 <h1>Supported Platforms<a name="platform"></a></h1>
 
 <p>pgpool-II works on Linux, Solaris, FreeBSD, and most of the
@@ -158,8 +180,10 @@ pgpool-II's source code can be downloaded from:
 make. Also, pgpool-II links with the libpq library, so the libpq library and its development
 headers must be installed on the machine used to build pgpool-II.  Additionally
 the OpenSSL library and its development headers must be present in order to
-enable OpenSSL support in pgpool-II</p>
+enable OpenSSL support in pgpool-II.</p>
 
+
+<h2 id="install_pgpool">Installing pgpool-II</h2>
 <dl>
 <dt>configure</dt>
     <dd>
@@ -208,61 +232,92 @@ make install
     will install pgpool-II. (If you use Solaris or FreeBSD, replace make with gmake)
     </p>
     </dd>
-
-<dt>Installing pgpool_regclass <span class="version">V3.0 -</span></dt>
-    <dd>
-    <p>
-    If you are using PostgreSQL 8.0 or later, installing pgpool_regclass function on all PostgreSQL
-    to be accessed by pgpool-II is strongly recommended, as it is used internally by pgpool-II.
-    Without this, handling of duplicate table names in different schema
-    might cause trouble (temporary tables aren't a problem).
-    </p>
-
-<pre>
-cd pgpool-II-x.x.x/sql/pgpool-regclass
-make
-make install
-psql -f pgpool-regclass.sql template1
-</pre>
-
-    <p>
-    Executing pgpool-regclass.sql should be performed on every databases accessed
-    with pgpool-II.
-    You do not need to do this for a database created after the
-    execution of "psql -f pgpool-regclass.sql template1", as this template database
-    will be cloned to create new databases.
-    </p>
-    </dd>
-
-<dt>Creating insert_lock table <span class="version">V3.0 -</span></dt>
-    <dd>
-    <p>
-    If you use insert_lock in replication mode, creating pgpool_catalog.insert_lock
-    table for mutual exclusion is strongly recommended.
-    Without this, insert_lock works so far. However in that case pgpool-II locks
-    against the insert target table. This behavior is same as pgpool-II 2.2 and 2.3
-    series. The table lock conflicts with VACUUM. So INSERT processing may be thereby
-    kept waiting for a long time.
-    </p>
-<pre>
-cd pgpool-II-x.x.x/sql
-psql -f insert_lock.sql template1
-</pre>
-    <p>
-    Executing insert_lock.sql should be performed on every databases accessed
-    with pgpool-II.
-    You do not need to do this for a database created after the execution of
-    &quot;psql -f insert_lock.sql template1&quot;, as this template database will be
-    cloned to create new databases.
-    </p>
-    </dd>
 </dl>
 
+<h2 id="install_functions">Installing functions</h2>
+
+<h3>Installing pgpool_regclass (recommended) <span class="version">V3.0 -</span></h3>
 <p>
-Installing is done. If you are using Solaris or FreeBSD,
-you need to replace "make" with "gmake" in the above description
-because those operating systems requires GNU make.
+If you are using PostgreSQL 8.0 or later, installing pgpool_regclass function on all PostgreSQL
+to be accessed by pgpool-II is strongly recommended, as it is used internally by pgpool-II.
+Without this, handling of duplicate table names in different schema
+might cause trouble (temporary tables aren't a problem).
 </p>
+
+<pre>
+$ cd pgpool-II-x.x.x/sql/pgpool-regclass
+$ make
+$ make install
+</pre>
+
+<p>After this:<p>
+<pre>
+$ psql -f pgpool-regclass.sql template1
+</pre>
+
+<p>or<p>
+
+<pre>
+$ psql template1
+=# CREATE EXTENSION pgpool_regclass;
+</pre>
+</p>
+<p>
+Executing pgpool-regclass.sql or <code>CREATE EXTENSION</code> should be performed on every databases accessed
+with pgpool-II.
+You do not need to do this for a database created after the
+execution of "<code>psql -f pgpool-regclass.sql template1</code>" or <code>CREATE EXTENSION</code>,
+as this template database will be cloned to create new databases.
+</p>
+
+<h3>Creating insert_lock table <span class="version">V3.0 -</span></h3>
+<p>
+If you use insert_lock in replication mode, creating pgpool_catalog.insert_lock
+table for mutual exclusion is strongly recommended.
+Without this, insert_lock works so far. However in that case pgpool-II locks
+against the insert target table. This behavior is same as pgpool-II 2.2 and 2.3
+series. The table lock conflicts with VACUUM. So INSERT processing may be thereby
+kept waiting for a long time.
+</p>
+
+<pre>
+$ cd pgpool-II-x.x.x/sql
+$ psql -f insert_lock.sql template1
+</pre>
+
+<p>
+Executing insert_lock.sql should be performed on every databases accessed
+with pgpool-II.
+You do not need to do this for a database created after the execution of
+"<code>psql -f insert_lock.sql template1</code>", as this template database will be
+cloned to create new databases.
+</p>
+
+<h3>Installing pgpool_recovery</h3>
+
+<p>If you use <a href="#online_recovery_in_stream_mode">online recovery</a>, some functions are needed:
+pgpool_recovery, pgpool_remote_start, pgpool_switch_xlog.</p>
+<p>And, pgpoolAdmin of the tool to control pgpool-II can stop, restart and reload the backend PostgreSQL nodes,
+and it needs the function named pgpool_pgctl.</p>
+<p>Here is the way to install there functions.</p>
+<pre>
+$ cd pgpool-II-x.x.x/sql/pgpool-regclass
+$ make
+$ make install
+$ psql -f pgpool-recovery.sql template1
+</pre>
+
+<h4>Configuring pgpool.pgctl <span class="version">V3.0 -</span></h4>
+
+<p>The function pgpool_pgctl executes the value of ppool.pgctl in postgresql.conf as the pg_ctl command.
+To use this function, you have to this custom parameter.</p>
+<pre>
+ex)
+$ cat &gt;&gt; /usr/local/pgsql/postgresql.conf
+pgpool.pg_ctl = '/usr/local/pgsql/bin/pg_ctl'
+
+$ pg_ctl reload -D /usr/local/pgsql/data
+</pre>
 
 <p class="top_link"><a href="#Top">back to top</a></p>
 
@@ -374,7 +429,7 @@ can collect pgpool-II status, and terminate pgpool-II processes remotely.
 authentication by this interface. All operation modes require the
 <code>pcp.conf</code> file to be set. A <code>$prefix/etc/pcp.conf.sample</code>
 file is created during the installation of pgpool-II. Rename the file to
-<code>pcp.conf</code> and add your username and password to it.
+<code>pcp.conf</code> and add your user name and password to it.
 </p>
 
 <pre>
@@ -382,7 +437,7 @@ cp $prefix/etc/pcp.conf.sample $prefix/etc/pcp.conf
 </pre>
 <p>
 An empty line or a line starting with "<code>#</code>" is treated as a
-comment and will be ignored. A username and its associated password must be
+comment and will be ignored. A user name and its associated password must be
 written as one line using the following format:
 </p>
 <pre>
@@ -517,16 +572,6 @@ comment and will be ignored.</p>
     <p>
     This parameter can only be set at server start.</p>
     </dd>
-
-<dt><a name="PCP_TIMEOUT"></a>pcp_timeout</dt>
-    <dd>
-    <p>PCP connection's timeout value in seconds. If a client does not
-    respond within the set seconds, PCP closes the connection with
-    the client. Default is 10 seconds. 0 means no timeout.
-    </p>
-    <p>
-    This can be changed with a reload.</p>
-    </dd>
 </dl>
 
 <h3>Pools</h3>
@@ -612,6 +657,18 @@ max_pool*num_init_children*2 &lt;= (max_connections - superuser_reserved_connect
     See <a href="#hba">setting up pool_hba.conf for client authentication</a>.
     </p>
     <p>
+    You need to reload pgpool.conf if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="POOL_PASSWD"></a>pool_passwd</dt>
+    <dd>
+    <p>
+    Specify the file name of pool_passwd for md5 authentication.
+    Default value is "pool_passwd". "" disables to read pool_passwd.
+    See <a href="#md5">Authentication / Access Controls</a> for more details.
+    </p>
+    <p>
     You need to restart pgpool-II if you change this value.
     </p>
     </dd>
@@ -622,7 +679,7 @@ max_pool*num_init_children*2 &lt;= (max_connections - superuser_reserved_connect
     Default value is 60.
     </p>
     <p>
-    You need to restart pgpool-II if you change authentication_timeout.</p>
+    You need to reload pgpool.conf if you change this value.
     </dd>
 </dl>
 
@@ -835,6 +892,22 @@ local0.*    /var/log/pgpool.log
       You need to reload pgpool.conf if you change health_check_retry_delay.
       </p>
     </dd>
+
+<dt><a name="SEARCH_PRIMARY_NODE_TIMEOUT"></a>search_primary_node_timeout <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>The parameter specifies the maximum amount of time in seconds to search
+    for a primary node when a failover scenario occurs.
+    The default value for the parameter is 10.
+    pgpool-II will search for the primary node for the amount of time given in case of
+    failover before giving up trying to search for a primary node.
+    0 means keep trying forever.
+    This parameter will be ignored if running in other than streaming replication mode.
+    </p>
+    <p>
+    You need to reload pgpool.conf if you change search_primary_node_timeout.
+    </p>
+    </dd>
+
 </dl>
 
 <h3>Failover and failback</h3>
@@ -1130,6 +1203,39 @@ local0.*    /var/log/pgpool.log
     be disabled for incoming frontend connections.
     </p>
     </dd>
+
+<dt><a name="SSL_CA_CERT"></a>ssl_ca_cert</dt>
+    <dd>
+    <p>
+    The path to a PEM format file containing one or more CA root
+    certificates, which can be used to verify the backend server certificate.
+    This is analogous to the <code>-CAfile</code> option
+    of the OpenSSL <code>verify(1)</code> command.
+    </p>
+
+    <p>
+    The default value for this option is unset, so no verification takes place.
+    Verification will still occur if this option is not set
+    but a value has been given for <code>ssl_ca_cert_dir</code>.
+    </p>
+    </dd>
+
+<dt><a name="SSL_CA_CERT_DIR"></a>ssl_ca_cert_dir</dt>
+    <dd>
+    <p>
+    The path to a directory containing PEM format CA certificate
+    files, which can be used to verify the backend server certificate.
+    This is analogous to the <code>-CApath</code> option
+    of the OpenSSL <code>verify(1)</code> command.
+    </p>
+
+    <p>
+    The default value for this option is unset, so no verification takes place.
+    Verification will still occur if this option is not set
+    but a value has been given for  <code>ssl_ca_cert</code>.
+    </p>
+    </dd>
+
 </dl>
 
 <h3>Other</h3>
@@ -1207,7 +1313,7 @@ Following parameters take effect to connection pool.</p>
     <dd>
     <p>The maximum number of cached connections in pgpool-II children processes.
     pgpool-II reuses the cached connection if an incoming connection is
-    connecting to the same database with the same username.
+    connecting to the same database with the same user name.
     If not, pgpool-II creates a new connection to the backend.
     If the number of cached connections exceeds max_pool,
     the oldest connection will be discarded, and uses that slot for the new connection.
@@ -1475,7 +1581,7 @@ COMMIT;
     (more precisely, access error on pg_clog, which keeps transaction status).
     To prevent this, PostgreSQL core developers decided to disallow row locking
     against sequences and this will break pgpool-II of course
-    (the &quot;fixed&quot; version of PostgreSQL will be released as 9.0.5,
+    (the &quot;fixed&quot; version of PostgreSQL was released as 9.0.5,
     8.4.9, 8.3.16 and 8.2.22).
     </p>
     <p>
@@ -1524,7 +1630,7 @@ end of transaction block
 <dt><a name="RECOVERY_USER"></a>recovery_user</dt>
     <dd>
     <p>
-    This parameter specifies a PostgreSQL username for online recovery.
+    This parameter specifies a PostgreSQL user name for online recovery.
     It can be changed without restarting.
     </p>
     </dd>
@@ -1689,14 +1795,28 @@ must be met:
 </p>
 <ul>
     <li>PostgreSQL version 7.4 or later</li>
+    <li>either in replication mode or master slave mode</li>
     <li>the query must not be in an explicitly declared
-        transaction (i.e. not in a BEGIN ~ END block)</li>
+        transaction (i.e. not in a BEGIN ~ END block) when operated in replication mode</li>
     <li>it's not SELECT INTO
     <li>it's not SELECT FOR UPDATE nor FOR SHARE
     <li>it starts with "SELECT" or one of COPY TO STDOUT, EXPLAIN, EXPLAIN ANALYZE SELECT...
      ignore_leading_white_space = true will ignore leading white space.
-     (Except for writing queries in <a href="#BLACK_FUNCTION_LIST">black_list</a> or
+     (Except for SELECTs using writing functions specified in <a href="#BLACK_FUNCTION_LIST">black_list</a> or
      <a href="#WHITE_FUNCTION_LIST">white_list</a>)
+    <li><span class="version">V3.0 -</span>in master slave mode, in addition to above, following conditions must be met:
+        <ul>
+          <li>does not use temporary tables</li>
+          <li>does not use unlogged tables</li>
+          <li>does not use system catalogs</li>
+          <li>However, if following conditions are met, load balance is possible even if in an explicit transaction</li>
+              <ul>
+                <li>transaction isolation level is not SERIALIZABLE</li>
+                <li>the transaction has not issued a write query yet(until a write query issued, load balance is possible)</li>
+              </ul>
+        </ul>
+    </li>
+
 </ul>
 
 <p>
@@ -1806,7 +1926,7 @@ See <a href="#WHITE_FUNCTION_LIST">white_function_list</a> for more details.
 <h1><a name="stream"></a>Streaming Replication <span class="version">V3.1 -</span></h1>
 <p>
 As stated above, pgpool-II can work together with Streaming Replication, which
-is available since PostgreSQL 9.0. To use it, enable '<a href="#MASTER_SLAVE_MODE">master_slave</a>' and
+is available since PostgreSQL 9.0. To use it, enable '<a href="#MASTER_SLAVE_MODE">master_slave_mode</a>' and
 set '<a href="#MASTER_SLAVE_SUB_MODE">master_slave_sub_mode</a>' to 'stream'.
 pgpool-II assumes that Streaming Replication is used with Hot Standby at present,
 which means that the standby database is open read-only.
@@ -2242,45 +2362,13 @@ pgpool-II. The System DB's configuration is done in
 
 <dt><a name="SYSTEM_DB_USER"></a>system_db_user</dt>
     <dd>
-    <p>The username to connect to the System DB.</p>
+    <p>The user name to connect to the System DB.</p>
     </dd>
 
 <dt><a name="SYSTEM_DB_PASSWORD"></a>system_db_password</dt>
     <dd>
     <p>The password for the System DB. If no password is necessary,
     set the empty string ('').</p>
-    </dd>
-
-<dt><a name="SSL_CA_CERT"></a>ssl_ca_cert</dt>
-    <dd>
-    <p>
-    The path to a PEM format file containing one or more CA root
-    certificates, which can be used to verify the backend server certificate.
-    This is analogous to the <code>-CAfile</code> option
-    of the OpenSSL <code>verify(1)</code> command.
-    </p>
-
-    <p>
-    The default value for this option is unset, so no verification takes place.
-    Verification will still occur if this option is not set
-    but a value has been given for <code>ssl_ca_cert_dir</code>.
-    </p>
-    </dd>
-
-<dt><a name="SSL_CA_CERT_DIR"></a>ssl_ca_cert_dir</dt>
-    <dd>
-    <p>
-    The path to a directory containing PEM format CA certificate
-    files, which can be used to verify the backend server certificate.
-    This is analogous to the <code>-CApath</code> option
-    of the OpenSSL <code>verify(1)</code> command.
-    </p>
-
-    <p>
-    The default value for this option is unset, so no verification takes place.
-    Verification will still occur if this option is not set
-    but a value has been given for  <code>ssl_ca_cert</code>.
-    </p>
     </dd>
 
 </dl>
@@ -2392,8 +2480,8 @@ client authentication function using a configuration file called  "pool_hba.conf
 When you install pgpool, pool_hba.conf.sample will be installed in
 "/usr/local/etc", which is the default directory for configuration
 files. Copy pool_hba.conf.sample as pool_hba.conf and edit it if necessary.
-By default, pool_hba authentication is enabled. See "6. Setting up
-pgpool.conf" for more detail.
+By default, pool_hba authentication is disabled.
+Change <a href="#ENABLE_POOL_HBA">enable_pool_hba</a> to on to enable it.
 </p>
 <p>
 The format of the pool_hba.conf file follows very closely PostgreSQL's
@@ -2413,7 +2501,7 @@ Here are the limitations of pool_hba.
 <ul>
 <li>"hostssl" connection type is not supported</li>
     <p>
-    Though "hostssl" is invalid, pgpool-II 2.3 or later supports SSL.
+    Even if the SSL support is enabled, "hostssl" cannot be used.
     See <a href="#ssl">SSL</a> for more details.
     </p>
 
@@ -2668,13 +2756,13 @@ These are the parameters used with both of shmem and memcached.
     <p>
     Specify a comma separated list of table names whose SELECT results are to be cached even if
     they are VIEWs or unlogged tables. You can use regular expression (to which added automatically ^ and $).
-	</p>
+    </p>
     <p>
     TABLEs and VIEWs in both of white_memqcache_table_list and
     <a href="#BLACK_MEMQCACHE_TABLE_LIST">black_memqcache_table_list</a> are cached.
     </p>
-	<p>
-	You need to add both non schema qualified name and schema qualified name if you plan to use both of them in your query. For exmaple, if you want to use both "table1" and "public.table1" in your query, you need to add "table1,public.table1", not just "table1".
+    <p>
+    You need to add both non schema qualified name and schema qualified name if you plan to use both of them in your query. For exmaple, if you want to use both "table1" and "public.table1" in your query, you need to add "table1,public.table1", not just "table1".
     </p>
 
     </dd>
@@ -2685,8 +2773,8 @@ These are the parameters used with both of shmem and memcached.
     Specify a comma separated list of table names whose SELECT results are <strong>NOT</strong> to be cached.
     You can use regular expression (to which added automatically ^ and $).
     </p>
-	<p>
-	You need to add both non schema qualified name and schema qualified name if you plan to use both of them in your query. For exmaple, if you want to use both "table1" and "public.table1" in your query, you need to add "table1,public.table1", not just "table1".
+    <p>
+    You need to add both non schema qualified name and schema qualified name if you plan to use both of them in your query. For exmaple, if you want to use both "table1" and "public.table1" in your query, you need to add "table1,public.table1", not just "table1".
     </p>
     </dd>
 
@@ -3634,9 +3722,9 @@ The procedure to update primary PostgreSQL server is as follows:
 
 <h1><a name="backup"></a>Backup</h1>
 <p>
-To back up backend PostgreSQL servers and system DB, you can physical
+To back up backend PostgreSQL servers and system DB, you can use physical
 backup, logical backup (pg_dump, pg_dumpall) and PITR in the same manner as PostgreSQL.
-Please note that using logical backup and PITR should be performed directory PostgreSQL,
+Please note that using logical backup and PITR should be performed directory with PostgreSQL,
 rather than via pgpool-II to avoid errors caused by <a href="#LOAD_BALANCE_MODE">load_balance_mode</a> and
 <a href="#REPLICATE_SELECT">replicate_select</a>.
 </p>
@@ -3705,9 +3793,9 @@ to make those deployments and pros and cons.
     <p>
     Pgpool-II is running on a dedicated server.
     It's simple and pgpool-II is not affected by other server softwares.
-    Obvious cons is you need to by more hardware.
+    Obvious cons is you need to buy more hardware.
     Also pgpool-II can be a single point of failure with this configuration
-    (you can avoid this by using pgpool-HA described somewhere below).
+    (you can avoid this by enabling <a href="#watchdog">watchdog</a> or using pgpool-HA described described below).
     </p>
     </dd>
 
@@ -3717,11 +3805,13 @@ to make those deployments and pros and cons.
     Deploying pgpool-II on a server where Apache, JBoss, Tomcat or other web
     server and application servers.
     Since communication between pgpool-II and web servers and application servers
-    is within a local machine, socket communication can be faster than inter sever communication.
+    is within a local machine, socket communication can be faster than inter-sever communication.
     Also if you are using multiple web serves or application servers, you can avoid
     the single point of failure problem
-    (in this case you must have identical pgpool.conf on each pgpool-II instance).
-    There are several things you should care about in this configuration:
+    (in this case you must have identical pgpool.conf on each pgpool-II instance except the <a href="#watchdog">watchdog section</a>).
+		</p>
+		<p>
+		We strongly recommend to enable <a href="#watchdog">watchdog</a> to avoid following concerns in this configuration.
     </p>
     <ul>
         <li>If the communication between pgpool-II and DB servers is not stable, it is possible
@@ -3744,17 +3834,17 @@ to make those deployments and pros and cons.
     Running pgpool-II on the server as PostgreSQL is running on.
     You can avoid the single point of failure problem of pgpool-II with configuration.
     And obviously you do need to buy additional dedicated server.
-    Problem with this configuration is, application need to aware that which DB server they should connect to.
-    To solve the problem you can use virtual IP with pgpool-HA.
+    Problem with this configuration is, application need to aware of which DB server they should connect to.
+    To solve the problem you can use virtual IP with <a href="#watchdog">watchdog</a> or pgpool-HA.
     </p>
     </dd>
 </dl>
 
 <h2 id="pgpool_ha">About pgpool-HA</h2>
 <p>
-Pgpool-HA is a high availability software for pgpool-II using hearbeat.
-Pgpool-HA is a sub project of pgpool project as well as pgpool-II.
-Pgpool-HA can be available from pgpool development site as an open source software.
+Pgpool-HA is a high availability software for pgpool-II using heartbeat.
+Pgpool-HA is a sub-project of the pgpool project as well as pgpool-II.
+Pgpool-HA can be available from the pgpool development site as an open source software.
 </p>
 
 <p class="top_link"><a href="#Top">back to top</a></p>
@@ -3762,66 +3852,78 @@ Pgpool-HA can be available from pgpool development site as an open source softwa
 <!-- ================================================================================ -->
 
 <h1 id="watchdog">Watchdog <span class="version">V3.2 -</span></h1>
+<h2 id="what_is_watchdog">What is watchdog</h2>
 
 <p>
-"Watchdog" is a sub process of pgpool-II aiming for adding high availability feature to it.
-Features added by watchdog include:
+"Watchdog" is a sub process of pgpool-II to add high availability.
+This resolve the single point of failure by coordinating multiple pgpool-IIs.
+watchdog adds the following features to pgpool-II.
 </p>
-
-<dl>
-<dt>Life checking of pgpool service</dt>
-    <dd>
+<h3>Life checking of pgpool-II</h3>
     <p>
-    Watchdog monitors responses of pgpool <i>service</i> rather than process.
-    It sends queries to PostgreSQL via pgpool which is being monitored
-    by watchdog and watchdog checks the response.
+    Watchdog monitors pgpool-IIs by either of two methods, "heartbeat" mode or "query" mode.
     </p>
+    <ul>
+    <li>
+    In heartbeat mode, watchdog monitors other pgpool-II processes by using heartbeat signal.
+    Watchdog receives heartbeat signals sent by other pgpool-II periodically.
+    If there are no signal for a certain period, watchdog regards this as failure of the pgpool-II.
+    For redundancy you can use multiple network connections for heartbeat exchange between pgpool-IIs.
+    This is the default mode and recommended.
+    </li>
+    <li>
+    In query mode, watchdog monitors pgpool-II's service rather than process.
+    watchdog sends queries to other pgpool-II and checks the response.
+    Note that this method requires connections from other pgpool-IIs, so it would fail motoring if
+    <a href="#NUM_INIT_CHILDREN">num_init_children </a>isn't large enough.
+    This mode is deprecated and left for backward compatibility.
+    </li>
+    </ul>
     <p>
-    Also watchdog monitors connections to up stream servers
-    (application servers etc.) from the pgpool.
-    The connection between the up stream servers and the pgpool is monitored as service of pgpool.
+    Also watchdog monitors connections to upstream servers
+    (application servers etc.) from the pgpool-II, and checks whether the pgpool-II can serves to the servers.
+    If the monitoring fails, watchdog treats the pgpool-II as down.
     </p>
-    </dd>
 
-<dt>Mutual monitoring of watchdog processes</dt>
-    <dd>
+<h3>Coordinating multiple pgpool-IIs</h3>
     <p>
-    Watchdog processes exchange information on the monitored servers
-    to keep the information up to date,
-    and to allow watchdog processes to mutually monitor each other. 
+    Watchdog coordinates multiple pgpool-IIs by exchanging information with each other.
     </p>
-    </dd>
+    <ul>
+    <li>
+    When backend node status changes by failover etc., watchdog notifies the information to other pgpool-IIs and synchronizes them.
+    When online recovery occurs, watchdog restricts client connections to other pgpool-IIs for avoiding inconsistency between backends.
+    </li>
+    <li>
+    Commands on failback or failover (<a href="#FAILOVER_COMMAND">failover_command</a>,
+    <a href="#FAILBACK_COMMAND">failback_command</a>, <a href="#FOLLOW_MASTER_COMMAND">follow_master_command</a>)
+    are executed by only one pgpool-II by interlocking.
+    </li>
+    </ul>
 
-<dt>Changing active/standby state in case of certain faults detected</dt>
-    <dd>
+<h3>Changing active/standby state in case of certain faults detected</h3>
     <p>
-    When a fault is detected in the pgpool service, watchdog notifies the other watchdogs of it.
-    Watchdogs decide the new active pgpool if previous active pgpool is broken
-    by voting and change active/standby state.
+    When a fault of pgpool-II is detected, watchdog notifies the other watchdogs of it.
+    If this is the active pgpool-II, watchdogs decides the new active pgpool-II by voting and change active/standby state.
     </p>
-    </dd>
 
-<dt>Automatic virtual IP address assigning synchronous to server switching</dt>
-    <dd>
+<h3>Automatic virtual IP address assigning synchronous to server switching</h3>
     <p>
-    When a standby pgpool server promotes to active, the new active server brings up virtual IP interface.
+    When a standby pgpool-II server promotes to active, the new active server brings up virtual IP interface.
     Meanwhile, the previous active server brings down the virtual IP interface.
-    This enables the active pgpool to work using the same IP address even when servers is switched over.
+    This enables the active pgpool-II to work using the same IP address even when servers are switched.
     </p>
-    </dd>
 
-<dt>Automatic registration of a server as standby in recovery</dt>
-    <dd>
+<h3>Automatic registration of a server as standby in recovery</h3>
     <p>
     When broken server recovers or new server is attached,
     the watchdog process notifies the other watchdog process along with information of the new server,
     and the watchdog process receives information on the active server and other servers.
-    Then, the attached server is registered as standby.
+    Then, the attached server is registered as a standby.
     </p>
-    </dd>
 </dl>
 
-<h2 id="deploy_watchdog">Server composition</h2>
+<h2 id="watchdog_server_composition">Server composition</h2>
 
 <p>
 Figure below describes how pgpool-II and watchdog process is configured.
@@ -3830,35 +3932,83 @@ Figure below describes how pgpool-II and watchdog process is configured.
 
 <h2 id="start_watchdog">Starting/stopping watchdog</h2>
 <p>
-Watchdog process is started/stopped automatically by pgpool-II,
+Watchdog process starts/stops automatically as sub-processes of pgpool-II,
 therefore there is no dedicated command to start/stop it.
-However, pgpool-II must to be started with <font color="red">root privilege</font>
-because watchdog process needs to control the virtual IP interface.
 </p>
 <p>
-The life checking starts after waiting for all of the pgpools to start.
+Watchdog requires <font color="red">root privilege</font> for controling the virtual IP interface.
+One method is to start pgpool-II by root privilege.
+However, for security reason, to set custom commands to <a href="#IF_UP_CMD">if_up_cmd</a>,
+<a href="#IF_DOWN_CMD">if_up_cmd</a>, <a href="#ARPING_CMD">if_up_cmd</a> using sudo or setuid is recommended method.
+</p>
+<p>
+Watchdog's life-checking starts after after all of the pgpool-IIs has started.
+This doesn't start if not all "other" nodes are alive
+Until this, failover of the virtual IP never occurs. 
 </p>
 
 <h2>Configuring watchdog (pgpool.conf)</h2>
 <p>
-Watchdog configuration parameters is described in pgpool.conf.
+Watchdog configuration parameters are described in pgpool.conf.
 There is sample configuration in WATCHDOG section in pgpool.conf.sample file.
+</p>
+
+<p>
 All following options are required to be specified in watchdog process.
 </p>
 
-<h3>Basic configuration</h3>
-
-<h4>Enabling</h4>
+<h3>Enabling</h3>
 <dl>
 <dt><a name="USE_WATCHDOG"></a>use_watchdog <span class="version">V3.2 -</span></dt>
     <dd>
     <p>
     If on, activates watchdog. Default is off.
     </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
     </dd>
 </dl>
 
-<h4>Connection to up stream servers</h4>
+<h3>Watchdog communication</h3>
+<dl>
+<dt><a name="WD_HOSTNAME"></a>wd_hostname <span class="version">V3.2 -</span></dt>
+    <dd>
+    <p>
+    Specifies the hostname or IP address of pgpool-II server.
+    This is used for sending/receiving queries and packets, and also as identifier of watchdog.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="WD_PORT"></a>wd_port <span class="version">V3.2 -</span></dt>
+    <dd>
+    <p>
+    Specifies the port number for watchdog communication.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="WD_AUTHKEY"></a>wd_authkey <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    This option specifies the authentication key used in watchdog communication.
+    All the pgpool-II must have the same key.
+    Packets from watchdog of wrong key will be rejects.
+    This authentication is applied also for heatrbeat singals if lifecheck method is heartbeat mode.
+    If this is empty (default), watchdog doesn't conduct authenticate.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+</dl>
+
+<h3>Connection to up stream servers</h3>
 
 <dl>
 <dt><a name="TRUSTED_SERVERS"></a>trusted_servers <span class="version">V3.2 -</span></dt>
@@ -3867,6 +4017,13 @@ All following options are required to be specified in watchdog process.
     The list of trusted servers to check the up stream connections.
     Each server is required to respond to ping.
     Specify a comma separated list of servers such as "hostA,hostB,hostC".
+    If none of the server are pingable, watchdog regards it as failure of the pgpool-II.
+    </p>
+    <p>
+    If this option is empty, watchdog doesn't check up stream connections.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 
@@ -3877,39 +4034,17 @@ All following options are required to be specified in watchdog process.
     to the upper servers.
     Set the only path such as "/bin".
     </p>
-    </dd>
-</dl>
-
-<h4>Life checking pgpool-II</h4>
-
-<dl>
-<dt><a name="WD_INTERVAL"></a>wd_interval <span class="version">V3.2 -</span></dt>
-    <dd>
     <p>
-    This parameter specifies the interval between life checks of pgpool-II
-    in second.
-    (A number greater than or equal to 1)
-    </p>
-    </dd>
-
-<dt><a name="WD_LIFE_POINT"></a>wd_life_point <span class="version">V3.2 -</span></dt>
-    <dd>
-    <p>
-    The times to retry a failed life check of pgpool-II.
-    (A number greater than or equal to 1)
-    </p>
-    </dd>
-
-<dt><a name="WD_LIFECHECK_QUERY"></a>wd_lifecheck_query <span class="version">V3.2 -</span></dt>
-    <dd>
-    <p>
-    Actual query to check pgpool-II.
-    Default is "SELECT 1"
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 </dl>
 
-<h4>Virtual IP address</h4>
+<h3>Virtual IP control</h3>
+
+<p>
+Configuration about virtual IP interface control
+</p>
 
 <dl>
 <dt><a name="DELEGATE_IP"></a>delegate_IP <span class="version">V3.2 -</span></dt>
@@ -3917,7 +4052,11 @@ All following options are required to be specified in watchdog process.
     <p>
     Specifies the virtual IP address (VIP) of pgpool-II that is connected from
     client servers (application servers etc.).
-    When a pgpool is switched from standby to active, the pgpool takes over this VIP.
+    When a pgpool-II is switched from standby to active, the pgpool-II takes over this VIP.
+    If this option is emply, virtual IP is never brought up.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 
@@ -3926,6 +4065,9 @@ All following options are required to be specified in watchdog process.
     <p>
     This parameter specifies a path of a command to switch the IP address.
     Set the only path such as "/sbin".
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 
@@ -3937,6 +4079,9 @@ All following options are required to be specified in watchdog process.
     "ifconfig eth0:0 inet $_IP_$ netmask 255.255.255.0".
     $_IP_$ is replaced by the IP address specified in <a href="#DELEGATE_IP">delegate_IP</a>.
     </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
     </dd>
 
 <dt><a name="IF_DOWN_CMD"></a>if_down_cmd <span class="version">V3.2 -</span></dt>
@@ -3945,6 +4090,9 @@ All following options are required to be specified in watchdog process.
     This parameter specifies a command to bring down the virtual IP.
     Set the command and parameters such as
     "ifconfig eth0:0 down".
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 
@@ -3955,6 +4103,9 @@ All following options are required to be specified in watchdog process.
     after the virtual IP is switched.
     Set the only path such as "/usr/sbin".
     </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
     </dd>
 
 <dt><a name="ARPING_CMD"></a>arping_cmd <span class="version">V3.2 -</span></dt>
@@ -3962,26 +4113,224 @@ All following options are required to be specified in watchdog process.
     <p>
     This parameter specifies a command to send an ARP request
     after the virtual IP is switched.
-    Set the command and parameters such as 
+    Set the command and parameters such as
     "arping -U $_IP_$ -w 1".
     $_IP_$ is replaced by the IP address specified in <a href="#DELEGATE_IP">delegate_IP</a>.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 </dl>
 
-<h3>Server itself to be monitored</h3>
+<h3>Behaivor on escalation</h3>
+
+<p> Configuration about behavior when pgpool-II escalates to active (virtual IP holder)
+
 <dl>
-<dt><a name="WD_HOSTNAME"></a>wd_hostname <span class="version">V3.2 -</span></dt>
+<dt><a name="CLEAR_MEMQCACHE_ON_ESCALATION"></a>clear_memqcache_on_escalation <span class="version">V3.3 -</span></dt>
     <dd>
     <p>
-    Specifies the hostname or IP address for mutual monitoring of watchdog processes.
+    If this is on, watchdog clears all the query cache in the shared memory when pgpool-II escaltes to active.
+    This prevents the new active pgpool-II from using old query caches inconsistence to the old active.
+    Default is on.
+    </p>
+    <p>
+    This works only if <a href="#MEMQCACHE_METHOD">memqcache_method</a> is 'shmem'.
     </p>
     </dd>
 
-<dt><a name="WD_PORT"></a>wd_port <span class="version">V3.2 -</span></dt>
+<dt><a name="WD_ESCALATION_COMMAND"></a>wd_escalation_command <span class="version">V3.3 -</span></dt>
     <dd>
     <p>
-    Specifies the port number for mutual monitoring of watchdog processes.
+    Watchdog executes this command on the new active when pgpool-II escaltes to active.
+    The timing is just before virtual IP brings up.
+    </p>
+    </dd>
+</dl>
+
+<h3>Life checking pgpool-II</h3>
+
+<p>Watchdog checks pgpool-II status periodically. This is called "life check".
+
+<h4>Common</h4>
+
+<dl>
+<dt><a name="WD_LIFECHECK_METHOD"></a>wd_lifecheck_method <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    This parameter specifies the method of life check. This is either of 'heartbeat' (default) or 'query'.
+    </p>
+    <p>
+    In 'heartbeat' mode, watchdog sends heartbeat singals (UDP packets) periodically to other pgpool-II.
+    Watchdog also receives the signals from other pgpool-II.
+    If there are no signal for a certain period, watchdog regards is as failure of the pgpool-II.
+    </p>
+    <p>
+    In 'query' mode, watchdog sends monitoring queries to other pgpool-II and checks the response.
+    </p>
+    <p>
+    <font color="red">CAUTION: In query mode, you need to set <a href="#NUM_INIT_CHILDREN">num_init_children</a>
+    large enough if you plan to use watchdog. This is because the watchdog process connects to pgpool-II as a client.</font>
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="WD_INTERVAL"></a>wd_interval <span class="version">V3.2 -</span></dt>
+    <dd>
+    <p>
+    This parameter specifies the interval between life checks of pgpool-II
+    in second.
+    (A number greater than or equal to 1)
+    Default is 10.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+</dl>
+
+<h4>Configuration of heartbeat mode</h4>
+
+<dl>
+<dt><a name="WD_HEARTBEAT_PORT"></a>wd_heartbeat_port <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    This option specifies the port number to receive heartbeat signals.
+    This works only heartbeat mode.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="WD_HEARTBEAT_KEEPALIVE"></a>wd_heartbeat_keepalive <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    This option specifies the interval time (sec.) of sending heartbeat signals.
+    Default is 2.
+    This works only heartbeat mode.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="WD_HEARTBEAT_DEADTIME"></a>wd_heartbeat_deadtime <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    If there are no heartbeat signal for the period specified by this option, watchdog regards it as failure of the remote pgpool-II.
+    This works only heartbeat mode.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="HEARTBEAT_DESTINATION"></a>heartbeat_destination<font color="red">0</font> <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    This option specifies the destination of heartbeat signals by IP address or hostname.
+    You can use multiple destination.
+    The number at the end of the parameter name is referred as "destination number",
+    and it starts from 0.
+    This works only heartbeat mode.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="HEARTBEAT_DESTINATION_PORT"></a>heartbeat_destination_port<font color="red">0</font> <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    This option specifies the port number of destination of heartbeat signals
+    which is specified by <a href="HEARTBEAT_DESTINATION">heartbeat_destinationX</a>.
+    This is usually the same value as <a href="WD_HEARTBEAT_PORT">wd_heartbeat_port</a>
+    You must use another value if the port number is unusable on a certain host or
+    there are more than two pgpool-IIs in a host.
+    The number at the end of the parameter name is referred as "destination number",
+    and it starts from 0.
+    This works only heartbeat mode.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="HEARTBEAT_DEVICE"></a>heartbeat_device<font color="red">0</font> <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    This option specifies the network device name for sending heartbeat signals to
+    destination specified by <a href="HEARTBEAT_DESTINATION">heartbeat_destinationX</a>.
+    You can use the same device for different distinations.
+    The number at the end of the parameter name is referred as "destination number",
+    and it starts from 0.
+    This works only heartbeat mode. This is ignored when the value is empty.
+    In addition, this works only when pgpool-II has root privilege and are running on Linux,
+    because this uses SO_BINDTODEVICE socket option.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+</dl>
+
+<h4>Configuration of query mode</h4>
+
+<dl>
+<dt><a name="WD_LIFE_POINT"></a>wd_life_point <span class="version">V3.2 -</span></dt>
+    <dd>
+    <p>
+    The times to retry a failed life check of pgpool-II.
+    (A number greater than or equal to 1)
+    Default is 3.
+    This works only query mode.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="WD_LIFECHECK_QUERY"></a>wd_lifecheck_query <span class="version">V3.2 -</span></dt>
+    <dd>
+    <p>
+    Actual query to check pgpool-II.
+    Default is "SELECT 1".
+    This works only query mode.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
+    </dd>
+
+<dt><a name="WD_LIFECHECK_DBNAME"></a>wd_lifecheck_dbname <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    The database name connected for checking pgpool-II.
+    Default is "template1".
+    This works only query mode.
+    </p>
+    </dd>
+
+<dt><a name="WD_LIFECHECK_USER"></a>wd_lifecheck_user <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    The user name to check pgpool-II.
+    This user must exist in all the PostgreSQL backends.
+    Default is "nobody".
+    This works only query mode.
+    </p>
+    </dd>
+
+<dt><a name="WD_LIFECHECK_PASSWORD"></a>wd_lifecheck_password <span class="version">V3.3 -</span></dt>
+    <dd>
+    <p>
+    The password of the user to check pgpool-II.
+    Default is "".
+    This works only query mode.
     </p>
     </dd>
 </dl>
@@ -3993,8 +4342,12 @@ All following options are required to be specified in watchdog process.
     <dd>
     <p>
     Specifies the hostname pgpool-II server to be monitored.
+    This is used for sending/receiving queries and packets, and also as identifier of watchdog.
     The number at the end of the parameter name is referred as "server id",
     and it starts from 0.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 
@@ -4002,9 +4355,13 @@ All following options are required to be specified in watchdog process.
     <span class="version">V3.2 -</span></dt>
     <dd>
     <p>
-    Specifies the port number for pgpool on pgpool-II server to be monitored.
+    Specifies the port number for pgpool service of pgpool-II server to be monitored.
+    In query mode, the queries specified in <a href="#WD_LIFECHECK_QUERY">wd_lifecheck_query</a> is sent to this port.
     The number at the end of the parameter name is referred as "server id",
     and it starts from 0.
+    </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
     </p>
     </dd>
 
@@ -4015,8 +4372,462 @@ All following options are required to be specified in watchdog process.
     The number at the end of the parameter name is referred as "server id",
     and it starts from 0.
     </p>
+    <p>
+    You need to restart pgpool-II if you change this value.
+    </p>
     </dd>
 </dl>
+
+<h2 id="watchdog_restrictions">Restrictions on watchdog</h2>
+<ul>
+<li>
+In query mode, when all the DB nodes are detached from a pgpool-II due to PostgreSQL server failure or
+pcp_detach_node issued, watchdog regards that the pgpool-II service is in down status and
+brings the virtual IP assigned to watchdog down. Thus clients of pgpool cannot connect to
+pgpool-II using the virtual IP any more. This is neccessary to avoid <i>split-brain</i>,
+that is, situations where there are multiple active pgpool-II.
+</li>
+<li>
+Don't connect to pgpool-II in down status using the real IP. Because a pgpool-II in down status
+can't receive information from watchdog, its backend status may be different from other pgpool-II.
+</li>
+<li>
+pgpool-II in down status can't become active nor standby pgpool-II.
+Recovery from down status requires restart of pgpool-II.
+</li>
+<li>
+Please note that after the active pgpool-II stops, it will take a few seconds until the
+standby pgpool-II promote to new active, to make sure that the former virtual IP is brought
+down before a down notification packet is sent to other pgpool-IIs.
+</li>
+</ul>
+<p class="top_link"><a href="#Top">back to top</a></p>
+
+<!-- ================================================================================ -->
+
+<h1 id="pcp_command">PCP Commands</h1>
+
+<h2>PCP commands list</h2>
+<p>PCP commands are UNIX commands which manipulate pgpool-II via the network.
+
+<table border>
+<tr><th><a href="#pcp_node_count">pcp_node_count</a></th>
+    <td>retrieves the number of nodes</td></tr>
+<tr><th><a href="#pcp_node_info">pcp_node_info</a></th>
+    <td>retrieves the node information</td></tr>
+<tr><th><a href="#pcp_watchdog_info">pcp_watchdog_info</a> <span class="version">V3.3 -</span></th>
+    <td>retrieves the watchdog information</td></tr>
+<tr><th><a href="#pcp_proc_count">pcp_proc_count</a></th>
+    <td>retrieves the process list</td></tr>
+<tr><th><a href="#pcp_proc_info">pcp_proc_info</a></th>
+    <td>retrieves the process information</td></tr>
+<tr><th><a href="#pcp_pool_status ">pcp_pool_status</a> <span class="version">V3.1 -</span></th>
+    <td>retrieves parameters in pgpool.conf</td></tr>
+<tr><th><a href="#pcp_systemdb_info">pcp_systemdb_info</a></th>
+    <td>retrieves the System DB information</td></tr>
+<tr><th><a href="#pcp_detach_node">pcp_detach_node</a></th>
+    <td>detaches a node from pgpool-II</td></tr>
+<tr><th><a href="#pcp_attach_node">pcp_attach_node</a></th>
+    <td>attaches a node to pgpool-II</td></tr>
+<tr><th><a href="#pcp_promote_node">pcp_promote_node</a> <span class="version">V3.1 -</span></th>
+    <td>promote a new master node to pgpool-II</td></tr>
+<tr><th><a href="#pcp_stop_pgpool">pcp_stop_pgpool</a></th>
+    <td>stops pgpool-II</td></tr>
+</table>
+
+
+<h2 id="pcp_comand_args">Common Command-line Arguments</h2>
+
+<p>There are five arguments common to all of the PCP commands. They
+give information about pgpool-II and authentication. Extra
+arguments may be needed for some commands.
+
+<pre>
+e.g.)  $ pcp_node_count 10 localhost 9898 postgres hogehoge
+</pre>
+
+<table border>
+<tr>
+<th>First argument</th>
+<td>timeout value in seconds. PCP disconnects if pgpool-II does not respond in this many seconds.</td>
+</tr>
+<tr><th>Second argument</th><td>pgpool-II's hostname</td></tr>
+<tr><th>Third argument</th><td>PCP port number</td></tr>
+<tr><th>Fourth argument</th><td>PCP user name</td></tr>
+<tr><th>Fifth argument</th><td>PCP password</td></tr>
+</table>
+
+<p>PCP user names and passwords must be declared in
+<code>pcp.conf</code> in <code>$prefix/etc</code>
+directory. <code>-F</code> option can be used when starting pgpool-II
+if <code>pcp.conf</code> is placed somewhere else. The password does
+not need to be in md5 format when passing it to the PCP commands.</p>
+
+
+<h2>PCP Commands to know status and configuration</h2>
+
+<p>All PCP commands display the results to the standard output.</p>
+
+
+<h3 id="pcp_node_count">pcp_node_count</h3>
+
+<dl class="flat">
+<dt>Format</dt>
+<dd>
+<code>pcp_node_count  _timeout_  _host_  _port_  _userid_  _passwd_</code>
+</dd>
+<dt>Desc.</dt>
+<dd>
+Displays the total number of nodes defined in <code>pgpool.conf</code>. It does
+not distinguish between nodes status, ie attached/detached. ALL nodes are counted.
+</dd>
+</dl>
+
+<h3><a name="pcp_node_info"/></a>pcp_node_info</h3>
+
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_node_info  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_</code></dd>
+<dt>Desc.</dt>
+<dd>
+<p>Displays the information on the given node ID. Here is an output example:</p>
+<pre>
+$ pcp_node_info 10 localhost 9898 postgres hogehoge 0
+host1 5432 1 1073741823.500000
+</pre>
+
+<p>The result is in the following order:</p>
+<ul>
+<li>1. hostname</li>
+<li>2. port number</li>
+<li>3. status</li>
+<li>4. load balance weight</li>
+</ul>
+
+<p>Status is represented by a digit from [0 to 3].</p>
+<ul>
+<li>0 - This state is only used during the initialization. PCP will never display it.</li>
+<li>1 - Node is up. No connections yet.</li>
+<li>2 - Node is up. Connections are pooled.</li>
+<li>3 - Node is down.</li>
+</ul>
+<p>The load balance weight is displayed in normalized format.</p>
+
+<p>The <code>--verbose</code> option can help understand the output. For example:</p>
+
+<pre>
+$ pcp_node_info --verbose 10 localhost 9898 postgres hogehoge 0
+Hostname: host1
+Port    : 5432
+Status  : 1
+Weight  : 0.5
+</pre>
+
+<p>Specifying an invalid node ID will result in an error with <a href="#exit_status">exit status 12</a>,
+and BackendError will be displayed.</p>
+</dd>
+</dl>
+
+<h3><a name="pcp_watchdog_info"/></a>pcp_watchdog_info <span class="version">V3.3 -</span></h3>
+
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_watchdog_info  _timeout_  _host_  _port_  _userid_  _passwd_  [_watchdogid_]</code></dd>
+<dt>Desc.</dt>
+<p>Displays the watchdog status of the pgpool-II.
+_watchdogid_ is the index of other_pgpool_hostname parameter in pgpool.conf.</p>
+<p>If this is omitted, display the watchdog status of the pgpool-II specified by _host_:_port_.</p>
+
+<p>Here is an output example:</p>
+
+<pre>
+$ pcp_watchdog_info 10 localhost 9898 postgres hogehoge 0
+host1 9999 9000 2
+Here is an output example:
+</pre>
+
+<p>The result is in the following order:</p>
+<ul>
+<li>1. hostname</li>
+<li>2. port number for pgpool-II</li>
+<li>3. port number for watchdog</li>
+<li>4. watchdog Status</li>
+</ul>
+
+<p>Status is represented by a digit from [1 to 4].</p>
+<ul>
+<li>1 - watchdog is not started</li>
+<li>2 - Standby: not holding the virtual IP</li>
+<li>3 - Active: holding the virtual IP</li>
+<li>4 - Down</li>
+</ul>
+<p>The load balance weight is displayed in normalized format.</p>
+
+<p>Specifying an invalid watchdog ID will result in an error with <a href="#exit_status">exit tatus 12</a>,
+and BackendError will be displayed.</p>
+</dl>
+
+<h3 id="pcp_proc_count">pcp_proc_count</h3>
+
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_proc_count  _timeout_  _host_  _port_  _userid_  _passwd_</code></dd>
+<dt>Desc.</dt>
+<dd>
+Displays the list of pgpool-II children process IDs. If there is more than
+one process, IDs will be delimited by a white space.
+</dd>
+</dl>
+
+<h3 id="pcp_proc_info">pcp_proc_info</h3>
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_proc_info  _timeout_  _host_  _port_  _userid_  _passwd_  _processid_</code></dd>
+<dt>Desc.</dt>
+<p>
+Displays the information on the given pgpool-II child process ID. The
+output example is as follows:
+</p>
+<pre>
+$ pcp_proc_info 10 localhost 9898 postgres hogehoge 3815
+postgres_db postgres 1150769932 1150767351 3 0 1 1467 1
+postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
+</pre>
+
+<p>The result is in the following order:</p>
+<ul>
+<li>1. connected database name</li>
+<li>2. connected user name</li>
+<li>3. process start-up timestamp</li>
+<li>4. connection created timestamp</li>
+<li>5. protocol major version</li>
+<li>6. protocol minor version</li>
+<li>7. connection-reuse counter</li>
+<li>8. PostgreSQL backend process id</li>
+<li>9. 1 if frontend conncted 0 if not</li>
+</ul>
+
+<p>
+If there is no connection to the backends, nothing will be
+displayed. If there are multiple connections, one connection's
+information will be displayed on each line multiple
+times. Timestamps are displayed in EPOCH format.
+</p>
+
+<p>
+The </code>--verbose</code> option can help understand the output. For example:
+</p>
+
+<pre>
+$ pcp_proc_info --verbose 10 localhost 9898 postgres hogehoge 3815
+Database     : postgres_db
+Username     : postgres
+Start time   : 1150769932
+Creation time: 1150767351
+Major        : 3
+Minor        : 0
+Counter      : 1
+PID          : 1467
+Connected    : 1
+Database     : postgres_db
+Username     : postgres
+Start time   : 1150769932
+Creation time: 1150767351
+Major        : 3
+Minor        : 0
+Counter      : 1
+PID          : 1468
+Connected    : 1
+</pre>
+
+<p>Specifying an invalid node ID will result in an error with <a href="#exit_status">exit status 12</a>,
+and BackendError will be displayed.</p>
+</dl>
+
+<h3 id="pcp_pool_status">pcp_pool_status <span class="version">V3.1 -</span></h3>
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_pool_status _timeout_  _host_  _port_  _userid_  _passwd_</code></dd>
+<dt>Desc.</dt>
+<dd>
+<p>Displays parameters in pgpool.conf. The output example is as follows:</p>
+<pre>
+$ pcp_pool_status 10 localhost 9898 postgres hogehoge
+name : listen_addresses
+value: localhost
+desc : host name(s) or IP address(es) to listen to
+
+name : port
+value: 9999
+desc : pgpool accepting port number
+
+name : socket_dir
+value: /tmp
+desc : pgpool socket directory
+
+name : pcp_port
+value: 9898
+desc : PCP port # to bind
+</pre>
+</dd>
+</dl>
+
+<h3 id="pcp_systemdb_info">pcp_systemdb_info</h3>
+
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_systemdb_info  _timeout_  _host_  _port_  _userid_  _passwd_</code></dd>
+<dt>Desc.</dt>
+<dd>
+<p>Displays the System DB information. The output example is as follows:</p>
+<pre>
+$ pcp_systemdb_info 10 localhost 9898 postgres hogehoge
+localhost 5432 yamaguti '' pgpool_catalog pgpool 3
+yamaguti public accounts aid 4 aid bid abalance filler integer integer integer character(84) dist_def_accounts
+yamaguti public branches bid 3 bid bbalance filler integer integer character(84) dist_def_branches
+yamaguti public tellers bid 4 tid bid tbalance filler integer integer integer character(84) dist_def_tellers
+</pre>
+
+<p>First, the System DB information will be displayed on the first line.
+The result is in the following order:</p>
+<ul>
+<li>1. hostname</li>
+<li>2. port number</li>
+<li>3. user name</li>
+<li>4. password. '' for no password.</li>
+<li>5. schema name</li>
+<li>6. database name</li>
+<li>7. number of partioning rules defined</li>
+</ul>
+
+<p>
+Second, partitioning rules will be displayed on the following lines. If
+there are multiple definitions, one definition will be displayed on
+each line multiple times. The result is in the following order:
+</p>
+<ul>
+<li>1. targeted partitioning database name</li>
+<li>2. targeted partitioning schema name</li>
+<li>3. targeted partitioning table name</li>
+<li>4. partitioning key column name</li>
+<li>5. number of columns in the targeted table</li>
+<li>6. column names (displayed as many as said in 5.)</li>
+<li>7. column types (displayed as many as said in 5.)</li>
+<li>8. partitioning rule function name</li>
+</ul>
+<p>
+If the System DB is not defined (i.e. not in pgpool-II mode, and query
+cache is disabled), it results in error with <a href="#exit_status">exit status 12</a>, and
+BackendError will be displayed.</p>
+
+</dd>
+</dl>
+
+<h2>PCP Commands to control backend nodes, etc.</h2>
+
+<h3 id="pcp_detach_node">pcp_detach_node</h3>
+
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_detach_node  [-g] _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_</code></dd>
+<dt>Desc.</dt>
+<dd>
+<p>
+Detaches the given node from pgpool-II.
+If -g is given, wait until all clients are disconnected (unless
+client_idle_limit_in_recovery is -1 or recovery_timeout is expired).
+</p>
+</dd>
+</dl>
+
+
+<h3 id="pcp_attach_node">pcp_attach_node</h3>
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_attach_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_</code></dd>
+<dt>Desc.</dt>
+<dd><p>Attaches the given node to pgpool-II.</p></dd>
+</dl>
+
+<h3 id="pcp_promote_node">pcp_promote_node <span class="version">V3.1 -</span></h3>
+
+<dl class="flat">
+<dt>Format</dt>
+<dd><code>pcp_promote_node  [-g] _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_</code></dd>
+<dt>Desc.</dt>
+<dd>
+<p>
+Promotes the given node as new master to pgpool-II. In master/slave streaming replication only.
+If -g is given, wait until all clients are disconnected (unless
+client_idle_limit_in_recovery is -1 or recovery_timeout is expired).
+</p>
+</dd>
+</dl>
+
+<h3 id="pcp_stop_pgpool">pcp_stop_pgpool</h3>
+<dl class="flat">
+<dt>Format:</dt>
+<dd><code>pcp_stop_pgpool  _timeout_  _host_  _port_  _userid_  _passwd_  _mode_</code></dd>
+<dt>Desc.</dt>
+<dd>
+<p>Terminate the pgpool-II process with the given shutdown mode. The available modes are as follows:</p>
+<ul>
+<li>s    - smart mode</li>
+<li>f    - fast mode</li>
+<li>i    - immediate mode</li>
+</ul>
+<p>
+If the pgpool-II process does not exist, it results in error with <a href="#exit_status">exit status 8</a>,
+and ConnectionError will be displayed.
+</p>
+<p>
+* Currently, there is no difference between the fast and immediate
+mode. pgpool-II terminates all the processes whether there are clients
+connected to the backends or not.</p>
+</dd>
+</dl>
+
+<h3 id="pcp_recovery_node">pcp_recovery_node</h3>
+<dl class="flat">
+<dt>Formet</dt>
+<dd><code>pcp_recovery_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_</code></dd>
+<dt>Desc.</dt>
+<dd>Attaches the given backend node with recovery.</dd>
+</dl>
+
+<h2 id="exit_status">Exit Status</h2>
+
+<p>PCP commands exits with status 0 when everything goes well. If any
+error had occurred, it will exit with the following error status.
+
+<table border>
+<tr><th>UNKNOWNERR</th>
+    <td>1</td><td>Unknown Error (should not occur)</td></tr>
+<tr><th>EOFERR</th>
+    <td>2</td><td>EOF Error</td></tr>
+<tr><th>NOMEMERR</th>
+    <td>3</td><td>Memory shortage</td></tr>
+<tr><th>READERR</th>
+    <td>4</td><td>Error while reading from the server</td></tr>
+<tr><th>WRITEERR</th>
+    <td>5</td><td>Error while writing to the server</td></tr>
+<tr><th>TIMEOUTERR</th>
+    <td>6</td><td>Timeout</td></tr>
+<tr><th>INVALERR</th>
+    <td>7</td><td>Argument(s) to the PCP command was invalid</td></tr>
+<tr><th>CONNERR</th>
+    <td>8</td><td>Server connection error</td></tr>
+<tr><th>NOCONNERR</th>
+    <td>9</td><td>No connection exists</td></tr>
+<tr><th>SOCKERR</th>
+    <td>10</td><td>Socket error</td></tr>
+<tr><th>HOSTERR</th>
+    <td>11</td><td>Hostname resolution error</td></tr>
+<tr><th>BACKENDERR</th>
+    <td>12</td><td>PCP process error on the server (specifying an invalid ID, etc.)</td></tr>
+<tr><th>AUTHERR</th>
+    <td>13</td><td>Authorization failure</td></tr>
+</table>
 
 <p class="top_link"><a href="#Top">back to top</a></p>
 
@@ -4148,7 +4959,10 @@ pgpool-II.
 <ul>
     <li>In the replication mode or master/slave mode, trust, clear text password,
         and pam methods are supported. md5 in also supported since pgpool-II 3.0.
-        md5 is supported by using "pool_passwd". Here are the steps to enable md5 authentication:
+        md5 is supported by using a authencitaion file ("pool_passwd").
+        "pool_passwd" is default name of the authentication file.
+        You can change the file name using <a href="#POOL_PASSWD">pool_passwd</a>.
+        Here are the steps to enable md5 authentication:
         <ol>
             <li>Login as the database's operating system user and type
                 "pg_md5 --md5auth --username=<your_username> <your_passwd>"
@@ -4395,7 +5209,7 @@ be performed inside the functions.</p>
 <h3>Extended Query Protocol (for parallel mode)</h3>
 
 <p>The extended query protocol used by JDBC drivers, etc. is not
-supported. The simple query protocol must be used. This means you can't use
+supported. The simple query protocol must be used. This means you cannot use
 prepared statements.</p>
 
 <h3 id="ng_natural_join">Natural Join (for parallel mode)</h3>
@@ -4518,387 +5332,14 @@ fail. Also, the System DB must be PostgreSQL 7.4 or later.</p>
 <h2 id="caution_query_cache">Query Cache</h2>
 
 <p>With <a href="#query_cache">on disk query cache, invalidation must be done manually.
-This does not apply to <a href="#memqcache">on memory query cache</a>. Cacche invalidation is automatically done with on memory query cache.</p>
+This does not apply to <a href="#memqcache">on memory query cache</a>. Cache invalidation is automatically done with on memory query cache.</p>
 
-<h2>Compatibility with pgpool</h2>
 
 <p class="top_link"><a href="#Top">back to top</a></p>
 
 <!-- ================================================================================ -->
 
-<h1>References<a name="reference"></a></h1>
-<h2>PCP Command Reference</h2>
-
-<h3 id="pcp_command">PCP Command List</h3>
-
-<p>PCP commands are UNIX commands which manipulate pgpool-II via the network.
-
-<table border>
-<tr><th><a href="#pcp_node_count">pcp_node_count</a></th>
-    <td>retrieves the number of nodes</td></tr>
-<tr><th><a href="#pcp_node_info">pcp_node_info</a></th>
-    <td>retrieves the node information</td></tr>
-<tr><th><a href="#pcp_proc_count">pcp_proc_count</a></th>
-    <td>retrieves the process list</td></tr>
-<tr><th><a href="#pcp_proc_info">pcp_proc_info</a></th>
-    <td>retrieves the process information</td></tr>
-<tr><th><a href="#pcp_pool_status ">pcp_pool_status</a> <span class="version">V3.1 -</span></th>
-    <td>retrieves parameters in pgpool.conf</td></tr>
-<tr><th><a href="#pcp_systemdb_info">pcp_systemdb_info</a></th>
-    <td>retrieves the System DB information</td></tr>
-<tr><th><a href="#pcp_detach_node">pcp_detach_node</a></th>
-    <td>detaches a node from pgpool-II</td></tr>
-<tr><th><a href="#pcp_attach_node">pcp_attach_node</a></th>
-    <td>attaches a node to pgpool-II</td></tr>
-<tr><th><a href="#pcp_promote_node">pcp_promote_node</a> <span class="version">V3.1 -</span></th>
-    <td>promote a new master node to pgpool-II</td></tr>
-<tr><th><a href="#pcp_stop_pgpool">pcp_stop_pgpool</a></th>
-    <td>stops pgpool-II</td></tr>
-</table>
-
-
-<h2 id="pcp_comand_args">Common Command-line Arguments</h2>
-
-<p>There are five arguments common to all of the PCP commands. They
-give information about pgpool-II and authentication. Extra
-arguments may be needed for some commands.
-
-<pre>
-e.g.)  $ pcp_node_count 10 localhost 9898 postgres hogehoge
-
-First argument    - timeout value in seconds. PCP disconnects if
-                    pgpool-II does not respond in this many seconds.
-Second argument   - pgpool-II's hostname
-Third argument    - PCP port number
-Fourth argument   - PCP username
-Fifth argument    - PCP password
-</pre>
-
-<p>PCP usernames and passwords must be declared in
-<code>pcp.conf</code> in <code>$prefix/etc</code>
-directory. <code>-F</code> option can be used when starting pgpool-II
-if <code>pcp.conf</code> is placed somewhere else. The password does
-not need to be in md5 format when passing it to the PCP commands.</p>
-
-
-<h2>PCP Commands</h2>
-
-<p>All PCP commands display the results to the standard output.</p>
-
-
-<h3 id="pcp_node_count">pcp_node_count</h3>
-
-<pre>
-Format:
-pcp_node_count  _timeout_  _host_  _port_  _userid_  _passwd_
-</pre>
-
-<p>
-Displays the total number of nodes defined in <code>pgpool.conf</code>. It does
-not distinguish between nodes status, ie attached/detached. ALL nodes are counted.
-</p>
-
-
-<h3><a name="pcp_node_info"/></a>pcp_node_info</h3>
-
-<pre>
-Format:
-pcp_node_info  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
-</pre>
-
-<p>
-Displays the information on the given node ID. Here is an output example:
-</p>
-
-<pre>
-$ pcp_node_info 10 localhost 9898 postgres hogehoge 0
-host1 5432 1 1073741823.500000
-
-The result is in the following order:
-1. hostname
-2. port number
-3. status
-4. load balance weight
-
-Status is represented by a digit from [0 to 3].
-0 - This state is only used during the initialization. PCP will never display it.
-1 - Node is up. No connections yet.
-2 - Node is up. Connections are pooled.
-3 - Node is down.
-</pre>
-<p>
-The load balance weight is displayed in normalized format.
-</p>
-
-<p>
-The --verbose option can help understand the output. For example:
-</p>
-
-<pre>
-$ pcp_node_info --verbose 10 localhost 9898 postgres hogehoge 0
-Hostname: host1
-Port    : 5432
-Status  : 1
-Weight  : 0.5
-</pre>
-
-<p>Specifying an invalid node ID will result in an error with exit
-status 12, and BackendError will be displayed.</p>
-
-<h3 id="pcp_proc_count">pcp_proc_count</h3>
-<p>
-<pre>
-Format:
-pcp_proc_count  _timeout_  _host_  _port_  _userid_  _passwd_
-</pre>
-<p>
-Displays the list of pgpool-II children process IDs. If there is more than
-one process, IDs will be delimited by a white space.
-</p>
-
-<h3 id="pcp_proc_info">pcp_proc_info</h3>
-<p>
-<pre>
-Format:
-pcp_proc_info  _timeout_  _host_  _port_  _userid_  _passwd_  _processid_
-</pre>
-<p>
-Displays the information on the given pgpool-II child process ID. The
-output example is as follows:
-</p>
-<pre>
-$ pcp_proc_info 10 localhost 9898 postgres hogehoge 3815
-postgres_db postgres 1150769932 1150767351 3 0 1 1467 1
-postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
-
-The result is in the following order:
-1. connected database name
-2. connected username
-3. process start-up timestamp
-4. connection created timestamp
-5. protocol major version
-6. protocol minor version
-7. connection-reuse counter
-8. PostgreSQL backend process id
-9. 1 if frontend conncted 0 if not
-</pre>
-<p>
-If there is no connection to the backends, nothing will be
-displayed. If there are multiple connections, one connection's
-information will be displayed on each line multiple
-times. Timestamps are displayed in EPOCH format.
-</p>
-
-<p>
-The --verbose option can help understand the output. For example:
-</p>
-
-<pre>
-$ pcp_proc_info --verbose 10 localhost 9898 postgres hogehoge 3815
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
-Major        : 3
-Minor        : 0
-Counter      : 1
-PID          : 1467
-Connected    : 1
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
-Major        : 3
-Minor        : 0
-Counter      : 1
-PID          : 1468
-Connected    : 1
-</pre>
-
-<p>Specifying an invalid node ID will result in an error with exit
-status 12, and BackendError will be displayed.</p>
-
-<h3 id="pcp_pool_status">pcp_pool_status <span class="version">V3.1 -</span></h3>
-<pre>
-Format:
-pcp_pool_status _timeout_  _host_  _port_  _userid_  _passwd_
-</pre>
-<p>
-Displays parameters in pgpool.conf. The output example is as follows:
-</p>
-<pre>
-$ pcp_pool_status 10 localhost 9898 postgres hogehoge
-name : listen_addresses
-value: localhost
-desc : host name(s) or IP address(es) to listen to
-
-name : port
-value: 9999
-desc : pgpool accepting port number
-
-name : socket_dir
-value: /tmp
-desc : pgpool socket directory
-
-name : pcp_port
-value: 9898
-desc : PCP port # to bind
-</pre>
-
-<h3 id="pcp_systemdb_info">pcp_systemdb_info</h3>
-<p>
-<pre>
-Format:
-pcp_systemdb_info  _timeout_  _host_  _port_  _userid_  _passwd_
-</pre>
-<p>
-Displays the System DB information. The output example is as follows:
-</p>
-<pre>
-$ pcp_systemdb_info 10 localhost 9898 postgres hogehoge
-localhost 5432 yamaguti '' pgpool_catalog pgpool 3
-yamaguti public accounts aid 4 aid bid abalance filler integer integer integer character(84) dist_def_accounts
-yamaguti public branches bid 3 bid bbalance filler integer integer character(84) dist_def_branches
-yamaguti public tellers bid 4 tid bid tbalance filler integer integer integer character(84) dist_def_tellers
-
-First, the System DB information will be displayed on the first
-line. The result is in the following order:
-1. hostname
-2. port number
-3. username
-4. password. '' for no password.
-5. schema name
-6. database name
-7. number of partioning rules defined
-</pre>
-<p>
-Second, partitioning rules will be displayed on the following lines. If
-there are multiple definitions, one definition will be displayed on
-each line multiple times. The result is in the following order:
-</p>
-<pre>
-1. targeted partitioning database name
-2. targeted partitioning schema name
-3. targeted partitioning table name
-4. partitioning key column name
-5. number of columns in the targeted table
-6. column names (displayed as many as said in 5.)
-7. column types (displayed as many as said in 5.)
-8. partitioning rule function name
-</pre>
-<p>
-If the System DB is not defined (i.e. not in pgpool-II mode, and query
-cache is disabled), it results in error with exit status 12, and
-BackendError will be displayed.</p>
-
-
-<h3 id="pcp_detach_node">pcp_detach_node</h3>
-<pre>
-Format:
-pcp_detach_node  [-g] _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
-</pre>
-<p>
-Detaches the given node from pgpool-II.
-If -g is given, wait until all clients are disconnected (unless
-client_idle_limit_in_recovery is -1 or recovery_timeout is expired).
-</p>
-
-
-<h3 id="pcp_attach_node">pcp_attach_node</h3>
-<p>
-<pre>
-Format:
-pcp_attach_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
-
-Attaches the given node to pgpool-II.
-</pre>
-</p>
-
-<h3 id="pcp_promote_node">pcp_promote_node <span class="version">V3.1 -</span></h3>
-<p>
-<pre>
-Format:
-pcp_promote_node  [-g] _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
-
-Promotes the given node as new master to pgpool-II. In master/slave streaming replication only.
-If -g is given, wait until all clients are disconnected (unless
-client_idle_limit_in_recovery is -1 or recovery_timeout is expired).
-</pre>
-</p>
-
-<h3 id="pcp_stop_pgpool">pcp_stop_pgpool</h3>
-<pre>
-Format:
-pcp_stop_pgpool  _timeout_  _host_  _port_  _userid_  _passwd_  _mode_
-</pre>
-
-<p>
-Terminate the pgpool-II process with the given shutdown mode. The available
-modes are as follows:
-</p>
-
-<pre>
-s    - smart mode
-f    - fast mode
-i    - immediate mode
-</pre>
-<p>
-If the pgpool-II process does not exist, it results in error with exit
-status 8, and ConnectionError will be displayed.
-</p>
-<p>
-* Currently, there is no difference between the fast and immediate
-mode. pgpool-II terminates all the processes whether there are clients
-connected to the backends or not.</p>
-
-<h3 id="pcp_recovery_node">pcp_recovery_node</h3>
-
-<pre>
-書式：
-pcp_recovery_node  _timeout_  _host_  _port_  _userid_  _passwd_  _nodeid_
-
-Attaches the given backend node with recovery.
-</pre>
-
-<h2 id="exit_status">Exit Status</h2>
-
-<p>PCP commands exits with status 0 when everything goes well. If any
-error had occurred, it will exit with the following error status.
-
-<table border>
-<tr><th>UNKNOWNERR</th>
-    <td>1</td><td>Unknown Error (should not occur)</td></tr>
-<tr><th>EOFERR</th>
-    <td>2</td><td>EOF Error</td></tr>
-<tr><th>NOMEMERR</th>
-    <td>3</td><td>Memory shortage</td></tr>
-<tr><th>READERR</th>
-    <td>4</td><td>Error while reading from the server</td></tr>
-<tr><th>WRITEERR</th>
-    <td>5</td><td>Error while writing to the server</td></tr>
-<tr><th>TIMEOUTERR</th>
-    <td>6</td><td>Timeout</td></tr>
-<tr><th>INVALERR</th>
-    <td>7</td><td>Argument(s) to the PCP command was invalid</td></tr>
-<tr><th>CONNERR</th>
-    <td>8</td><td>Server connection error</td></tr>
-<tr><th>NOCONNERR</th>
-    <td>9</td><td>No connection exists</td></tr>
-<tr><th>SOCKERR</th>
-    <td>10</td><td>Socket error</td></tr>
-<tr><th>HOSTERR</th>
-    <td>11</td><td>Hostname resolution error</td></tr>
-<tr><th>BACKENDERR</th>
-    <td>12</td><td>PCP process error on the server (specifying an invalid ID, etc.)</td></tr>
-<tr><th>AUTHERR</th>
-    <td>13</td><td>Authorization failure</td></tr>
-</table>
-
-<p class="top_link"><a href="#Top">back to top</a></p>
-
-<!-- ================================================================================ -->
-
-<h1>Inside information<a name="internal"></a></h1>
+<h1>Internal information<a name="internal"></a></h1>
 <p>
 pgpool-II version 2.0.x brings extensive modifications, compared with the version 1.x
 Please note that what follows doesn't apply to version 1.x.
@@ -5263,7 +5704,7 @@ else, it is assumed numeric. avg() is processed as sum()/count() (sum divided by
 <div class="copyright" style="clear: both">
 <hr>
 <copyright>
-Copyright &copy; 2003 &ndash; 2012 pgpool Global Development Group
+Copyright &copy; 2003 &ndash; 2013 pgpool Global Development Group
 </copyright>
 </div>
 </body>

@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -62,6 +62,7 @@
 #include "pool_passwd.h"
 #include "pool_memqcache.h"
 #include "watchdog/wd_ext.h"
+
 /*
  * Process pending signal actions.
  */
@@ -88,6 +89,10 @@
 		} \
     } while (0)
 
+#define CLEAR_ALARM \
+	do { \
+			pool_debug("health check: clearing alarm"); \
+    } while (alarm(0) > 0)
 
 #define PGPOOLMAXLITSENQUEUELENGTH 10000
 static void daemonize(void);
@@ -108,7 +113,7 @@ static void reload_config(void);
 static int pool_pause(struct timeval *timeout);
 static void kill_all_children(int sig);
 static int get_next_master_node(void);
-static pid_t fork_follow_child(int old_master, int new_master, int old_primary);
+static pid_t fork_follow_child(int old_master, int new_primary, int old_primary);
 
 static RETSIGTYPE exit_handler(int sig);
 static RETSIGTYPE reap_handler(int sig);
@@ -161,7 +166,7 @@ static char hba_file[POOLMAXPATHLEN+1];
 static int exiting = 0;		/* non 0 if I'm exiting */
 static int switching = 0;		/* non 0 if I'm fail overing or degenerating */
 
-static int clear_cache = 0;		/* non 0 if clear chache option (-c) is given */
+static int clear_cache = 0;		/* non 0 if clear cache option (-c) is given */
 static int not_detach = 0;		/* non 0 if non detach option (-n) is given */
 
 static int stop_sig = SIGTERM;	/* stopping signal default value */
@@ -180,7 +185,6 @@ int my_proc_id;
 static BackendStatusRecord backend_rec;	/* Backend status record */
 
 static pid_t worker_pid; /* pid of worker process */
-static pid_t watchdog_pid; /* pid of watchdog process */
 
 BACKEND_STATUS* my_backend_status[MAX_NUM_BACKENDS];		/* Backend status buffer */
 int my_master_node_id;		/* Master node id buffer */
@@ -219,7 +223,7 @@ int main(int argc, char **argv)
 		{"version", no_argument, NULL, 'v'},
 		{NULL, 0, NULL, 0}
 	};
-	
+
 	myargc = argc;
 	myargv = argv;
 
@@ -423,21 +427,11 @@ int main(int argc, char **argv)
 	/* watchdog must be started under the privileged user */
 	if (pool_config->use_watchdog )
 	{
-		/* check sticky bit of network interface control commands */
-		if (wd_chk_sticky() == 1)
+		/* check setuid bit of network interface control commands */
+		if (wd_chk_setuid() == 1)
 		{
-			/* if_up, if_down and arping command have a sticky bit */
-			pool_log("watchdog might call network commands which using sticky bit.");
-		}
-		else
-		{
-			/* check root */
-			if (geteuid() != 0)
-			{
-				pool_error("watchdog must be started under the privileged user ID to up/down virtual network interface.");
-				pool_shmem_exit(1);
-				exit(1);
-			}
+			/* if_up, if_down and arping command have a setuid bit */
+			pool_log("watchdog might call network commands which using setuid bit.");
 		}
 	}
 
@@ -490,10 +484,14 @@ int main(int argc, char **argv)
 		pool_clear_cache_by_time(interval, 1);
 	}
 
-	/* set unix domain socket path */
+	/* set unix domain socket path for connections to pgpool */
 	snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s/.s.PGSQL.%d",
 			 pool_config->socket_dir,
 			 pool_config->port);
+	/* set unix domain socket path for pgpool PCP communication */
+	snprintf(pcp_un_addr.sun_path, sizeof(pcp_un_addr.sun_path), "%s/.s.PGSQL.%d",
+			 pool_config->pcp_socket_dir,
+			 pool_config->pcp_port);
 
 	/* set up signal handlers */
 	pool_signal(SIGPIPE, SIG_IGN);
@@ -520,7 +518,7 @@ int main(int argc, char **argv)
 	con_info = pool_shared_memory_create(size);
 	if (con_info == NULL)
 	{
-		pool_error("failed to allocate connection informations");
+		pool_error("failed to allocate connection information");
 		myexit(1);
 	}
 	memset(con_info, 0, size);
@@ -580,7 +578,7 @@ int main(int argc, char **argv)
 		if (pool_is_shmem_cache())
 		{
 			size_t size;
-			
+
 			size = pool_shared_memory_cache_size();
 			if (size == 0)
 			{
@@ -635,8 +633,7 @@ int main(int argc, char **argv)
 	/* start watchdog */
 	if (pool_config->use_watchdog )
 	{
-		watchdog_pid = wd_main(1);
-		if (watchdog_pid == 0)
+		if (!wd_main(1))
 		{
 			pool_error("wd_main error");
 			myexit(1);
@@ -678,9 +675,6 @@ int main(int argc, char **argv)
 	pool_log("%s successfully started. version %s (%s)", PACKAGE, VERSION, PGPOOLVERSION);
 
 	/* fork a child for PCP handling */
-	snprintf(pcp_un_addr.sun_path, sizeof(pcp_un_addr.sun_path), "%s/.s.PGSQL.%d",
-			 pool_config->pcp_socket_dir,
-			 pool_config->pcp_port);
 	pcp_unix_fd = create_unix_domain_socket(pcp_un_addr);
     /* maybe change "*" to pool_config->pcp_listen_addresses */
 	pcp_inet_fd = create_inet_domain_socket("*", pool_config->pcp_port);
@@ -728,6 +722,7 @@ int main(int argc, char **argv)
 				 * communication path failure much earlier before
 				 * TCP/IP stack detects it.
 				 */
+				CLEAR_ALARM;
 				pool_signal(SIGALRM, health_check_timer_handler);
 				alarm(pool_config->health_check_timeout);
 			}
@@ -752,12 +747,13 @@ int main(int argc, char **argv)
 
 					retrycnt++;
 					pool_signal(SIGALRM, SIG_IGN);	/* Cancel timer */
+					CLEAR_ALARM;
 
 					if (!pool_config->parallel_mode)
 					{
 						if (POOL_DISALLOW_TO_FAILOVER(BACKEND_INFO(sts).flag))
 						{
-							pool_log("health_check: %d failover is canceld because failover is disallowed", sts);
+							pool_log("health_check: %d failover is canceled because failover is disallowed", sts);
 						}
 						else if (retrycnt <= pool_config->health_check_max_retries)
 						{
@@ -807,6 +803,7 @@ int main(int argc, char **argv)
 				{
 					sys_retrycnt++;
 					pool_signal(SIGALRM, SIG_IGN);
+					CLEAR_ALARM;
 
 					if (sys_retrycnt > NUM_BACKENDS)
 					{
@@ -836,8 +833,9 @@ int main(int argc, char **argv)
 
 			if (pool_config->health_check_timeout > 0)
 			{
-				/* seems ok. cancel health check timer */
+				/* seems OK. cancel health check timer */
 				pool_signal(SIGALRM, SIG_IGN);
+				CLEAR_ALARM;
 			}
 
 			sleep_time = pool_config->health_check_period;
@@ -941,6 +939,7 @@ static void daemonize(void)
 	write_pid_file();
 	rc_chdir = chdir("/");
 
+	/* redirect stdin, stdout and stderr to /dev/null */
 	i = open("/dev/null", O_RDWR);
 	dup2(i, 0);
 	dup2(i, 1);
@@ -951,6 +950,7 @@ static void daemonize(void)
 		closelog();
 	}
 
+	/* close other file descriptors */
     fdlimit = sysconf(_SC_OPEN_MAX);
     for (i = 3; i < fdlimit; i++)
 		close(i);
@@ -1059,7 +1059,7 @@ static void write_pid_file(void)
 		close(fd);
 		pool_shmem_exit(1);
 		exit(1);
-	}	
+	}
 	if (close(fd) == -1)
 	{
 		pool_error("could not close pid file as %s. reason: %s",
@@ -1195,6 +1195,7 @@ pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 
 		/* call PCP child main */
 		POOL_SETMASK(&UnBlockSig);
+		health_check_timer_expired = 0;
 		reload_config_request = 0;
 		run_as_pcp_child = true;
 		pcp_do_child(unix_fd, inet_fd, pcp_conf_file);
@@ -1236,6 +1237,7 @@ pid_t fork_a_child(int unix_fd, int inet_fd, int id)
 
 		/* call child main */
 		POOL_SETMASK(&UnBlockSig);
+		health_check_timer_expired = 0;
 		reload_config_request = 0;
 		my_proc_id = id;
 		run_as_pcp_child = false;
@@ -1278,6 +1280,7 @@ pid_t worker_fork_a_child()
 
 		/* call child main */
 		POOL_SETMASK(&UnBlockSig);
+		health_check_timer_expired = 0;
 		reload_config_request = 0;
 		do_worker_child();
 	}
@@ -1428,6 +1431,8 @@ static void myexit(int code)
 				kill(pid, SIGTERM);
 			}
 		}
+
+		/* wait for all children to exit */
 		while (wait(NULL) > 0)
 			;
 		if (errno != ECHILD)
@@ -1449,7 +1454,14 @@ void notice_backend_error(int node_id)
 {
 	int n = node_id;
 
-	degenerate_backend_set(&n, 1);
+	if (getpid() == mypid)
+	{
+		pool_log("notice_backend_error: called from pgpool main. ignored.");
+	}
+	else
+	{
+		degenerate_backend_set(&n, 1);
+	}
 }
 
 /* notice backend connection error using SIGUSR1 */
@@ -1483,7 +1495,7 @@ void degenerate_backend_set(int *node_id_set, int count)
 
 		if (POOL_DISALLOW_TO_FAILOVER(BACKEND_INFO(node_id_set[i]).flag))
 		{
-			pool_log("degenerate_backend_set: %d failover request from pid %d is canceld because failover is disallowed", node_id_set[i], getpid());
+			pool_log("degenerate_backend_set: %d failover request from pid %d is canceled because failover is disallowed", node_id_set[i], getpid());
 			continue;
 		}
 
@@ -1497,6 +1509,11 @@ void degenerate_backend_set(int *node_id_set, int count)
 		if (!pool_config->use_watchdog || WD_OK == wd_degenerate_backend_set(node_id_set, count))
 		{
 			kill(parent, SIGUSR1);
+		}
+		else
+		{
+			pool_log("degenerate_backend_set: failover request from pid %d is canceled by other pgpool", getpid());
+			memset(Req_info->node_id, -1, sizeof(int) * MAX_NUM_BACKENDS);
 		}
 	}
 
@@ -1529,6 +1546,12 @@ void promote_backend(int node_id)
 	{
 		kill(parent, SIGUSR1);
 	}
+	else
+	{
+		pool_log("promote_backend: promote request from pid %d is canceled by other pgpool", getpid());
+		Req_info->node_id[0] = -1;
+	}
+
 	pool_semaphore_unlock(REQUEST_INFO_SEM);
 }
 
@@ -1541,15 +1564,18 @@ void send_failback_request(int node_id)
 	Req_info->kind = NODE_UP_REQUEST;
 	Req_info->node_id[0] = node_id;
 
-    if (node_id < 0 || node_id >= MAX_NUM_BACKENDS || 
+    if (node_id < 0 || node_id >= MAX_NUM_BACKENDS ||
 		(RAW_MODE && BACKEND_INFO(node_id).backend_status != CON_DOWN && VALID_BACKEND(node_id)))
 	{
 		pool_error("send_failback_request: node %d is alive.", node_id);
+		Req_info->node_id[0] = -1;
 		return;
 	}
 
 	if (pool_config->use_watchdog && WD_OK != wd_send_failback_request(node_id))
 	{
+		pool_log("send_failback_request: failback request from pid %d is canceled by other pgpool", getpid());
+		Req_info->node_id[0] = -1;
 		return;
 	}
 	kill(parent, SIGUSR1);
@@ -1602,8 +1628,7 @@ static RETSIGTYPE exit_handler(int sig)
 
 	if (pool_config->use_watchdog)
 	{
-		pool_log("watchdog_pid: %d", watchdog_pid);
-		kill(watchdog_pid, sig);
+		wd_kill_watchdog(sig);
 	}
 
 	POOL_SETMASK(&UnBlockSig);
@@ -1634,12 +1659,16 @@ static int get_next_master_node(void)
 		 * node id. In other words, standby nodes are false. So need
 		 * to check backend status with VALID_BACKEND_RAW.
 		 */
-		if (RAW_MODE && VALID_BACKEND_RAW(i))
+		if (RAW_MODE)
 		{
+			if (VALID_BACKEND_RAW(i))
 				break;
 		}
-		else if (VALID_BACKEND(i))
-			break;
+		else
+		{
+			if (VALID_BACKEND(i))
+				break;
+		}
 	}
 
 	if (i == pool_config->backend_desc->num_backends)
@@ -1668,10 +1697,13 @@ static void failover(void)
 {
 	int i;
 	int node_id;
+	bool by_health_check;
 	int new_master;
 	int new_primary;
 	int nodes[MAX_NUM_BACKENDS];
 	bool need_to_restart_children;
+	int status;
+	int sts;
 
 	pool_debug("failover_handler called");
 
@@ -1727,6 +1759,13 @@ static void failover(void)
 	Req_info->switching = true;
 	node_id = Req_info->node_id[0];
 
+	/* start of command inter-lock with watchdog */
+	if (pool_config->use_watchdog)
+	{
+		by_health_check = (!failover_request && Req_info->kind==NODE_DOWN_REQUEST);
+		wd_start_interlock(by_health_check);
+	}
+
 	/* failback request? */
 	if (Req_info->kind == NODE_UP_REQUEST)
 	{
@@ -1741,6 +1780,11 @@ static void failover(void)
 			kill(pcp_pid, SIGUSR2);
 			switching = 0;
 			Req_info->switching = false;
+
+			/* end of command inter-lock */
+			if (pool_config->use_watchdog)
+				wd_leave_interlock();
+
 			return;
 		}
 
@@ -1748,8 +1792,22 @@ static void failover(void)
 				 BACKEND_INFO(node_id).backend_hostname,
 				 BACKEND_INFO(node_id).backend_port);
 		BACKEND_INFO(node_id).backend_status = CON_CONNECT_WAIT;	/* unset down status */
-		trigger_failover_command(node_id, pool_config->failback_command,
-								 MASTER_NODE_ID, get_next_master_node(), PRIMARY_NODE_ID);
+
+		/* wait for failback command lock or to be lock holder */
+		if (pool_config->use_watchdog && !wd_am_I_lock_holder())
+		{
+			wd_wait_for_lock(WD_FAILBACK_COMMAND_LOCK);
+		}
+		/* execute failback command if lock holder */
+		if (!pool_config->use_watchdog || wd_am_I_lock_holder())
+		{
+			trigger_failover_command(node_id, pool_config->failback_command,
+								 	MASTER_NODE_ID, get_next_master_node(), PRIMARY_NODE_ID);
+
+			/* unlock failback command */
+			if (pool_config->use_watchdog)
+				wd_unlock(WD_FAILBACK_COMMAND_LOCK);
+		}
 	}
 	else if (Req_info->kind == PROMOTE_NODE_REQUEST)
 	{
@@ -1766,6 +1824,11 @@ static void failover(void)
 			kill(pcp_pid, SIGUSR2);
 			switching = 0;
 			Req_info->switching = false;
+
+			/* end of command inter-lock */
+			if (pool_config->use_watchdog)
+				wd_leave_interlock();
+
 			return;
 		}
 	}
@@ -1797,6 +1860,11 @@ static void failover(void)
 			kill(pcp_pid, SIGUSR2);
 			switching = 0;
 			Req_info->switching = false;
+
+			/* end of command inter-lock */
+			if (pool_config->use_watchdog)
+				wd_leave_interlock();
+
 			return;
 		}
 	}
@@ -1861,13 +1929,13 @@ static void failover(void)
    /* On 2011/5/2 Tatsuo Ishii says: if mode is streaming replication
 	* and request is NODE_UP_REQUEST(failback case) we don't need to
 	* restart all children. Existing session will not use newly
-	* attached node, but load balanced node is not changed util this
+	* attached node, but load balanced node is not changed until this
 	* session ends, so it's harmless anyway.
 	*/
 	if (MASTER_SLAVE && !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP)	&&
 		Req_info->kind == NODE_UP_REQUEST)
 	{
-		pool_log("Do not restart children because we are failbacking node id %d host%s port:%d and we are in streaming replication mode", node_id, 
+		pool_log("Do not restart children because we are failbacking node id %d host%s port:%d and we are in streaming replication mode", node_id,
 				 BACKEND_INFO(node_id).backend_hostname,
 				 BACKEND_INFO(node_id).backend_port);
 
@@ -1891,13 +1959,28 @@ static void failover(void)
 		need_to_restart_children = true;
 	}
 
-	/* Exec failover_command if needed */
-	for (i = 0; i < pool_config->backend_desc->num_backends; i++)
+	/* wait for failover command lock or to be lock holder*/
+	if (pool_config->use_watchdog && !wd_am_I_lock_holder())
 	{
-		if (nodes[i])
-			trigger_failover_command(i, pool_config->failover_command,
-									 MASTER_NODE_ID, new_master, PRIMARY_NODE_ID);
+		wd_wait_for_lock(WD_FAILOVER_COMMAND_LOCK);
 	}
+
+	/* execute failover command if lock holder */
+	if (!pool_config->use_watchdog || wd_am_I_lock_holder())
+	{
+		/* Exec failover_command if needed */
+		for (i = 0; i < pool_config->backend_desc->num_backends; i++)
+		{
+			if (nodes[i])
+				trigger_failover_command(i, pool_config->failover_command,
+									 		MASTER_NODE_ID, new_master, PRIMARY_NODE_ID);
+		}
+
+		/* unlock failover command */
+		if (pool_config->use_watchdog)
+			wd_unlock(WD_FAILOVER_COMMAND_LOCK);
+	}
+
 
 /* no need to wait since it will be done in reap_handler */
 #ifdef NOT_USED
@@ -1913,7 +1996,7 @@ static void failover(void)
 	else
 		new_primary =  find_primary_node_repeatedly();
 
-	/* 
+	/*
 	 * If follow_master_command is provided and in master/slave
 	 * streaming replication mode, we start degenerating all backends
 	 * as they are not replicated anymore.
@@ -1961,12 +2044,29 @@ static void failover(void)
 	memset(Req_info->node_id, -1, sizeof(int) * MAX_NUM_BACKENDS);
 	pool_semaphore_unlock(REQUEST_INFO_SEM);
 
-	/* exec follow_master_command */
-	if ((follow_cnt > 0) && (*pool_config->follow_master_command != '\0'))
+	/* wait for follow_master_command lock or to be lock holder */
+	if (pool_config->use_watchdog && !wd_am_I_lock_holder())
 	{
-		follow_pid = fork_follow_child(Req_info->master_node_id, new_master,
-									   Req_info->primary_node_id);
+		wd_wait_for_lock(WD_FOLLOW_MASTER_COMMAND_LOCK);
 	}
+
+	/* execute follow_master_command */
+	if (!pool_config->use_watchdog || wd_am_I_lock_holder())
+	{
+		if ((follow_cnt > 0) && (*pool_config->follow_master_command != '\0'))
+		{
+			follow_pid = fork_follow_child(Req_info->master_node_id, new_primary,
+									   	Req_info->primary_node_id);
+		}
+
+		/* unlock follow_master_command  */
+		if (pool_config->use_watchdog)
+			wd_unlock(WD_FOLLOW_MASTER_COMMAND_LOCK);
+	}
+
+	/* end of command inter-lock */
+	if (pool_config->use_watchdog)
+		wd_end_interlock();
 
 	/* Save primary node id */
 	Req_info->primary_node_id = new_primary;
@@ -1984,6 +2084,19 @@ static void failover(void)
 	{
 		for (i=0;i<pool_config->num_init_children;i++)
 		{
+
+			/*
+			 * Try to kill pgpool child because previous kill signal
+			 * may not be received by pgpool child. This could happen
+			 * if multiple PostgreSQL are going down (or even starting
+			 * pgpool, without starting PostgreSQL can trigger this).
+			 * Child calls degenerate_backend() and it tries to aquire
+			 * semaphore to write a failover request. In this case the
+			 * signal mask is set as well, thus signals are never
+			 * received.
+			 */
+			kill(process_info[i].pid, SIGQUIT);
+
 			process_info[i].pid = fork_a_child(unix_fd, inet_fd, i);
 			process_info[i].start_time = time(NULL);
 		}
@@ -2037,6 +2150,29 @@ static void failover(void)
 	 * Send restart request to pcp child.
 	 */
 	kill(pcp_pid, SIGUSR1);
+	for (;;)
+	{
+		sts = waitpid(pcp_pid, &status, 0);
+		if (sts != -1)
+			break;
+		if (sts == -1)
+		{
+			if (errno == EINTR)
+				continue;
+			else
+			{
+				pool_error("failover: waitpid failed. reason: %s", strerror(errno));
+				return;
+			}
+		}
+	}
+	if (WIFSIGNALED(status))
+		pool_log("PCP child %d exits with status %d by signal %d in failover()", pcp_pid, status, WTERMSIG(status));
+	else
+		pool_log("PCP child %d exits with status %d in failover()", pcp_pid, status);
+
+	pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
+	pool_log("fork a new PCP child pid %d in failover()", pcp_pid);
 }
 
 /*
@@ -2052,7 +2188,7 @@ static RETSIGTYPE health_check_timer_handler(int sig)
 
 /*
  * Check if we can connect to the backend
- * returns 0 for ok. otherwise returns backend id + 1
+ * returns 0 for OK. otherwise returns backend id + 1
  */
 static int health_check(void)
 {
@@ -2095,7 +2231,7 @@ static int health_check(void)
 			bkinfo->backend_status == CON_DOWN)
 			continue;
 
-		slot = make_persistent_db_connection(bkinfo->backend_hostname, 
+		slot = make_persistent_db_connection(bkinfo->backend_hostname,
 											 bkinfo->backend_port,
 											 dbname,
 											 pool_config->health_check_user,
@@ -2106,11 +2242,11 @@ static int health_check(void)
 
 		if (!slot)
 		{
-			if (!strcmp(dbname, "postgres"))
+			/*
+			 * Retry with template1 unless health check timer is expired.
+			 */
+			if (!strcmp(dbname, "postgres") && health_check_timer_expired == 0)
 			{
-				/*
-				 * Retry with template1
-				 */
 				dbname = "template1";
 				goto Retry;
 			}
@@ -2134,7 +2270,7 @@ static int health_check(void)
 
 /*
  * check if we can connect to the SystemDB
- * returns 0 for ok. otherwise returns -1
+ * returns 0 for OK. otherwise returns -1
  */
 static int
 system_db_health_check(void)
@@ -2253,7 +2389,7 @@ static void reaper(void)
 			/* Child terminated by segmentation fault. Report it */
 			pool_error("Child process %d was terminated by segmentation fault", pid);
 		}
-			
+
 		/* if exiting child process was PCP handler */
 		if (pid == pcp_pid)
 		{
@@ -2264,7 +2400,6 @@ static void reaper(void)
 
 			pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
 			pool_log("fork a new PCP child pid %d", pcp_pid);
-			break;
 		}
 
 		/* exiting process was worker process */
@@ -2279,8 +2414,19 @@ static void reaper(void)
 				worker_pid = worker_fork_a_child();
 
 			pool_log("fork a new worker child pid %d", worker_pid);
-			break;
-		} else
+		}
+
+		/* exiting process was watchdog process */
+		else if (pool_config->use_watchdog && wd_is_watchdog_pid(pid))
+		{
+			if (!wd_reaper_watchdog(pid, status))
+			{
+				pool_error("wd_reaper failed");
+				myexit(1);
+			}
+		}
+
+		else
 		{
 			if (WIFSIGNALED(status))
 				pool_debug("child %d exits with status %d by signal %d", pid, status, WTERMSIG(status));
@@ -2443,7 +2589,7 @@ static void kill_all_children(int sig)
  * recovery processing) or config file reload request(SIGHUP) has been
  * occurred.  In this case this function returns 1.
  * otherwise 0: (no signal event occurred), -1: (error)
- * XXX: is it ok that select(2) error is ignored here?
+ * XXX: is it OK that select(2) error is ignored here?
  */
 static int pool_pause(struct timeval *timeout)
 {
@@ -2577,11 +2723,11 @@ static int trigger_failover_command(int node, const char *command_line,
 						break;
 
 					case 'H': /* new master host name */
-						newmaster = pool_get_node_info(get_next_master_node());
+						newmaster = pool_get_node_info(new_master);
 						if (newmaster)
 							string_append_char(exec_cmd, newmaster->backend_hostname);
 						else
-							/* no vaid new master */
+							/* no valid new master */
 							string_append_char(exec_cmd, "");
 						break;
 
@@ -2598,7 +2744,7 @@ static int trigger_failover_command(int node, const char *command_line,
 							string_append_char(exec_cmd, port_buf);
 						}
 						else
-							/* no vaid new master */
+							/* no valid new master */
 							string_append_char(exec_cmd, "");
 						break;
 
@@ -2607,7 +2753,7 @@ static int trigger_failover_command(int node, const char *command_line,
 						if (newmaster)
 							string_append_char(exec_cmd, newmaster->backend_data_directory);
 						else
-							/* no vaid new master */
+							/* no valid new master */
 							string_append_char(exec_cmd, "");
 						break;
 
@@ -2657,7 +2803,7 @@ static int find_primary_node(void)
 {
 	BackendInfo *bkinfo;
 	POOL_CONNECTION_POOL_SLOT *s;
-	POOL_CONNECTION *con; 
+	POOL_CONNECTION *con;
 	POOL_STATUS status;
 	POOL_SELECT_RESULT *res;
 	bool is_standby;
@@ -2685,7 +2831,7 @@ static int find_primary_node(void)
 		is_standby = false;
 
 		bkinfo = pool_get_node_info(i);
-		s = make_persistent_db_connection(bkinfo->backend_hostname, 
+		s = make_persistent_db_connection(bkinfo->backend_hostname,
 										  bkinfo->backend_port,
 										  "postgres",
 										  pool_config->sr_check_user,
@@ -2696,29 +2842,6 @@ static int find_primary_node(void)
 			return -1;
 		}
 		con = s->con;
-#ifdef NOT_USED
-		status = do_query(con, "SELECT count(*) FROM pg_catalog.pg_proc AS p WHERE p.proname = 'pgpool_walrecrunning'",
-						  &res, PROTO_MAJOR_V3);
-		if (res->numrows <= 0)
-		{
-			pool_log("find_primary_node: do_query returns no rows");
-		}
-		if (res->data[0] == NULL)
-		{
-			pool_log("find_primary_node: do_query returns no data");
-		}
-		if (res->nullflags[0] == -1)
-		{
-			pool_log("find_primary_node: do_query returns NULL");
-		}
-		if (res->data[0] && !strcmp(res->data[0], "0"))
-		{
-			pool_log("find_primary_node: pgpool_walrecrunning does not exist");
-			free_select_result(res);
-			discard_persistent_db_connection(s);
-			return -1;
-		}
-#endif
 		status = do_query(con, "SELECT pg_is_in_recovery()",
 						  &res, PROTO_MAJOR_V3);
 		if (res->numrows <= 0)
@@ -2736,7 +2859,7 @@ static int find_primary_node(void)
 		if (res->data[0] && !strcmp(res->data[0], "t"))
 		{
 			is_standby = true;
-		}   
+		}
 		free_select_result(res);
 		discard_persistent_db_connection(s);
 
@@ -2779,8 +2902,15 @@ static int find_primary_node_repeatedly(void)
 		return -1;
 	}
 
+	/*
+	 * Try to find the new primary node and keep trying for
+	 * search_primary_node_timeout seconds.
+	 * search_primary_node_timeout = 0 means never timeout and keep searching
+	 * indefinitely
+	 */
 	pool_log("find_primary_node_repeatedly: waiting for finding a primary node");
-	for (sec = 0; sec < pool_config->recovery_timeout; sec++)
+	for (sec = 0; (pool_config->search_primary_node_timeout == 0 ||
+				sec < pool_config->search_primary_node_timeout); sec++)
 	{
 		node_id = find_primary_node();
 		if (node_id != -1)
@@ -2793,7 +2923,7 @@ static int find_primary_node_repeatedly(void)
 /*
 * fork a follow child
 */
-pid_t fork_follow_child(int old_master, int new_master, int old_primary)
+pid_t fork_follow_child(int old_master, int new_primary, int old_primary)
 {
 	pid_t pid;
 	int i;
@@ -2809,7 +2939,7 @@ pid_t fork_follow_child(int old_master, int new_master, int old_primary)
 			bkinfo = pool_get_node_info(i);
 			if (bkinfo->backend_status == CON_DOWN)
 				trigger_failover_command(i, pool_config->follow_master_command,
-										 old_master, new_master, old_primary);
+										 old_master, new_primary, old_primary);
 		}
 		exit(0);
 	}

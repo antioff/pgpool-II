@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -79,6 +79,7 @@ static POOL_STATUS add_lock_target(POOL_CONNECTION *frontend, POOL_CONNECTION_PO
 static bool has_lock_target(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend, char* table, bool for_update);
 static POOL_STATUS insert_oid_into_insert_lock(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend, char* table);
 static POOL_STATUS read_packets_and_process(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend, int reset_request, int *state, short *num_fields, bool *cont);
+static bool is_all_slaves_command_complete(unsigned char *kind_list, int num_backends, int master);
 
 /* timeout sec for pool_check_fd */
 static int timeoutsec;
@@ -176,6 +177,20 @@ POOL_STATUS pool_process_query(POOL_CONNECTION *frontend,
 		}
 
 		/*
+		 * If we are not processing a query, now is the time to
+		 * extract retrieve pending data from buffer stack if any.
+		 */
+		if (!pool_is_query_in_progress())
+		{
+			for (i=0;i<NUM_BACKENDS;i++)
+			{
+				int plen;
+				if (VALID_BACKEND(i) && pool_stacklen(CONNECTION(backend, i)) > 0)
+					pool_pop(CONNECTION(backend, i), &plen);
+			}
+		}
+
+		/*
 		 * If we are prcessing query, process it.
 		 */
 		if (pool_is_query_in_progress())
@@ -201,7 +216,8 @@ POOL_STATUS pool_process_query(POOL_CONNECTION *frontend,
 		}
 		else
 		{
-			if (!pool_ssl_pending(frontend) && !pool_read_buffer_is_empty(frontend))
+			if ((pool_ssl_pending(frontend) || !pool_read_buffer_is_empty(frontend)) &&
+				!pool_is_query_in_progress())
 			{
 				/* We do not read anything from frontend after receiving X packet.
 				 * Just emit log message. This will guard us from buggy frontend.
@@ -290,30 +306,52 @@ POOL_STATUS pool_process_query(POOL_CONNECTION *frontend,
 										pool_error("pool_process_query: error while reading message kind from backend %d", i);
 										return POOL_ERROR;
 									}
-									pool_log("pool_process_query: discard %c packet from backend %d", kind, i);
 
-									if (MAJOR(backend) == PROTO_MAJOR_V3)
+									if (kind == 'A')
 									{
-										if (pool_read(CONNECTION(backend, i), &len, sizeof(len)) < 0)
+										/*
+										 * In replication mode, NOTIFY is sent to all backends.
+										 * However the order of arrival of 'Notification response'
+										 * is not necessarily the master first and then slaves.
+										 * So if it arrives slave first, we should try to read from master,
+										 * rather than just discard it.
+										 */
+										pool_unread(CONNECTION(backend, i), &kind, sizeof(kind));
+										pool_log("pool_process_query: received %c packet from backend %d. Don't dicard and read %c packet from master", kind, i, kind);
+										if (pool_read(CONNECTION(backend, MASTER_NODE_ID), &kind, sizeof(kind)) < 0)
 										{
-											pool_error("pool_process_query: error while reading message length from backend %d", i);
+											pool_error("pool_process_query: error while reading message kind from backend %d", MASTER_NODE_ID);
 											return POOL_ERROR;
 										}
-										len = ntohl(len) - 4;
-										string = pool_read2(CONNECTION(backend, i), len);
-										if (string == NULL)
-										{
-											pool_error("pool_process_query: error while reading rest of message from backend %d", i);
-											return POOL_ERROR;
-										}
+										pool_unread(CONNECTION(backend, MASTER_NODE_ID), &kind, sizeof(kind));
 									}
 									else
 									{
-										string = pool_read_string(CONNECTION(backend, i), &len, 0);
-										if (string == NULL)
+										pool_log("pool_process_query: discard %c packet from backend %d", kind, i);
+
+										if (MAJOR(backend) == PROTO_MAJOR_V3)
 										{
-											pool_error("pool_process_query: error while reading rest of message from backend %d", i);
-											return POOL_ERROR;
+											if (pool_read(CONNECTION(backend, i), &len, sizeof(len)) < 0)
+											{
+												pool_error("pool_process_query: error while reading message length from backend %d", i);
+												return POOL_ERROR;
+											}
+											len = ntohl(len) - 4;
+											string = pool_read2(CONNECTION(backend, i), len);
+											if (string == NULL)
+											{
+												pool_error("pool_process_query: error while reading rest of message from backend %d", i);
+												return POOL_ERROR;
+											}
+										}
+										else
+										{
+											string = pool_read_string(CONNECTION(backend, i), &len, 0);
+											if (string == NULL)
+											{
+												pool_error("pool_process_query: error while reading rest of message from backend %d", i);
+												return POOL_ERROR;
+											}
 										}
 									}
 								}
@@ -1074,28 +1112,36 @@ POOL_STATUS SimpleForwardToFrontend(char kind, POOL_CONNECTION *frontend,
 	}
 	memcpy(p1, p, len);
 
-	for (i=0;i<NUM_BACKENDS;i++)
+	/*
+	 * If we received a notification message in master/slave mode,
+	 * other backends will not receive the message.
+	 * So we should skip other nodes otherwise we will hung in pool_read.
+	 */
+	if (!MASTER_SLAVE || kind != 'A')
 	{
-		if (VALID_BACKEND(i) && !IS_MASTER_NODE_ID(i))
+		for (i=0;i<NUM_BACKENDS;i++)
 		{
-			status = pool_read(CONNECTION(backend, i), &len, sizeof(len));
-			if (status < 0)
+			if (VALID_BACKEND(i) && !IS_MASTER_NODE_ID(i))
 			{
-				pool_error("SimpleForwardToFrontend: error while reading message length");
-				return POOL_END;
-			}
+				status = pool_read(CONNECTION(backend, i), &len, sizeof(len));
+				if (status < 0)
+				{
+					pool_error("SimpleForwardToFrontend: error while reading message length");
+					return POOL_END;
+				}
 
-			len = ntohl(len);
-			len -= 4;
+				len = ntohl(len);
+				len -= 4;
 
-			p = pool_read2(CONNECTION(backend, i), len);
-			if (p == NULL)
-				return POOL_END;
+				p = pool_read2(CONNECTION(backend, i), len);
+				if (p == NULL)
+					return POOL_END;
 
-			if (len != len1)
-			{
-				pool_debug("SimpleForwardToFrontend: length does not match between backends master(%d) %d th backend(%d) kind:(%c)",
- 						   len, i, len1, kind);
+				if (len != len1)
+				{
+					pool_debug("SimpleForwardToFrontend: length does not match between backends master(%d) %d th backend(%d) kind:(%c)",
+							   len, i, len1, kind);
+				}
 			}
 		}
 	}
@@ -1660,6 +1706,7 @@ void pool_send_severity_message(POOL_CONNECTION *frontend, int protoMajor,
 		int sendlen;
 
 		len = 0;
+		memset(data, 0, MAXDATA);
 
 		pool_write(frontend, "E", 1);
 
@@ -1821,11 +1868,12 @@ POOL_STATUS do_command(POOL_CONNECTION *frontend, POOL_CONNECTION *backend,
 				pool_error("do_command: error while reading message length");
 				return POOL_END;
 			}
+			pool_debug("len:%x", len);
 			len = ntohl(len) - 4;
-			
-			if (kind != 'N' && kind != 'E' && kind != 'S' && kind != 'C')
+
+			if (kind != 'N' && kind != 'E' && kind != 'S' && kind != 'C' && kind != 'A')
 			{
-				pool_error("do_command: error, kind is not N, E, S or C(%02x)", kind);
+				pool_error("do_command: error, kind is not N, E, S, C or A(%02x)", kind);
 				return POOL_END;
 			}
 			string = pool_read2(backend, len);
@@ -1833,6 +1881,22 @@ POOL_STATUS do_command(POOL_CONNECTION *frontend, POOL_CONNECTION *backend,
 			{
 				pool_error("do_command: error while reading rest of message");
 				return POOL_END;
+			}
+
+			/*
+			 * It is possible that we receives a notification response
+			 * ('A') from one of backends prior to "ready for query"
+			 * response if LISTEN and NOTIFY are issued in a same
+			 * connection. So we need to save notification response to
+			 * stack buffer so that we could retrieve it later on.
+			 */
+			if (kind == 'A')
+			{
+				int nlen = htonl(len+4);
+				pool_debug("nlen:%x", nlen);
+				pool_push(backend, &kind, sizeof(kind));
+				pool_push(backend, &nlen, sizeof(nlen));
+				pool_push(backend, string, len);
 			}
 		}
 		else
@@ -2255,17 +2319,23 @@ POOL_STATUS OneNode_do_command(POOL_CONNECTION *frontend, POOL_CONNECTION *backe
  */
 void free_select_result(POOL_SELECT_RESULT *result)
 {
-	int i;
+	int i, j;
+	int index;
 
 	if (result->nullflags)
 		free(result->nullflags);
 
 	if (result->data)
 	{
+		index = 0;
 		for(i=0;i<result->numrows;i++)
 		{
-			if (result->data[i])
-				free(result->data[i]);
+			for (j=0;j<result->rowdesc->num_attrs;j++)
+			{
+				if (result->data[index])
+					free(result->data[index]);
+				index++;
+			}
 		}
 		free(result->data);
 	}
@@ -2294,6 +2364,23 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 {
 #define DO_QUERY_ALLOC_NUM 1024	/* memory allocation unit for POOL_SELECT_RESULT */
 
+/*
+ * State transition control bits. We expect all following events have
+ * been occur before finish do_query() in extended protocol mode.
+ * Note that "Close Compplete" should occur twice, because two close
+ * requests(one for prepared statement and the other for portal) have
+ * been sent.
+ */
+#define PARSE_COMPLETE_RECEIVED			(1 << 0)
+#define BIND_COMPLETE_RECEIVED			(1 << 1)
+#define CLOSE_COMPLETE_RECEIVED			(1 << 2)
+#define COMMAND_COMPLETE_RECEIVED		(1 << 3)
+#define ROW_DESCRIPTION_RECEIVED		(1 << 4)
+#define DATA_ROW_RECEIVED				(1 << 5)
+#define STATE_COMPLETED		(PARSE_COMPLETE_RECEIVED | BIND_COMPLETE_RECEIVED |\
+							 CLOSE_COMPLETE_RECEIVED | COMMAND_COMPLETE_RECEIVED | \
+							 ROW_DESCRIPTION_RECEIVED | DATA_ROW_RECEIVED)
+
 	int i;
 	int len;
 	char kind;
@@ -2311,8 +2398,12 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 	int nbytes;
 	static char nullmap[8192];
 	unsigned char mask = 0;
+	bool doing_extended;
+	int num_close_complete;
+	int state;
 
-	pool_debug("do_query: extended:%d query:%s", pool_get_session_context() && pool_is_doing_extended_query_message(), query);
+	doing_extended = pool_get_session_context() && pool_is_doing_extended_query_message();
+	pool_debug("do_query: extended:%d query:%s", doing_extended, query);
 
 	*result = NULL;
 	res = malloc(sizeof(*res));
@@ -2443,9 +2534,9 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 		pool_write(backend, prepared_name, pname_len);
 
 		/*
-		 * Send sync message
+		 * Send flush message
 		 */
-		pool_write(backend, "S", 1);
+		pool_write(backend, "H", 1);
 		len = htonl(sizeof(len));
 		pool_write_and_flush(backend, &len, sizeof(len));
 	}
@@ -2465,6 +2556,10 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 	 * our internal use of SQL command (otherwise users will be
 	 * confused).
 	 */
+
+	num_close_complete = 0;
+	state = 0;
+
 	for(;;)
 	{
 		if (pool_read(backend, &kind, sizeof(kind)) < 0)
@@ -2481,7 +2576,21 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 
 			if (pool_extract_error_message(false, backend, major, true, &message))
 			{
-				pool_log("do_query: error message from backend %s", message);
+				pool_error("do_query: error message from backend: %s. Exit this session.", message);
+				/*
+				 * This is fatal. Because: If we operate extended
+				 * query, backend would not accept subsequent commands
+				 * until "sync" message issued. However, if sync
+				 * message issued, unnamed statement/unnamed portal
+				 * will disappear and will cause lots of problems.  If
+				 * we do not operate extended query, ongoing
+				 * transaction is aborted, and subsequent query would
+				 * not accepted.  In summary there's no transparent
+				 * way for frontend to handle error case. The only way
+				 * is closing this session.
+				 */
+				child_exit(1);
+				return POOL_END;
 			}
 		}
 
@@ -2507,6 +2616,7 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 		else
 		{
 			mask = 0;
+
 			if (kind == 'C' || kind == 'E' || kind == 'N' || kind == 'P')
 			{
 				if  (pool_read_string(backend, &len, 0) == NULL)
@@ -2521,23 +2631,41 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 		{
 			case 'Z':	/* Ready for query */
 				pool_debug("do_query: Ready for query");
-				return POOL_CONTINUE;
+				if (!doing_extended)
+					return POOL_CONTINUE;
 				break;
 
 			case 'C':	/* Command Complete */
 				pool_debug("do_query: Command complete received");
+				state |= COMMAND_COMPLETE_RECEIVED;
+				/*
+				 * "Comand Complete" implies data row received status.
+				 * If there's no row returned, "command complete" comes without row data.
+				 */
+				state |= DATA_ROW_RECEIVED;
 				break;
 
 			case '1':	/* Parse complete */
+				pool_debug("do_query: Parse complete received");
+				state |= PARSE_COMPLETE_RECEIVED;
+				break;
+
 			case '2':	/* Bind complete */
-				pool_debug("do_query: %c complete received", kind);
+				pool_debug("do_query: Bind complete received");
+				state |= BIND_COMPLETE_RECEIVED;
 				break;
 
 			case '3':	/* Close complete */
 				pool_debug("do_query: Close complete received");
+				num_close_complete++;
+				if (num_close_complete >= 2)
+					state |= CLOSE_COMPLETE_RECEIVED;
 				break;
 
 			case 'T':	/* Row Description */
+				state |= ROW_DESCRIPTION_RECEIVED;
+				pool_debug("do_query: row description received");
+
 				if (major == PROTO_MAJOR_V3)
 				{
 					p = packet;
@@ -2633,6 +2761,9 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 				break;
 
 			case 'D':	/* data row */
+				state |= DATA_ROW_RECEIVED;
+				pool_debug("do_query: data row received");
+
 				if (major == PROTO_MAJOR_V3)
 				{
 					p = packet;
@@ -2753,6 +2884,11 @@ POOL_STATUS do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT *
 				break;
 		}
 
+		if (doing_extended && (state & STATE_COMPLETED) == STATE_COMPLETED)
+		{
+			pool_debug("do_query: all state completed");
+			break;
+		}
 	}
 	return POOL_CONTINUE;
 }
@@ -2901,6 +3037,12 @@ POOL_STATUS insert_lock(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend
 	/* get table name */
 	table = get_insert_command_table_name(node);
 
+	/* could not get table name. probably wrong SQL command */
+	if (table == NULL)
+	{
+		return POOL_CONTINUE;
+	}
+
 	/* trim quotes */
 	p = table;
 	for (i=0; *p; p++)
@@ -2909,12 +3051,6 @@ POOL_STATUS insert_lock(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend
 			rel_name[i++] = *p;
 	}
 	rel_name[i] = '\0';
-
-	/* could not get table name. probably wrong SQL command */
-	if (table == NULL)
-	{
-		return POOL_CONTINUE;
-	}
 
 	/* table lock for insert target table? */
 	if (lock_kind == 1)
@@ -3303,12 +3439,16 @@ bool is_partition_table(POOL_CONNECTION_POOL *backend, Node *node)
 }
 
 /*
- * obtain table name in INSERT statement
+ * Obtain table name in INSERT statement.
+ * The table name is stored in the static buffer of this function.
+ * So subsequent call to this function will destroy previous result.
  */
 static char *get_insert_command_table_name(InsertStmt *node)
 {
 	POOL_SESSION_CONTEXT *session_context;
 	POOL_MEMORY_POOL *old_context;
+	static char table[128];
+	char *p;
 
 	session_context = pool_get_session_context();
 	if (!session_context)
@@ -3319,11 +3459,18 @@ static char *get_insert_command_table_name(InsertStmt *node)
 	else
 		old_context = pool_memory_context_switch_to(session_context->memory_context);
 
-	char *table = nodeToString(node->relation);
+	p = nodeToString(node->relation);
+	if (p == NULL)
+	{
+		pool_error("get_insert_command_table_name: cannot get table name");
+		return NULL;
+	}
+	strlcpy(table, p, sizeof(table));
+	pfree(p);
 
 	pool_memory_context_switch_to(old_context);
 
-	pool_debug("get_insert_command_table_name: extracted table name: %s", table);
+	pool_debug("get_insert_command_table_name: extracted table name: %s", p);
 	return table;
 }
 
@@ -3472,10 +3619,32 @@ POOL_STATUS read_kind_from_one_backend(POOL_CONNECTION *frontend, POOL_CONNECTIO
 	else
 	{
 		pool_error("read_kind_from_one_backend: %d th backend is not valid", node);
+		pool_dump_valid_backend(node);
 		return POOL_ERROR;
 	}
 }
 
+/*
+ * returns true if all slaves status are 'C' (Command Complete)
+ */
+static bool is_all_slaves_command_complete(unsigned char *kind_list, int num_backends, int master)
+{
+	int i;
+	int ok = true;
+
+	for (i=0;i<num_backends;i++)
+	{
+		if (i == master || kind_list[i] == 0)
+			continue;
+		if (kind_list[i] != 'C')
+		{
+			ok = false;
+			break;
+		}
+	}
+	return ok;
+}
+		
 /*
  * read_kind_from_backend: read kind from backends.
  * the "frontend" parameter is used to send "kind mismatch" error message to the frontend.
@@ -3495,6 +3664,7 @@ POOL_STATUS read_kind_from_backend(POOL_CONNECTION *frontend, POOL_CONNECTION_PO
 	double max_count = 0;
 	int degenerate_node_num = 0;		/* number of backends degeneration requested */
 	int degenerate_node[MAX_NUM_BACKENDS];		/* degeneration requested backend list */
+	POOL_STATUS status;
 
 	POOL_MEMORY_POOL *old_context;
 
@@ -3505,6 +3675,31 @@ POOL_STATUS read_kind_from_backend(POOL_CONNECTION *frontend, POOL_CONNECTION_PO
 	int first_node = -1;
 
 	memset(kind_map, 0, sizeof(kind_map));
+
+	if (MASTER_SLAVE)
+	{
+		status = read_kind_from_one_backend(frontend, backend, (char *)&kind, MASTER_NODE_ID);
+		if (status != POOL_CONTINUE)
+		{
+			pool_error("read_kind_from_backend: read_kind_from_one_backend for master node %d failed",
+					   MASTER_NODE_ID);
+			return status;
+		}
+
+		/*
+		 * If we received a notification message in master/slave mode,
+		 * other backends will not receive the message.
+		 * So we should skip other nodes otherwise we will hung in pool_read.
+		 */
+		if (kind == 'A')	
+		{
+			*decided_kind = 'A';
+			pool_log("read_kind_from_backend: received notification message for master node %d",
+					 MASTER_NODE_ID);
+			return POOL_CONTINUE;
+		}
+		pool_unread(CONNECTION(backend, MASTER_NODE_ID), &kind, sizeof(kind));
+	}
 
 	for (i=0;i<NUM_BACKENDS;i++)
 	{
@@ -3589,7 +3784,23 @@ POOL_STATUS read_kind_from_backend(POOL_CONNECTION *frontend, POOL_CONNECTION_PO
 		 * not all backends agree with kind. We need to do "decide by majority"
 		 */
 
-		if (max_count <= NUM_BACKENDS / 2.0)
+		/*
+		 * However here is a special case. In master slave mode, if
+		 * master gets an error at commit, while other slaves are
+		 * normal at commit, we don't need to degenrate any backend
+		 * because it is likely that the error was caused by a
+		 * deferred trigger.
+		 */
+		if (MASTER_SLAVE && query_context->parse_tree &&
+			is_commit_query(query_context->parse_tree) &&
+			kind_list[MASTER_NODE_ID] == 'E' &&
+			is_all_slaves_command_complete(kind_list, NUM_BACKENDS, MASTER_NODE_ID))
+		{
+			*decided_kind = kind_list[MASTER_NODE_ID];
+			pool_log("read_kind_from_backend: do not degenerate because it is likely caused by a delayed commit");
+			return POOL_CONTINUE;
+		}
+		else if (max_count <= NUM_BACKENDS / 2.0)
 		{
 			/* no one gets majority. We trust master node's kind */
 			trust_kind = kind_list[MASTER_NODE_ID];
@@ -3894,7 +4105,6 @@ static bool is_internal_transaction_needed(Node *node)
 		T_IndexStmt,	/* CREATE INDEX */
 		T_CreateFunctionStmt,
 		T_AlterFunctionStmt,
-		T_RemoveFuncStmt,
 		/*
 		T_DoStmt,		Our parser does not support yet
 		*/
@@ -3916,9 +4126,7 @@ static bool is_internal_transaction_needed(Node *node)
 		T_AlterSeqStmt,
 		T_VariableSetStmt,		/* SET */
 		T_CreateTrigStmt,
-		T_DropPropertyStmt,
 		T_CreatePLangStmt,
-		T_DropPLangStmt,
 		T_CreateRoleStmt,
 		T_AlterRoleStmt,
 		T_DropRoleStmt,
@@ -3931,12 +4139,9 @@ static bool is_internal_transaction_needed(Node *node)
 		T_AlterRoleSetStmt,
 		T_CreateConversionStmt,
 		T_CreateCastStmt,
-		T_DropCastStmt,
 		T_CreateOpClassStmt,
 		T_CreateOpFamilyStmt,
 		T_AlterOpFamilyStmt,
-		T_RemoveOpClassStmt,
-		T_RemoveOpFamilyStmt,
 		T_PrepareStmt,
 		T_ExecuteStmt,
 		T_DeallocateStmt,
@@ -3955,10 +4160,8 @@ static bool is_internal_transaction_needed(Node *node)
 		T_AlterTSConfigurationStmt,
 		T_CreateFdwStmt,
 		T_AlterFdwStmt,
-		T_DropFdwStmt,
 		T_CreateForeignServerStmt,
 		T_AlterForeignServerStmt,
-		T_DropForeignServerStmt,
 		T_CreateUserMappingStmt,
 		T_AlterUserMappingStmt,
 		T_DropUserMappingStmt,
@@ -4167,24 +4370,24 @@ static int detect_postmaster_down_error(POOL_CONNECTION *backend, int major)
 	int r =  detect_error(backend, ADMIN_SHUTDOWN_ERROR_CODE, major, 'E', false);
 	if (r < 0)
 	{
-		pool_log("detect_stop_postmaster_error: detect_error error");
+		pool_log("detect_postmaster_down_error: detect_error error");
 		return r;
 	}
 	if (r == SPECIFIED_ERROR)
 	{
-		pool_debug("detect_stop_postmaster_error: receive admin shutdown error from a node.");
+		pool_debug("detect_postmaster_down_error: receive admin shutdown error from a node.");
 		return r;
 	}
 
 	r = detect_error(backend, CRASH_SHUTDOWN_ERROR_CODE, major, 'N', false);
 	if (r < 0)
 	{
-		pool_log("detect_stop_postmaster_error: detect_error error");
+		pool_log("detect_postmaster_down_error: detect_error error");
 		return r;
 	}
 	if (r == SPECIFIED_ERROR)
 	{
-		pool_debug("detect_stop_postmaster_error: receive crash shutdown error from a node.");
+		pool_debug("detect_postmaster_down_error: receive crash shutdown error from a node.");
 	}
 	return r;
 }
@@ -4736,4 +4939,14 @@ SELECT_RETRY:
 			return status;
 	}
 	return POOL_CONTINUE;
+}
+
+/*
+ * Debugging aid for VALID_BACKEND macro.
+ */
+void pool_dump_valid_backend(int backend_id)
+{
+	pool_log("RAW_MODE:%d REAL_MASTER_NODE_ID:%d pool_is_node_to_be_sent_in_current_query:%d my_backend_status:%d",
+			 RAW_MODE, REAL_MASTER_NODE_ID, pool_is_node_to_be_sent_in_current_query(backend_id), 
+			 *my_backend_status[backend_id]);
 }

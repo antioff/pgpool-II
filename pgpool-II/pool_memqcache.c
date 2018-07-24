@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -78,13 +78,14 @@ static void pool_reset_memqcache_buffer(void);
 static POOL_CACHEID *pool_add_item_shmem_cache(POOL_QUERY_HASH *query_hash, char *data, int size);
 static POOL_CACHEID *pool_find_item_on_shmem_cache(POOL_QUERY_HASH *query_hash);
 static char *pool_get_item_shmem_cache(POOL_QUERY_HASH *query_hash, int *size, int *sts);
-static void pool_add_query_cache_array(POOL_QUERY_CACHE_ARRAY *cache_array, POOL_TEMP_QUERY_CACHE *cache);
+static POOL_QUERY_CACHE_ARRAY * pool_add_query_cache_array(POOL_QUERY_CACHE_ARRAY *cache_array, POOL_TEMP_QUERY_CACHE *cache);
 static void pool_add_temp_query_cache(POOL_TEMP_QUERY_CACHE *temp_cache, char kind, char *data, int data_len);
 static void pool_add_oids_temp_query_cache(POOL_TEMP_QUERY_CACHE *temp_cache, int num_oids, int *oids);
 static POOL_INTERNAL_BUFFER *pool_create_buffer(void);
 static void pool_discard_buffer(POOL_INTERNAL_BUFFER *buffer);
 static void pool_add_buffer(POOL_INTERNAL_BUFFER *buffer, void *data, size_t len);
 static void *pool_get_buffer(POOL_INTERNAL_BUFFER *buffer, size_t *len);
+static char *pool_get_buffer_pointer(POOL_INTERNAL_BUFFER *buffer);
 static char *pool_get_current_cache_buffer(size_t *len);
 static size_t pool_get_buffer_length(POOL_INTERNAL_BUFFER *buffer);
 static void pool_check_and_discard_cache_buffer(int num_oids, int *oids);
@@ -92,6 +93,7 @@ static void pool_check_and_discard_cache_buffer(int num_oids, int *oids);
 static void pool_set_memqcache_blocks(int num_blocks);
 static int pool_get_memqcache_blocks(void);
 static void *pool_memory_cache_address(void);
+static void pool_reset_fsmm(size_t size);
 static void *pool_fsmm_address(void);
 static void pool_update_fsmm(POOL_CACHE_BLOCKID blockid, size_t free_space);
 static POOL_CACHE_BLOCKID pool_get_block(size_t free_space);
@@ -109,10 +111,12 @@ static POOL_CACHE_BLOCKID pool_reuse_block(void);
 static void dump_shmem_cache(POOL_CACHE_BLOCKID blockid);
 #endif
 
+static int pool_hash_reset(int nelements);
 static int pool_hash_insert(POOL_QUERY_HASH *key, POOL_CACHEID *cacheid, bool update);
 static uint32 create_hash_key(POOL_QUERY_HASH *key);
 static volatile POOL_HASH_ELEMENT *get_new_hash_element(void);
 static void put_back_hash_element(volatile POOL_HASH_ELEMENT *element);
+static char *get_relation_without_alias(RangeVar *relation);
 
 /*
  * Connect to Memcached
@@ -333,7 +337,7 @@ static int pool_fetch_cache(POOL_CONNECTION_POOL *backend, const char *query, ch
 			{
 				pool_error("pool_fetch_cache: memcached_get failed %s", memcached_strerror(memc, rc));
 				/*
-				 * Turn off memory cache support to prevent future erros.
+				 * Turn off memory cache support to prevent future errors.
 				 */
 				pool_config->memory_cache_enabled = 0;
 				/* Behave as if cache not found */
@@ -459,24 +463,22 @@ static int send_cached_messages(POOL_CONNECTION *frontend, const char *qcache, i
 	int msg = 0;
 	int i = 0;
 	int is_prepared_stmt = 0;
+	int len;
+	const char *p;
 
 	while (i < qcachelen)
 	{
 		char tmpkind;
 		int tmplen;
-		char tmpbuf[MAX_VALUE];
 
 		tmpkind = qcache[i];
-
-		i += 1;
+		i++;
 
 		memcpy(&tmplen, qcache+i, sizeof(tmplen));
 		i += sizeof(tmplen);
-
-		tmplen = ntohl(tmplen);
-
-		memcpy(tmpbuf, qcache+i, tmplen - sizeof(tmplen));
-		i += tmplen - sizeof(tmplen);
+		len = ntohl(tmplen);
+		p = qcache + i;
+		i += len - sizeof(tmplen);
 
 		/* No need to cache PARSE and BIND responses */
 		if (tmpkind == '1' || tmpkind == '2')
@@ -495,8 +497,8 @@ static int send_cached_messages(POOL_CONNECTION *frontend, const char *qcache, i
 		}
 
 		/* send message to frontend */
-		pool_debug("send_cached_messages: %c len: %d", tmpkind, tmplen);
-		send_message(frontend, tmpkind, tmplen, tmpbuf);
+		pool_debug("send_cached_messages: %c len: %d", tmpkind, len);
+		send_message(frontend, tmpkind, len, p);
 
 		msg++;
 	}
@@ -580,7 +582,7 @@ POOL_STATUS pool_fetch_from_memory_cache(POOL_CONNECTION *frontend,
 
 		/*
 		 * If we are doing extended query, wait and discard Sync
-		 * message from frontend. This is neccessary to prevent
+		 * message from frontend. This is necessary to prevent
 		 * receiving Sync message after Sending Ready for query.
 		 */
 		if (pool_is_doing_extended_query_message())
@@ -645,6 +647,8 @@ POOL_STATUS pool_fetch_from_memory_cache(POOL_CONNECTION *frontend,
  */
 bool pool_is_likely_select(char *query)
 {
+	bool do_continue = false;
+
 	if (query == NULL)
 		return false;
 
@@ -654,27 +658,61 @@ bool pool_is_likely_select(char *query)
 		while (*query && isspace(*query))
 			query++;
 	}
+	if (! *query) { return false; }
 
 	/*
 	 * Get rid of head comment.
 	 * It is sure that the query is in correct format, because the parser
 	 * has rejected bad queries such as the one with not-ended comment.
 	 */
-	if (*query && !strncmp(query, "/*", 2))
+	while (*query)
 	{
-		while (*query && strncmp(query, "*/", 2))
-			query++;
-
-		if (*query)
-			query += 2;
-
+		/* Ignore spaces and return marks */
+		do_continue = false;
 		while (*query && isspace(*query))
+		{
 			query++;
-	}
+			do_continue = true;
+		}
+		if (do_continue) { continue; }
 
-	if (!strncasecmp(query, "SELECT", 6) || !strncasecmp(query, "WITH", 4))
-	{
-		return true;
+		while (*query && !strncmp(query, "\n", 2))
+		{
+			query++;
+			do_continue = true;
+		}
+		if (do_continue)
+		{
+			query += 2;
+			continue;
+		}
+
+		/* Ignore comments like C */
+		if (!strncmp(query, "/*", 2))
+		{
+			while (*query && strncmp(query, "*/", 2))
+				query++;
+
+			query += 2;
+			continue;
+		}
+
+		/* Ignore SQL comments */
+		if (!strncmp(query, "--", 2))
+		{
+			while (*query && strncmp(query, "\n", 2))
+				query++;
+
+			query += 2;
+			continue;
+		}
+
+		if (!strncasecmp(query, "SELECT", 6) || !strncasecmp(query, "WITH", 4))
+		{
+			return true;
+		}
+
+		query++;
 	}
 
 	return false;
@@ -693,7 +731,7 @@ bool pool_is_allow_to_cache(Node *node, char *query)
 	SelectContext ctx;
 
 	/*
-	 * If NO QUERY CACHE coment exists, do not cache.
+	 * If NO QUERY CACHE comment exists, do not cache.
 	 */
 	if (!strncasecmp(query, NO_QUERY_CACHE, NO_QUERY_CACHE_COMMENT_SZ))
 		return false;
@@ -712,7 +750,7 @@ bool pool_is_allow_to_cache(Node *node, char *query)
 			for (i = 0; i < num_oids; i++)
 			{
 				pool_debug("pool_is_allow_to_cache: check table_names[%d] = %s", i, ctx.table_names[i]);
-				if (pool_is_table_to_cache(ctx.table_names[i]) == false)
+				if (pool_is_table_in_black_list(ctx.table_names[i]) == true)
 				{
 					pool_debug("pool_is_allow_to_cache: false");
 					return false;
@@ -761,7 +799,7 @@ bool pool_is_allow_to_cache(Node *node, char *query)
 				pool_debug("pool_is_allow_to_cache: check table_names[%d] = %s", i, table);
 				if (is_view(table) || is_unlogged_table(table))
 				{
-					if (pool_is_table_to_cache(table) == false)
+					if (pool_is_table_in_white_list(table) == false)
 					{
 						pool_debug("pool_is_allow_to_cache: false");
 						return false;
@@ -787,32 +825,33 @@ bool pool_is_allow_to_cache(Node *node, char *query)
 	return true;
 }
 
+
 /*
- * Return true If the SELECTed table is in white list or is not in black list,
- * and table is to be cached.
+ * Return true If the SELECTed table is in back list.
  */
-bool pool_is_table_to_cache(const char *table_name)
+bool pool_is_table_in_black_list(const char *table_name)
 {
-	/* Cache in case of the table in white list */
-	if (pool_config->num_white_memqcache_table_list > 0)
+
+	if (pool_config->num_black_memqcache_table_list > 0 &&
+	    pattern_compare((char *)table_name, BLACKLIST, "black_memqcache_table_list") == 1)
 	{
-		if (pattern_compare((char *)table_name, WHITELIST, "white_memqcache_table_list") == 1)
-			return true;
-		else
-			return false;
+		return true;
 	}
 
-	/* No cache in case of the table in black list */
-	else if (pool_config->num_black_memqcache_table_list > 0)
+	return false;
+}
+
+/*
+ * Return true If the SELECTed table is in white list.
+ */
+bool pool_is_table_in_white_list(const char *table_name)
+{
+	if (pool_config->num_white_memqcache_table_list > 0 &&
+		pattern_compare((char *)table_name, WHITELIST, "white_memqcache_table_list") == 1)
 	{
-		if (pattern_compare((char *)table_name, BLACKLIST, "black_memqcache_table_list") == 1)
-			return false;
-		else
-			return true;
+		return true;
 	}
 
-	/* No cache otherwise */
-	pool_error("pool_is_table_to_cache: unknown case");
 	return false;
 }
 
@@ -848,12 +887,12 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 	else if (IsA(node, UpdateStmt))
 	{
 		UpdateStmt *stmt = (UpdateStmt *)node;
-		table = nodeToString(stmt->relation);
+		table = get_relation_without_alias(stmt->relation);
 	}
 	else if (IsA(node, DeleteStmt))
 	{
 		DeleteStmt *stmt = (DeleteStmt *)node;
-		table = nodeToString(stmt->relation);
+		table = get_relation_without_alias(stmt->relation);
 	}
 
 #ifdef NOT_USED
@@ -961,6 +1000,37 @@ int pool_extract_table_oids(Node *node, int **oidsp)
 		pool_debug("pool_extract_table_oids: table:%s oid:%d", table, oid);
 	}
 	return num_oids;
+}
+
+/*
+ * Get relation name without alias.  NodeToString() calls
+ * _outRangeVar(). Unfortunately _outRangeVar() returns table with
+ * alias ("t1 AS foo") as a table name if table alias is used. This
+ * function just trim down "AS..." part from the table name when table
+ * alias is used.
+ */
+static char *get_relation_without_alias(RangeVar *relation)
+{
+	char *table;
+	char *p;
+
+	if (!IsA(relation, RangeVar))
+	{
+		pool_error("get_relation_without_alias: not RangeVar(%d)", relation->type);
+		return "";
+	}
+	table = nodeToString(relation);
+	if (relation->alias)
+	{
+		p = strchr(table, ' ');
+		if (!p)
+		{
+			pool_error("get_relation_without_alias: cannot locate space;%s", table);
+			return "";
+		}
+		*p = '\0';
+	}
+	return table;		
 }
 
 #define POOL_OIDBUF_SIZE 1024
@@ -1155,7 +1225,7 @@ int pool_get_database_oid_from_dbname(char *dbname)
 /*
  * Add cache id(shmem case) or hash key(memcached case) to table oid
  * map file.  Caller must hold shmem lock before calling this function
- * to avoid file extention conflict among different pgpool child
+ * to avoid file extension conflict among different pgpool child
  * process.
  * As of pgpool-II 3.2, pool_handle_query_cache is responsible for that.
  * (pool_handle_query_cache -> pool_commit_cache -> pool_add_table_oid_map)
@@ -1218,6 +1288,7 @@ static void pool_add_table_oid_map(POOL_CACHEKEY *cachekey, int num_table_oids, 
 		int fd;
 		int oid = table_oids[i];
 		int sts;
+		struct flock fl;
 
 		/*
 		 * Create or open each memqcache_oiddir/database_oid/table_oid
@@ -1229,10 +1300,16 @@ static void pool_add_table_oid_map(POOL_CACHEKEY *cachekey, int num_table_oids, 
 					   path, strerror(errno));
 			return;
 		}
-		sts = flock(fd, LOCK_EX);
+
+		fl.l_type   = F_WRLCK;
+		fl.l_whence = SEEK_SET;
+		fl.l_start  = 0;        	/* Offset from l_whence         */
+		fl.l_len    = 0;        	/* length, 0 = to EOF           */
+
+		sts = fcntl(fd, F_SETLKW, &fl);
 		if (sts == -1)
 		{
-			pool_error("pool_add_table_oid_map: failed to flock %s. reason:%s",
+			pool_error("pool_add_table_oid_map: failed to lock %s. reason:%s",
 					   path, strerror(errno));
 			close(fd);
 			return;
@@ -1241,7 +1318,7 @@ static void pool_add_table_oid_map(POOL_CACHEKEY *cachekey, int num_table_oids, 
 		/*
 		 * Below was ifdef-out because of a performance reason.
 		 * Looking for duplicate cache entries in a file needed
-		 * unacceptably high cost. So we gave up this and decieded not
+		 * unacceptably high cost. So we gave up this and decided not
 		 * to care about duplicate entries in the file.
 		 */
 #ifdef NOT_USED
@@ -1303,7 +1380,7 @@ static void pool_add_table_oid_map(POOL_CACHEKEY *cachekey, int num_table_oids, 
 
 /*
  * Discard all oid maps at pgpool-II startup.
- * This is neccessary for shmem case.
+ * This is necessary for shmem case.
  */
 void pool_discard_oid_maps(void)
 {
@@ -1330,7 +1407,7 @@ void pool_discard_oid_maps_by_db(int dboid)
 /*
  * Reading cache id(shmem case) or hash key(memcached case) from table
  * oid map file according to table_oids and discard cache entries.  If
- * unlink is true, the file will be unlinked after successfull cache
+ * unlink is true, the file will be unlinked after successful cache
  * removal.
  */
 static void pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool unlinkp, int dboid)
@@ -1392,6 +1469,7 @@ static void pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool
 		int fd;
 		int oid = table_oid[i];
 		int sts;
+		struct flock fl;
 
 		/*
 		 * Open each memqcache_oiddir/database_oid/table_oid
@@ -1405,12 +1483,18 @@ static void pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool
 			 */
 			pool_debug("pool_invalidate_query_cache: failed to open %s. reason:%s",
 					   path, strerror(errno));
-			return;
+			continue;
 		}
-		sts = flock(fd, LOCK_EX);
+
+		fl.l_type   = F_RDLCK;
+		fl.l_whence = SEEK_SET;
+		fl.l_start  = 0;        	/* Offset from l_whence         */
+		fl.l_len    = 0;        	/* length, 0 = to EOF           */
+
+		sts = fcntl(fd, F_SETLKW, &fl);
 		if (sts == -1)
 		{
-			pool_error("pool_invalidate_query_cache: failed to flock %s. reason:%s",
+			pool_error("pool_invalidate_query_cache: failed to lock %s. reason:%s",
 					   path, strerror(errno));
 			close(fd);
 			return;
@@ -1523,7 +1607,7 @@ bool pool_is_shmem_cache(void)
 }
 
 /*
- * Remeber memory cache number of blocks.
+ * Remember memory cache number of blocks.
  */
 static int memqcache_num_blocks;
 static void pool_set_memqcache_blocks(int num_blocks)
@@ -1569,14 +1653,14 @@ size_t pool_shared_memory_cache_size(void)
 
 	pool_log("pool_shared_memory_cache_size: number of blocks: %d", num_blocks);
 
-	/* Remenber # of blocks */
+	/* Remember # of blocks */
 	pool_set_memqcache_blocks(num_blocks);
 	size = pool_config->memqcache_cache_block_size * num_blocks;
 	return size;
 }
 
 /*
- * Aquire and initialize shared memory cache. This should be called
+ * Acquire and initialize shared memory cache. This should be called
  * only once from pgpool main process at the process staring up time.
  */
 static void *shmem;
@@ -1590,6 +1674,36 @@ int pool_init_memory_cache(size_t size)
 		return -1;
 	}
 	return 0;
+}
+
+/*
+ * Clear all the shared memory cache and reset FSMM and hash table.
+ */
+void
+pool_clear_memory_cache(void)
+{
+	size_t size;
+#ifdef HAVE_SIGPROCMASK
+	sigset_t oldmask;
+#else
+	int	oldmask;
+#endif
+
+	POOL_SETMASK2(&BlockSig, &oldmask);
+	pool_shmem_lock();
+
+	size = pool_shared_memory_cache_size();
+	memset(shmem, 0, size);
+
+	size = pool_shared_memory_fsmm_size();
+	pool_reset_fsmm(size);
+
+	pool_discard_oid_maps();
+
+	pool_hash_reset(pool_config->memqcache_max_num_cache);
+
+	pool_shmem_unlock();
+	POOL_SETMASK(&oldmask);
 }
 
 /*
@@ -1609,9 +1723,9 @@ static void *pool_memory_cache_address(void)
  * 
  * Free space management map (FSMM) consists of bytes. Each byte
  * corresponds to block id. For example, if you have 1GB cache and
- * block size is 8Kb, number of blocks = 131,072, thus total sizeo of
+ * block size is 8Kb, number of blocks = 131,072, thus total size of
  * FSMM is 128Kb.  Each FSMM entry has value from 0 to 255. Those
- * valus describes total free space in each block.
+ * values describes total free space in each block.
  * For example, if the value is 2, the free space can be between 64
  * bytes and 95 bytes.
  *
@@ -1637,9 +1751,9 @@ size_t pool_shared_memory_fsmm_size(void)
 }
 
 /*
- * Aquire and initialize shared memory cache for FSMM. This should be
+ * Acquire and initialize shared memory cache for FSMM. This should be
  * called after pool_shared_memory_cache_size only once from pgpool
- * main process at the proces staring up time.
+ * main process at the process staring up time.
  */
 static void *fsmm;
 int pool_init_fsmm(size_t size)
@@ -1682,6 +1796,20 @@ static int *pool_fsmm_clock_hand;
 void pool_allocate_fsmm_clock_hand(void)
 {
 	pool_fsmm_clock_hand = pool_shared_memory_create(sizeof(pool_fsmm_clock_hand));
+	*pool_fsmm_clock_hand = 0;
+}
+
+/*
+ * Reset FSMM.
+ */
+static void
+pool_reset_fsmm(size_t size)
+{
+	int encode_value;
+
+	encode_value = POOL_MAX_FREE_SPACE/POOL_FSMM_RATIO;
+	memset(fsmm, encode_value, size);
+
 	*pool_fsmm_clock_hand = 0;
 }
 
@@ -1808,7 +1936,7 @@ static void pool_update_fsmm(POOL_CACHE_BLOCKID blockid, size_t free_space)
 
 /*
  * Add item data to shared memory cache.
- * On successfull registration, returns cache id.
+ * On successful registration, returns cache id.
  * The cache id is overwritten by the subsequent call to this function.
  * On error returns NULL.
  */
@@ -1865,7 +1993,7 @@ static POOL_CACHEID *pool_add_item_shmem_cache(POOL_QUERY_HASH *query_hash, char
 	}
 
 	/*
-	 * Initialize the block if neccessary. If no live items are
+	 * Initialize the block if necessary. If no live items are
 	 * remained, we also initialize the block. If there's contiguous
 	 * deleted items, we turn them into free space as well.
 	 */
@@ -1879,7 +2007,7 @@ static POOL_CACHEID *pool_add_item_shmem_cache(POOL_QUERY_HASH *query_hash, char
 	 * Create contiguous free space. We assume that item bodies are
 	 * ordered from bottom to top of the block, and corresponding item
 	 * pointers are ordered from the youngest to the oldest in the
-	 * beggining of the block.
+	 * beginning of the block.
 	 */
 
 	/*
@@ -1985,7 +2113,7 @@ static POOL_CACHEID *pool_add_item_shmem_cache(POOL_QUERY_HASH *query_hash, char
 	 */
 	if (bh->free_bytes < request_size)
 	{
-		/* This shoud not happen */
+		/* This should not happen */
 		pool_error("pool_add_item_shmem_cache: not enough free space. Free space: %d required: %d block id:%d",
 				   bh->free_bytes, request_size, blockid);
 		return NULL;
@@ -2150,8 +2278,8 @@ static POOL_CACHEID *pool_find_item_on_shmem_cache(POOL_QUERY_HASH *query_hash)
 }
 
 /*
- * Delete item data specifed cache id from shmem.
- * On sccessfull deletion, returns 0.
+ * Delete item data specified cache id from shmem.
+ * On successful deletion, returns 0.
  * Other wise return -1.
  * FSMM is also updated.
  */
@@ -2219,7 +2347,7 @@ static int pool_delete_item_shmem_cache(POOL_CACHEID *cacheid)
 	/*
 	 * We do NOT count down bh->num_items here. The deleted space will be recycled
 	 * by pool_add_item_shmem_cache(). However, if this is the last item, we can
-	 * recyle whole block.
+	 * recycle whole block.
 	 *
 	 * 2012/4/1: Now we do not pack data in
 	 * pool_add_item_shmem_cache() for performance reason. Also we
@@ -2338,7 +2466,7 @@ static void pool_wipe_out_cache_block(POOL_CACHE_BLOCKID blockid)
 #endif
 
 /*
- * Aquire lock: XXX giant lock
+ * Acquire lock: XXX giant lock
  */
 void pool_shmem_lock(void)
 {
@@ -2423,10 +2551,12 @@ static void dump_shmem_cache(POOL_CACHE_BLOCKID blockid)
 POOL_QUERY_CACHE_ARRAY *pool_create_query_cache_array(void)
 {
 #define POOL_QUERY_CACHE_ARRAY_ALLOCATE_NUM 128
+#define POOL_QUERY_CACHE_ARRAY_HEADER_SIZE (sizeof(int)+sizeof(int))
+
 	size_t size;
 	POOL_QUERY_CACHE_ARRAY *p;
 
-	size = sizeof(int) + sizeof(int) + POOL_QUERY_CACHE_ARRAY_ALLOCATE_NUM *
+	size = POOL_QUERY_CACHE_ARRAY_HEADER_SIZE + POOL_QUERY_CACHE_ARRAY_ALLOCATE_NUM *
 		sizeof(POOL_TEMP_QUERY_CACHE *);
 	p = malloc(size);
 	if (!p)
@@ -2459,26 +2589,28 @@ void pool_discard_query_cache_array(POOL_QUERY_CACHE_ARRAY *cache_array)
 /*
  * Add query cache array
  */
-static void pool_add_query_cache_array(POOL_QUERY_CACHE_ARRAY *cache_array, POOL_TEMP_QUERY_CACHE *cache)
+static POOL_QUERY_CACHE_ARRAY * pool_add_query_cache_array(POOL_QUERY_CACHE_ARRAY *cache_array, POOL_TEMP_QUERY_CACHE *cache)
 {
 	size_t size;
+	POOL_QUERY_CACHE_ARRAY *cp = cache_array;
 
 	if (!cache_array)
-		return;
+		return cp;
 
 	if (cache_array->num_caches >= 	cache_array->array_size)
 	{
 		cache_array->array_size += POOL_QUERY_CACHE_ARRAY_ALLOCATE_NUM;
-		size = cache_array->array_size + sizeof(int) + cache_array->array_size *
+		size = POOL_QUERY_CACHE_ARRAY_HEADER_SIZE + cache_array->array_size *
 			sizeof(POOL_TEMP_QUERY_CACHE *);
 		cache_array = realloc(cache_array, size);
 		if (!cache_array)
 		{
 			pool_error("pool_add_query_cache_array: malloc failed");
-			return;
+			return cp;
 		}
 	}
 	cache_array->caches[cache_array->num_caches++] = cache;
+	return cache_array;
 }
 
 /*
@@ -2552,7 +2684,10 @@ static void pool_add_temp_query_cache(POOL_TEMP_QUERY_CACHE *temp_cache, char ki
 
 	if (temp_cache == NULL)
 	{
-		pool_error("pool_add_temp_query_cache: POOL_TEMP_QUERY_CACHE is NULL");
+		/* This could happen if cache exceeded in previous query
+		 * execution in the same unnamed portal.
+		 */
+		pool_debug("pool_add_temp_query_cache: POOL_TEMP_QUERY_CACHE is NULL");
 		return;
 	}
 
@@ -2607,7 +2742,15 @@ static void pool_add_oids_temp_query_cache(POOL_TEMP_QUERY_CACHE *temp_cache, in
 }
 
 /*
- * Internal buffer management modules
+ * Internal buffer management modules.
+ * Usage:
+ * 1) Create buffer using pool_create_buffer().
+ * 2) Add data to buffer using pool_add_buffer().
+ * 3) Extract (copied) data from buffer using pool_get_buffer().
+ * 4) Optionally you can:
+ *		Obtain buffer length by using pool_get_buffer_length().
+ *		Obtain buffer pointer by using pool_get_buffer_pointer().
+ * 5) Discard buffer using pool_discard_buffer().
  */
 
 /*
@@ -2713,6 +2856,17 @@ static size_t pool_get_buffer_length(POOL_INTERNAL_BUFFER *buffer)
 }
 
 /*
+ * Get internal buffer pointer.
+ */
+static char *pool_get_buffer_pointer(POOL_INTERNAL_BUFFER *buffer)
+{
+	if (buffer == NULL)
+		return NULL;
+
+	return buffer->buf;
+}
+
+/*
  * Get query cache buffer struct of current query context
  */
 POOL_TEMP_QUERY_CACHE *pool_get_current_cache(void)
@@ -2752,7 +2906,7 @@ static char *pool_get_current_cache_buffer(size_t *len)
 
 /*
  * Mark this temporary query cache buffer discarded if the SELECT
- * uses the table oid specied by oids.
+ * uses the table oid specified by oids.
  */
 static void pool_check_and_discard_cache_buffer(int num_oids, int *oids)
 {
@@ -2880,13 +3034,20 @@ void pool_handle_query_cache(POOL_CONNECTION_POOL *backend, char *query, Node *n
 
 				cache = pool_get_current_cache();
 				pool_discard_temp_query_cache(cache);
+				/*
+				 * Reset temp_cache pointer in the current query context
+				 * so that we don't double free memory.
+				 */
+				session_context->query_context->temp_cache = NULL;
+
 			}
 			/*
 			 * Otherwise add to the temp cache array.
 			 */
 			else
 			{
-				pool_add_query_cache_array(session_context->query_cache_array, cache);
+				session_context->query_cache_array = 
+					pool_add_query_cache_array(session_context->query_cache_array, cache);
 			}
 
 			/* Count up temporary SELECT stats */
@@ -3071,7 +3232,7 @@ POOL_QUERY_CACHE_STATS *pool_get_memqcache_stats(void)
 
 /*
  * Reset query cache stats. Caller must lock QUERY_CACHE_STATS_SEM if
- * neccessary.
+ * necessary.
  */
 void pool_reset_memqcache_stats(void)
 {
@@ -3080,8 +3241,8 @@ void pool_reset_memqcache_stats(void)
 }
 
 /*
- * Count up number of successfull SELECTs and returns the number.
- * QUERY_CACHE_STATS_SEM lock is aquired in this function.
+ * Count up number of successful SELECTs and returns the number.
+ * QUERY_CACHE_STATS_SEM lock is acquired in this function.
  */
 long long int pool_stats_count_up_num_selects(long long int num)
 {
@@ -3100,7 +3261,7 @@ long long int pool_stats_count_up_num_selects(long long int num)
 }
 
 /*
- * Count up number of successfull SELECTs in temporary area and returns
+ * Count up number of successful SELECTs in temporary area and returns
  * the number.
  */
 long long int pool_tmp_stats_count_up_num_selects(void)
@@ -3113,7 +3274,7 @@ long long int pool_tmp_stats_count_up_num_selects(void)
 }
 
 /*
- * Return number of successfull SELECTs in temporary area.
+ * Return number of successful SELECTs in temporary area.
  */
 long long int pool_tmp_stats_get_num_selects(void)
 {
@@ -3124,7 +3285,7 @@ long long int pool_tmp_stats_get_num_selects(void)
 }
 
 /*
- * Reset number of successfull SELECTs in temporary area.
+ * Reset number of successful SELECTs in temporary area.
  */
 void pool_tmp_stats_reset_num_selects(void)
 {
@@ -3136,7 +3297,7 @@ void pool_tmp_stats_reset_num_selects(void)
 
 /*
  * Count up number of SELECTs extracted from cache returns the number.
- * QUERY_CACHE_STATS_SEM lock is aquired in this function.
+ * QUERY_CACHE_STATS_SEM lock is acquired in this function.
  */
 long long int pool_stats_count_up_num_cache_hits(void)
 {
@@ -3225,6 +3386,58 @@ int pool_hash_init(int nelements)
 #ifdef POOL_HASH_DEBUG
 	pool_log("pool_hash_init: size:%zd nelements2:%d", size, nelements2);
 #endif
+
+	for (i=0;i<nelements2-1;i++)
+	{
+		hash_elements[i].next = (POOL_HASH_ELEMENT *)&hash_elements[i+1];
+	}
+	hash_elements[nelements2-1].next = NULL;
+	hash_free = hash_elements;
+
+	return 0;
+}
+
+/*
+ * Reset hash table on shared memory "nelements" is max number of
+ * hash keys. The actual number of hash key is rounded up to power of
+ * 2.
+ */
+static int
+pool_hash_reset(int nelements)
+{
+	size_t size;
+	int nelements2;		/* number of rounded up hash keys */
+	int shift;
+	uint32 mask;
+	POOL_HASH_HEADER hh;
+	int i;
+
+	if (nelements <= 0)
+	{
+		pool_error("pool_hash_clear: invalid nelements:%d", nelements);
+		return -1;
+	}
+
+	/* Round up to power of 2 */
+	shift = 32;
+	nelements2 = 1;
+	do
+	{
+		nelements2 <<= 1;
+		shift--;
+	} while (nelements2 < nelements);
+
+	mask = ~0;
+	mask >>= shift;
+
+	size = (char *)&hh.elements - (char *)&hh + sizeof(POOL_HEADER_ELEMENT)*nelements2;
+	memset((void *)hash_header, 0, size);
+
+	hash_header->nhash = nelements2;
+    	hash_header->mask = mask;
+
+	size = sizeof(POOL_HASH_ELEMENT)*nelements2;
+	memset((void *)hash_elements, 0, size);
 
 	for (i=0;i<nelements2-1;i++)
 	{
@@ -3482,7 +3695,7 @@ static void put_back_hash_element(volatile POOL_HASH_ELEMENT *element)
  * Subsequent call to this function will break return value
  * because its in static memory.
  * Caller must hold shmem_lock before calling this function.
- * If on mememory query cache is not enabled, all stats are 0.
+ * If on memory query cache is not enabled, all stats are 0.
  */
 POOL_SHMEM_STATS *pool_get_shmem_storage_stats(void)
 {

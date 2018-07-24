@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -189,7 +189,7 @@ void pool_discard_cp(char *user, char *database, int protoMajor)
 
 	if (p == NULL)
 	{
-		pool_error("pool_discard_cp: cannot get connection pool for user %s datbase %s", user, database);
+		pool_error("pool_discard_cp: cannot get connection pool for user %s database %s", user, database);
 		return;
 	}
 
@@ -511,6 +511,18 @@ int connect_inet_domain_socket_by_port(char *host, int port, bool retry)
 	int on = 1;
 	struct sockaddr_in addr;
 	struct hostent *hp;
+	struct timeval timeout;
+	fd_set rset, wset;
+	int error;
+	socklen_t socklen;
+	int sts;
+
+#define CONNECT_TIMEOUT_MSEC 1000		/* specify select(2) timeout in milliseconds */
+#define CONNECT_TIMEOUT_SEC CONNECT_TIMEOUT_MSEC/1000	/* seconds part */
+/* microseconds part */
+#define CONNECT_TIMEOUT_MICROSEC (CONNECT_TIMEOUT_SEC == 0?CONNECT_TIMEOUT_MSEC*1000:\
+								  CONNECT_TIMEOUT_MSEC*1000 - CONNECT_TIMEOUT_SEC*1000*1000)
+
 
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd < 0)
@@ -557,7 +569,7 @@ int connect_inet_domain_socket_by_port(char *host, int port, bool retry)
 			return -1;
 		}
 
-		if (health_check_timer_expired)		/* has health check timer expired */
+		if (health_check_timer_expired && getpid() == mypid)		/* has health check timer expired */
 		{
 			pool_log("connect_inet_domain_socket_by_port: health check timer expired");
 			close(fd);
@@ -566,16 +578,97 @@ int connect_inet_domain_socket_by_port(char *host, int port, bool retry)
 
 		if (connect(fd, (struct sockaddr *)&addr, len) < 0)
 		{
+			if (errno == EISCONN)
+			{
+				/* Socket is already connected */
+				break;
+			}
+
 			if ((errno == EINTR && retry) || errno == EAGAIN)
 				continue;
 
-			/* Non block fd could return these */
-			if (errno == EINPROGRESS || errno == EALREADY)
-				continue;
+			/*
+			 * If error was "connect(2) is in progress", then wait for
+			 * completion.  Otherwise error out.
+			 */
+			if (errno != EINPROGRESS && errno != EALREADY)
+			{
+				pool_error("connect_inet_domain_socket: connect() failed: %s",strerror(errno));
+				close(fd);
+				return -1;
+			}
 
-			pool_error("connect_inet_domain_socket: connect() failed: %s",strerror(errno));
-			close(fd);
-			return -1;
+			timeout.tv_sec = CONNECT_TIMEOUT_SEC;
+			timeout.tv_usec = CONNECT_TIMEOUT_MICROSEC;
+			FD_ZERO(&rset);
+			FD_SET(fd, &rset);	
+			FD_ZERO(&wset);
+			FD_SET(fd, &wset);
+			sts = select(fd+1, &rset, &wset, NULL, &timeout);
+
+			if (sts == 0)
+			{
+				/* select timeout */
+				if (retry)
+				{
+					pool_log("connect_inet_domain_socket: select() timed out. retrying...");
+					continue;
+				}
+				else
+				{
+					pool_error("connect_inet_domain_socket: select() timed out");
+					close(fd);
+					return -1;
+				}
+			}
+			else if (sts > 0)
+			{
+				/*
+				 * If read data or write data was set, either connect
+				 * succeeded or error.  We need to figure it out. This
+				 * is the hardest part in using non blocking
+				 * connect(2).  See W. Richar Stevens's "UNIX Network
+				 * Programming: Volume 1, Second Edition" section
+				 * 15.4.
+				 */
+				if (FD_ISSET(fd, &rset) || FD_ISSET(fd, &wset))
+				{
+					error = 0;
+					socklen = sizeof(error);
+					if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &socklen) < 0)
+					{
+						/* Solaris returns error in this case */
+						pool_error("connect_inet_domain_socket: getsockopt() failed: %s", strerror(errno));
+						close(fd);
+						return -1;
+					}
+
+					/* Non Solaris case */
+					if (error != 0)
+					{
+						pool_error("connect_inet_domain_socket: getsockopt() detected error: %s", strerror(error));
+						close(fd);
+						return -1;
+					}
+				}
+				else
+				{
+					pool_error("connect_inet_domain_socket: both read data and write data was not set");
+					close(fd);
+					return -1;
+				}
+			}
+			else		/* select returns error */
+			{
+				if((errno == EINTR && retry) || errno == EAGAIN)
+				{
+					pool_log("connect_inet_domain_socket: select() interrupted. retrying...");
+					continue;
+				}
+				pool_log("connect_inet_domain_socket: select() interrupted");
+				close(fd);
+				return -1;
+			}
 		}
 		break;
 	}
@@ -651,6 +744,10 @@ static POOL_CONNECTION_POOL *new_connection(POOL_CONNECTION_POOL *p)
 			if (pool_config->fail_over_on_backend_error)
 			{
 				notice_backend_error(i);
+			}
+			else
+			{
+				pool_log("new_connection: do not failover because fail_over_on_backend_error is off");
 			}
 			child_exit(1);
 		}

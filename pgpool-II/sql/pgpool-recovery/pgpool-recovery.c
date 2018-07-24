@@ -4,7 +4,7 @@
  *
  * pgpool-recovery: exec online recovery script from SELECT statement.
  *
- * Copyright (c) 2003-2010	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -29,6 +29,10 @@
 #include "catalog/namespace.h"
 #include "utils/syscache.h"
 #include "utils/builtins.h"		/* PostgreSQL 8.4 needs this for textout */
+#include "utils/guc.h"
+#if defined(PG_VERSION_NUM) && (PG_VERSION_NUM >= 90300)
+#include "access/htup_details.h"		/* PostgreSQL 9.3 or later needs this */
+#endif
 
 #define REMOTE_START_FILE "pgpool_remote_start"
 
@@ -40,16 +44,19 @@ PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(pgpool_recovery);
 PG_FUNCTION_INFO_V1(pgpool_remote_start);
+PG_FUNCTION_INFO_V1(pgpool_pgctl);
 PG_FUNCTION_INFO_V1(pgpool_switch_xlog);
 
 extern Datum pgpool_recovery(PG_FUNCTION_ARGS);
 extern Datum pgpool_remote_start(PG_FUNCTION_ARGS);
+extern Datum pgpool_pgctl(PG_FUNCTION_ARGS);
 extern Datum pgpool_switch_xlog(PG_FUNCTION_ARGS);
 
 static char recovery_script[1024];
+static char command_text[1024];
 
 static Oid get_function_oid(const char *funcname, const char *argtype, const char *nspname);
-
+char       *Log_line_prefix = NULL;
 Datum
 pgpool_recovery(PG_FUNCTION_ARGS)
 {
@@ -112,6 +119,52 @@ pgpool_remote_start(PG_FUNCTION_ARGS)
 	if (r != 0)
 	{
 		elog(ERROR, "pgpool_remote_start failed");
+	}
+
+	PG_RETURN_BOOL(true);
+}
+
+Datum
+pgpool_pgctl(PG_FUNCTION_ARGS)
+{
+	int r;
+	char *action = DatumGetCString(DirectFunctionCall1(textout,
+	                                                   PointerGetDatum(PG_GETARG_TEXT_P(0))));
+	char *stop_mode = DatumGetCString(DirectFunctionCall1(textout,
+	                                                   PointerGetDatum(PG_GETARG_TEXT_P(1))));
+	char *pg_ctl;
+	char *data_directory;
+
+	if (!superuser())
+#ifdef ERRCODE_INSUFFICIENT_PRIVILEGE
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser to use pgpool_pgctl function"))));
+#else
+		elog(ERROR, "must be superuser to use pgpool_pgctl function");
+#endif
+
+	pg_ctl = GetConfigOptionByName("pgpool.pg_ctl", NULL);
+	data_directory = GetConfigOptionByName("data_directory", NULL);
+
+	if (strcmp(stop_mode, "") != 0)
+	{
+		snprintf(command_text, sizeof(command_text),
+				 "%s %s -D %s -m %s 2>/dev/null 1>/dev/null < /dev/null &",
+				 pg_ctl, action, data_directory, stop_mode);
+
+	} else {
+		snprintf(command_text, sizeof(command_text),
+				 "%s %s -D %s 2>/dev/null 1>/dev/null < /dev/null &",
+				 pg_ctl, action, data_directory);
+	}
+
+	elog(DEBUG1, "command_text: %s", command_text);
+	r = system(command_text);
+
+	if (strcmp(action, "reload") == 0 && r != 0)
+	{
+		elog(ERROR, "pgpool_pgctl failed");
 	}
 
 	PG_RETURN_BOOL(true);
@@ -198,7 +251,14 @@ get_function_oid(const char *funcname, const char *argtype, const char *nspname)
 		oid_v = buildoidvector(NULL, 0);
 	}
 
+#if !defined(PG_VERSION_NUM) || (PG_VERSION_NUM < 90300)
 	nspid = LookupExplicitNamespace(nspname);
+#else
+	/* LookupExplicitNamespace() of PostgreSQL 9.3 or later, has third
+	 * argument "missing_ok" which suppresses ERROR exception, but
+	 * returns invlaid_oid. See include/catalog/namespace.h */
+	nspid = LookupExplicitNamespace(nspname, false);
+#endif
 	elog(DEBUG1, "get_function_oid: oid of \"%s\": %d", nspname, nspid);
 
 	tup = SearchSysCache(PROCNAMEARGSNSP,
@@ -217,3 +277,4 @@ get_function_oid(const char *funcname, const char *argtype, const char *nspname)
 #endif
 	return 0;
 }
+

@@ -3,10 +3,10 @@
  *
  * $Header$
  *
- * pgpool: a language independent connection pool server for PostgreSQL 
+ * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2011	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -34,8 +34,14 @@
 /*
  * Master/slave sub mode
  */
-#define MODE_STREAMREP "stream"		/* Streaming Replication */
-#define MODE_SLONY "slony"		/* Slony-I */
+#define MODE_STREAMREP 	"stream"	/* Streaming Replication */
+#define MODE_SLONY 		"slony"		/* Slony-I */
+
+/*
+ * watchdog lifecheck method
+ */
+#define MODE_HEARTBEAT	"heartbeat"
+#define MODE_QUERY 		"query"
 
 /*
  *  Regex support in white and black list function
@@ -59,7 +65,7 @@ typedef struct {
 #define POOL_ALLOW_TO_FAILOVER(x) (!(POOL_DISALLOW_TO_FAILOVER(x)))
 
 /*
- * configuration paramters
+ * configuration parameters
  */
 typedef struct {
 	char *listen_addresses; /* hostnames/IP addresses to listen on */
@@ -92,19 +98,19 @@ typedef struct {
 	int load_balance_mode;		/* load balance mode */
 
 	int replication_stop_on_mismatch;		/* if there's a data mismatch between master and secondary
-											 * start degenration to stop replication mode
+											 * start degeneration to stop replication mode
 											 */
 
 	/* If there's a disagreement with the number of affected tuples in
-	 * UPDATE/DELETE, then degenrate the node which is most likely
+	 * UPDATE/DELETE, then degenerate the node which is most likely
 	 * "minority".  # If false, just abort the transaction to keep the
 	 * consistency.*/
 	int failover_if_affected_tuples_mismatch;
 
 	int replicate_select; /* if non 0, replicate SELECT statement when load balancing is disabled. */
-	char **reset_query_list;		/* comma separated list of quries to be issued at the end of session */
-	char **white_function_list;		/* list of functions with no side effetcs */
-	char **black_function_list;		/* list of functions with side effetcs */
+	char **reset_query_list;		/* comma separated list of queries to be issued at the end of session */
+	char **white_function_list;		/* list of functions with no side effects */
+	char **black_function_list;		/* list of functions with side effects */
 	int print_timestamp;		/* if non 0, print time stamp to each log line */
 	int master_slave_mode;		/* if non 0, operate in master/slave mode */
 	char *master_slave_sub_mode;		/* either "slony" or "stream" */
@@ -121,7 +127,7 @@ typedef struct {
 	char *health_check_password; /* password for health check username */
 	int health_check_max_retries;	/* health check max retries */
 	int health_check_retry_delay;	/* amount of time to wait between retries */
-	int sr_check_period;		/* streming replication check period */
+	int sr_check_period;		/* streaming replication check period */
 	char *sr_check_user;		/* PostgreSQL user name streaming replication check */
 	char *sr_check_password;	/* password for sr_check_user */
 	char *failover_command;     /* execute command when failover happens */
@@ -141,9 +147,11 @@ typedef struct {
 	char *recovery_1st_stage_command;   /* Online recovery command in 1st stage */
 	char *recovery_2nd_stage_command;   /* Online recovery command in 2nd stage */
 	int recovery_timeout;				/* maximum time in seconds to wait for remote start-up */
+	int search_primary_node_timeout;	/* maximum time in seconds to search for new primary
+										 * node after failover */
 	int client_idle_limit_in_recovery;		/* If > 0, the client is forced to be
 											 *  disconnected after n seconds idle
-											 *  This parameter is only valid while in recovery 2nd statge */
+											 *  This parameter is only valid while in recovery 2nd stage */
 	int insert_lock;	/* if non 0, automatically lock table with INSERT to keep SERIAL
 						   data consistency */
 	int ignore_leading_white_space;		/* ignore leading white spaces of each query */
@@ -199,7 +207,7 @@ typedef struct {
 	int memory_cache_enabled;   /* if true, use the memory cache functionality, false by default */
 	char *memqcache_method;   /* Cache store method. Either 'shmem'(shared memory) or 'memcached'. 'shmem' by default */
 	char *memqcache_memcached_host;   /* Memcached host name. Mandatory if memqcache_method=memcached. */
-	int memqcache_memcached_port;   /* Memcached port number. Mondatory if memqcache_method=memcached. */
+	int memqcache_memcached_port;   /* Memcached port number. Mandatory if memqcache_method=memcached. */
 	int memqcache_total_size;   /* Total memory size in bytes for storing memory cache. Mandatory if memqcache_method=shmem. */
 	int memqcache_max_num_cache;   /* Total number of cache entries. Mandatory if memqcache_method=shmem. */
 	int memqcache_expire;   /* Memory cache entry life time specified in seconds. 60 by default. */
@@ -208,7 +216,7 @@ typedef struct {
 										   /* by memqcache_expire.  True by default. */
 	int memqcache_maxcache;   /* Maximum SELECT result size in bytes. */
 	int memqcache_cache_block_size;   /* Cache block size in bytes. 8192 by default */
-	char *memqcache_oiddir;		/* Tempory work directory to record table oids */
+	char *memqcache_oiddir;		/* Temporary work directory to record table oids */
 	char **white_memqcache_table_list;		/* list of tables to memqcache */
 	char **black_memqcache_table_list;		/* list of tables not to memqcache */
 
@@ -219,21 +227,33 @@ typedef struct {
 	/*
 	 * add for watchdog
 	 */
-	int use_watchdog;		/* if non 0, use watchdog */
-	char *wd_hostname;		/* watchdog hostname */
-	int wd_port;			/* watchdog port */
-	WdDesc * other_wd;		/* watchdog lists */ 
-	char * trusted_servers;	/* icmp reachable server list (A,B,C) */
-	char * delegate_IP;		/* delegate IP address */
-	int  wd_interval;		/* lifecheck interval (sec) */
-	char * ping_path;		/* path to ping command */
-	char * ifconfig_path;	/* path to ifconfig command */
-	char * if_up_cmd;		/* ifup command */
-	char * if_down_cmd;		/* ifdown command */
-	char * arping_path;	/* path to arping command */
-	char * arping_cmd;		/* arping command */
-	int  wd_life_point;		/* life point (retry times at lifecheck) */
-	char * wd_lifecheck_query;	/* lifecheck query */
+	int use_watchdog;					/* if non 0, use watchdog */
+	char *wd_lifecheck_method;			/* method of lifecheck. 'heartbeat' or 'query' */
+	int clear_memqcache_on_escalation;	/* if no 0, clear query cache on shmem when escalating */
+    char *wd_escalation_command;		/* Executes this command at escalation on new active pgpool.*/
+	char *wd_hostname;					/* watchdog hostname */
+	int wd_port;						/* watchdog port */
+	WdDesc * other_wd;					/* watchdog lists */
+	char * trusted_servers;				/* icmp reachable server list (A,B,C) */
+	char * delegate_IP;					/* delegate IP address */
+	int  wd_interval;					/* lifecheck interval (sec) */
+	char *wd_authkey;					/* Authentication key for watchdog communication */
+	char * ping_path;					/* path to ping command */
+	char * ifconfig_path;				/* path to ifconfig command */
+	char * if_up_cmd;					/* ifup command */
+	char * if_down_cmd;					/* ifdown command */
+	char * arping_path;					/* path to arping command */
+	char * arping_cmd;					/* arping command */
+	int  wd_life_point;					/* life point (retry times at lifecheck) */
+	char *wd_lifecheck_query;			/* lifecheck query */
+	char *wd_lifecheck_dbname;			/* Database name connected for lifecheck */
+	char *wd_lifecheck_user;			/* PostgreSQL user name for watchdog */
+	char *wd_lifecheck_password;		/* password for watchdog user */
+	int wd_heartbeat_port;				/* Port number for heartbeat lifecheck */
+	int wd_heartbeat_keepalive;			/* Interval time of sending heartbeat signal (sec) */
+	int wd_heartbeat_deadtime;			/* Deadtime interval for heartbeat signal (sec) */
+	WdHbIf hb_if[WD_MAX_IF_NUM];		/* interface devices */
+	int num_hb_if;						/* number of interface devices */
 } POOL_CONFIG;
 
 typedef enum {

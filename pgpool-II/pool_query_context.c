@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2013	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -95,7 +95,7 @@ void pool_start_query(POOL_QUERY_CONTEXT *query_context, char *query, int len, N
 		session_context = pool_get_session_context();
 		query_context->original_length = len;
 		query_context->rewritten_length = -1;
-		query_context->original_query = query;
+		query_context->original_query = pstrdup(query);
 		query_context->rewritten_query = NULL;
 		query_context->parse_tree = node;
 		query_context->virtual_master_node_id = my_master_node_id;
@@ -278,8 +278,14 @@ int pool_virtual_master_db_node_id(void)
 	}
 
 	/*
-	 * No query context exists. Returns master node id in private buffer.
+	 * No query context exists.  If in master/slave mode, returns
+	 * primary node if exists.  Otherwise returns my_master_node_id,
+	 * which represents the last REAL_MASTER_NODE_ID.
 	 */
+	if (MASTER_SLAVE)
+	{
+		return PRIMARY_NODE_ID;
+	}
 	return my_master_node_id;
 }
 
@@ -334,14 +340,14 @@ void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *no
 	else if (MASTER_SLAVE && query_context->is_multi_statement)
 	{
 		/*
-		 * If we are in master/slave mode and we have multi stametemt
+		 * If we are in master/slave mode and we have multi statement
 		 * query, we should send it to primary server only. Otherwise
 		 * it is possible to send a write query to standby servers
 		 * because we only use the first element of the multi
 		 * statement query and don't care about the rest.  Typical
 		 * situation where we are bugged by this is, "BEGIN;DELETE
 		 * FROM table;END". Note that from pgpool-II 3.1.0
-		 * transactional statements such as "BEGIN" is unconditionaly
+		 * transactional statements such as "BEGIN" is unconditionally
 		 * sent to all nodes(see send_to_where() for more details).
 		 * Someday we might be able to understand all part of multi
 		 * statement queries, but until that day we need this band
@@ -475,7 +481,9 @@ void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *no
 	}
 	else if (REPLICATION || PARALLEL_MODE)
 	{
-		if (is_select_query(node, query))
+		if (pool_config->load_balance_mode &&
+			is_select_query(node, query) &&
+			MAJOR(backend) == PROTO_MAJOR_V3)
 		{
 			/*
 			 * If a writing function call is used or replicate_select is true,
@@ -485,10 +493,18 @@ void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *no
 			{
 				pool_setall_node_to_be_sent(query_context);
 			}
-			else if (pool_config->load_balance_mode &&
-					 MAJOR(backend) == PROTO_MAJOR_V3 &&
-					 TSTATE(backend, MASTER_NODE_ID) == 'I')
+			/* 
+			 * If (we are outside of an explicit transaction) OR
+			 * (the transaction has not issued a write query yet, AND
+			 *	transaction isolation level is not SERIALIZABLE)
+			 * we might be able to load balance.
+			 */
+			else if (TSTATE(backend, MASTER_NODE_ID) == 'I' ||
+					 (!pool_is_writing_transaction() &&
+					  !pool_is_failed_transaction() &&
+					  pool_get_transaction_isolation() != POOL_SERIALIZABLE))
 			{
+				BackendInfo *bkinfo = pool_get_node_info(session_context->load_balance_node_id);
 				/* load balance */
 				pool_set_node_to_be_sent(query_context,
 										 session_context->load_balance_node_id);
@@ -695,7 +711,7 @@ POOL_STATUS pool_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 
 		/*
 		 * Check if some error detected.  If so, emit
-		 * log. This is usefull when invalid encoding error
+		 * log. This is useful when invalid encoding error
 		 * occurs. In this case, PostgreSQL does not report
 		 * what statement caused that error and make users
 		 * confused.
@@ -895,7 +911,7 @@ POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 
 		/*
 		 * Check if some error detected.  If so, emit
-		 * log. This is usefull when invalid encoding error
+		 * log. This is useful when invalid encoding error
 		 * occurs. In this case, PostgreSQL does not report
 		 * what statement caused that error and make users
 		 * confused.
@@ -947,7 +963,7 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_ClosePortalStmt,
 		T_ClusterStmt,
 		T_CopyStmt,
-		T_CreateStmt,	/* CREAE TABLE */
+		T_CreateStmt,	/* CREATE TABLE */
 		T_DefineStmt,	/* CREATE AGGREGATE, OPERATOR, TYPE */
 		T_DropStmt,		/* DROP TABLE etc. */
 		T_TruncateStmt,
@@ -956,7 +972,6 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_IndexStmt,	/* CREATE INDEX */
 		T_CreateFunctionStmt,
 		T_AlterFunctionStmt,
-		T_RemoveFuncStmt,
 		/*
 		T_DoStmt,		Our parser does not support yet
 		*/
@@ -979,9 +994,7 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_VariableShowStmt,
 		T_DiscardStmt,
 		T_CreateTrigStmt,
-		T_DropPropertyStmt,
 		T_CreatePLangStmt,
-		T_DropPLangStmt,
 		T_CreateRoleStmt,
 		T_AlterRoleStmt,
 		T_DropRoleStmt,
@@ -995,12 +1008,9 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_AlterRoleSetStmt,
 		T_CreateConversionStmt,
 		T_CreateCastStmt,
-		T_DropCastStmt,
 		T_CreateOpClassStmt,
 		T_CreateOpFamilyStmt,
 		T_AlterOpFamilyStmt,
-		T_RemoveOpClassStmt,
-		T_RemoveOpFamilyStmt,
 		T_PrepareStmt,
 		T_ExecuteStmt,
 		T_DeallocateStmt,		/* DEALLOCATE */
@@ -1017,10 +1027,8 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		T_AlterTSConfigurationStmt,
 		T_CreateFdwStmt,
 		T_AlterFdwStmt,
-		T_DropFdwStmt,
 		T_CreateForeignServerStmt,
 		T_AlterForeignServerStmt,
-		T_DropForeignServerStmt,
 		T_CreateUserMappingStmt,
 		T_AlterUserMappingStmt,
 		T_DropUserMappingStmt,
@@ -1260,7 +1268,7 @@ void where_to_send_deallocate(POOL_QUERY_CONTEXT *query_context, Node *node)
 
 /*
  * Returns parse tree for current query.
- * Preconition: the query is in progress state.
+ * Precondition: the query is in progress state.
  */
 Node *pool_get_parse_tree(void)
 {
@@ -1487,7 +1495,7 @@ void pool_set_query_state(POOL_QUERY_CONTEXT *query_context, POOL_QUERY_STATE st
 /*
  * Return -1, 0 or 1 according to s1 is "before, equal or after" s2 in terms of state
  * transition order. 
- * The State transiton order is defined as: UNPARSED < PARSE_COMPLETE < BIND_COMPLETE < EXECUTE_COMPLETE
+ * The State transition order is defined as: UNPARSED < PARSE_COMPLETE < BIND_COMPLETE < EXECUTE_COMPLETE
  */
 int statecmp(POOL_QUERY_STATE s1, POOL_QUERY_STATE s2)
 {
@@ -1624,7 +1632,9 @@ bool pool_is_cache_exceeded(void)
 
 	if (pool_is_query_in_progress() && sc->query_context)
 	{
-		return sc->query_context->temp_cache->is_exceeded;
+		if (sc->query_context->temp_cache)
+			return sc->query_context->temp_cache->is_exceeded;
+		return true;
 	}
 	return false;
 }
@@ -1640,7 +1650,7 @@ void pool_set_cache_exceeded(void)
 	if (!sc)
 		return;
 
-	if (sc->query_context)
+	if (sc->query_context && sc->query_context->temp_cache)
 	{
 		sc->query_context->temp_cache->is_exceeded = true;
 	}
@@ -1657,7 +1667,7 @@ void pool_unset_cache_exceeded(void)
 	if (!sc)
 		return;
 
-	if (sc->query_context)
+	if (sc->query_context && sc->query_context->temp_cache)
 	{
 		sc->query_context->temp_cache->is_exceeded = false;
 	}

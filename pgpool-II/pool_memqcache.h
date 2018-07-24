@@ -35,7 +35,7 @@
 #define POOL_MD5_HASHKEYLEN		32		/* MD5 hash key length */
 
 /*
- * On memory query cache on shmem is devided into fixed length "cache
+ * On memory query cache on shmem is divided into fixed length "cache
  * block". Each block is assigned a "cache block id", which is
  * starting with 0.
  */
@@ -80,8 +80,8 @@ typedef struct {
 } POOL_CACHE_ITEM_POINTER;
 
 /*
- * Each block holds several "cach item", which consists of variable
- * lenghth of Data(header plus RowDescription packet and DataRow
+ * Each block holds several "cache item", which consists of variable
+ * length of Data(header plus RowDescription packet and DataRow
  * packet).  Each cache item is assigned "cache item id", which
  * represents the cache item order in a block.
  */
@@ -168,7 +168,7 @@ typedef struct
 typedef struct
 {
 	time_t		start_time;		/* start time when the statistics begins */
-	long long int num_selects;	/* number of successfull SELECTs */
+	long long int num_selects;	/* number of successful SELECTs */
 	long long int num_cache_hits;		/* number of SELECTs extracted from cache */
 } POOL_QUERY_CACHE_STATS;
 
@@ -182,12 +182,12 @@ typedef struct
 	int num_cache_entries;	/* number of used cache entries */
 	long used_cache_entries_size;	/* total size of used cache entries */
 	long free_cache_entries_size;	/* total size of free(usable) cache entries */
-	long fragment_cache_entries_size;	/* total size of fragment(unsable) cache entries */
+	long fragment_cache_entries_size;	/* total size of fragment(unusable) cache entries */
 	POOL_QUERY_CACHE_STATS cache_stats;
 } POOL_SHMEM_STATS;
 
 /*--------------------------------------------------------------------------------
- * On shared memory hsah table implementation
+ * On shared memory hash table implementation
  *--------------------------------------------------------------------------------
  */
 
@@ -226,7 +226,8 @@ extern POOL_STATUS pool_fetch_from_memory_cache(POOL_CONNECTION *frontend,
 												char *contents, bool *foundp);
 
 extern bool pool_is_likely_select(char *query);
-extern bool pool_is_table_to_cache(const char *table_name);
+extern bool pool_is_table_in_black_list(const char *table_name);
+extern bool pool_is_table_in_white_list(const char *table_name);
 extern bool pool_is_allow_to_cache(Node *node, char *query);
 extern int pool_extract_table_oids(Node *node, int **oidsp);
 extern void pool_add_dml_table_oid(int oid);
@@ -236,6 +237,7 @@ extern void pool_discard_oid_maps_by_db(int dboid);
 extern bool pool_is_shmem_cache(void);
 extern size_t pool_shared_memory_cache_size(void);
 extern int pool_init_memory_cache(size_t size);
+extern void pool_clear_memory_cache(void);
 extern size_t pool_shared_memory_fsmm_size(void);
 extern int pool_init_fsmm(size_t size);
 extern void pool_allocate_fsmm_clock_hand(void);
