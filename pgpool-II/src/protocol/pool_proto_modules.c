@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -59,6 +59,7 @@
 #include "utils/pool_signal.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
+#include "pool_config_variables.h"
 
 char *copy_table = NULL;  /* copy table name */
 char *copy_schema = NULL;  /* copy table name */
@@ -89,6 +90,74 @@ static POOL_STATUS parse_before_bind(POOL_CONNECTION *frontend,
 static int* find_victim_nodes(int *ntuples, int nmembers, int master_node, int *number_of_nodes);
 static POOL_STATUS close_standby_transactions(POOL_CONNECTION *frontend,
 											  POOL_CONNECTION_POOL *backend);
+
+static char *
+flatten_set_variable_args(const char *name, List *args);
+static bool
+process_pg_terminate_backend_func(POOL_QUERY_CONTEXT *query_context);
+
+/*
+ * This is the workhorse of processing the pg_terminate_backend function to
+ * make sure that the use of function should not trigger the backend node failover.
+ *
+ * The function searches for the pg_terminate_backend() function call in the
+ * query parse tree and if the search comes out to be successful,
+ * the next step is to locate the pgpool-II child process and a backend node
+ * of that connection whose PID is specified in pg_terminate_backend argument.
+ *
+ * Once the connection is identified, we set the swallow_termination flag of
+ * that connection (in shared memory) and also sets the query destination to
+ * the same backend that hosts the connection.
+ *
+ * The function returns true on success, i.e. when the query contains the
+ * pg_terminate_backend call and that call refers to the backend
+ * connection that belongs to pgpool-II.
+ *
+ * Note:  Since upon successful return this function has already
+ * set the destination backend node for the current query,
+ * so for that case pool_where_to_send() should not be called.
+ *
+ */
+static bool process_pg_terminate_backend_func(POOL_QUERY_CONTEXT *query_context)
+{
+	/*
+	 * locate pg_terminate_backend and get the pid argument, if pg_terminate_backend
+	 * is present in the query
+	 */
+	int backend_pid = pool_get_terminate_backend_pid(query_context->parse_tree);
+	if (backend_pid > 0)
+	{
+		int backend_node = 0;
+		ConnectionInfo* conn = pool_coninfo_backend_pid(backend_pid, &backend_node);
+		if(conn == NULL)
+		{
+			ereport(LOG,
+				(errmsg("found the pg_terminate_backend request for backend pid:%d, but the backend connection does not belong to pgpool-II",backend_pid)));
+			/* we are not able to find the backend connection with the pid
+			 * so there is not much left for us to do here
+			 */
+			return false;
+		}
+		ereport(LOG,
+			(errmsg("found the pg_terminate_backend request for backend pid:%d on backend node:%d",backend_pid,backend_node),
+				 errdetail("setting the connection flag")));
+
+		if (pool_is_my_coninfo(conn)){
+			ereport(LOG,
+				(errmsg("pg_terminate_backend refer to the current child process connection"),
+					 errdetail("setting the connection flag not required")));
+		}
+		else{
+			pool_set_connection_will_be_terminated(conn);
+		}
+		/* It was the pg_terminate_backend call so send the query to appropriate backend */
+		query_context->pg_terminate_backend_conn = conn;
+		pool_force_query_node_to_backend(query_context, backend_node);
+		return true;
+	}
+	return false;
+}
+
 /*
  * Process Query('Q') message
  * Query messages include an SQL string.
@@ -112,6 +181,8 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 
 	POOL_SESSION_CONTEXT *session_context;
 	POOL_QUERY_CONTEXT *query_context;
+
+	bool error;
 
 	/* Get session context */
 	session_context = pool_get_session_context(false);
@@ -170,12 +241,12 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 	MemoryContext old_context = MemoryContextSwitchTo(query_context->memory_context);
 
 	/* parse SQL string */
-	parse_tree_list = raw_parser(contents);
+	parse_tree_list = raw_parser(contents, &error);
 
 	if (parse_tree_list == NIL)
 	{
 		/* is the query empty? */
-		if (*contents == '\0' || *contents == ';')
+		if (*contents == '\0' || *contents == ';' || error == false)
 		{
 			/*
 			 * JBoss sends empty queries for checking connections.
@@ -183,7 +254,7 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 			 * to affect load balance.
 			 * [Pgpool-general] Confused about JDBC and load balancing
 			 */
-			parse_tree_list = raw_parser(POOL_DUMMY_READ_QUERY);
+			parse_tree_list = raw_parser(POOL_DUMMY_READ_QUERY, &error);
 		}
 		else
 		{
@@ -206,7 +277,7 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 				ereport(LOG,
 						(errmsg("Unable to parse the query: \"%s\" from client %s(%s)", contents, remote_host, remote_port)));
 			}
-			parse_tree_list = raw_parser(POOL_DUMMY_WRITE_QUERY);
+			parse_tree_list = raw_parser(POOL_DUMMY_WRITE_QUERY, &error);
 			query_context->is_parse_error = true;
 		}
 	}
@@ -255,6 +326,43 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 		 * if true, set copy_* variable
 		 */
 		check_copy_from_stdin(node);
+
+		if (IsA(node, PgpoolVariableShowStmt))
+		{
+			VariableShowStmt *vnode = (VariableShowStmt *)node;
+
+			report_config_variable(frontend, backend, vnode->name);
+
+			pool_ps_idle_display(backend);
+			pool_query_context_destroy(query_context);
+			pool_set_skip_reading_from_backends();
+			return POOL_CONTINUE;
+		}
+
+		if (IsA(node, PgpoolVariableSetStmt))
+		{
+			VariableSetStmt *vnode = (VariableSetStmt *)node;
+			const char *value = NULL;
+			if (vnode->kind == VAR_SET_VALUE)
+			{
+				value = flatten_set_variable_args("name", vnode->args);
+				printf("%s\n", value);
+			}
+			if (vnode->kind == VAR_RESET_ALL)
+			{
+				printf("reset all\n");
+				reset_all_variables(frontend, backend);
+			}
+			else
+			{
+				set_config_option_for_session(frontend, backend, vnode->name, value);
+			}
+
+			pool_ps_idle_display(backend);
+			pool_query_context_destroy(query_context);
+			pool_set_skip_reading_from_backends();
+			return POOL_CONTINUE;
+		}
 
 		/* status reporting? */
 		if (IsA(node, VariableShowStmt))
@@ -366,11 +474,18 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 		}
 
 		/*
-		 * Decide where to send query
+		 * pg_terminate function needs special handling, process it if the query
+		 * contains one, otherwise use pool_where_to_send() to decide destination
+		 * backend node for the query
 		 */
-		pool_where_to_send(query_context, query_context->original_query,
-						   query_context->parse_tree);
-
+		if (process_pg_terminate_backend_func(query_context) == false)
+		{
+			/*
+			 * Decide where to send query
+			 */
+			pool_where_to_send(query_context, query_context->original_query,
+							   query_context->parse_tree);
+		}
 		/*
 		 * if this is DROP DATABASE command, send USR1 signal to parent and
 		 * ask it to close all idle connections.
@@ -385,7 +500,7 @@ POOL_STATUS SimpleQuery(POOL_CONNECTION *frontend,
 
 			ereport(DEBUG1,
 					(errmsg("Query: sending SIGUSR1 signal to parent")));
-			register_node_operation_request(CLOSE_IDLE_REQUEST, NULL, 0);
+			register_node_operation_request(CLOSE_IDLE_REQUEST, NULL, 0, false, 0);
 
 			/* we need to loop over here since we will get USR1 signal while sleeping */
 			while (stime > 0)
@@ -758,11 +873,38 @@ POOL_STATUS Execute(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 	{
 		pool_extended_send_and_wait(query_context, "E", len, contents, 1, MASTER_NODE_ID, true);
 		pool_extended_send_and_wait(query_context, "E", len, contents, -1, MASTER_NODE_ID, true);
+
+#ifdef NOT_USED
+		/*
+		 * Send flush message to backend to make sure that we get any response
+		 * from backend.
+		 */
+		pool_write(MASTER(session_context->backend), "H", 1);
+		len = htonl(sizeof(len));
+		pool_write_and_flush(MASTER(session_context->backend), &len, sizeof(len));
+
+		if (MASTER(session_context->backend)->db_node_id != session_context->load_balance_node_id)
+		{
+			POOL_CONNECTION *con;
+
+			con = session_context->backend->slots[session_context->load_balance_node_id]->con;
+			pool_write(con, "H", 1);
+			len = htonl(sizeof(len));
+			pool_write_and_flush(con, &len, sizeof(len));
+		}
+#endif
+		/*
+		 * Remeber that we send flush or sync message to backend.
+		 */
+		pool_unset_pending_response();
+#ifdef NOT_USED
 		pool_unset_query_in_progress();
+#endif
 	}
 
 	return POOL_CONTINUE;
 }
+
 /*
  * process Parse (V3 only)
  */
@@ -780,6 +922,8 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 	POOL_SESSION_CONTEXT *session_context;
 	POOL_QUERY_CONTEXT *query_context;
 
+	bool error;
+
 	/* Get session context */
 	session_context = pool_get_session_context(false);
 
@@ -794,12 +938,12 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 
 	/* parse SQL string */
 	MemoryContext old_context = MemoryContextSwitchTo(query_context->memory_context);
-	parse_tree_list = raw_parser(stmt);
+	parse_tree_list = raw_parser(stmt, &error);
 
 	if (parse_tree_list == NIL)
 	{
 		/* is the query empty? */
-		if (*stmt == '\0' || *stmt == ';')
+		if (*stmt == '\0' || *stmt == ';' || error == false)
 		{
 			/*
 			 * JBoss sends empty queries for checking connections.
@@ -807,7 +951,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 			 * to affect load balance.
 			 * [Pgpool-general] Confused about JDBC and load balancing
 			 */
-			parse_tree_list = raw_parser(POOL_DUMMY_READ_QUERY);
+			parse_tree_list = raw_parser(POOL_DUMMY_READ_QUERY, &error);
 		}
 		else
 		{
@@ -830,7 +974,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 				ereport(LOG,
 						(errmsg("Unable to parse the query: \"%s\" from client %s(%s)", stmt, remote_host, remote_port)));
 			}
-			parse_tree_list = raw_parser(POOL_DUMMY_WRITE_QUERY);
+			parse_tree_list = raw_parser(POOL_DUMMY_WRITE_QUERY, &error);
 			query_context->is_parse_error = true;
 		}
 	}
@@ -1083,6 +1227,7 @@ POOL_STATUS Parse(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 	{
 		/* XXX fix me:even with streaming replication mode, couldn't we have a deadlock */
 		pool_set_query_in_progress();
+		pool_clear_sync_map();
 		pool_extended_send_and_wait(query_context, "P", len, contents, 1, MASTER_NODE_ID, true);
 		pool_extended_send_and_wait(query_context, "P", len, contents, -1, MASTER_NODE_ID, true);
 		pool_add_sent_message(session_context->uncompleted_message);
@@ -1212,6 +1357,7 @@ POOL_STATUS Bind(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 
 	nowait = (STREAM? true: false);
 
+	pool_clear_sync_map();
 	pool_extended_send_and_wait(query_context, "B", len, contents, 1, MASTER_NODE_ID, nowait);
 	pool_extended_send_and_wait(query_context, "B", len, contents, -1, MASTER_NODE_ID, nowait);
 
@@ -1280,13 +1426,13 @@ POOL_STATUS Describe(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
     ereport(DEBUG1,
             (errmsg("Describe: waiting for master completing the query")));
 
-	nowait = (REPLICATION? false: true);
+	nowait = (STREAM? true: false);
 
 	pool_set_query_in_progress();
 	pool_extended_send_and_wait(query_context, "D", len, contents, 1, MASTER_NODE_ID, nowait);
 	pool_extended_send_and_wait(query_context, "D", len, contents, -1, MASTER_NODE_ID, nowait);
 
-	if (!REPLICATION)
+	if (STREAM)
 		pool_unset_query_in_progress();
 
 	return POOL_CONTINUE;
@@ -1354,7 +1500,7 @@ POOL_STATUS Close(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 
 	pool_set_query_in_progress();
 
-	if (REPLICATION)
+	if (!STREAM)
 	{
 		pool_extended_send_and_wait(query_context, "C", len, contents, 1, MASTER_NODE_ID, false);
 		pool_extended_send_and_wait(query_context, "C", len, contents, -1, MASTER_NODE_ID, false);
@@ -1363,6 +1509,7 @@ POOL_STATUS Close(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend,
 	{
 		POOL_PENDING_MESSAGE *pmsg;
 
+		pool_clear_sync_map();
 		pool_extended_send_and_wait(query_context, "C", len, contents, 1, MASTER_NODE_ID, true);
 		pool_extended_send_and_wait(query_context, "C", len, contents, -1, MASTER_NODE_ID, true);
 
@@ -1415,9 +1562,19 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 	POOL_SESSION_CONTEXT *session_context;
 	Node *node = NULL;
 	char *query = NULL;
+	POOL_SYNC_MAP_STATE use_sync_map;
+
+	/*
+	 * It is possible that the "ignore until sync is received" flag was set if
+	 * we send sync to backend and the backend returns error. Let's reset the
+	 * flag unconditionally because we apparently have received a "ready for
+	 * query" message from backend.
+	 */
+	pool_unset_ignore_till_sync();
 
 	/* Get session context */
 	session_context = pool_get_session_context(false);
+	use_sync_map = pool_use_sync_map();
 
 	/*
 	 * If the numbers of update tuples are differ and
@@ -1475,8 +1632,8 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 
 				free_string(msg);
 
-				degenerate_backend_set(victim_nodes, number_of_nodes);
-				child_exit(1);
+				degenerate_backend_set(victim_nodes, number_of_nodes, true, 0);
+				child_exit(POOL_EXIT_AND_RESTART);
 			}
 			else
 			{
@@ -1555,8 +1712,13 @@ POOL_STATUS ReadyForQuery(POOL_CONNECTION *frontend,
 
 		for (i=0;i<NUM_BACKENDS;i++)
 		{
-			if (!VALID_BACKEND(i))
+			if (!VALID_BACKEND(i) || use_sync_map == POOL_SYNC_MAP_EMPTY)
 				continue;
+
+			if (use_sync_map == POOL_SYNC_MAP_IS_VALID && !pool_is_set_sync_map(i))
+			{
+				continue;
+			}
 
 			if (pool_read(CONNECTION(backend, i), &kind, sizeof(kind)))
 				return POOL_END;
@@ -2208,6 +2370,7 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 		char *query;
 		Node *node;
 		List *parse_tree_list;
+		bool error;
 
 		case 'X':	/* Terminate */
 			if(contents)
@@ -2286,7 +2449,7 @@ POOL_STATUS ProcessFrontendResponse(POOL_CONNECTION *frontend,
 			query = "INSERT INTO foo VALUES(1)";
 			MemoryContext old_context = MemoryContextSwitchTo(query_context->memory_context);
 
-			parse_tree_list = raw_parser(query);
+			parse_tree_list = raw_parser(query, &error);
 			node = (Node *) lfirst(list_head(parse_tree_list));
 			pool_start_query(query_context, query, strlen(query) + 1, node);
 
@@ -2344,7 +2507,16 @@ POOL_STATUS ProcessBackendResponse(POOL_CONNECTION *frontend,
 	{
 		if (pool_is_query_in_progress())
 			pool_unset_query_in_progress();
-		return POOL_CONTINUE;
+
+		/*
+		 * Check if If we have pending data in backend connection cache. If we
+		 * do, it is likely that a sync message has been sent to backend and the
+		 * backend replied back to us. So we need to process it.
+		 */
+		if (is_backend_cache_empty(backend))
+		{
+			return POOL_CONTINUE;
+		}
 	}
 
 	if (pool_is_skip_reading_from_backends())
@@ -2435,7 +2607,13 @@ POOL_STATUS ProcessBackendResponse(POOL_CONNECTION *frontend,
 
 			case 'I':	/* EmptyQueryResponse */
 				status = SimpleForwardToFrontend(kind, frontend, backend);
-				if ((REPLICATION || RAW_MODE) && pool_is_doing_extended_query_message())
+				/* Empty query response message should be treated same as
+				 * Command complete message. When we receive the Command
+				 * complete message, we unset the query in progress flag if
+				 * operated in streaming replication mode. So we unset the
+				 * flag as well. See bug 190 for more details.
+				 */
+				if (pool_is_doing_extended_query_message())
 					pool_unset_query_in_progress();
 				break;
 
@@ -2453,14 +2631,16 @@ POOL_STATUS ProcessBackendResponse(POOL_CONNECTION *frontend,
 
 			case 's':	/* PortalSuspended */
 				status = SimpleForwardToFrontend(kind, frontend, backend);
-				if ((REPLICATION || RAW_MODE) && pool_is_doing_extended_query_message())
+				if (pool_is_doing_extended_query_message())
 					pool_unset_query_in_progress();
 				break;
 
 			default:
 				status = SimpleForwardToFrontend(kind, frontend, backend);
+#ifdef NOT_USED
 				if (pool_flush(frontend))
 					return POOL_END;
+#endif
 				break;
 		}
 	}
@@ -3095,4 +3275,75 @@ static int* find_victim_nodes(int *ntuples, int nmembers, int master_node, int *
 	}
 
 	return victim_nodes;
+}
+
+
+/*
+ * flatten_set_variable_args
+ *		Given a parsenode List as emitted by the grammar for SET,
+ *		convert to the flat string representation used by GUC.
+ *
+ * We need to be told the name of the variable the args are for, because
+ * the flattening rules vary (ugh).
+ *
+ * The result is NULL if args is NIL (ie, SET ... TO DEFAULT), otherwise
+ * a palloc'd string.
+ */
+static char *
+flatten_set_variable_args(const char *name, List *args)
+{
+	StringInfoData buf;
+	ListCell   *l;
+
+	/* Fast path if just DEFAULT */
+	if (args == NIL)
+		return NULL;
+
+	initStringInfo(&buf);
+
+	/*
+	 * Each list member may be a plain A_Const node, or an A_Const within a
+	 * TypeCast; the latter case is supported only for ConstInterval arguments
+	 * (for SET TIME ZONE).
+	 */
+	foreach(l, args)
+	{
+		Node	   *arg = (Node *) lfirst(l);
+		char	   *val;
+		A_Const    *con;
+
+		if (l != list_head(args))
+			appendStringInfoString(&buf, ", ");
+	
+		if (IsA(arg, TypeCast))
+		{
+			TypeCast   *tc = (TypeCast *) arg;
+			arg = tc->arg;
+		}
+		
+		if (!IsA(arg, A_Const))
+			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(arg));
+		con = (A_Const *) arg;
+	
+		switch (nodeTag(&con->val))
+		{
+			case T_Integer:
+				appendStringInfo(&buf, "%ld", intVal(&con->val));
+				break;
+			case T_Float:
+				/* represented as a string, so just copy it */
+				appendStringInfoString(&buf, strVal(&con->val));
+				break;
+			case T_String:
+				val = strVal(&con->val);
+				appendStringInfoString(&buf, val);
+				break;
+			default:
+				ereport(ERROR, (errmsg("unrecognized node type: %d",
+					 (int) nodeTag(&con->val))));
+				break;
+		}
+	}
+	
+	return buf.data;
 }

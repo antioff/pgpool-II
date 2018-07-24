@@ -10,8 +10,8 @@
  * analyze.c and related files.
  *
  *
- * Portions Copyright (c) 2003-2015, PgPool Global Development Group
- * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2016, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -41,15 +41,19 @@ parse_version(const char *versionString);
  *		Given a query in string form, do lexical and grammatical analysis.
  *
  * Returns a list of raw (un-analyzed) parse trees.
+ * Set *error to true if there's any parse error.
  */
 List *
-raw_parser(const char *str)
+raw_parser(const char *str, bool *error)
 {
 	core_yyscan_t yyscanner;
 	base_yy_extra_type yyextra;
 	int			yyresult;
 
     MemoryContext oldContext = CurrentMemoryContext;
+
+	/* initialize error flag */
+	*error = false;
 
 	/* initialize the flex scanner */
 	yyscanner = scanner_init(str, &yyextra.core_yy_extra,
@@ -79,7 +83,10 @@ raw_parser(const char *str)
 	PG_END_TRY();
 
 	if (yyresult)				/* error */
+	{
+		*error = true;
 		return NIL;
+	}
 
 	return yyextra.parsetree;
 }
@@ -225,15 +232,15 @@ parse_version(const char *versionString)
 	int			vmaj,
 	vmin,
 	vrev;
-	
+
 	cnt = sscanf(versionString, "%d.%d.%d", &vmaj, &vmin, &vrev);
-	
+
 	if (cnt < 2)
 		return -1;
-	
+
 	if (cnt == 2)
 		vrev = 0;
-	
+
 	return (100 * vmaj + vmin) * 100 + vrev;
 }
 

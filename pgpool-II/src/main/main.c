@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -61,6 +61,7 @@ int stop_sig = SIGTERM;		/* stopping signal default value */
 int myargc;
 char **myargv;
 int assert_enabled = 0;
+
 int main(int argc, char **argv)
 {
 	int opt;
@@ -71,7 +72,6 @@ int main(int argc, char **argv)
 
 	static struct option long_options[] = {
 		{"hba-file", required_argument, NULL, 'a'},
-		{"clear", no_argument, NULL, 'c'},
 		{"debug", no_argument, NULL, 'd'},
 		{"config-file", required_argument, NULL, 'f'},
 		{"pcp-file", required_argument, NULL, 'F'},
@@ -193,7 +193,7 @@ int main(int argc, char **argv)
 	 */
 	pool_config->debug_level = debug_level;
 
-	pool_get_config(conf_file, INIT_CONFIG);
+	pool_get_config(conf_file, CFGCXT_INIT);
 	/*
 	 * Override debug level
 	 */
@@ -282,11 +282,6 @@ int main(int argc, char **argv)
 		write_pid_file();
 	else
 		daemonize();
-	
-#ifdef HAVE_VSYSLOG
-    set_syslog_parameters(pool_config->syslog_ident ? pool_config->syslog_ident : "pgpool",
-                          pool_config->syslog_facility);
-#endif
 	/*
 	 * Locate pool_passwd
 	 * The default file name "pool_passwd" can be changed by setting
@@ -330,17 +325,17 @@ static void usage(void)
 	fprintf(stderr, "  pgpool [ -f CONFIG_FILE ] [ -F PCP_CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] reload\n\n");
 	fprintf(stderr, "Common options:\n");
 	fprintf(stderr, "  -a, --hba-file=HBA_CONFIG_FILE\n");
-	fprintf(stderr, "                      Sets the path to the pool_hba.conf configuration file\n");
+	fprintf(stderr, "                      Set the path to the pool_hba.conf configuration file\n");
 	fprintf(stderr, "                      (default: %s/%s)\n",DEFAULT_CONFIGDIR, HBA_CONF_FILE_NAME);
 	fprintf(stderr, "  -f, --config-file=CONFIG_FILE\n");
-	fprintf(stderr, "                      Sets the path to the pgpool.conf configuration file\n");
+	fprintf(stderr, "                      Set the path to the pgpool.conf configuration file\n");
 	fprintf(stderr, "                      (default: %s/%s)\n",DEFAULT_CONFIGDIR, POOL_CONF_FILE_NAME);
 	fprintf(stderr, "  -F, --pcp-file=PCP_CONFIG_FILE\n");
-	fprintf(stderr, "                      Sets the path to the pcp.conf configuration file\n");
+	fprintf(stderr, "                      Set the path to the pcp.conf configuration file\n");
 	fprintf(stderr, "                      (default: %s/%s)\n",DEFAULT_CONFIGDIR, PCP_PASSWD_FILE_NAME);
-	fprintf(stderr, "  -h, --help          Prints this help\n\n");
+	fprintf(stderr, "  -h, --help          Print this help\n\n");
 	fprintf(stderr, "Start options:\n");
-	fprintf(stderr, "  -C, --clear-oidmaps Clears query cache oidmaps when memqcache_method is memcached\n");
+	fprintf(stderr, "  -C, --clear-oidmaps Clear query cache oidmaps when memqcache_method is memcached\n");
 	fprintf(stderr, "                      (If shmem, discards whenever pgpool starts.)\n");
 	fprintf(stderr, "  -n, --dont-detach   Don't run in daemon mode, does not detach control tty\n");
 	fprintf(stderr, "  -x, --debug-assertions   Turns on various assertion checks, This is a debugging aid\n");
@@ -407,7 +402,8 @@ static void daemonize(void)
 		close(i);
 	}
 	/* close syslog connection for daemonizing */
-	if (pool_config->logsyslog) {
+	if (pool_config->log_destination & LOG_DESTINATION_SYSLOG)
+	{
 		closelog();
 	}
 

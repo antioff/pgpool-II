@@ -61,6 +61,11 @@ char *remove_quotes_and_schema_from_relname(char *table)
 	return table;
 }
 
+int pool_get_major_version(void)
+{
+	return PROTO_MAJOR_V3;
+}
+
 POOL_RELCACHE *
 pool_create_relcache(int cachesize, char *sql, func_ptr register_func, func_ptr unregister_func, bool issessionlocal)
 {
@@ -109,6 +114,7 @@ main(int argc, char **argv)
 	POOL_QUERY_CONTEXT	ctx;
 	backend.slots[0] = &slot;
 	slot.sp = &sp;
+	bool error;
 
 	MemoryContextInit();
 
@@ -120,7 +126,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	tree = raw_parser(argv[1]);
+	tree = raw_parser(argv[1], &error);
 	if (tree == NULL)
 	{
 		printf("syntax error: %s\n", argv[1]);

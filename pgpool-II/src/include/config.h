@@ -263,17 +263,20 @@
    */
 #define LT_OBJDIR ".libs/"
 
+/* Define to 1 if your C compiler doesn't accept -c and -o together. */
+/* #undef NO_MINUS_C_MINUS_O */
+
 /* Name of package */
 #define PACKAGE "pgpool-II"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "pgpool-hackers@pgpoo.net"
+#define PACKAGE_BUGREPORT "pgpool-hackers@pgpool.net"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "pgpool-II"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "pgpool-II 3.5.0"
+#define PACKAGE_STRING "pgpool-II 3.6.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "pgpool-II"
@@ -282,7 +285,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "3.5.0"
+#define PACKAGE_VERSION "3.6.0"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
@@ -338,11 +341,11 @@
 /* #undef USE_TABLE_LOCK */
 
 /* Version number of package */
-#define VERSION "3.5.0"
+#define VERSION "3.6.0"
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
-/* #undef YYTEXT_POINTER */
+#define YYTEXT_POINTER 1
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

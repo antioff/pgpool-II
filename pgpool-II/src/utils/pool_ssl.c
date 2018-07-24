@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2013	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -253,8 +253,18 @@ static int init_ssl_ctx(POOL_CONNECTION *cp, enum ssl_conn_type conntype) {
 	char *cacert = NULL, *cacert_dir = NULL;
 
 	/* initialize SSL members */
-	cp->ssl_ctx = SSL_CTX_new(TLSv1_method());
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+		cp->ssl_ctx = SSL_CTX_new(TLS_method());
+#else
+		cp->ssl_ctx = SSL_CTX_new(SSLv23_method());
+#endif
+
 	SSL_RETURN_ERROR_IF( (! cp->ssl_ctx), "SSL_CTX_new" );
+	/*
+	 * Disable OpenSSL's moving-write-buffer sanity check, because it
+	 * causes unnecessary failures in nonblocking send cases.
+	 */
+	SSL_CTX_set_mode(cp->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
 	if ( conntype == ssl_conn_serverclient) {
 		error = SSL_CTX_use_certificate_chain_file(cp->ssl_ctx,
@@ -340,16 +350,16 @@ void pool_ssl_close(POOL_CONNECTION *cp) { return; }
 int pool_ssl_read(POOL_CONNECTION *cp, void *buf, int size) {
 	ereport(WARNING,
 			(errmsg("pool_ssl: SSL i/o called but SSL support is not available")));
-	notice_backend_error(cp->db_node_id);
-	child_exit(1);
+	notice_backend_error(cp->db_node_id, true);
+	child_exit(POOL_EXIT_AND_RESTART);
 	return -1; /* never reached */
 }
 
 int pool_ssl_write(POOL_CONNECTION *cp, const void *buf, int size) {
 	ereport(WARNING,
 			(errmsg("pool_ssl: SSL i/o called but SSL support is not available")));
-	notice_backend_error(cp->db_node_id);
-	child_exit(1);
+	notice_backend_error(cp->db_node_id, true);
+	child_exit(POOL_EXIT_AND_RESTART);
 	return -1; /* never reached */
 }
 

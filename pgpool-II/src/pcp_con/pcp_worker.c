@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -40,7 +40,6 @@
 #include <fcntl.h>
 #endif
 
-#include "pool.h"
 #include "pcp/pcp_stream.h"
 #include "pcp/pcp.h"
 #include "auth/md5.h"
@@ -52,7 +51,6 @@
 #include "utils/elog.h"
 
 #define MAX_FILE_LINE_LEN    512
-#define MAX_USER_PASSWD_LEN  128
 
 extern char pcp_conf_file[POOLMAXPATHLEN+1]; /* global variable defined in main.c holds the path for pcp.conf */
 volatile sig_atomic_t pcp_worker_wakeup_request = 0;
@@ -97,7 +95,7 @@ pcp_worker_main(int port)
 {
 	sigjmp_buf	local_sigjmp_buf;
 	MemoryContext PCPMemoryContext;
-	int authenticated = 0;
+	volatile int authenticated = 0;
 
 	char salt[4];
 	int random_salt = 0;
@@ -171,6 +169,12 @@ pcp_worker_main(int port)
 		do_pcp_read(pcp_frontend, &rsize, sizeof(int));
 
 		rsize = ntohl(rsize);
+
+		if (rsize <= 0 || rsize >= MAX_PCP_PACKET_LENGTH)
+			ereport(FATAL,
+				(errmsg("invalid PCP packet"),
+					 errdetail("incorrect packet length (%d)", rsize)));
+
 		if ((rsize - sizeof(int)) > 0)
 		{
 			buf = (char *)palloc(rsize - sizeof(int));
@@ -498,14 +502,14 @@ static int pool_detach_node(int node_id, bool gracefully)
 {
 	if (!gracefully)
 	{
-		degenerate_backend_set_ex(&node_id, 1, true, false);
+		degenerate_backend_set_ex(&node_id, 1, true, false, true, 0);
 		return 0;
 	}
 
 	/* Check if the NODE DOWN can be executed on
 	 * the given node id.
 	 */
-	degenerate_backend_set_ex(&node_id, 1, true, true);
+	degenerate_backend_set_ex(&node_id, 1, true, true, true, 0);
 
 	/*
 	 * Wait until all frontends exit
@@ -525,7 +529,7 @@ static int pool_detach_node(int node_id, bool gracefully)
 	/*
 	 * Now all frontends have gone. Let's do failover.
 	 */
-	degenerate_backend_set_ex(&node_id, 1, true, false);
+	degenerate_backend_set_ex(&node_id, 1, true, false, true, 0);
 
 	/*
 	 * Wait for failover completed.
@@ -552,7 +556,7 @@ static int pool_promote_node(int node_id, bool gracefully)
 {
 	if (!gracefully)
 	{
-		promote_backend(node_id);	/* send promote request */
+		promote_backend(node_id, false);	/* send promote request */
 		return 0;
 	}
 
@@ -572,7 +576,7 @@ static int pool_promote_node(int node_id, bool gracefully)
 	/*
 	 * Now all frontends have gone. Let's do failover.
 	 */
-	promote_backend(node_id);		/* send promote request */
+	promote_backend(node_id, false);		/* send promote request */
 
 	/*
 	 * Wait for failover completed.
@@ -608,16 +612,16 @@ inform_process_count(PCP_CONNECTION *frontend)
 
 	process_list = pool_get_process_list(&process_count);
 
-	mesg = (char *)palloc(6*process_count);	/* port# is at most 5 characters long (MAX:65535) */
+	mesg = (char *)palloc(7*process_count); /* PID is at most 6 characters long */
 
 	snprintf(process_count_str, sizeof(process_count_str), "%d", process_count);
 
 	for (i = 0; i < process_count; i++)
 	{
-		char port[6];
-		snprintf(port, sizeof(port), "%d", process_list[i]);
-		snprintf(mesg+total_port_len, strlen(port)+1, "%s", port);
-		total_port_len += strlen(port)+1;
+		char process_id[7];
+		snprintf(process_id, sizeof(process_id), "%d", process_list[i]);
+		snprintf(mesg+total_port_len, strlen(process_id)+1, "%s", process_id);
+		total_port_len += strlen(process_id)+1;
 	}
 
 	pcp_write(frontend, "n", 1);
@@ -906,7 +910,7 @@ process_attach_node(PCP_CONNECTION *frontend,char *buf)
 			(errmsg("PCP: processing attach node"),
 			 errdetail("attaching Node ID %d", node_id)));
 
-	send_failback_request(node_id,true);
+	send_failback_request(node_id,true, false);
 
 	pcp_write(frontend, "c", 1);
 	wsize = htonl(sizeof(code) + sizeof(int));
@@ -930,19 +934,19 @@ process_recovery_request(PCP_CONNECTION *frontend,char *buf)
 
 	if ((!REPLICATION &&
 		 !(MASTER_SLAVE &&
-		   !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP))) ||
+		   pool_config->master_slave_sub_mode == STREAM_MODE)) ||
 		(MASTER_SLAVE &&
-		 !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP) &&
+		 pool_config->master_slave_sub_mode == STREAM_MODE &&
 		 node_id == PRIMARY_NODE_ID))
 	{
-		if (MASTER_SLAVE && !strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP))
+		if (MASTER_SLAVE && pool_config->master_slave_sub_mode == STREAM_MODE)
 			ereport(ERROR,
 				(errmsg("process recovery request failed"),
 					 errdetail("primary server cannot be recovered by online recovery.")));
 		else
 			ereport(ERROR,
 				(errmsg("process recovery request failed"),
-					 errdetail("recovery request is accepted only in replication mode or stereaming replication mode.")));
+					 errdetail("recovery request is only allowed in replication and streaming replication modes.")));
 	}
 	else
 	{
@@ -1047,7 +1051,7 @@ process_promote_node(PCP_CONNECTION *frontend, char *buf, char tos)
 				(errmsg("could not process recovery request"),
 				 errdetail("node id %d is not valid", node_id)));
 	/* promoting node is reserved to Streaming Replication */
-	if (!MASTER_SLAVE || (strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP) != 0))
+	if (!MASTER_SLAVE || pool_config->master_slave_sub_mode != STREAM_MODE)
 	{
 		ereport(FATAL,
 			(errmsg("invalid pgpool mode for process recovery request"),

@@ -54,6 +54,7 @@
 #include "context/pool_process_context.h"
 #include "context/pool_session_context.h"
 #include "pool_config.h"
+#include "pool_config_variables.h"
 #include "utils/pool_ip.h"
 #include "utils/pool_stream.h"
 #include "utils/elog.h"
@@ -192,7 +193,7 @@ void do_child(int *fds)
 	/* initialize connection pool */
 	if (pool_init_cp())
 	{
-		child_exit(1);
+		child_exit(POOL_EXIT_AND_RESTART);
 	}
 
 	/*
@@ -253,7 +254,7 @@ void do_child(int *fds)
             {
                 ereport(LOG,
                     (errmsg("child exiting, %d connections reached", pool_config->child_max_connections)));
-				child_exit(2);
+				child_exit(POOL_EXIT_AND_RESTART);
             }
         }
 
@@ -299,7 +300,7 @@ void do_child(int *fds)
 			{
 				ereport(DEBUG1,
 					(errmsg("child life %d seconds expired", pool_config->child_life_time)));
-				child_exit(2);
+				child_exit(POOL_EXIT_AND_RESTART);
 			}
 			continue;
 		}
@@ -349,6 +350,12 @@ void do_child(int *fds)
 		pool_init_session_context(child_frontend, backend);
 
 		/*
+		 * Set protocol versions
+		 */
+		pool_set_major_version(sp->major);
+		pool_set_minor_version(sp->minor);
+
+		/*
 		 * Mark this connection pool is connected from frontend 
 		 */
 		pool_coninfo_set_frontend_connected(pool_get_process_context()->proc_id, pool_pool_index());
@@ -395,12 +402,12 @@ void do_child(int *fds)
 		if ( ( pool_config->child_max_connections > 0 ) &&
 			( connections_count >= pool_config->child_max_connections ) )
 		{
-			ereport(FATAL,
-                (return_code(2),
-					errmsg("child exiting, %d connections reached", pool_config->child_max_connections)));
+			ereport(LOG,
+					(errmsg("child exiting, %d connections reached", pool_config->child_max_connections)));
+			child_exit(POOL_EXIT_AND_RESTART);
 		}
 	}
-	child_exit(0);
+	child_exit(POOL_EXIT_NO_RESTART);
 }
 
 /* -------------------------------------------------------------------
@@ -480,6 +487,8 @@ backend_cleanup(POOL_CONNECTION* volatile *frontend, POOL_CONNECTION_POOL* volat
             pool_discard_cp(sp->user, sp->database, sp->major);
     }
 
+	/* reset the config parameters */
+	reset_all_variables(NULL,NULL);
     return cache_connection;
 }
 
@@ -907,6 +916,8 @@ static POOL_CONNECTION_POOL *connect_backend(StartupPacket *sp, POOL_CONNECTION 
  */
 static RETSIGTYPE die(int sig)
 {
+	int save_errno = errno;
+
 	ereport(LOG,
 			(errmsg("child process received shutdown request signal %d", sig)));
 
@@ -933,7 +944,7 @@ static RETSIGTYPE die(int sig)
 
 		case SIGINT:	/* fast shutdown */
 		case SIGQUIT:	/* immediate shutdown */
-			child_exit(0);
+			child_exit(POOL_EXIT_NO_RESTART);
 			break;
 		default:
 			ereport(LOG,
@@ -942,6 +953,8 @@ static RETSIGTYPE die(int sig)
 
 			break;
 	}
+
+	errno = save_errno;
 }
 
 /*
@@ -953,6 +966,7 @@ static RETSIGTYPE close_idle_connection(int sig)
 	int i, j;
 	POOL_CONNECTION_POOL *p = pool_connection_pool;
 	ConnectionInfo *info;
+	int save_errno = errno;
 
 	ereport(DEBUG1,
 			(errmsg("close connection request received")));
@@ -993,6 +1007,8 @@ static RETSIGTYPE close_idle_connection(int sig)
 			memset(p->info, 0, sizeof(ConnectionInfo));
 		}
 	}
+
+	errno = save_errno;
 }
 
 /*
@@ -1005,7 +1021,7 @@ static RETSIGTYPE authentication_timeout(int sig)
 	ereport(LOG,
 			(errmsg("authentication timeout")));
 
-	child_exit(1);
+	child_exit(POOL_EXIT_AND_RESTART);
 }
 
 static void enable_authentication_timeout(void)
@@ -1357,9 +1373,24 @@ static void s_do_auth(POOL_CONNECTION_POOL_SLOT *cp, char *password)
 
 	if (kind != 'R')
 	{
-        ereport(ERROR,
-			(errmsg("failed to authenticate"),
-				errdetail("invalid authentication message response type, Expecting 'R' and received '%c'",kind)));
+		char *msg;
+		int sts = 0;
+
+		if (kind == 'E' || kind == 'N')
+		{
+			sts =  pool_extract_error_message(false, cp->con, cp->sp->major, false, &msg);
+		}
+
+		if (sts == 1)	/* succeeded in extracting error/notice message */
+		{
+			ereport(ERROR,
+					(errmsg("failed to authenticate"),
+					 errdetail("%s", msg)));
+			pfree(msg);
+		}
+			ereport(ERROR,
+					(errmsg("failed to authenticate"),
+					 errdetail("invalid authentication message response type, Expecting 'R' and received '%c'",kind)));
 	}
 
 	/* read message length */
@@ -1742,7 +1773,7 @@ void check_stop_request(void)
 	if (exit_request)
 	{
 		reset_variables();
-		child_exit(0);
+		child_exit(POOL_EXIT_NO_RESTART);
 	}
 }
 
@@ -1781,7 +1812,7 @@ static void check_restart_request(void)
 				 errdetail("restarting myself")));
 
 		pool_get_my_process_info()->need_to_restart = 0;
-		child_exit(1);
+		child_exit(POOL_EXIT_AND_RESTART);
 	}
 }
 
@@ -1991,7 +2022,7 @@ static void check_config_reload(void)
 	if (got_sighup)
 	{
         MemoryContext oldContext = MemoryContextSwitchTo(TopMemoryContext);
-		pool_get_config(get_config_file_name(), RELOAD_CONFIG);
+		pool_get_config(get_config_file_name(), CFGCXT_RELOAD);
         MemoryContextSwitchTo(oldContext);
 		if (pool_config->enable_pool_hba)
 		{
@@ -2055,8 +2086,8 @@ static void validate_backend_connectivity(int front_end_fd)
 			{
 				if ((cp = pool_open(front_end_fd,false)) == NULL)
 				{
-					close(front_end_fd); //todo
-					child_exit(1);
+					close(front_end_fd);
+					child_exit(POOL_EXIT_AND_RESTART);
 				}
 				sp = read_startup_packet(cp);
 				ereport(DEBUG1,

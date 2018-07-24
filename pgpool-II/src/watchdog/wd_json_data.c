@@ -30,6 +30,10 @@
 #include "watchdog/watchdog.h"
 #include "watchdog/wd_json_data.h"
 #include "watchdog/wd_ipc_defines.h"
+#include "pool.h"
+
+#define WD_JSON_KEY_DATA_REQ_TYPE	"DataRequestType"
+
 
 POOL_CONFIG* get_pool_config_from_json(char* json_data, int data_len)
 {
@@ -58,21 +62,21 @@ POOL_CONFIG* get_pool_config_from_json(char* json_data, int data_len)
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "max_pool", &config->max_pool))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "replication_mode", &config->replication_mode))
+	if (json_get_bool_value_for_key(root, "replication_mode", &config->replication_mode))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "enable_pool_hba", &config->enable_pool_hba))
+	if (json_get_bool_value_for_key(root, "enable_pool_hba", &config->enable_pool_hba))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "load_balance_mode", &config->load_balance_mode))
+	if (json_get_int_value_for_key(root, "load_balance_mode", (int*)&config->load_balance_mode))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "replication_stop_on_mismatch", &config->replication_stop_on_mismatch))
+	if (json_get_bool_value_for_key(root, "replication_stop_on_mismatch", &config->replication_stop_on_mismatch))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "failover_if_affected_tuples_mismatch", &config->failover_if_affected_tuples_mismatch))
+	if (json_get_bool_value_for_key(root, "failover_if_affected_tuples_mismatch", &config->failover_if_affected_tuples_mismatch))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "replicate_select", &config->replicate_select))
+	if (json_get_bool_value_for_key(root, "replicate_select", &config->replicate_select))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "master_slave_mode", &config->master_slave_mode))
+	if (json_get_int_value_for_key(root, "master_slave_mode", (int*)&config->master_slave_mode))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "connection_cache", &config->connection_cache))
+	if (json_get_bool_value_for_key(root, "connection_cache", &config->connection_cache))
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "health_check_timeout", &config->health_check_timeout))
 		goto ERROR_EXIT;
@@ -82,7 +86,7 @@ POOL_CONFIG* get_pool_config_from_json(char* json_data, int data_len)
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "health_check_retry_delay", &config->health_check_retry_delay))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "fail_over_on_backend_error", &config->fail_over_on_backend_error))
+	if (json_get_bool_value_for_key(root, "fail_over_on_backend_error", &config->fail_over_on_backend_error))
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "recovery_timeout", &config->recovery_timeout))
 		goto ERROR_EXIT;
@@ -90,23 +94,20 @@ POOL_CONFIG* get_pool_config_from_json(char* json_data, int data_len)
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "client_idle_limit_in_recovery", &config->client_idle_limit_in_recovery))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "insert_lock", &config->insert_lock))
+	if (json_get_bool_value_for_key(root, "insert_lock", &config->insert_lock))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "memory_cache_enabled", &config->memory_cache_enabled))
+	if (json_get_bool_value_for_key(root, "memory_cache_enabled", &config->memory_cache_enabled))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "use_watchdog", &config->use_watchdog))
+	if (json_get_bool_value_for_key(root, "use_watchdog", &config->use_watchdog))
 		goto ERROR_EXIT;
-	if (json_get_int_value_for_key(root, "clear_memqcache_on_escalation", &config->clear_memqcache_on_escalation))
+	if (json_get_bool_value_for_key(root, "clear_memqcache_on_escalation", &config->clear_memqcache_on_escalation))
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "wd_port", &config->wd_port))
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "wd_priority", &config->wd_priority))
 		goto ERROR_EXIT;
-
-	config->master_slave_sub_mode = json_get_string_value_for_key(root, "master_slave_sub_mode");
-	if (config->master_slave_sub_mode == NULL)
+	if (json_get_int_value_for_key(root, "master_slave_sub_mode", (int*)&config->master_slave_sub_mode))
 		goto ERROR_EXIT;
-	config->master_slave_sub_mode = pstrdup(config->master_slave_sub_mode);
 
 
 	/* backend_desc array */
@@ -155,8 +156,6 @@ ERROR_EXIT:
 		json_value_free(root);
 	if (config->backend_desc)
 		pfree(config->backend_desc);
-	if (config->master_slave_sub_mode)
-		pfree(config->master_slave_sub_mode);
 	pfree(config);
 	return NULL;
 }
@@ -175,30 +174,29 @@ char* get_pool_config_json(void)
 	jw_put_int(jNode, "child_max_connections", pool_config->child_max_connections);
 	jw_put_int(jNode, "client_idle_limit", pool_config->client_idle_limit);
 	jw_put_int(jNode, "max_pool", pool_config->max_pool);
-	jw_put_int(jNode, "replication_mode", pool_config->replication_mode);
-	jw_put_int(jNode, "enable_pool_hba", pool_config->enable_pool_hba);
+	jw_put_bool(jNode, "replication_mode", pool_config->replication_mode);
+	jw_put_bool(jNode, "enable_pool_hba", pool_config->enable_pool_hba);
 	jw_put_int(jNode, "load_balance_mode", pool_config->load_balance_mode);
-	jw_put_int(jNode, "replication_stop_on_mismatch", pool_config->replication_stop_on_mismatch);
-	jw_put_int(jNode, "failover_if_affected_tuples_mismatch", pool_config->failover_if_affected_tuples_mismatch);
-	jw_put_int(jNode, "replicate_select", pool_config->replicate_select);
+	jw_put_bool(jNode, "replication_stop_on_mismatch", pool_config->replication_stop_on_mismatch);
+	jw_put_bool(jNode, "failover_if_affected_tuples_mismatch", pool_config->failover_if_affected_tuples_mismatch);
+	jw_put_bool(jNode, "replicate_select", pool_config->replicate_select);
 	jw_put_int(jNode, "master_slave_mode", pool_config->master_slave_mode);
-	jw_put_int(jNode, "connection_cache", pool_config->connection_cache);
+	jw_put_bool(jNode, "connection_cache", pool_config->connection_cache);
 	jw_put_int(jNode, "health_check_timeout", pool_config->health_check_timeout);
 	jw_put_int(jNode, "health_check_period", pool_config->health_check_period);
 	jw_put_int(jNode, "health_check_max_retries", pool_config->health_check_max_retries);
 	jw_put_int(jNode, "health_check_retry_delay", pool_config->health_check_retry_delay);
-	jw_put_int(jNode, "fail_over_on_backend_error", pool_config->fail_over_on_backend_error);
+	jw_put_bool(jNode, "fail_over_on_backend_error", pool_config->fail_over_on_backend_error);
 	jw_put_int(jNode, "recovery_timeout", pool_config->recovery_timeout);
 	jw_put_int(jNode, "search_primary_node_timeout", pool_config->search_primary_node_timeout);
 	jw_put_int(jNode, "client_idle_limit_in_recovery", pool_config->client_idle_limit_in_recovery);
-	jw_put_int(jNode, "insert_lock", pool_config->insert_lock);
-	jw_put_int(jNode, "memory_cache_enabled", pool_config->memory_cache_enabled);
-	jw_put_int(jNode, "use_watchdog", pool_config->use_watchdog);
-	jw_put_int(jNode, "clear_memqcache_on_escalation", pool_config->clear_memqcache_on_escalation);
+	jw_put_bool(jNode, "insert_lock", pool_config->insert_lock);
+	jw_put_bool(jNode, "memory_cache_enabled", pool_config->memory_cache_enabled);
+	jw_put_bool(jNode, "use_watchdog", pool_config->use_watchdog);
+	jw_put_bool(jNode, "clear_memqcache_on_escalation", pool_config->clear_memqcache_on_escalation);
 	jw_put_int(jNode, "wd_port", pool_config->wd_port);
 	jw_put_int(jNode, "wd_priority", pool_config->wd_priority);
-	
-	jw_put_string(jNode, "master_slave_sub_mode", pool_config->master_slave_sub_mode);
+	jw_put_int(jNode, "master_slave_sub_mode", pool_config->master_slave_sub_mode);
 
 	/* Array of backends */
 	jw_start_array(jNode, "backend_desc");
@@ -227,6 +225,133 @@ char* get_pool_config_json(void)
 	json_str = pstrdup(jw_get_json_string(jNode));
 	jw_destroy(jNode);
 	return json_str;
+}
+
+char* get_data_request_json(char* request_type, unsigned int sharedKey, char* authKey)
+{
+	char* json_str;
+
+	JsonNode* jNode = jw_create_with_object(true);
+
+	jw_put_int(jNode, WD_IPC_SHARED_KEY, sharedKey); /* put the shared key*/
+
+	if (authKey != NULL && strlen(authKey) > 0)
+		jw_put_string(jNode, WD_IPC_AUTH_KEY, authKey); /*  put the auth key*/
+
+	jw_put_string(jNode, WD_JSON_KEY_DATA_REQ_TYPE, request_type);
+	jw_finish_document(jNode);
+	json_str = pstrdup(jw_get_json_string(jNode));
+	jw_destroy(jNode);
+	return json_str;
+}
+
+bool parse_data_request_json(char* json_data, int data_len, char** request_type)
+{
+	json_value *root;
+	char* ptr;
+
+	*request_type = NULL;
+
+	root = json_parse(json_data,data_len);
+
+	/* The root node must be object */
+	if (root == NULL || root->type != json_object)
+	{
+		json_value_free(root);
+		ereport(LOG,
+			(errmsg("watchdog is unable to parse data request json"),
+				 errdetail("invalid json data \"%s\"",json_data)));
+		return false;
+	}
+	ptr = json_get_string_value_for_key(root, WD_JSON_KEY_DATA_REQ_TYPE);
+	if (ptr == NULL)
+	{
+		json_value_free(root);
+		ereport(LOG,
+			(errmsg("watchdog is unable to parse data request json"),
+				 errdetail("request name node not found in json data \"%s\"",json_data)));
+		return false;
+	}
+	*request_type = pstrdup(ptr);
+	json_value_free(root);
+	return true;
+}
+
+
+/* The function reads the backend node status from shared memory
+ * and creates a json packet from it
+ */
+char* get_backend_node_status_json(WatchdogNode* wdNode)
+{
+	int i;
+	char* json_str;
+	JsonNode* jNode = jw_create_with_object(true);
+
+	jw_start_array(jNode, "BackendNodeStatusList");
+
+	for (i=0;i< pool_config->backend_desc->num_backends;i++)
+	{
+		BACKEND_STATUS backend_status = pool_config->backend_desc->backend_info[i].backend_status;
+		jw_put_int_value(jNode, backend_status);
+	}
+	/* put the primary node id */
+	jw_end_element(jNode);
+	jw_put_int(jNode, "PrimaryNodeId", Req_info->primary_node_id);
+	jw_put_string(jNode, "NodeName",wdNode->nodeName);
+
+	jw_finish_document(jNode);
+	json_str = pstrdup(jw_get_json_string(jNode));
+	jw_destroy(jNode);
+	return json_str;
+}
+
+WDPGBackendStatus* get_pg_backend_node_status_from_json(char* json_data, int data_len)
+{
+	json_value *root = NULL;
+	json_value *value = NULL;
+	char *ptr;
+	int i;
+	WDPGBackendStatus* backendStatus = NULL;
+
+	root = json_parse(json_data,data_len);
+	/* The root node must be object */
+	if (root == NULL || root->type != json_object)
+		return NULL;
+
+	/* backend status array */
+	value = json_get_value_for_key(root,"BackendNodeStatusList");
+	if (value == NULL || value->type != json_array)
+		return NULL;
+
+	if (value->u.array.length <=0 || value->u.array.length > MAX_NUM_BACKENDS )
+		return NULL;
+
+	backendStatus = palloc(sizeof(WDPGBackendStatus));
+	backendStatus->node_count = value->u.array.length;
+
+	for (i = 0; i < backendStatus->node_count; i++)
+	{
+		backendStatus->backend_status[i] = value->u.array.values[i]->u.integer;
+	}
+
+	if (json_get_int_value_for_key(root, "PrimaryNodeId", &backendStatus->primary_node_id))
+	{
+		ereport(ERROR,
+			(errmsg("invalid json data"),
+				 errdetail("unable to find Watchdog Node ID")));
+	}
+
+	ptr = json_get_string_value_for_key(root, "NodeName");
+	if (ptr)
+	{
+		strncpy(backendStatus->nodeName, ptr, sizeof(backendStatus->nodeName) -1);
+	}
+	else
+	{
+		backendStatus->nodeName[0] = 0;
+	}
+
+	return backendStatus;
 }
 
 
@@ -492,7 +617,7 @@ bool parse_wd_node_function_json(char* json_data, int data_len, char** func_name
 		json_value_free(root);
 		ereport(LOG,
 			(errmsg("watchdog is unable to parse node function json"),
-				 errdetail("invalid json data \"%s\"",json_data)));
+				 errdetail("invalid json data \"%.*s\"",data_len,json_data)));
 		return false;
 	}
 	ptr = json_get_string_value_for_key(root, "Function");
@@ -554,12 +679,12 @@ bool parse_wd_node_function_json(char* json_data, int data_len, char** func_name
 	return true;
 }
 
-char* get_wd_simple_error_message_json(char* message)
+char* get_wd_simple_message_json(char* message)
 {
 	char* json_str;
 	JsonNode* jNode = jw_create_with_object(true);
 
-	jw_put_string(jNode, "ERROR", message);
+	jw_put_string(jNode, "MESSAGE", message);
 	jw_finish_document(jNode);
 	json_str = pstrdup(jw_get_json_string(jNode));
 	jw_destroy(jNode);

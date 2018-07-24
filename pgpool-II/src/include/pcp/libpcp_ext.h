@@ -18,7 +18,7 @@
  * is" without express or implied warranty.
  *
  *
- * libpcpcp_ext.h - 
+ * libpcp_ext.h - 
  *	  This file contains definitions for structures and
  *	  externs for functions used by frontend libpcp applications.
  */
@@ -42,11 +42,17 @@
 #define MAX_PATH_LENGTH 256
 
 typedef enum {
-	CON_UNUSED,		/* unused slot */
-    CON_CONNECT_WAIT,		/* waiting for connection starting */
-	CON_UP,	/* up and running */
-	CON_DOWN		/* down, disconnected */
+	CON_UNUSED,			/* unused slot */
+	CON_CONNECT_WAIT,	/* waiting for connection starting */
+	CON_UP,				/* up and running */
+	CON_DOWN			/* down, disconnected */
 } BACKEND_STATUS;
+
+/* backend status name strings */
+#define BACKEND_STATUS_CON_UNUSED		"unused"
+#define BACKEND_STATUS_CON_CONNECT_WAIT	"waiting"
+#define BACKEND_STATUS_CON_UP			"up"
+#define BACKEND_STATUS_CON_DOWN			"down"
 
 /*
  * PostgreSQL backend descriptor. Placed on shared memory area.
@@ -83,8 +89,8 @@ typedef struct {
 	int			pid;	/* backend process id */
 	int			key;	/* cancel key */
 	int			counter; /* used counter */
-	time_t 		create_time; /* connection creation time */
-	int load_balancing_node; /* load balancing node */
+	time_t		create_time; /* connection creation time */
+	int			load_balancing_node; /* load balancing node */
 	char		connected;	/* True if frontend connected. Please note
 							 * that we use "char" instead of "bool".
 							 * Since 3.1, we need to export this
@@ -94,6 +100,13 @@ typedef struct {
 							 * we use bool, the size of the structure
 							 * might be out of control of
 							 * pgpool-II. So we use "char" here.
+							 */
+	char		swallow_termination;
+							/* Flag to mark that if the connection will
+							 * be terminated by the backend. it should
+							 * not be treated as a backend node failure.
+							 * This flag is used to handle
+							 * pg_terminate_backend()
 							 */
 } ConnectionInfo;
 
@@ -123,7 +136,7 @@ typedef struct {
 #define POOLCONFIG_MAXDESCLEN 80
 #define POOLCONFIG_MAXIDENTLEN 63
 #define POOLCONFIG_MAXPORTLEN 6
-#define POOLCONFIG_MAXSTATLEN 2
+#define POOLCONFIG_MAXSTATLEN 8
 #define POOLCONFIG_MAXWEIGHTLEN 20
 #define POOLCONFIG_MAXDATELEN 128
 #define POOLCONFIG_MAXCOUNTLEN 16
@@ -138,12 +151,14 @@ typedef struct {
 /* nodes report struct */
 typedef struct {
 	char node_id[POOLCONFIG_MAXIDLEN+1];
-	char hostname[POOLCONFIG_MAXIDENTLEN+1];
+	char hostname[MAX_DB_HOST_NAMELEN+1];
 	char port[POOLCONFIG_MAXPORTLEN+1];
 	char status[POOLCONFIG_MAXSTATLEN+1];
 	char lb_weight[POOLCONFIG_MAXWEIGHTLEN+1];
 	char role[POOLCONFIG_MAXWEIGHTLEN+1];
 	char select[POOLCONFIG_MAXWEIGHTLEN+1];
+	char load_balance_node[POOLCONFIG_MAXWEIGHTLEN+1];
+	char delay[POOLCONFIG_MAXWEIGHTLEN+1];
 } POOL_REPORT_NODES;
 
 /* processes report struct */

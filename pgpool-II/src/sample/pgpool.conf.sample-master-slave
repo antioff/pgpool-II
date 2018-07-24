@@ -114,13 +114,13 @@ ssl = off
 # POOLS
 #------------------------------------------------------------------------------
 
-# - Pool size -
+# - Concurrent session and pool size -
 
 num_init_children = 32
-                                   # Number of pools
+                                   # Number of concurrent sessions allowed
                                    # (change requires restart)
 max_pool = 4
-                                   # Number of connections per pool
+                                   # Number of connection pool caches per connection
                                    # (change requires restart)
 
 # - Life time -
@@ -426,7 +426,7 @@ fail_over_on_backend_error = on
                                    # If set to off, pgpool will report an
                                    # error and disconnect the session.
 
-search_primary_node_timeout = 10
+search_primary_node_timeout = 300
                                    # Timeout in seconds to search for the
                                    # primary node when a failover occurs.
                                    # 0 means no timeout, keep searching

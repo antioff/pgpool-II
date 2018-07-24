@@ -235,6 +235,9 @@ typedef struct {
 	char *auth_arg;
 	char *database;
 	char *username;
+	ConnectionInfo *con_info; /* shared memory coninfo used
+						   * for handling the query containing
+						   * pg_terminate_backend*/
 } POOL_CONNECTION;
 
 /*
@@ -323,6 +326,7 @@ extern int my_master_node_id;
  */
 #define PRIMARY_NODE_ID (Req_info->primary_node_id >=0?\
 						 Req_info->primary_node_id:REAL_MASTER_NODE_ID)
+#define IS_PRIMARY_NODE_ID(node_id)	(node_id == PRIMARY_NODE_ID)
 
 /*
  * Real primary node id. If not in the mode or there's no primary
@@ -342,11 +346,11 @@ extern int my_master_node_id;
 
 #define REPLICATION (pool_config->replication_mode)
 #define MASTER_SLAVE (pool_config->master_slave_mode)
-#define STREAM (MASTER_SLAVE && !strcmp("stream", pool_config->master_slave_sub_mode))
-#define SLONY (MASTER_SLAVE && !strcmp("slony", pool_config->master_slave_sub_mode))
+#define STREAM (MASTER_SLAVE && pool_config->master_slave_sub_mode == STREAM_MODE)
+#define SLONY (MASTER_SLAVE && pool_config->master_slave_sub_mode == SLONY_MODE)
 #define DUAL_MODE (REPLICATION || MASTER_SLAVE)
 #define RAW_MODE (!REPLICATION && !MASTER_SLAVE)
-#define MAJOR(p) MASTER_CONNECTION(p)->sp->major
+#define MAJOR(p) (pool_get_major_version())
 #define TSTATE(p, i) (CONNECTION(p, i)->tstate)
 #define INTERNAL_TRANSACTION_STARTED(p, i) (CONNECTION(p, i)->is_internal_transaction_started)
 
@@ -369,9 +373,11 @@ extern int my_master_node_id;
 #define ACCEPT_FD_SEM			5
 #define MAX_REQUEST_QUEUE_SIZE	10
 
-#define MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION 6 /*number of sec to wait for watchdog command if cluster is stabalizing */
+#define MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION 10 /* time in seconds to keep retrying for a
+											   * watchdog command if the cluster is not
+											   * in stable state */
 
-#define SERIALIZE_ACCEPT (pool_config->serialize_accept != 0 && \
+#define SERIALIZE_ACCEPT (pool_config->serialize_accept == true && \
 						  pool_config->child_life_time == 0)
 
 /*
@@ -395,8 +401,12 @@ typedef enum {
 	PROMOTE_NODE_REQUEST
 } POOL_REQUEST_KIND;
 
+#define REQ_DETAIL_SWITCHOVER	0x00000001		/* failover due to switch over */
+
 typedef struct {
 	POOL_REQUEST_KIND	kind;		/* request kind */
+	unsigned char request_details;	/* option flags kind */
+	unsigned int wd_failover_id;	/* watchdog ID for this failover operation */
 	int node_id[MAX_NUM_BACKENDS];	/* request node id */
 	int count;						/* request node ids count */
 }POOL_REQUEST_NODE;
@@ -503,7 +513,7 @@ extern char remote_port[];	/* client port */
 /*
  * public functions
  */
-extern bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id_set, int count);
+extern bool register_node_operation_request(POOL_REQUEST_KIND kind, int* node_id_set, int count, bool switch_over, unsigned int wd_failover_id);
 extern char *get_config_file_name(void);
 extern char *get_hba_file_name(void);
 extern void do_child(int *fds);
@@ -516,6 +526,8 @@ extern POOL_STATUS pool_process_query(POOL_CONNECTION *frontend,
 
 extern int pool_do_auth(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend);
 extern int pool_do_reauth(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *cp);
+
+extern bool is_backend_cache_empty(POOL_CONNECTION_POOL *backend);
 
 /* SSL functionality */
 extern void pool_ssl_negotiate_serverclient(POOL_CONNECTION *cp);
@@ -531,11 +543,11 @@ extern POOL_STATUS ErrorResponse(POOL_CONNECTION *frontend,
 extern void NoticeResponse(POOL_CONNECTION *frontend,
 								  POOL_CONNECTION_POOL *backend);
 
-extern void notice_backend_error(int node_id);
-extern void degenerate_backend_set(int *node_id_set, int count);
-extern bool degenerate_backend_set_ex(int *node_id_set, int count, bool error, bool test_only);
-extern void promote_backend(int node_id);
-extern void send_failback_request(int node_id, bool throw_error);
+extern void notice_backend_error(int node_id, bool switch_over);
+extern void degenerate_backend_set(int *node_id_set, int count, bool switch_over, unsigned int wd_failover_id);
+extern bool degenerate_backend_set_ex(int *node_id_set, int count, bool error, bool test_only, bool switch_over, unsigned int wd_failover_id);
+extern void promote_backend(int node_id, unsigned int wd_failover_id);
+extern void send_failback_request(int node_id, bool throw_error, unsigned int wd_failover_id);
 
 
 extern void pool_set_timeout(int timeoutval);

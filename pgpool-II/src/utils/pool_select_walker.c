@@ -58,10 +58,30 @@ bool pool_has_function_call(Node *node)
 		return false;
 
 	ctx.has_function_call = false;
+	ctx.pg_terminate_backend_pid = -1;
 
 	raw_expression_tree_walker(node, function_call_walker, &ctx);
 
 	return ctx.has_function_call;
+}
+
+/*
+ * Search the pg_terminate_backend() call in the query
+ */
+int pool_get_terminate_backend_pid(Node *node)
+{
+	SelectContext	ctx;
+
+	if (!IsA(node, SelectStmt))
+		return false;
+
+	ctx.has_function_call = false;
+	ctx.pg_terminate_backend_pid = 0;
+
+	raw_expression_tree_walker(node, function_call_walker, &ctx);
+
+	return ctx.pg_terminate_backend_pid;
+
 }
 
 /*
@@ -168,6 +188,7 @@ int pattern_compare(char *str, const int type, const char *param_name)
 {
 	int i = 0;
 	char *s;
+	int result = 0;
 
 	RegPattern *lists_patterns;
 	int *pattc;
@@ -204,19 +225,24 @@ int pattern_compare(char *str, const int type, const char *param_name)
 					(errmsg("comparing function name in whitelist regex array"),
 						errdetail("pattern_compare: %s (%s) matched: %s",
 							   param_name, lists_patterns[i].pattern, s)));
-				return 1;
+				result = 1;
+				break;
 			/* return 1 if string matches blacklist pattern */
 			case BLACKLIST:
 				ereport(DEBUG2,
 					(errmsg("comparing function name in blacklist regex array"),
 						 errdetail("pattern_compare: %s (%s) matched: %s",
 								   param_name, lists_patterns[i].pattern, s)));
-				return 1;
+				result = 1;
+				break;
 			default:
 				ereport(WARNING,
 						(errmsg("pattern_compare: \"%s\" unknown pattern match type: \"%s\"", param_name, s)));
-				return -1;
+				result = -1;
+				break;
 			}
+			/* return the result */
+			break;
 		}
 		ereport(DEBUG2,
 			(errmsg("comparing function name in blacklist/whitelist regex array"),
@@ -225,8 +251,7 @@ int pattern_compare(char *str, const int type, const char *param_name)
 	}
 
 	free(s);
-	/* return 0 otherwise */
-	return 0;
+	return result;
 }
 
 static char *strip_quote(char *str)
@@ -281,6 +306,20 @@ static bool function_call_walker(Node *node, void *context)
 			ereport(DEBUG1,
 				(errmsg("function call walker, function name: \"%s\"", fname)));
 
+			if (ctx->pg_terminate_backend_pid == 0 && strcmp("pg_terminate_backend", fname) == 0)
+			{
+				if (list_length(fcall->args) == 1)
+				{
+					Node *arg = linitial(fcall->args);
+					if (IsA(arg, A_Const) &&
+					   ((A_Const *)arg)->val.type == T_Integer)
+					{
+						ctx->pg_terminate_backend_pid = ((A_Const *)arg)->val.val.ival;
+						ereport(DEBUG1,
+								(errmsg("pg_terminate_backend pid = %d",ctx->pg_terminate_backend_pid)));
+					}
+				}
+			}
 			/*
 			 * Check white list if any.
 			 */

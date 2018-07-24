@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [3.5.0], [pgpool-hackers@pgpoo.net], [pgpool-II])
+AC_INIT([pgpool-II], [3.6.0], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -18,6 +18,21 @@ AM_PROG_CC_C_O
 
 dnl suggested by libtoolize --force
 AC_CONFIG_MACRO_DIR([m4])
+# Check for docbook
+PGAC_PROG_NSGMLS
+PGAC_PROG_JADE
+PGAC_CHECK_DOCBOOK(4.2)
+PGAC_PATH_DOCBOOK_STYLESHEETS
+PGAC_PATH_COLLATEINDEX
+AC_CHECK_PROGS(XSLTPROC, xsltproc)
+AC_CHECK_PROGS(XMLLINT, xmllint)
+AC_CHECK_PROGS(OSX, [osx sgml2xml sx])
+AC_CHECK_PROGS(PERL, perl)
+AC_CHECK_PROGS(LYNX, lynx)
+
+AC_SUBST([XSLTPROC_HTML_FLAGS])
+AC_SUBST([STYLE])
+AM_CONDITIONAL([STYLE_ENV_SET], [test ! -z "$STYLE"])
 
 dnl Check compiler option
 dnl check -Wall option
@@ -169,7 +184,6 @@ if test $pgac_need_repl_snprintf = yes; then
   AC_LIBOBJ(snprintf)
 fi
 AM_CONDITIONAL(use_repl_snprintf, test $pgac_need_repl_snprintf = yes)
-
 # Need a #define for the size of Datum (unsigned long)
 AC_CHECK_SIZEOF([unsigned long])
 
@@ -178,7 +192,7 @@ AC_CHECK_SIZEOF([void *])
 AC_CHECK_SIZEOF([size_t])
 
 # Decide whether float4 is passed by value: user-selectable, enabled by default
-AC_MSG_CHECKING([whether to build with float4 passed by value])   
+AC_MSG_CHECKING([whether to build with float4 passed by value])
 PGAC_ARG_BOOL(enable, float4-byval, yes, [disable float4 passed by value],
               [AC_DEFINE([USE_FLOAT4_BYVAL], 1,
                          [Define to 1 if you want float4 values to be passed by value. (--enable-float4-byval)])
@@ -350,6 +364,8 @@ AC_ARG_WITH(memcached,
   esac
   ])
 
+CFLAGS="$CFLAGS -fno-strict-aliasing"
+
 AC_SUBST(MEMCACHED_INCLUDE_OPT)
 AC_SUBST(MEMCACHED_LINK_OPT)
 AC_SUBST(MEMCACHED_RPATH_OPT)
@@ -413,4 +429,4 @@ AC_MSG_RESULT([enable cassert = $enable_cassert])
 AM_CONFIG_HEADER(src/include/config.h)
 AC_CONFIG_FILES([src/sql/pgpool_adm/Makefile])
 
-AC_OUTPUT([Makefile doc/Makefile src/Makefile src/include/Makefile src/parser/Makefile src/libs/Makefile src/libs/pcp/Makefile src/tools/Makefile src/tools/pgmd5/Makefile src/tools/pcp/Makefile src/watchdog/Makefile])
+AC_OUTPUT([Makefile doc/Makefile  doc/src/Makefile doc/src/sgml/Makefile doc.ja/Makefile  doc.ja/src/Makefile doc.ja/src/sgml/Makefile src/Makefile src/include/Makefile src/parser/Makefile src/libs/Makefile src/libs/pcp/Makefile src/tools/Makefile src/tools/pgmd5/Makefile src/tools/pcp/Makefile src/watchdog/Makefile])

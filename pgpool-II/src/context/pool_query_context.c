@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -27,6 +27,7 @@
 #include "utils/memutils.h"
 #include "utils/elog.h"
 #include "utils/pool_select_walker.h"
+#include "utils/pool_stream.h"
 #include "context/pool_session_context.h"
 #include "context/pool_query_context.h"
 #include "parser/nodes.h"
@@ -87,6 +88,13 @@ void pool_query_context_destroy(POOL_QUERY_CONTEXT *query_context)
 		MemoryContext memory_context = query_context->memory_context;
 		session_context = pool_get_session_context(false);
 		pool_unset_query_in_progress();
+		if (query_context->pg_terminate_backend_conn)
+		{
+			ereport(DEBUG1,
+				 (errmsg("resetting the connection flag for pg_terminate_backend")));
+			pool_unset_connection_will_be_terminated(query_context->pg_terminate_backend_conn);
+		}
+		query_context->pg_terminate_backend_conn = NULL;
 		query_context->original_query = NULL;
 		session_context->query_context = NULL;
 		pfree(query_context);
@@ -190,7 +198,7 @@ void pool_setall_node_to_be_sent(POOL_QUERY_CONTEXT *query_context)
 			 * send query.
 			 */
 			if (pool_config->master_slave_mode &&
-				!strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP) &&
+				pool_config->master_slave_sub_mode == STREAM_MODE &&
 				i != PRIMARY_NODE_ID && i != sc->load_balance_node_id)
 			{
 				continue;
@@ -279,7 +287,36 @@ int pool_virtual_master_db_node_id(void)
 
 	if (sc->query_context)
 	{
-		return sc->query_context->virtual_master_node_id;
+		int node_id = sc->query_context->virtual_master_node_id;
+
+		if (STREAM)
+		{
+			 /*
+			  * Make sure that virtual_master_node_id is either primary node
+			  * id or load balance node id.  If not, it is likely that
+			  * virtual_master_node_id is not set up yet. Let's use the
+			  * primary node id. except for the special case where we need
+			  * to send the query to the node which is not primary nor the
+			  * load balance node. Currently there is only one special such
+			  * case that is handling of pg_terminate_backend() function, which
+			  * may refer to the backend connection that is neither hosted by
+			  * the primary or load balance node for current child process, but
+			  * the query must be forwarded to that node. Since only that backend
+			  * node can handle that pg_terminate_backend query
+			  *
+			  */
+			if (node_id != sc->load_balance_node_id && node_id != PRIMARY_NODE_ID)
+			{
+				/*
+				 * Only return the primary node id if we are not processing the
+				 * pg_terminate_backend query
+				 */
+				if (sc->query_context->pg_terminate_backend_conn == NULL)
+					node_id = PRIMARY_NODE_ID;
+			}
+		}
+
+		return node_id;
 	}
 
 	/*
@@ -292,6 +329,28 @@ int pool_virtual_master_db_node_id(void)
 		return PRIMARY_NODE_ID;
 	}
 	return my_master_node_id;
+}
+
+/*
+ * The function sets the destination for the current query to the specific backend node
+ */
+void pool_force_query_node_to_backend(POOL_QUERY_CONTEXT *query_context, int backend_id)
+{
+	int i;
+	CHECK_QUERY_CONTEXT_IS_VALID;
+
+	ereport(DEBUG1,
+		(errmsg("forcing query destination node to backend node:%d",backend_id)));
+
+	pool_set_node_to_be_sent(query_context,backend_id);
+	for (i=0;i<NUM_BACKENDS;i++)
+	{
+		if (query_context->where_to_send[i])
+		{
+			query_context->virtual_master_node_id = i;
+			break;
+		}
+	}
 }
 
 /*
@@ -409,7 +468,7 @@ void pool_where_to_send(POOL_QUERY_CONTEXT *query_context, char *query, Node *no
 					/*
 					 * If replication delay is too much, we prefer to send to the primary.
 					 */
-					if (!strcmp(pool_config->master_slave_sub_mode, MODE_STREAMREP) &&
+					if (pool_config->master_slave_sub_mode == STREAM_MODE &&
 						pool_config->delay_threshold &&
 						bkinfo->standby_delay > pool_config->delay_threshold)
 					{
@@ -848,18 +907,33 @@ POOL_STATUS pool_extended_send_and_wait(POOL_QUERY_CONTEXT *query_context,
 			per_node_statement_log(backend, i, msgbuf);
 		}
 
+		/* Set sync map so that we could wait for response from appropreate node */
+		pool_set_sync_map(i);
+		ereport(DEBUG1,
+				(errmsg("pool_send_and_wait: pool_set_sync_map: %d", i)));
+
 		/* if Execute message, count up stats count */
 		if (*kind == 'E')
 		{
 			stat_count_up(i, query_context->parse_tree);
-
-			/* Set sync map so that we could wait for response from appropreate node */
-			pool_set_sync_map(i);
-			ereport(DEBUG1,
-					(errmsg("pool_send_and_wait: pool_set_sync_map: %d", i)));
 		}
 
 		send_extended_protocol_message(backend, i, kind, str_len, str);
+
+		if (*kind == 'E' && STREAM)
+		{
+			/*
+			 * Send flush message to backend to make sure that we get any response
+			 * from backend in Sream replication mode.
+			 */
+
+			POOL_CONNECTION *cp = CONNECTION(backend, i);
+			int len;
+
+			pool_write(cp, "H", 1);
+			len = htonl(sizeof(len));
+			pool_write_and_flush(cp, &len, sizeof(len));
+		}
 	}
 
 	if (!is_begin_read_write)
@@ -1078,11 +1152,19 @@ static POOL_DEST send_to_where(Node *node, char *query)
 		}
 
 		/*
-		 * COPY FROM
+		 * COPY
 		 */
 		else if (IsA(node, CopyStmt))
 		{
-			return (((CopyStmt *)node)->is_from)?POOL_PRIMARY:POOL_EITHER;
+			if (((CopyStmt *)node)->is_from)
+				return POOL_PRIMARY;
+			else
+			{
+				if (((CopyStmt *)node)->query == NULL)
+					return POOL_EITHER;
+				else
+					return (IsA(((CopyStmt *)node)->query, SelectStmt))?POOL_EITHER:POOL_PRIMARY;
+			}
 		}
 
 		/*
@@ -1343,7 +1425,8 @@ bool is_set_transaction_serializable(Node *node)
 		return false;
 
 	if (((VariableSetStmt *)node)->kind == VAR_SET_VALUE &&
-		!strcmp(((VariableSetStmt *)node)->name, "transaction_isolation"))
+		(!strcmp(((VariableSetStmt *)node)->name, "transaction_isolation") ||
+                 !strcmp(((VariableSetStmt *)node)->name, "default_transaction_isolation")))
 	{
 		List *options = ((VariableSetStmt *)node)->args;
 		foreach(list_item, options)

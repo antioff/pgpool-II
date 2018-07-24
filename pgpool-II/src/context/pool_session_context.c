@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL 
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2016	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -37,6 +37,7 @@ static void GetTranIsolationErrorCb(void *arg);
 static void init_sent_message_list(void);
 static POOL_PENDING_MESSAGE *copy_pending_message(POOL_PENDING_MESSAGE *messag);
 static void dump_sent_message(char *caller, POOL_SENT_MESSAGE *m);
+static char *dump_sync_map(void);
 
 /*
  * Initialize per session context
@@ -44,6 +45,9 @@ static void dump_sent_message(char *caller, POOL_SENT_MESSAGE *m);
 void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
 {
 	session_context = &session_context_d;
+	ProcessInfo *process_info;
+	int node_id;
+	int i;
 
 	/* Get Process context */
 	session_context->process_context = pool_get_process_context();
@@ -72,22 +76,33 @@ void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *
 	/* Initialize sent message list */
 	init_sent_message_list();
 
+	process_info = pool_get_my_process_info();
+
+	if (!process_info)
+		ereport(ERROR,
+				(errmsg("failed to get process info for current process")));
+
 	/* Choose load balancing node if necessary */
 	if (pool_config->load_balance_mode)
 	{
-		ProcessInfo *process_info = pool_get_my_process_info();
-		if (!process_info)
-			ereport(ERROR,
-					(errmsg("failed to get process info for current process")));
-
-		session_context->load_balance_node_id = 
-			process_info->connection_info->load_balancing_node =
-			select_load_balancing_node();
-
-		ereport(DEBUG1,
-			(errmsg("initializing session context"),
-				 errdetail("selected load balancing node: %d", backend->info->load_balancing_node)));
+		node_id = select_load_balancing_node();
 	}
+	else
+	{
+		node_id = STREAM? PRIMARY_NODE_ID: MASTER_NODE_ID;
+	}
+
+	session_context->load_balance_node_id = node_id;
+
+	for (i=0;i<NUM_BACKENDS;i++)
+	{
+		pool_coninfo(session_context->process_context->proc_id,
+					 pool_pool_index(), i)->load_balancing_node = node_id;
+	}
+
+	ereport(DEBUG1,
+			(errmsg("initializing session context"),
+			 errdetail("selected load balancing node: %d", node_id)));
 
 	/* Unset query is in progress */
 	pool_unset_query_in_progress();
@@ -424,7 +439,7 @@ void pool_clear_sent_message_list(void)
 static void dump_sent_message(char *caller, POOL_SENT_MESSAGE *m)
 {
 	ereport(DEBUG1,
-			(errmsg("called by %s: sent message: address: %x kind: %c name: =%s=", caller, m, m->kind, m->name)));
+			(errmsg("called by %s: sent message: address: %p kind: %c name: =%s=", caller, m, m->kind, m->name)));
 }
 
 /*
@@ -930,6 +945,53 @@ void pool_clear_sync_map(void)
 }
 
 /*
+ * Check whether we should 1) ignore sync map, 2) consult sync map, or 3) we
+ * cannot use sync map because it's empty.
+ */
+bool pool_use_sync_map(void)
+{
+	int i;
+
+	if (!session_context)
+		return POOL_IGNORE_SYNC_MAP;
+
+	if (STREAM && !pool_is_query_in_progress() && pool_is_doing_extended_query_message())
+	{
+		for (i=0;i<NUM_BACKENDS;i++)
+		{
+			if (pool_is_set_sync_map(i))
+			{
+				ereport(DEBUG1,
+						(errmsg("pool_use_sync_map: we can use sync map: %s", dump_sync_map())));
+				return POOL_SYNC_MAP_IS_VALID;	/* yes, we can use sync map */
+			}
+		}
+		ereport(DEBUG1,
+				(errmsg("pool_use_sync_map: we cannot use sync map because all map entries are false")));
+		return POOL_SYNC_MAP_EMPTY;	/* no, we cannot use sync map */
+	}
+
+	ereport(DEBUG1,
+			(errmsg("pool_use_sync_map: we cannot use sync map because STREAM: %d query in progress: %d doing extended query: %d", STREAM, pool_is_query_in_progress(), pool_is_doing_extended_query_message())));
+
+	return POOL_IGNORE_SYNC_MAP;
+}
+
+static char *dump_sync_map(void)
+{
+	static char mapstr[MAX_NUM_BACKENDS+1];
+	int i;
+
+	memset(mapstr, 0, sizeof(mapstr));
+
+	for (i=0;i<NUM_BACKENDS;i++)
+	{
+		mapstr[i] = session_context->sync_map[i]?'1':'0';
+	}
+	return mapstr;
+}
+
+/*
  * Set pending response
  */
 void pool_set_pending_response(void)
@@ -1143,4 +1205,50 @@ static POOL_PENDING_MESSAGE *copy_pending_message(POOL_PENDING_MESSAGE *message)
 	memcpy(msg->contents, message->contents, msg->contents_len);
 
 	return msg;
+}
+
+/*
+ * Set protocol major version number
+ */
+void pool_set_major_version(int major)
+{
+	if (session_context)
+	{
+		session_context->major = major; 
+	}
+}
+
+/*
+ * Get protocol major version number
+ */
+int pool_get_major_version(void)
+{
+	if (session_context)
+	{
+		return session_context->major;
+	}
+	return PROTO_MAJOR_V3;
+}
+
+/*
+ * Set protocol minor version number
+ */
+void pool_set_minor_version(int minor)
+{
+	if (session_context)
+	{
+		session_context->minor = minor; 
+	}
+}
+
+/*
+ * Get protocol minor version number
+ */
+int pool_get_minor_version(void)
+{
+	if (session_context)
+	{
+		return session_context->minor;
+	}
+	return 0;
 }
