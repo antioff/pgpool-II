@@ -19,12 +19,13 @@ Source1: pgpool.service
 Source2: pgpool.tmpfiles
 Source3: pgpool.init
 
+Patch: 0001-pgpool-alt-config.patch
+
 BuildRequires: flex
 BuildRequires: postgresql-devel
 BuildRequires: pam-devel
 BuildRequires: libmemcached-devel
 BuildRequires: libssl-devel
-BuildRequires: docbook-dtds docbook-style-xsl docbook-style-dsssl xsltproc xml-utils
 
 Requires: libpcp = %EVR
 Requires: postgresql%pg_ver-%name = %EVR
@@ -68,6 +69,7 @@ Postgresql extensions libraries and sql files for pgpool-II.
 
 %prep
 %setup -q
+%patch -p2
 
 %build
 %autoreconf
@@ -124,8 +126,9 @@ __EOF__
 %config(noreplace) %_sysconfdir/pgpool.conf
 %config(noreplace) %_sysconfdir/pcp.conf
 %config(noreplace) %_sysconfdir/pool_hba.conf
-
 %config %_sysconfdir/cron.d/pgpool
+%_man1dir/*
+%_man8dir/*
 
 %attr(775,root,postgres) %dir %pgpool_piddir
 %attr(775,root,postgres) %dir %pgpool_logdir
