@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.3 Documentation"
+TITLE="pgpool-II 3.7.4 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-04-17T08:57:04"></HEAD
+CONTENT="2018-06-11T14:16:51"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.3 Documentation</A
+>pgpool-II 3.7.4 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -806,6 +806,55 @@ CLASS="PRODUCTNAME"
 ><P
 >          Default is on.
         </P
+><DIV
+CLASS="CAUTION"
+><P
+></P
+><TABLE
+CLASS="CAUTION"
+BORDER="1"
+WIDTH="90%"
+><TR
+><TD
+ALIGN="CENTER"
+><B
+>Caution</B
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+><P
+>            When <TT
+CLASS="VARNAME"
+>failover_require_consensus</TT
+> is
+            enabled, <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> does not
+            execute the failover until it get enough votes from
+            other <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> nodes. So it is
+            strongly recommended to enable the backend health check on
+            all
+            <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> nodes to ensure
+	    proper detection of backend node failures.  For more
+	    details of health check,
+	    see <A
+HREF="runtime-config-health-check.html"
+>Section 5.8</A
+>.
+	  </P
+></TD
+></TR
+></TABLE
+></DIV
 ><P
 >        <TT
 CLASS="VARNAME"

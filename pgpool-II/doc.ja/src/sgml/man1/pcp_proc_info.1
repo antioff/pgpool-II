@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2016
-.\"    Manual: Pgpool-II 3.7.3 文書
-.\"    Source: Pgpool-II 3.7.3
+.\"    Manual: Pgpool-II 3.7.4 文書
+.\"    Source: Pgpool-II 3.7.4
 .\"  Language: Japanese
 .\"
-.TH "PCP_PROC_INFO" "1" "2016" "Pgpool-II 3.7.3" "Pgpool-II 3.7.3 文書"
+.TH "PCP_PROC_INFO" "1" "2016" "Pgpool-II 3.7.4" "Pgpool-II 3.7.4 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -55,15 +55,15 @@ Pgpool\-II 子プロセスの PID を指定します。
 .RE
 .SH "例"
 .PP
-ここでは例を示します。
+例を示します。
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-h localhost \-p 9898 \-U postgres 3815
-postgres_db postgres 1150769932 1150767351 3 0 1 1467 1
-postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
+$ pcp_proc_info \-p 11001
+test t\-ishii 2018\-05\-09 11:10:16 2018\-05\-09 11:10:40 3 0 1 4157 1
+test t\-ishii 2018\-05\-09 11:10:16 2018\-05\-09 11:10:40 3 0 1 4158 1
     
 .fi
 .if n \{\
@@ -76,21 +76,21 @@ postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
 .RS 4
 .\}
 .nf
-1\&. connected database name
-2\&. connected user name
-3\&. process start\-up timestamp
-4\&. connection created timestamp
-5\&. protocol major version
-6\&. protocol minor version
-7\&. connection\-reuse counter
-8\&. PostgreSQL backend process id
-9\&. 1 if frontend conncted 0 if not
+1\&. 接続先のデータベース名
+2\&. 接続先のユーザ名
+3\&. Pgpool\-IIプロセスの起動時刻
+4\&. バックエンドへの接続時刻
+5\&. プロトコルのメジャーバージョン
+6\&. プロトコルのマイナーバージョン
+7\&. 接続の再利用カウンタ値
+8\&. PostgreSQLバックエンドプロセスのプロセスID
+9\&. フロントエンドが接続中なら1、そうでなければ0
 .fi
 .if n \{\
 .RE
 .\}
 .PP
-コネクションがバックエンドに対して張られていない場合、データは表示されません。 コネクション情報が複数ある場合、複数行に 1 行 1 コネクション情報で表示されます。 時刻は EPOCH タイムからの秒数で表わされます。
+コネクションがバックエンドに対して張られていない場合、データは表示されません。 コネクション情報が複数ある場合、複数行に 1 行 1 コネクション情報で表示されます。
 .PP
 \fB\-\-verbose\fR
 オプションは出力内容を理解するのに役に立ちます。例：
@@ -99,24 +99,24 @@ postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-\-verbose \-U postgres 3815
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
+$ pcp_proc_info \-p 11001 \-\-verbose
+Database     : test
+Username     : t\-ishii
+Start time   : 2018\-05\-09 11:10:16
+Creation time: 2018\-05\-09 11:10:40
 Major        : 3
 Minor        : 0
 Counter      : 1
-PID          : 1467
+Backend PID  : 4157
 Connected    : 1
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
+Database     : test
+Username     : t\-ishii
+Start time   : 2018\-05\-09 11:10:16
+Creation time: 2018\-05\-09 11:10:40
 Major        : 3
 Minor        : 0
 Counter      : 1
-PID          : 1468
+Backend PID  : 4158
 Connected    : 1
     
 .fi

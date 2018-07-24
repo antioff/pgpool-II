@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.3 文書"
+TITLE="Pgpool-II 3.7.4 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2018-04-17T08:57:11"></HEAD
+CONTENT="2018-06-11T14:16:57"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.3 文書</A
+>Pgpool-II 3.7.4 文書</A
 ></TH
 ></TR
 ><TR
@@ -754,10 +754,53 @@ CLASS="APPLICATION"
 >デフォルト値はonです。
         </P
 ><P
-><SPAN
+>&#13;	<DIV
+CLASS="CAUTION"
+><P
+></P
+><TABLE
+CLASS="CAUTION"
+BORDER="1"
+WIDTH="90%"
+><TR
+><TD
+ALIGN="CENTER"
+><B
+>注意</B
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+><P
+><TT
+CLASS="VARNAME"
+>failover_require_consensus</TT
+>が有効な場合、<SPAN
 CLASS="PRODUCTNAME"
->Pgpool-II </SPAN
-><SPAN
+>Pgpool-II</SPAN
+>は他            の<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードから充分な投票を得るまでフェイルオーバしません。
+ですから、正しくバックエンドの障害を検出するために、すべての<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードでヘルスチェックを有効にすることを強く推奨します。
+ヘルスチェックに関する詳細については、<A
+HREF="runtime-config-health-check.html"
+>項5.8</A
+>をご覧ください。
+	  </P
+></TD
+></TR
+></TABLE
+></DIV
+>
+<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> <SPAN
 CLASS="emphasis"
 ><I
 CLASS="EMPHASIS"

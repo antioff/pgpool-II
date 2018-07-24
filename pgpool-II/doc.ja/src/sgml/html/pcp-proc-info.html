@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.3 文書"
+TITLE="Pgpool-II 3.7.4 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP コマンド"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2018-04-17T08:57:11"></HEAD
+CONTENT="2018-06-11T14:16:57"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.3 文書</A
+>Pgpool-II 3.7.4 文書</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PCP-PROC-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN5911"
+NAME="AEN5930"
 ></A
 ><H2
 >名前</H2
@@ -107,7 +107,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN5915"
+NAME="AEN5934"
 ></A
 ><H2
 >概要</H2
@@ -149,7 +149,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5927"
+NAME="AEN5946"
 ></A
 ><H2
 >オプション</H2
@@ -205,18 +205,18 @@ HREF="pcp-common-options.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5946"
+NAME="AEN5965"
 ></A
 ><H2
 >例</H2
 ><P
 >   
-    ここでは例を示します。
+    例を示します。
     </P><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info -h localhost -p 9898 -U postgres 3815
-postgres_db postgres 1150769932 1150767351 3 0 1 1467 1
-postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
+>$ pcp_proc_info -p 11001
+test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4157 1
+test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4158 1
     </PRE
 ><P>
   </P
@@ -225,20 +225,20 @@ postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
     結果は以下の順のとおりです。
 </P><PRE
 CLASS="LITERALLAYOUT"
->1. connected database name
-2. connected user name
-3. process start-up timestamp
-4. connection created timestamp
-5. protocol major version
-6. protocol minor version
-7. connection-reuse counter
-8. PostgreSQL backend process id
-9. 1 if frontend conncted 0 if not</PRE
+>1. 接続先のデータベース名
+2. 接続先のユーザ名
+3. Pgpool-IIプロセスの起動時刻
+4. バックエンドへの接続時刻
+5. プロトコルのメジャーバージョン
+6. プロトコルのマイナーバージョン
+7. 接続の再利用カウンタ値
+8. PostgreSQLバックエンドプロセスのプロセスID
+9. フロントエンドが接続中なら1、そうでなければ0</PRE
 ><P>
   </P
 ><P
 >  
-  コネクションがバックエンドに対して張られていない場合、データは表示されません。 コネクション情報が複数ある場合、複数行に 1 行 1 コネクション情報で表示されます。 時刻は EPOCH タイムからの秒数で表わされます。
+  コネクションがバックエンドに対して張られていない場合、データは表示されません。 コネクション情報が複数ある場合、複数行に 1 行 1 コネクション情報で表示されます。
   </P
 ><P
 >  
@@ -249,24 +249,24 @@ CLASS="OPTION"
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info --verbose -U postgres 3815
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
+>$ pcp_proc_info -p 11001 --verbose
+Database     : test
+Username     : t-ishii
+Start time   : 2018-05-09 11:10:16
+Creation time: 2018-05-09 11:10:40
 Major        : 3
 Minor        : 0
 Counter      : 1
-PID          : 1467
+Backend PID  : 4157
 Connected    : 1
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
+Database     : test
+Username     : t-ishii
+Start time   : 2018-05-09 11:10:16
+Creation time: 2018-05-09 11:10:40
 Major        : 3
 Minor        : 0
 Counter      : 1
-PID          : 1468
+Backend PID  : 4158
 Connected    : 1
     </PRE
 ></DIV

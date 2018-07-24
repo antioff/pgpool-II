@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.3 Documentation"
+TITLE="pgpool-II 3.7.4 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-04-17T08:57:04"></HEAD
+CONTENT="2018-06-11T14:16:51"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.3 Documentation</A
+>pgpool-II 3.7.4 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PCP-PROC-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN5939"
+NAME="AEN5958"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN5939"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN5942"
+NAME="AEN5961"
 ></A
 ><H2
 >Synopsis</H2
@@ -141,7 +141,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5953"
+NAME="AEN5972"
 ></A
 ><H2
 >Options</H2
@@ -195,7 +195,7 @@ HREF="pcp-common-options.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5972"
+NAME="AEN5991"
 ></A
 ><H2
 >Example</H2
@@ -203,9 +203,9 @@ NAME="AEN5972"
 >	Here is an example output:
     </P><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info -h localhost -p 9898 -U postgres 3815
-postgres_db postgres 1150769932 1150767351 3 0 1 1467 1
-postgres_db postgres 1150769932 1150767351 3 0 1 1468 1
+>$ pcp_proc_info -p 11001
+test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4157 1
+test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4158 1
     </PRE
 ><P>
   </P
@@ -227,7 +227,6 @@ CLASS="LITERALLAYOUT"
 ><P
 >  If there is no connection to the backends, nothing will be displayed.
   If there are multiple connections, one connection's information will be displayed on each line multiple times.
-  Timestamps are displayed in EPOCH format.
   </P
 ><P
 >	The <TT
@@ -237,24 +236,24 @@ CLASS="OPTION"
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info --verbose -U postgres 3815
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
+>$ pcp_proc_info -p 11001 --verbose
+Database     : test
+Username     : t-ishii
+Start time   : 2018-05-09 11:10:16
+Creation time: 2018-05-09 11:10:40
 Major        : 3
 Minor        : 0
 Counter      : 1
-PID          : 1467
+Backend PID  : 4157
 Connected    : 1
-Database     : postgres_db
-Username     : postgres
-Start time   : 1150769932
-Creation time: 1150767351
+Database     : test
+Username     : t-ishii
+Start time   : 2018-05-09 11:10:16
+Creation time: 2018-05-09 11:10:40
 Major        : 3
 Minor        : 0
 Counter      : 1
-PID          : 1468
+Backend PID  : 4158
 Connected    : 1
     </PRE
 ></DIV

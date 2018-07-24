@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2016
-.\"    Manual: pgpool-II 3.7.3 Documentation
-.\"    Source: pgpool-II 3.7.3
+.\"    Manual: pgpool-II 3.7.4 Documentation
+.\"    Source: pgpool-II 3.7.4
 .\"  Language: English
 .\"
-.TH "PCP_WATCHDOG_INFO" "1" "2016" "pgpool-II 3.7.3" "pgpool-II 3.7.3 Documentation"
+.TH "PCP_WATCHDOG_INFO" "1" "2016" "pgpool-II 3.7.4" "pgpool-II 3.7.4 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -63,7 +63,7 @@ Here is an example output:
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-u postgres
+$ pcp_watchdog_info \-h localhost \-U postgres
 
 3 NO Linux_host1\&.localdomain_9991 host1
 
@@ -118,7 +118,7 @@ option can help understand the output\&. For example:
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-v \-u postgres
+$ pcp_watchdog_info \-h localhost \-v \-U postgres
 
 Watchdog Cluster Information
 Total Nodes          : 3
