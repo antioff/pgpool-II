@@ -153,7 +153,6 @@ connection_do_auth(POOL_CONNECTION_POOL_SLOT * cp, char *password)
 					 errdetail("backend replied with invalid kind")));
 
 		cp->con->auth_kind = AUTH_REQ_OK;
-		return;
 	}
 	else if (auth_kind == AUTH_REQ_CRYPT)	/* crypt password? */
 	{
@@ -177,7 +176,6 @@ connection_do_auth(POOL_CONNECTION_POOL_SLOT * cp, char *password)
 					 errdetail("backend replied with invalid kind")));
 
 		cp->con->auth_kind = AUTH_REQ_OK;
-		return;
 	}
 	else if (auth_kind == AUTH_REQ_MD5) /* md5 password? */
 	{
@@ -204,7 +202,6 @@ connection_do_auth(POOL_CONNECTION_POOL_SLOT * cp, char *password)
 					 errdetail("backend replied with invalid kind")));
 
 		cp->con->auth_kind = AUTH_REQ_OK;
-		return;
 	}
 	else if (auth_kind == AUTH_REQ_SASL)
 	{
@@ -216,6 +213,7 @@ connection_do_auth(POOL_CONNECTION_POOL_SLOT * cp, char *password)
 		}
 		ereport(DEBUG1,
 				(errmsg("SCRAM authentication successful for user:%s", cp->sp->user)));
+		cp->con->auth_kind = AUTH_REQ_OK;
 	}
 	else
 	{
@@ -1440,6 +1438,14 @@ authenticate_frontend(POOL_CONNECTION * frontend)
 			break;
 		case uaTrust:
 			frontend->frontend_authenticated = true;
+			break;
+#ifdef USE_PAM
+		case uaPAM:
+			ereport(ERROR,
+					(errmsg("authenticate_frontend called with PAM")));
+			break;
+#endif							/* USE_PAM */
+
 	}
 }
 

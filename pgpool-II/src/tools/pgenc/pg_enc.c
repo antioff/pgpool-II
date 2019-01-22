@@ -59,7 +59,7 @@ main(int argc, char *argv[])
 	char		enc_key[MAX_POOL_KEY_LEN + 1];
 	char		pg_pass[MAX_PGPASS_LEN + 1];
 	char		username[MAX_USER_NAME_LEN + 1];
-	char		key_file_path[POOLMAXPATHLEN];
+	char		key_file_path[POOLMAXPATHLEN + sizeof(POOLKEYFILE) + 1];
 	int			opt;
 	int			optindex;
 	bool		updatepasswd = false;
@@ -450,7 +450,7 @@ get_pool_key_filename(char *poolKeyFile)
 
 		if (!get_home_directory(homedir, sizeof(homedir)))
 			return false;
-		snprintf(poolKeyFile, POOLMAXPATHLEN, "%s/%s", homedir, POOLKEYFILE);
+		snprintf(poolKeyFile, POOLMAXPATHLEN + sizeof(POOLKEYFILE) + 1, "%s/%s", homedir, POOLKEYFILE);
 	}
 	return true;
 }

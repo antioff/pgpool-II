@@ -88,6 +88,7 @@ static bool backend_cleanup(POOL_CONNECTION * volatile *frontend, POOL_CONNECTIO
 static void free_persisten_db_connection_memory(POOL_CONNECTION_POOL_SLOT * cp);
 static int	choose_db_node_id(char *str);
 static void child_will_go_down(int code, Datum arg);
+static int opt_sort(const void *a, const void *b);
 
 /*
  * non 0 means SIGTERM(smart shutdown) or SIGINT(fast shutdown) has arrived
@@ -107,7 +108,7 @@ static int	child_unix_fd = 0;
 extern int	myargc;
 extern char **myargv;
 
-char		remote_ps_data[NI_MAXHOST]; /* used for set_ps_display */
+char		remote_ps_data[NI_MAXHOST + NI_MAXSERV + 2]; /* used for set_ps_display */
 
 volatile sig_atomic_t got_sighup = 0;
 
@@ -517,6 +518,12 @@ read_startup_packet(POOL_CONNECTION * cp)
 	int			protov;
 	int			len;
 	char	   *p;
+	char **guc_options;
+	int opt_num = 0;
+	char *sp_sort;
+	char *tmpopt;
+	int i;
+
 
 	sp = (StartupPacket *) palloc0(sizeof(*sp));
 	enable_authentication_timeout();
@@ -543,7 +550,6 @@ read_startup_packet(POOL_CONNECTION * cp)
 	memcpy(&protov, sp->startup_packet, sizeof(protov));
 	sp->major = ntohl(protov) >> 16;
 	sp->minor = ntohl(protov) & 0x0000ffff;
-	p = sp->startup_packet;
 	cp->protoVersion = sp->major;
 
 	switch (sp->major)
@@ -560,6 +566,47 @@ read_startup_packet(POOL_CONNECTION * cp)
 			break;
 
 		case PROTO_MAJOR_V3:	/* V3 */
+			/* copy startup_packet */
+			sp_sort = palloc0(len);
+			memcpy(sp_sort,sp->startup_packet,len);
+
+			p = sp_sort;
+			p += sizeof(int);   /* skip protocol version info */
+			/* count the number of options */
+			while (*p)
+			{
+			p += (strlen(p) + 1); /* skip option name */
+				p += (strlen(p) + 1); /* skip option value */
+				opt_num ++;
+			}
+			guc_options = (char **)palloc0(opt_num * sizeof(char *));
+			/* get guc_option name list */
+			p = sp_sort + sizeof(int);
+			for (i = 0; i < opt_num; i++)
+			{
+				guc_options[i] = p;
+				p += (strlen(p) + 1); /* skip option name */
+				p += (strlen(p) + 1); /* skip option value */
+			}
+			/* sort option name using quick sort */
+			qsort( (void *)guc_options, opt_num, sizeof(char *), opt_sort );
+
+			p = sp->startup_packet + sizeof(int);   /* skip protocol version info */
+			for (i = 0; i < opt_num; i++)
+			{
+				tmpopt = guc_options[i];
+				memcpy(p, tmpopt ,strlen(tmpopt) + 1); /* memcpy option name */
+				p += (strlen(tmpopt) + 1);
+				tmpopt += (strlen(tmpopt) + 1);
+				memcpy(p, tmpopt ,strlen(tmpopt) + 1); /* memcpy option value */
+				p += (strlen(tmpopt) + 1);
+			}
+
+			pfree(guc_options);
+			pfree(sp_sort);
+
+			p = sp->startup_packet;
+
 			p += sizeof(int);	/* skip protocol version info */
 
 			while (*p)
@@ -2034,7 +2081,7 @@ validate_backend_connectivity(int front_end_fd)
 		if (front_end_fd > 0)
 		{
 			POOL_CONNECTION *cp;
-			StartupPacket *sp;
+			volatile StartupPacket *sp;
 
 			/*
 			 * we do not want to report socket error, as above errors will be
@@ -2064,6 +2111,7 @@ validate_backend_connectivity(int front_end_fd)
 				FlushErrorState();
 				ereport(FATAL,
 						(errmsg("%s", error_msg), errdetail("%s", error_detail), errhint("%s", error_hint)));
+				pfree(sp);
 			}
 			PG_END_TRY();
 		}
@@ -2368,4 +2416,9 @@ pg_frontend_exists(void)
 	if (processType != PT_CHILD || child_frontend == NULL)
 		return -1;
 	return 0;
+}
+
+static int opt_sort(const void *a, const void *b)
+{
+	return strcmp( *(char **)a, *(char **)b);
 }
