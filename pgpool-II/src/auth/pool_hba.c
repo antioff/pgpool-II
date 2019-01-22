@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Portions Copyright (c) 2003-2017	PgPool Global Development Group
+ * Portions Copyright (c) 2003-2018	PgPool Global Development Group
  * Portions Copyright (c) 1996-2005, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  * Permission to use, copy, modify, and distribute this software and
@@ -657,13 +657,17 @@ parse_hba_line(TokenizedLine *tok_line, int elevel)
 									line_num, HbaFileName)));
 				*err_msg = psprintf("authentication option not in name=value format: %s",
 									token->string);
+				pfree(str);
 				return NULL;
 			}
 
 			*val++ = '\0';		/* str now holds "name", val holds "value" */
 			if (!parse_hba_auth_opt(str, val, parsedline, elevel, err_msg))
+			{
 			/* parse_hba_auth_opt already logged the error message */
+				pfree(str);
 				return NULL;
+			}
 			pfree(str);
 		}
 	}

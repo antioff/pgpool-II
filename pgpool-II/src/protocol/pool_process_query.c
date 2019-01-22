@@ -2048,7 +2048,7 @@ void do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT **result
 		{
 			char *message = NULL;
 
-			if (pool_extract_error_message(false, backend, major, true, &message))
+			if (pool_extract_error_message(false, backend, major, true, &message) == 1)
 			{
 				/*
 				 * This is fatal. Because: If we operate extended
@@ -2067,6 +2067,8 @@ void do_query(POOL_CONNECTION *backend, char *query, POOL_SELECT_RESULT **result
                         errmsg("Backend throw an error message"),
                          errdetail("Exiting current session because of an error from backend"),
                             errhint("BACKEND Error: \"%s\"",message?message:"")));
+				if (message)
+					pfree(message);
 			}
 		}
 
@@ -4330,19 +4332,19 @@ static bool pool_process_notice_message_from_one_backend(POOL_CONNECTION *fronte
  * kind will be read in this function. If "read_kind" is false, kind
  * should have been already read and it should be either 'E' or
  * 'N'. The returned string is in palloc'd buffer. Callers must pfree
- * it if it becomes neccessary.
+ * it if it becomes unnecessary.
  *
  * If "unread" is true, the packet will be returned to the stream.
  *
  * Return values are:
  * 0: not error or notice message
  * 1: succeeded to extract error message
- * -1: error)
+ * -1: error
  */
 int pool_extract_error_message(bool read_kind, POOL_CONNECTION *backend, int major, bool unread, char **message)
 {
 	char kind;
-	bool ret = 1;
+	int ret = 1;
 	int readlen = 0, len;
 	StringInfo str_buf;             /* unread buffer */
 	StringInfo str_message_buf;		/* message buffer */
@@ -4896,7 +4898,7 @@ bool pool_push_pending_data(POOL_CONNECTION *backend)
 		pool_push(backend, &len_save, sizeof(len_save));
 		len = ntohl(len_save);
 		len -= sizeof(len);
-		if (len > 0)
+		if (len > 0 && buf)
 		{
 			pool_push(backend, buf, len);
 			pfree(buf);
