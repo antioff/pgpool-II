@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.5 Documentation"
+TITLE="pgpool-II 4.0.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="SQL type commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:19"></HEAD
+CONTENT="2018-10-19T01:17:51"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.5 Documentation</A
+>pgpool-II 4.0.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="SQL-SHOW-POOL-NODES"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN6791"
+NAME="AEN7515"
 ></A
 ><H2
 >Name</H2
@@ -104,7 +104,7 @@ NAME="AEN6791"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN6794"
+NAME="AEN7518"
 ></A
 ><H2
 >Synopsis</H2
@@ -116,7 +116,7 @@ CLASS="SYNOPSIS"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6796"
+NAME="AEN7520"
 ></A
 ><H2
 >Description</H2
@@ -128,13 +128,14 @@ CLASS="COMMAND"
       hostname, the port, the status, the weight (only meaningful if
       you use the load balancing mode), the role, the SELECT query
       counts issued to each backend, whether each node is the load
-      bakance node or not, and the replication delay (only if in
-      streaming replication mode). The possible values in the status
-      column are explained in the <A
+      bakance node or not, the replication delay (only if in streaming
+      replication mode) and last status change time. The possible
+      values in the status column are explained in
+      the <A
 HREF="pcp-node-info.html"
 >pcp_node_info</A
->
-      reference. If the hostname is something like "/tmp", that means
+> reference. If the hostname is
+      something like "/tmp", that means
       <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -145,20 +146,27 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgoool-II</SPAN
 >. Also the counters are
-      reset to zero upon starting up of <SPAN
+      reset to zero upon starting up
+      of <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->.
+>.  The last status change
+      time is initially set to the
+      time <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> starts.  After that
+      whenever "status" or "role" is changed, it is updated.
     </P
 ><P
 >      Here is an example session:
 </P><PRE
 CLASS="PROGRAMLISTING"
 >test=# show pool_nodes;
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
----------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
- 0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | false             | 0
- 1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | true              | 0
+ node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | last_status_change  
+---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------+---------------------
+ 0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | true              | 0                 | 2018-06-12 21:45:59
+ 1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | false             | 0                 | 2018-06-12 21:45:59
 (2 rows)</PRE
 ><P>
     </P

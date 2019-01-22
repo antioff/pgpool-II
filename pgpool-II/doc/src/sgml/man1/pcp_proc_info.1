@@ -2,12 +2,12 @@
 .\"     Title: pcp_proc_info
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: pgpool-II 3.7.5 Documentation
-.\"    Source: pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: pgpool-II 4.0.0 Documentation
+.\"    Source: pgpool-II 4.0.0
 .\"  Language: English
 .\"
-.TH "PCP_PROC_INFO" "1" "2016" "pgpool-II 3.7.5" "pgpool-II 3.7.5 Documentation"
+.TH "PCP_PROC_INFO" "1" "2018" "pgpool-II 4.0.0" "pgpool-II 4.0.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@
 pcp_proc_info \- displays the information on the given Pgpool\-II child process ID
 .SH "SYNOPSIS"
 .HP \w'\fBpcp_proc_info\fR\ 'u
-\fBpcp_proc_info\fR [\fIoptions\fR...] [\fIprocessid\fR]
+\fBpcp_proc_info\fR [\fIoptions\fR...] [\fIpgpool_child_processid\fR]
 .SH "DESCRIPTION"
 .PP
 \fBpcp_proc_info\fR
@@ -39,11 +39,20 @@ displays the information on the given Pgpool\-II child process ID\&.
 .SH "OPTIONS"
 .PP
 .PP
+\fB\-a\fR
+.br
+\fB\-\-all\fR
+.RS 4
+Display all child processes and their available connection slots\&.
+.RE
+.PP
 \fB\-P \fR\fB\fIPID\fR\fR
 .br
 \fB\-\-process\-id=\fR\fB\fIPID\fR\fR
 .RS 4
-PID of Pgpool\-II child process\&.
+PID of
+Pgpool\-II
+child process\&.
 .RE
 .PP
 \fBOther options \fR
@@ -51,6 +60,11 @@ PID of Pgpool\-II child process\&.
 See
 \fBpcp_common_options\fR(1)\&.
 .RE
+If \-a nor \-P is not specified, process information of all connected
+Pgpool\-II
+child process will be printed\&. In this case if there\*(Aqs no connected
+Pgpool\-II
+child process, nothing but "No process information available" message will be printed\&.
 .SH "EXAMPLE"
 .PP
 Here is an example output:
@@ -59,9 +73,9 @@ Here is an example output:
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-p 11001
-test t\-ishii 2018\-05\-09 11:10:16 2018\-05\-09 11:10:40 3 0 1 4157 1
-test t\-ishii 2018\-05\-09 11:10:16 2018\-05\-09 11:10:40 3 0 1 4158 1
+$ pcp_proc_info \-p 11001 1406
+test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1435 1 1406 0
+test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1436 1 1406 1
     
 .fi
 .if n \{\
@@ -83,6 +97,8 @@ The result is in the following order:
 7\&. connection\-reuse counter
 8\&. PostgreSQL backend process id
 9\&. 1 if frontend conncted 0 if not
+10\&. pgpool child process id
+11\&. PostgreSQL backend id 
 .fi
 .if n \{\
 .RE
@@ -98,25 +114,29 @@ option can help understand the output\&. For example:
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-p 11001 \-\-verbose
+$ pcp_proc_info \-p 11001 \-\-verbose 1406
 Database     : test
 Username     : t\-ishii
-Start time   : 2018\-05\-09 11:10:16
-Creation time: 2018\-05\-09 11:10:40
+Start time   : 2018\-07\-09 16:43:53
+Creation time: 2018\-07\-09 16:44:08
 Major        : 3
 Minor        : 0
 Counter      : 1
-Backend PID  : 4157
+Backend PID  : 1435
 Connected    : 1
+PID          : 1406
+Backend ID   : 0
 Database     : test
 Username     : t\-ishii
-Start time   : 2018\-05\-09 11:10:16
-Creation time: 2018\-05\-09 11:10:40
+Start time   : 2018\-07\-09 16:43:53
+Creation time: 2018\-07\-09 16:44:08
 Major        : 3
 Minor        : 0
 Counter      : 1
-Backend PID  : 4158
+Backend PID  : 1436
 Connected    : 1
+PID          : 1406
+Backend ID   : 1
     
 .fi
 .if n \{\

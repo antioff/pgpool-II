@@ -2,12 +2,12 @@
 .\"     Title: pg_md5
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: pgpool-II 3.7.5 Documentation
-.\"    Source: pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: pgpool-II 4.0.0 Documentation
+.\"    Source: pgpool-II 4.0.0
 .\"  Language: English
 .\"
-.TH "PG_MD5" "1" "2016" "pgpool-II 3.7.5" "pgpool-II 3.7.5 Documentation"
+.TH "PG_MD5" "1" "2018" "pgpool-II 4.0.0" "pgpool-II 4.0.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -52,7 +52,8 @@ Prompt password using standard input\&.
 .br
 \fB\-\-md5auth\fR
 .RS 4
-Produce md5 authentication password\&.
+Produce md5 authentication password to authentication file
+pool_passwd\&.
 .RE
 .PP
 \fB\-u \fR\fB\fIyour_username\fR\fR
@@ -62,15 +63,25 @@ Produce md5 authentication password\&.
 When producing a md5 authentication password, create the pool_passwd entry for
 your_username\&.
 .RE
+.PP
+\fB\-f \fR\fB\fIconfig_file\fR\fR
+.br
+\fB\-\-config\-file=\fR\fB\fIconfig_file\fR\fR
+.RS 4
+Specify the path to the
+pgpool\&.conf
+configuration file\&.
+.RE
 .SH "EXAMPLE"
 .PP
-Here is an example output:
+The following are examples to encrypt your password into md5 hash format for
+pcp\&.conf\&.
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-pg_md5 \-p
+$ pg_md5 \-p
 password: [your password]
     
 .fi
@@ -84,10 +95,34 @@ or
 .RS 4
 .\}
 .nf
-\&./pg_md5 foo
+$ pg_md5 [your password]
 acbd18db4cc2f85cedef654fccc4a4d8
     
 .fi
 .if n \{\
 .RE
 .\}
+.PP
+pg_md5
+can also be used for adding an entry of user name and
+md5
+encrypted password to
+pool_passwd
+authentication file\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$pg_md5 \-m \-f /path/to/pgpool\&.conf \-u username \-p
+password: [your password]
+
+$ cat /path/to/pool_passwd 
+username:md55a231fcdb710d73268c4f44283487ba2
+      
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

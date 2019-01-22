@@ -7,8 +7,8 @@
  * It can be used to buffer either ordinary C strings (null-terminated text)
  * or arbitrary binary data.  All storage is allocated with palloc().
  *
- * Portions Copyright (c) 2003-2017, PgPool Global Development Group
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2018, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/lib/stringinfo.h
@@ -26,7 +26,7 @@
 /* port.h */
 
 #ifdef USE_REPL_SNPRINTF
-extern int pg_vsnprintf(char *str, size_t count, const char *fmt, va_list args);
+extern int	pg_vsnprintf(char *str, size_t count, const char *fmt, va_list args);
 
 /*
  *  The GCC-specific code below prevents the __attribute__(... 'printf')
@@ -42,7 +42,7 @@ extern int pg_vsnprintf(char *str, size_t count, const char *fmt, va_list args);
 #endif
 #endif
 
-#endif   /* USE_REPL_SNPRINTF */
+#endif							/* USE_REPL_SNPRINTF */
 
 /* utils.memutils.h */
 
@@ -63,7 +63,7 @@ extern int pg_vsnprintf(char *str, size_t count, const char *fmt, va_list args);
  * MemoryContextAllocHuge().  Both limits permit code to assume that it may
  * compute twice an allocation's size without overflow.
  */
-#define MaxAllocSize    ((Size) 0x3fffffff)     /* 1 gigabyte - 1 */
+#define MaxAllocSize    ((Size) 0x3fffffff) /* 1 gigabyte - 1 */
 
 
 /*-------------------------
@@ -191,6 +191,14 @@ extern void appendStringInfoSpaces(StringInfo str, int count);
  */
 extern void appendBinaryStringInfo(StringInfo str,
 					   const char *data, int datalen);
+
+/*------------------------
+ * appendBinaryStringInfoNT
+ * Append arbitrary binary data to a StringInfo, allocating more space
+ * if necessary. Does not ensure a trailing null-byte exists.
+ */
+extern void appendBinaryStringInfoNT(StringInfo str,
+						 const char *data, int datalen);
 
 /*------------------------
  * enlargeStringInfo

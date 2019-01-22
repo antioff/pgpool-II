@@ -1,11 +1,9 @@
 /* -*-pgsql-c-*- */
 /*
- * $Header$
- *
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2017	PgPool Global Development Group
+ * Copyright (c) 2003-2018	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -63,8 +61,8 @@
 #include "auth/pool_hba.h"
 #include "utils/pool_stream.h"
 
-char remote_ps_data[NI_MAXHOST];		/* used for set_ps_display */
-static POOL_CONNECTION_POOL_SLOT	*slots[MAX_NUM_BACKENDS];
+char		remote_ps_data[NI_MAXHOST]; /* used for set_ps_display */
+static POOL_CONNECTION_POOL_SLOT * slots[MAX_NUM_BACKENDS];
 static volatile sig_atomic_t reload_config_request = 0;
 static volatile sig_atomic_t restart_request = 0;
 
@@ -76,7 +74,6 @@ static unsigned long long int text_to_lsn(char *text);
 static RETSIGTYPE my_signal_handler(int sig);
 static RETSIGTYPE reload_config_handler(int sig);
 static void reload_config(void);
-static int get_query_result(int backend_id, char *query, POOL_SELECT_RESULT **res);
 
 #define CHECK_REQUEST \
 	do { \
@@ -97,13 +94,14 @@ static int get_query_result(int backend_id, char *query, POOL_SELECT_RESULT **re
 /*
 * worker child main loop
 */
-void do_worker_child(void)
+void
+do_worker_child(void)
 {
-    sigjmp_buf	local_sigjmp_buf;
+	sigjmp_buf	local_sigjmp_buf;
 	MemoryContext WorkerMemoryContext;
-	
+
 	ereport(DEBUG1,
-		(errmsg("I am %d", getpid())));
+			(errmsg("I am %d", getpid())));
 
 	/* Identify myself via ps */
 	init_ps_display("", "", "", "");
@@ -120,13 +118,13 @@ void do_worker_child(void)
 	signal(SIGUSR2, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
 
-    /* Create per loop iteration memory context */
+	/* Create per loop iteration memory context */
 	WorkerMemoryContext = AllocSetContextCreate(TopMemoryContext,
-                                             "Worker_main_loop",
-                                             ALLOCSET_DEFAULT_MINSIZE,
-                                             ALLOCSET_DEFAULT_INITSIZE,
-                                             ALLOCSET_DEFAULT_MAXSIZE);
-    
+												"Worker_main_loop",
+												ALLOCSET_DEFAULT_MINSIZE,
+												ALLOCSET_DEFAULT_INITSIZE,
+												ALLOCSET_DEFAULT_MAXSIZE);
+
 	MemoryContextSwitchTo(TopMemoryContext);
 
 	/* Initialize my backend status */
@@ -135,7 +133,7 @@ void do_worker_child(void)
 	/* Initialize per process context */
 	pool_init_process_context();
 
-    if (sigsetjmp(local_sigjmp_buf, 1) != 0)
+	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
 	{
 		pool_signal(SIGALRM, SIG_IGN);
 		error_context_stack = NULL;
@@ -149,7 +147,7 @@ void do_worker_child(void)
 
 	for (;;)
 	{
-        MemoryContextSwitchTo(WorkerMemoryContext);
+		MemoryContextSwitchTo(WorkerMemoryContext);
 		MemoryContextResetAndDeleteChildren(WorkerMemoryContext);
 
 		CHECK_REQUEST;
@@ -166,20 +164,43 @@ void do_worker_child(void)
 		if (pool_config->sr_check_period > 0 && STREAM)
 		{
 			establish_persistent_connection();
-            PG_TRY();
-            {
+			PG_TRY();
+			{
+				POOL_NODE_STATUS *node_status;
+				int			i;
 
-            	/* Do replication time lag checking */
-            	check_replication_time_lag();
-            }
-            PG_CATCH();
-            {
-	    		discard_persistent_connection();
-	    		sleep(pool_config->sr_check_period);
-	    		PG_RE_THROW();
-            }
-            PG_END_TRY();
-            
+				/* Do replication time lag checking */
+				check_replication_time_lag();
+
+				/* Check node status */
+				node_status = verify_backend_node_status(slots);
+				for (i = 0; i < NUM_BACKENDS; i++)
+				{
+					ereport(DEBUG1,
+							(errmsg("node status[%d]: %d", i, node_status[i])));
+
+					if (node_status[i] == POOL_NODE_STATUS_INVALID)
+					{
+						int			n;
+
+						ereport(LOG,
+								(errmsg("pgpool_worker_child: invalid node found %d", i)));
+						if (pool_config->detach_false_primary)
+						{
+							n = i;
+							degenerate_backend_set(&n, 1, REQ_DETAIL_SWITCHOVER | REQ_DETAIL_CONFIRMED);
+						}
+					}
+				}
+			}
+			PG_CATCH();
+			{
+				discard_persistent_connection();
+				sleep(pool_config->sr_check_period);
+				PG_RE_THROW();
+			}
+			PG_END_TRY();
+
 			/* Discard persistent connections */
 			discard_persistent_connection();
 		}
@@ -191,36 +212,44 @@ void do_worker_child(void)
 /*
  * Establish persistent connection to backend
  */
-static void establish_persistent_connection(void)
+static void
+establish_persistent_connection(void)
 {
-	int i;
+	int			i;
 	BackendInfo *bkinfo;
-	
-	for (i=0;i<NUM_BACKENDS;i++)
+
+	char	   *password = get_pgpool_config_user_password(pool_config->sr_check_user,
+														   pool_config->sr_check_password);
+
+	for (i = 0; i < NUM_BACKENDS; i++)
 	{
 		if (!VALID_BACKEND(i))
 			continue;
 
 		if (slots[i] == NULL)
 		{
-                bkinfo = pool_get_node_info(i);
-                slots[i] = make_persistent_db_connection_noerror(i, bkinfo->backend_hostname,
-											  bkinfo->backend_port,
-											  pool_config->sr_check_database,
-											  pool_config->sr_check_user,
-											  pool_config->sr_check_password, true);
+			bkinfo = pool_get_node_info(i);
+			slots[i] = make_persistent_db_connection_noerror(i, bkinfo->backend_hostname,
+															 bkinfo->backend_port,
+															 pool_config->sr_check_database,
+															 pool_config->sr_check_user,
+															 password ? password : "", true);
 		}
 	}
+
+	if (password)
+		pfree(password);
 }
 
 /*
  * Discard persistent connection to backend
  */
-static void discard_persistent_connection(void)
+static void
+discard_persistent_connection(void)
 {
-	int i;
+	int			i;
 
-	for (i=0;i<NUM_BACKENDS;i++)
+	for (i = 0; i < NUM_BACKENDS; i++)
 	{
 		if (slots[i])
 		{
@@ -233,16 +262,17 @@ static void discard_persistent_connection(void)
 /*
  * Check replication time lag
  */
-static void check_replication_time_lag(void)
+static void
+check_replication_time_lag(void)
 {
 	/* backend server version cache */
-	static int server_version[MAX_NUM_BACKENDS];
+	static int	server_version[MAX_NUM_BACKENDS];
 
-	int i;
-	int active_nodes = 0;
+	int			i;
+	int			active_nodes = 0;
 	POOL_SELECT_RESULT *res;
 	unsigned long long int lsn[MAX_NUM_BACKENDS];
-	char *query;
+	char	   *query;
 	BackendInfo *bkinfo;
 	unsigned long long int lag;
 	ErrorContextCallback callback;
@@ -260,7 +290,7 @@ static void check_replication_time_lag(void)
 	}
 
 	/* Count healthy nodes */
-	for (i=0;i<NUM_BACKENDS;i++)
+	for (i = 0; i < NUM_BACKENDS; i++)
 	{
 		if (VALID_BACKEND(i))
 			active_nodes++;
@@ -268,8 +298,10 @@ static void check_replication_time_lag(void)
 
 	if (active_nodes <= 1)
 	{
-		/* If there's only one or less active node, there's no point
-		 * to do checking */
+		/*
+		 * If there's only one or less active node, there's no point to do
+		 * checking
+		 */
 		return;
 	}
 
@@ -281,17 +313,17 @@ static void check_replication_time_lag(void)
 	callback.previous = error_context_stack;
 	error_context_stack = &callback;
 
-	for (i=0;i<NUM_BACKENDS;i++)
+	for (i = 0; i < NUM_BACKENDS; i++)
 	{
 		if (!VALID_BACKEND(i))
 			continue;
 
 		if (!slots[i])
 		{
-            ereport(ERROR,
-                    (errmsg("Failed to check replication time lag"),
-                     errdetail("No persistent db connection for the node %d",i),
-                        errhint("check sr_check_user and sr_check_password")));
+			ereport(ERROR,
+					(errmsg("Failed to check replication time lag"),
+					 errdetail("No persistent db connection for the node %d", i),
+					 errhint("check sr_check_user and sr_check_password")));
 
 		}
 
@@ -299,14 +331,17 @@ static void check_replication_time_lag(void)
 		{
 			query = "SELECT current_setting('server_version_num')";
 
-			/* Get backend serversion. If the query fails, keep previous info. */
-			if (get_query_result(i, query, &res) == 0)
+			/*
+			 * Get backend server version. If the query fails, keep previous
+			 * info.
+			 */
+			if (get_query_result(slots, i, query, &res) == 0)
 			{
 				server_version[i] = atoi(res->data[0]);
 				ereport(DEBUG1,
 						(errmsg("backend %d server version: %d", i, server_version[i])));
 			}
-			
+
 		}
 
 		if (PRIMARY_NODE_ID == i)
@@ -324,7 +359,7 @@ static void check_replication_time_lag(void)
 				query = "SELECT pg_last_xlog_replay_location()";
 		}
 
-		if (get_query_result(i, query, &res) == 0)
+		if (get_query_result(slots, i, query, &res) == 0 && res->nullflags[0] != -1)
 		{
 			lsn[i] = text_to_lsn(res->data[0]);
 			free_select_result(res);
@@ -335,7 +370,7 @@ static void check_replication_time_lag(void)
 		}
 	}
 
-	for (i=0;i<NUM_BACKENDS;i++)
+	for (i = 0; i < NUM_BACKENDS; i++)
 	{
 		if (!VALID_BACKEND(i))
 			continue;
@@ -358,9 +393,9 @@ static void check_replication_time_lag(void)
 				 pool_config->log_standby_delay == LSD_OVER_THRESHOLD &&
 				 lag > pool_config->delay_threshold))
 			{
-                ereport(LOG,
-                        (errmsg("Replication of node:%d is behind %llu bytes from the primary server (node:%d)",
-                                i, lsn[PRIMARY_NODE_ID] - lsn[i], PRIMARY_NODE_ID)));
+				ereport(LOG,
+						(errmsg("Replication of node:%d is behind %llu bytes from the primary server (node:%d)",
+								i, lsn[PRIMARY_NODE_ID] - lsn[i], PRIMARY_NODE_ID)));
 			}
 		}
 	}
@@ -368,14 +403,17 @@ static void check_replication_time_lag(void)
 	error_context_stack = callback.previous;
 }
 
-static void CheckReplicationTimeLagErrorCb(void *arg)
+static void
+CheckReplicationTimeLagErrorCb(void *arg)
 {
 	errcontext("while checking replication time lag");
 }
+
 /*
  * Convert logid/recoff style text to 64bit log location (LSN)
  */
-static unsigned long long int text_to_lsn(char *text)
+static unsigned long long int
+text_to_lsn(char *text)
 {
 /*
  * WAL segment size in bytes.  XXX We should fetch this from
@@ -387,14 +425,14 @@ static unsigned long long int text_to_lsn(char *text)
 	unsigned int xrecoff;
 	unsigned long long int lsn;
 
-	if (sscanf(text, "%X/%X", &xlogid, &xrecoff) != 2)
+	if (sscanf(text, "%X/%X", &xlogid, &xrecoff) !=2)
 	{
-        ereport(ERROR,
-            (errmsg("invalid LSN format"),
-                 errdetail("wrong log location format: %s", text)));
+		ereport(ERROR,
+				(errmsg("invalid LSN format"),
+				 errdetail("wrong log location format: %s", text)));
 
 	}
-	lsn = xlogid * ((unsigned long long int)0xffffffff - WALSEGMENTSIZE) + xrecoff;
+	lsn = xlogid * ((unsigned long long int) 0xffffffff - WALSEGMENTSIZE) + xrecoff;
 #ifdef DEBUG
 	ereport(LOG,
 			(errmsg("lsn: %X %X %llX", xlogid, xrecoff, lsn)));
@@ -404,7 +442,7 @@ static unsigned long long int text_to_lsn(char *text)
 
 static RETSIGTYPE my_signal_handler(int sig)
 {
-	int save_errno = errno;
+	int			save_errno = errno;
 
 	POOL_SETMASK(&BlockSig);
 
@@ -433,72 +471,92 @@ static RETSIGTYPE my_signal_handler(int sig)
 
 static RETSIGTYPE reload_config_handler(int sig)
 {
-	int save_errno = errno;
+	int			save_errno = errno;
+
 	POOL_SETMASK(&BlockSig);
 	reload_config_request = 1;
 	POOL_SETMASK(&UnBlockSig);
 	errno = save_errno;
 }
 
-static void reload_config(void)
+static void
+reload_config(void)
 {
 	ereport(LOG,
 			(errmsg("reloading config file")));
-    MemoryContext oldContext = MemoryContextSwitchTo(TopMemoryContext);
+	MemoryContext oldContext = MemoryContextSwitchTo(TopMemoryContext);
+
 	pool_get_config(get_config_file_name(), CFGCXT_RELOAD);
-    MemoryContextSwitchTo(oldContext);
+	MemoryContextSwitchTo(oldContext);
 	if (pool_config->enable_pool_hba)
 		load_hba(get_hba_file_name());
 	reload_config_request = 0;
 }
 
 /*
- * Execute query against specified backend.
- * Return -1 on failure or 0 otherwise.
- * Caller must prepare memory for POOL_SELECT_RESULT and pass it as "res".
+ * Execute query against specified backend using an established connection to
+ * backend.  Return -1 on failure or 0 otherwise.  Caller must prepare memory
+ * for POOL_SELECT_RESULT and pass it as "res". It is guaranteed that no
+ * exception occurs within this function.
  */
-
-static 	int get_query_result(int backend_id, char *query, POOL_SELECT_RESULT **res)
+int
+get_query_result(POOL_CONNECTION_POOL_SLOT * *slots, int backend_id, char *query, POOL_SELECT_RESULT * *res)
 {
-	int sts = -1;
+	int			sts = -1;
+	MemoryContext oldContext = CurrentMemoryContext;
 
-	do_query(slots[backend_id]->con, query, res, PROTO_MAJOR_V3);
+	PG_TRY();
+	{
+		do_query(slots[backend_id]->con, query, res, PROTO_MAJOR_V3);
+	}
+	PG_CATCH();
+	{
+		/* ignore the error message */
+		res = NULL;
+		MemoryContextSwitchTo(oldContext);
+		FlushErrorState();
+		ereport(LOG,
+				(errmsg("get_query_result: do_query failed")));
+	}
+	PG_END_TRY();
 
 	if (!res)
 	{
-		ereport(ERROR,
-				(errmsg("Failed to check replication time lag"),
-				 errdetail("Query to node (%d) returned no result for node", backend_id)));
+		ereport(LOG,
+				(errmsg("get_query_result: no result returned"),
+				 errdetail("node id (%d)", backend_id)));
 		return sts;
 	}
 
 	if ((*res)->numrows <= 0)
 	{
 		free_select_result(*res);
-		ereport(ERROR,
-				(errmsg("Failed to check replication time lag"),
-				 errdetail("Query to node (%d) returned result with no rows", backend_id)));
+		ereport(LOG,
+				(errmsg("get_query_result: no rows returned"),
+				 errdetail("node id (%d)", backend_id)));
 		return sts;
 	}
 
+/*
 	if ((*res)->data[0] == NULL)
 	{
 		free_select_result(*res);
-		ereport(ERROR,
-				(errmsg("Failed to check replication time lag"),
-				 errdetail("Query to node (%d) returned no data", backend_id)));
+		ereport(LOG,
+				(errmsg("get_query_result: no rows returned"),
+				 errdetail("node id (%d)", backend_id)));
 		return sts;
 	}
+
 
 	if ((*res)->nullflags[0] == -1)
 	{
 		free_select_result(*res);
-		ereport(ERROR,
-				(errmsg("Failed to check replication time lag"),
-				 errdetail("Query to node (%d) returned NULL data", backend_id)));
+		ereport(LOG,
+				(errmsg("get_query_result: NULL data returned"),
+				 errdetail("node id (%d)", backend_id)));
 		return sts;
 	}
-
+*/
 	sts = 0;
 	return sts;
 }

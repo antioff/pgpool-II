@@ -17,6 +17,7 @@ pgpool_SOURCES = main/main.c \
 	auth/pool_auth.c \
 	auth/pool_passwd.c \
 	auth/pool_hba.c \
+	auth/auth-scram.c \
 	protocol/pool_proto2.c \
 	protocol/child.c \
 	protocol/pool_process_query.c \
@@ -53,6 +54,10 @@ pgpool_SOURCES = main/main.c \
 	utils/regex_array.c \
 	utils/json_writer.c \
 	utils/json.c \
+	utils/scram-common.c \
+	utils/base64.c \
+	utils/sha2.c \
+	utils/ssl_utils.c \
     utils/statistics.c
 
 DEFS = @DEFS@ \
@@ -95,6 +100,8 @@ EXTRA_DIST = sample/pgpool.pam \
 		sql/pgpool-recovery/pgpool-recovery.c \
 		sql/pgpool-recovery/pgpool-recovery.sql.in \
 		sql/pgpool-recovery/uninstall_pgpool-recovery.sql \
+		sql/pgpool-recovery/pgpool_recovery--1.2.sql \
+		sql/pgpool-recovery/pgpool_recovery--1.1--1.2.sql \
 		sql/pgpool-recovery/pgpool_recovery--1.1.sql \
 		sql/pgpool-recovery/pgpool_recovery.control \
 		sql/pgpool-recovery/Makefile \
@@ -107,8 +114,9 @@ EXTRA_DIST = sample/pgpool.pam \
 		sql/pgpool_adm/pgpool_adm.c \
 		sql/pgpool_adm/pgpool_adm.h \
 		sql/pgpool_adm/pgpool_adm.control \
+		sql/pgpool_adm/pgpool_adm--1.1.sql \
+		sql/pgpool_adm/pgpool_adm--1.0--1.1.sql \
 		sql/pgpool_adm/pgpool_adm--1.0.sql \
-		sql/pgpool_adm/pgpool_adm.sql.in \
 		sql/pgpool_adm/Makefile \
 		test/parser/expected/copy.out test/parser/expected/create.out \
 		test/parser/expected/cursor.out test/parser/expected/delete.out \

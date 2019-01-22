@@ -1,0 +1,264 @@
+'\" t
+.\"     Title: pgproto
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 2018
+.\"    Manual: pgpool-II 4.0.0 Documentation
+.\"    Source: pgpool-II 4.0.0
+.\"  Language: English
+.\"
+.TH "PGPROTO" "1" "2018" "pgpool-II 4.0.0" "pgpool-II 4.0.0 Documentation"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+pgproto \- tests PostgreSQL or any other servers that understand the frontend/backend protocol\&.
+.SH "SYNOPSIS"
+.HP \w'\fBpgproto\fR\ 'u
+\fBpgproto\fR [\fIoption\fR...]
+.SH "DESCRIPTION"
+.PP
+\fBpgproto\fR
+tests
+PostgreSQL
+or any other servers that understand the frontend/backend protocol\&.
+.SH "OPTIONS"
+.PP
+.PP
+\fB\-h \fR\fB\fIhostname\fR\fR
+.br
+\fB\-\-hostname=\fR\fB\fIhostname\fR\fR
+.RS 4
+The host name of the machine on which the server is running\&. If the value begins with a slash, it is used as the directory for the Unix\-domain socket (default: Unix\-domain socket)\&.
+.RE
+.PP
+\fB\-p \fR\fB\fIport\fR\fR
+.br
+\fB\-\-port=\fR\fB\fIport\fR\fR
+.RS 4
+The port number (default:5432)\&.
+.RE
+.PP
+\fB\-u \fR\fB\fIusername\fR\fR
+.br
+\fB\-\-user=\fR\fB\fIusername\fR\fR
+.RS 4
+The user name (default: OS user name)\&.
+.RE
+.PP
+\fB\-d \fR\fB\fIdatabasename\fR\fR
+.br
+\fB\-\-database=\fR\fB\fIdatabasename\fR\fR
+.RS 4
+The database name (default: same as user)\&.
+.RE
+.PP
+\fB\-f \fR\fB\fIfilename\fR\fR
+.br
+\fB\-\-proto\-data\-file=\fR\fB\fIfilename\fR\fR
+.RS 4
+Text file describing message data to be sent to
+PostgreSQL
+(default: pgproto\&.data)\&.
+.RE
+.PP
+\fB\-r \fR\fB\fInaptime\fR\fR
+.br
+\fB\-\-read\-nap=\fR\fB\fInaptime\fR\fR
+.RS 4
+The nap time in micro seconds (default:0)\&. Greater than 0 will let pgproto sleep between each data reading from socket\&. This is useful to simulate slow clients\&.
+.RE
+.PP
+\fB\-D\fR
+.br
+\fB\-\-debug\fR
+.RS 4
+Enable debug message\&.
+.RE
+.PP
+\fB\-v\fR
+.br
+\fB\-\-version\fR
+.RS 4
+Print the command version, then exit\&.
+.RE
+.PP
+\fB\-?\fR
+.br
+\fB\-\-help\fR
+.RS 4
+Shows help for the command line arguments, then exit\&.
+.RE
+.SH "EXAMPLE"
+.PP
+In the example below, the first character in the file (i\&.e\&. \*(AqQ\*(Aq) indicates the message kind specified in the PostgreSQL frontend/backend protocol\&.
+.PP
+Exceptions are \*(AqY\*(Aq and \*(Aqy\*(Aq\&. \*(AqY\*(Aq reads messages from backend until \*(AqReady for query\*(Aq is received\&. \*(Aqy\*(Aq reads messages from backend while messages are coming from backend then stops if messages are not available for 1 second\&. \*(AqY\*(Aq is used for waiting for reply of \*(AqQ\*(Aq (simple query) or after \*(AqS\*(Aq (sync) in extended queries\&. \*(Aqy\*(Aq can be used for receiving messages after \*(AqH\*(Aq (flush)\&.
+.PP
+If you want to include a " (double quotation) in a string data type, for example "SELECT * FROM "aaa"", you can qualify it by using \e (back slash) like ""SELECT * FROM "aaa"" A command line spread over multiple lines can be created using \e as well\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\*(AqQ\*(Aq "SELECT * FROM aaa \e
+WHERE a = 1"
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Here is an example input file:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#
+# Test data example
+#
+\*(AqQ\*(Aq	"SELECT * FROM aaa"
+\*(AqY\*(Aq
+\*(AqP\*(Aq	"S1"	"BEGIN"	0
+\*(AqB\*(Aq	""	"S1"	0	0	0
+\*(AqE\*(Aq	""	0
+\*(AqC\*(Aq	\*(AqS\*(Aq	"S1"
+\*(AqP\*(Aq	"foo"	"SELECT 1"	0
+\*(AqB\*(Aq	"myportal"	"foo"	0	0	0
+\*(AqE\*(Aq	"myportal"	0
+\*(AqP\*(Aq	"S2"	"COMMIT"	0
+\*(AqB\*(Aq	""	"S2"	0	0	0
+\*(AqE\*(Aq	""	0
+\*(AqC\*(Aq	\*(AqS\*(Aq	"S2"
+\*(AqS\*(Aq
+\*(AqY\*(Aq
+\*(AqX\*(Aq
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Here is an example output:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pgproto \-p 11000 \-d test \-f sample\&.data
+FE=> Query (query="SELECT * FROM aaa")
+<= BE RowDescription
+<= BE CommandComplete(SELECT 0)
+<= BE ReadyForQuery(I)
+FE=> Parse(stmt="S1", query="BEGIN")
+FE=> Bind(stmt="S1", portal="")
+FE=> Execute(portal="")
+FE=> Close(stmt="S1")
+FE=> Parse(stmt="foo", query="SELECT 1")
+FE=> Bind(stmt="foo", portal="myportal")
+FE=> Execute(portal="myportal")
+FE=> Parse(stmt="S2", query="COMMIT")
+FE=> Bind(stmt="S2", portal="")
+FE=> Execute(portal="")
+FE=> Close(stmt="S2")
+FE=> Sync
+<= BE ParseComplete
+<= BE BindComplete
+<= BE CommandComplete(BEGIN)
+<= BE CloseComplete
+<= BE ParseComplete
+<= BE BindComplete
+<= BE DataRow
+<= BE CommandComplete(SELECT 1)
+<= BE ParseComplete
+<= BE BindComplete
+<= BE CommandComplete(COMMIT)
+<= BE CloseComplete
+<= BE ReadyForQuery(I)
+FE=> Terminate
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Other example data files:
+.PP
+Copy
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#
+# Test data example
+#
+
+# CopyIn
+#
+\*(AqQ\*(Aq	"COPY t1 FROM STDIN"
+# CopyData
+\*(Aqd\*(Aq	"abc"
+# CopyDone
+\*(Aqc\*(Aq
+\*(AqY\*(Aq
+
+# CopyOut
+#
+\*(AqQ\*(Aq	"COPY t1 TO STDOUT"
+\*(AqY\*(Aq
+
+#
+# Copy fail case
+#
+\*(AqQ\*(Aq	"COPY t1 FROM STDIN"
+# CopyData
+\*(Aqd\*(Aq	"abc"
+# CopyFail
+\*(Aqf\*(Aq	"pgproto copy fail test"
+\*(AqY\*(Aq
+\*(AqX\*(Aq
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Function Call
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#
+# Test data example
+#
+
+# Function call (lo_creat)
+# from PostgreSQL\*(Aqs src/include/catalog/pg_proc\&.data
+# { oid => \*(Aq957\*(Aq, descr => \*(Aqlarge object create\*(Aq,
+#  proname => \*(Aqlo_creat\*(Aq, provolatile => \*(Aqv\*(Aq, proparallel => \*(Aqu\*(Aq,
+#  prorettype => \*(Aqoid\*(Aq, proargtypes => \*(Aqint4\*(Aq, prosrc => \*(Aqbe_lo_creat\*(Aq },
+
+\*(AqF\*(Aq	957	1	0	1	1	"0"	0
+\*(AqY\*(Aq
+\*(AqX\*(Aq
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

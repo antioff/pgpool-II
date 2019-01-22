@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2018	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -39,29 +39,33 @@
 #include "utils/memutils.h"
 #include "pool_config.h"
 #include "watchdog/wd_utils.h"
+#include "utils/ssl_utils.h"
 
-static int has_setuid_bit(char * path);
+static int	has_setuid_bit(char *path);
 static void *exec_func(void *arg);
 
 /*
  * thread information for pool_thread
  */
-typedef struct {
-	void *(*start_routine)(void *);
-	void *arg;
-} WdThreadInfo;
-
-
-void wd_check_network_command_configurations(void)
+typedef struct
 {
-	char path[128];
-	char* command;
+	void	   *(*start_routine) (void *);
+	void	   *arg;
+}			WdThreadInfo;
+
+
+void
+wd_check_network_command_configurations(void)
+{
+	char		path[128];
+	char	   *command;
 
 	if (pool_config->use_watchdog == 0)
 		return;
+
 	/*
-	 * If delegate IP is not assigned to the node
-	 * the configuration is not used
+	 * If delegate IP is not assigned to the node the configuration is not
+	 * used
 	 */
 	if (strlen(pool_config->delegate_IP) == 0)
 		return;
@@ -72,18 +76,18 @@ void wd_check_network_command_configurations(void)
 	{
 		snprintf(path, sizeof(path), "%s/%s", pool_config->if_cmd_path, command);
 		pfree(command);
-		if (! has_setuid_bit(path))
+		if (!has_setuid_bit(path))
 		{
 			ereport(WARNING,
-				(errmsg("checking setuid bit of if_up_cmd"),
+					(errmsg("checking setuid bit of if_up_cmd"),
 					 errdetail("ifup[%s] doesn't have setuid bit", path)));
 		}
 	}
 	else
 	{
 		ereport(FATAL,
-			(errmsg("invalid configuration for if_up_cmd parameter"),
-					errdetail("unable to get command from \"%s\"",pool_config->if_up_cmd)));
+				(errmsg("invalid configuration for if_up_cmd parameter"),
+				 errdetail("unable to get command from \"%s\"", pool_config->if_up_cmd)));
 	}
 	/* check setuid bit of ifdown command */
 
@@ -92,18 +96,18 @@ void wd_check_network_command_configurations(void)
 	{
 		snprintf(path, sizeof(path), "%s/%s", pool_config->if_cmd_path, command);
 		pfree(command);
-		if (! has_setuid_bit(path))
+		if (!has_setuid_bit(path))
 		{
 			ereport(WARNING,
-				(errmsg("checking setuid bit of if_down_cmd"),
+					(errmsg("checking setuid bit of if_down_cmd"),
 					 errdetail("ifdown[%s] doesn't have setuid bit", path)));
 		}
 	}
 	else
 	{
 		ereport(FATAL,
-			(errmsg("invalid configuration for if_down_cmd parameter"),
-					errdetail("unable to get command from \"%s\"",pool_config->if_down_cmd)));
+				(errmsg("invalid configuration for if_down_cmd parameter"),
+				 errdetail("unable to get command from \"%s\"", pool_config->if_down_cmd)));
 	}
 
 	/* check setuid bit of arping command */
@@ -112,18 +116,18 @@ void wd_check_network_command_configurations(void)
 	{
 		snprintf(path, sizeof(path), "%s/%s", pool_config->arping_path, command);
 		pfree(command);
-		if (! has_setuid_bit(path))
+		if (!has_setuid_bit(path))
 		{
 			ereport(WARNING,
-				(errmsg("checking setuid bit of arping command"),
+					(errmsg("checking setuid bit of arping command"),
 					 errdetail("arping[%s] doesn't have setuid bit", path)));
 		}
 	}
 	else
 	{
 		ereport(FATAL,
-			(errmsg("invalid configuration for arping_cmd parameter"),
-					errdetail("unable to get command from \"%s\"",pool_config->arping_cmd)));
+				(errmsg("invalid configuration for arping_cmd parameter"),
+				 errdetail("unable to get command from \"%s\"", pool_config->arping_cmd)));
 	}
 
 }
@@ -132,48 +136,21 @@ void wd_check_network_command_configurations(void)
  * if the file has setuid bit and the owner is root, it returns 1, otherwise returns 0
  */
 static int
-has_setuid_bit(char * path)
+has_setuid_bit(char *path)
 {
 	struct stat buf;
-	if (stat(path,&buf) < 0)
+
+	if (stat(path, &buf) < 0)
 	{
 		ereport(FATAL,
-			(return_code(1),
+				(return_code(1),
 				 errmsg("has_setuid_bit: command '%s' not found", path)));
 	}
-	return ((buf.st_uid == 0) && (S_ISREG(buf.st_mode)) && (buf.st_mode & S_ISUID))?1:0;
+	return ((buf.st_uid == 0) && (S_ISREG(buf.st_mode)) && (buf.st_mode & S_ISUID)) ? 1 : 0;
 }
 
 
 #ifdef USE_SSL
-/* HMAC SHA-256*/
-static void calculate_hmac_sha256(const char *data, int len, char *buf)
-{
-	char* key = pool_config->wd_authkey;
-	char str[WD_AUTH_HASH_LEN/2];
-	unsigned int res_len = WD_AUTH_HASH_LEN;
-	HMAC_CTX *ctx = NULL;
-
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined (LIBRESSL_VERSION_NUMBER))
-	ctx = HMAC_CTX_new();
-	HMAC_CTX_reset(ctx);
-#else
-	HMAC_CTX ctx_obj;
-	ctx = &ctx_obj;
-	HMAC_CTX_init(ctx);
-#endif
-	HMAC_Init_ex(ctx, key, strlen(key), EVP_sha256(), NULL);
-	HMAC_Update(ctx, (unsigned char*)data, len);
-	HMAC_Final(ctx, (unsigned char*)str, &res_len);
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined (LIBRESSL_VERSION_NUMBER))
-	HMAC_CTX_reset(ctx);
-	HMAC_CTX_free(ctx);
-#else
-	HMAC_CTX_cleanup(ctx);
-#endif
-	bytesToHex(str,32,buf);
-	buf[WD_AUTH_HASH_LEN] = '\0';
-}
 
 void
 wd_calc_hash(const char *str, int len, char *buf)
@@ -181,16 +158,18 @@ wd_calc_hash(const char *str, int len, char *buf)
 	calculate_hmac_sha256(str, len, buf);
 }
 #else
+
 /* calculate hash for authentication using packet contents */
 void
 wd_calc_hash(const char *str, int len, char *buf)
 {
-	char pass[(MAX_PASSWORD_SIZE + 1) / 2];
-	char username[(MAX_PASSWORD_SIZE + 1) / 2];
-	size_t pass_len;
-	size_t username_len;
-	size_t authkey_len;
-	char tmp_buf[(MD5_PASSWD_LEN+1)*2];
+	char		pass[(MAX_PASSWORD_SIZE + 1) / 2];
+	char		username[(MAX_PASSWORD_SIZE + 1) / 2];
+	size_t		pass_len;
+	size_t		username_len;
+	size_t		authkey_len;
+	char		tmp_buf[(MD5_PASSWD_LEN + 1) * 2];
+
 	/* use first half of authkey as username, last half as password */
 	authkey_len = strlen(pool_config->wd_authkey);
 
@@ -199,17 +178,17 @@ wd_calc_hash(const char *str, int len, char *buf)
 
 	username_len = authkey_len / 2;
 	pass_len = authkey_len - username_len;
-	if ( snprintf(username, username_len + 1, "%s", pool_config->wd_authkey) < 0
+	if (snprintf(username, username_len + 1, "%s", pool_config->wd_authkey) < 0
 		|| snprintf(pass, pass_len + 1, "%s", pool_config->wd_authkey + username_len) < 0)
 		goto wd_calc_hash_error;
 
 	/* calculate hash using md5 encrypt */
-	if (! pool_md5_encrypt(pass, username, strlen(username), tmp_buf + MD5_PASSWD_LEN + 1))
+	if (!pool_md5_encrypt(pass, username, strlen(username), tmp_buf + MD5_PASSWD_LEN + 1))
 		goto wd_calc_hash_error;
 
-	tmp_buf[sizeof(tmp_buf)-1] = '\0';
+	tmp_buf[sizeof(tmp_buf) - 1] = '\0';
 
-	if (! pool_md5_encrypt(tmp_buf+MD5_PASSWD_LEN+1, str, len, tmp_buf))
+	if (!pool_md5_encrypt(tmp_buf + MD5_PASSWD_LEN + 1, str, len, tmp_buf))
 		goto wd_calc_hash_error;
 
 	memcpy(buf, tmp_buf, MD5_PASSWD_LEN);
@@ -231,31 +210,32 @@ wd_calc_hash_error:
 char *
 string_replace(const char *string, const char *pattern, const char *replacement)
 {
-	char *tok = NULL;
-	char *newstr = NULL;
-	char *oldstr = NULL;
-	char *head = NULL;
-	size_t pat_len,rep_len;
-	
+	char	   *tok = NULL;
+	char	   *newstr = NULL;
+	char	   *oldstr = NULL;
+	char	   *head = NULL;
+	size_t		pat_len,
+				rep_len;
+
 	newstr = pstrdup(string);
 	/* bail out if no pattern or replacement is given */
-	if ( pattern == NULL || replacement == NULL )
+	if (pattern == NULL || replacement == NULL)
 		return newstr;
-	
+
 	pat_len = strlen(pattern);
 	rep_len = strlen(replacement);
-	
+
 	head = newstr;
-	while ( (tok = strstr(head,pattern)))
+	while ((tok = strstr(head, pattern)))
 	{
 		oldstr = newstr;
-		newstr = palloc ( strlen ( oldstr ) - pat_len + rep_len + 1 );
-		
-		memcpy(newstr, oldstr, tok - oldstr );
-		memcpy(newstr + (tok - oldstr), replacement, rep_len );
+		newstr = palloc(strlen(oldstr) - pat_len + rep_len + 1);
+
+		memcpy(newstr, oldstr, tok - oldstr);
+		memcpy(newstr + (tok - oldstr), replacement, rep_len);
 		memcpy(newstr + (tok - oldstr) + rep_len, tok + pat_len, strlen(oldstr) - pat_len - (tok - oldstr));
 		/* put the string terminator */
-		memset( newstr + strlen (oldstr) - pat_len + rep_len , 0, 1 );
+		memset(newstr + strlen(oldstr) - pat_len + rep_len, 0, 1);
 		/* move back head right after the last replacement */
 		head = newstr + (tok - oldstr) + rep_len;
 		pfree(oldstr);
@@ -266,9 +246,10 @@ string_replace(const char *string, const char *pattern, const char *replacement)
 /*
  * The function is wrapper over pthread_create.
  */
-int watchdog_thread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg)
+int			watchdog_thread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg)
 {
-	WdThreadInfo* thread_arg = palloc(sizeof(WdThreadInfo));
+	WdThreadInfo *thread_arg = palloc(sizeof(WdThreadInfo));
+
 	thread_arg->arg = arg;
 	thread_arg->start_routine = start_routine;
 	return pthread_create(thread, attr, exec_func, thread_arg);
@@ -277,8 +258,8 @@ int watchdog_thread_create(pthread_t *thread, const pthread_attr_t *attr, void *
 static void *
 exec_func(void *arg)
 {
-	WdThreadInfo* thread_arg = (WdThreadInfo*) arg;
+	WdThreadInfo *thread_arg = (WdThreadInfo *) arg;
+
 	Assert(thread_arg != NULL);
 	return thread_arg->start_routine(thread_arg->arg);
 }
-

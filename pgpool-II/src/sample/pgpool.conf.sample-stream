@@ -92,6 +92,11 @@ authentication_timeout = 60
                                    # Delay in seconds to complete client authentication
                                    # 0 means no timeout.
 
+allow_clear_text_frontend_auth = off
+                                   # Allow Pgpool-II to use clear text password authentication
+                                   # with clients, when pool_passwd does not
+                                   # contain the user password
+
 # - SSL Connections -
 
 ssl = off
@@ -166,6 +171,8 @@ log_statement = off
 log_per_node_statement = off
                                    # Log all statements
                                    # with node and backend informations
+log_client_messages = off
+                                   # Log any client messages
 log_standby_delay = 'if_over_threshold'
                                    # Log standby delay
                                    # Valid values are combinations of always,
@@ -297,6 +304,12 @@ black_function_list = 'currval,lastval,nextval,setval'
                                    # that write to database
                                    # Regexp are accepted
 
+black_query_pattern_list = ''
+                                   # Semicolon separated list of query patterns
+                                   # that should be sent to primary node
+                                   # Regexp are accepted
+                                   # valid for streaming replicaton mode only.
+
 database_redirect_preference_list = ''
 								   # comma separated list of pairs of database and node id.
 								   # example: postgres:primary,mydb[0-4]:1,mydb[5-9]:2'
@@ -311,6 +324,19 @@ allow_sql_comments = off
 								   # query cache is possible.
 								   # If off, SQL comments effectively prevent the judgment
 								   # (pre 3.4 behavior).
+
+disable_load_balance_on_write = 'transaction'	# Load balance behavior when write query is issued
+						# in an explicit transaction.
+						# Note that any query not in an explicit transaction
+						# is not affected by the parameter.
+						# 'transaction' (the default): if a write query is issued,
+						# subsequent read queries will not be load balanced
+						# until the transaction ends.
+						# 'trans_transaction': if a write query is issued,
+						# subsequent read queries in an explicit transaction
+						# will not be load balanced until the session ends.
+						# 'always': if a write query is issued, read queries will
+						# not be load balanced until the session ends.
 
 #------------------------------------------------------------------------------
 # MASTER/SLAVE MODE
@@ -336,6 +362,9 @@ sr_check_user = 'nobody'
                                    # replication delay check by sr_check_period = 0
 sr_check_password = ''
                                    # Password for streaming replication check user
+                                   # Leaving it empty will make Pgpool-II to first look for the
+                                   # Password in pool_passwd file before using the empty password
+
 sr_check_database = 'postgres'
                                    # Database name for streaming replication check
 delay_threshold = 10000000
@@ -374,6 +403,9 @@ health_check_user = 'nobody'
                                    # Health check user
 health_check_password = ''
                                    # Password for health check user
+                                   # Leaving it empty will make Pgpool-II to first look for the
+                                   # Password in pool_passwd file before using the empty password
+
 health_check_database = ''
                                    # Database name for health check. If '', tries 'postgres' frist, 
 health_check_max_retries = 0
@@ -432,11 +464,17 @@ failback_command = ''
 								   #   %R = new master database cluster path
                                    #   %% = '%' character
 
-fail_over_on_backend_error = on
+failover_on_backend_error = on
                                    # Initiates failover when reading/writing to the
                                    # backend communication socket fails
                                    # If set to off, pgpool will report an
                                    # error and disconnect the session.
+
+detach_false_primary = off
+                                   # Detach false primary if on. Only
+                                   # valid in streaming replicaton
+                                   # mode and with PostgreSQL 9.6 or
+                                   # after.
 
 search_primary_node_timeout = 300
                                    # Timeout in seconds to search for the
@@ -452,6 +490,9 @@ recovery_user = 'nobody'
                                    # Online recovery user
 recovery_password = ''
                                    # Online recovery password
+                                   # Leaving it empty will make Pgpool-II to first look for the
+                                   # Password in pool_passwd file before using the empty password
+
 recovery_1st_stage_command = ''
                                    # Executes a command in first stage
 recovery_2nd_stage_command = ''
@@ -634,6 +675,8 @@ wd_lifecheck_user = 'nobody'
                                     # (change requires restart)
 wd_lifecheck_password = ''
                                     # Password for watchdog user in lifecheck
+                                    # Leaving it empty will make Pgpool-II to first look for the
+                                    # Password in pool_passwd file before using the empty password
                                     # (change requires restart)
 
 # - Other pgpool Connection Settings -

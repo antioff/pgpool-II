@@ -2,12 +2,12 @@
 .\"     Title: pcp_node_info
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: Pgpool-II 3.7.5 文書
-.\"    Source: Pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: Pgpool-II 4.0.0 文書
+.\"    Source: Pgpool-II 4.0.0
 .\"  Language: Japanese
 .\"
-.TH "PCP_NODE_INFO" "1" "2016" "Pgpool-II 3.7.5" "Pgpool-II 3.7.5 文書"
+.TH "PCP_NODE_INFO" "1" "2018" "Pgpool-II 4.0.0" "Pgpool-II 4.0.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -59,8 +59,8 @@ pcp_node_info \- 指定されたノードの情報を表示する
 .RS 4
 .\}
 .nf
-$ pcp_node_info \-h localhost \-U postgres 0
-host1 5432 1 0\&.500000 waiting primary
+$ pcp_node_info \-h localhost \-U postgres 1
+/tmp 11003 2 0\&.500000 up standby 208 2018\-07\-03 08:26:39
     
 .fi
 .if n \{\
@@ -79,6 +79,8 @@ host1 5432 1 0\&.500000 waiting primary
 4\&. ロードバランスウェイト
 5\&. バックエンド状態名
 6\&. バックエンドの役割
+7\&. レプリケーションの遅延
+8\&. 最終ステータス変更時刻
 .fi
 .if n \{\
 .RE
@@ -139,13 +141,15 @@ host1 5432 1 0\&.500000 waiting primary
 .RS 4
 .\}
 .nf
-$ pcp_node_info \-\-verbose \-h localhost \-U postgres 0
-Hostname   : host1
-Port       : 5432
-Status     : 1
-Weight     : 0\&.500000
-Status Name: waiting
-Role       : primary
+$ pcp_node_info \-\-verbose \-h localhost \-U postgres 1
+Hostname          : /tmp
+Port              : 11003
+Status            : 2
+Weight            : 0\&.500000
+Status Name       : up
+Role              : standby
+Replication Delay : 208
+Last Status Change: 2018\-07\-03 08:26:39
     
 .fi
 .if n \{\

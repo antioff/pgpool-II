@@ -2,7 +2,7 @@
 /*
  * $Header$
  *
- * pgpool: a language independent connection pool server for PostgreSQL 
+ * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
  * Portions Copyright (c) 2003-2008, PgPool Global Development Group
@@ -23,16 +23,10 @@
 #ifndef IPC_H
 #define IPC_H
 
-
-//typedef unsigned long Datum;	/* XXX sizeof(long) >= sizeof(void *) */
-
-
 #define IPCProtection	(0600)	/* access/modify by user only */
-
 
 extern void shmem_exit(int code);
 extern void on_shmem_exit(void (*function) (int code, Datum arg), Datum arg);
 extern void on_exit_reset(void);
 
-
-#endif   /* IPC_H */
+#endif							/* IPC_H */

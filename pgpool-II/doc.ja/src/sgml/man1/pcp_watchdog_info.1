@@ -2,12 +2,12 @@
 .\"     Title: pcp_watchdog_info
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: Pgpool-II 3.7.5 文書
-.\"    Source: Pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: Pgpool-II 4.0.0 文書
+.\"    Source: Pgpool-II 4.0.0
 .\"  Language: Japanese
 .\"
-.TH "PCP_WATCHDOG_INFO" "1" "2016" "Pgpool-II 3.7.5" "Pgpool-II 3.7.5 文書"
+.TH "PCP_WATCHDOG_INFO" "1" "2018" "Pgpool-II 4.0.0" "Pgpool-II 4.0.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -87,7 +87,7 @@ Pgpool\-II
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-u postgres
+$ pcp_watchdog_info \-h localhost \-U postgres
 
 3 NO Linux_host1\&.localdomain_9991 host1
 
@@ -141,7 +141,7 @@ Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-v \-u postgres
+$ pcp_watchdog_info \-h localhost \-v \-U postgres
 
 Watchdog Cluster Information
 Total Nodes          : 3

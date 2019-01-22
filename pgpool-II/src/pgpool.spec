@@ -37,7 +37,10 @@ Patch1:         pgpool-II-head.patch
 Patch2:         pgpool_socket_dir.patch
 %endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel
+BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel jade libxslt docbook-dtds docbook-style-xsl docbook-style-dsssl
+%if %{pg_version} >= 11 && %{rhel} >= 7
+BuildRequires:  llvm-toolset-7 llvm-toolset-7-llvm-devel llvm5.0
+%endif
 %if %{systemd_enabled}
 BuildRequires:    systemd
 Requires:         systemd
@@ -215,8 +218,10 @@ fi
 %{_bindir}/pcp_recovery_node
 %{_bindir}/pcp_watchdog_info
 %{_bindir}/pg_md5
+%{_bindir}/pg_enc
 %{_bindir}/pgpool_setup
 %{_bindir}/watchdog_setup
+%{_bindir}/pgproto
 %{_mandir}/man8/*.8.gz
 %{_mandir}/man1/*.1.gz
 %{_datadir}/%{short_name}/insert_lock.sql
@@ -248,9 +253,13 @@ fi
 %defattr(-,root,root,-)
 %{pghome}/share/extension/pgpool-recovery.sql
 %{pghome}/share/extension/pgpool_recovery--1.1.sql
+%{pghome}/share/extension/pgpool_recovery--1.2.sql
+%{pghome}/share/extension/pgpool_recovery--1.1--1.2.sql
 %{pghome}/share/extension/pgpool_recovery.control
 %{pghome}/lib/pgpool-recovery.so
 %{pghome}/share/extension/pgpool_adm--1.0.sql
+%{pghome}/share/extension/pgpool_adm--1.1.sql
+%{pghome}/share/extension/pgpool_adm--1.0--1.1.sql
 %{pghome}/share/extension/pgpool_adm.control
 %{pghome}/lib/pgpool_adm.so
 # From PostgreSQL 9.4 pgpool-regclass.so is not needed anymore
@@ -260,9 +269,25 @@ fi
   %{pghome}/share/extension/pgpool_regclass.control
   %{pghome}/share/extension/pgpool-regclass.sql
   %{pghome}/lib/pgpool-regclass.so
+  %{pghome}/lib/bitcode/pgpool-regclass.index.bc
+  %{pghome}/lib/bitcode/pgpool-regclass/pgpool-regclass.bc
+%endif
+# From PostgerSQL 11 the relevant files have to be installed 
+# into $pkglibdir/bitcode/
+%if %{pg_version} >= 11 && %{rhel} >= 7
+  %{pghome}/lib/bitcode/pgpool-recovery.index.bc
+  %{pghome}/lib/bitcode/pgpool-recovery/pgpool-recovery.bc
+  %{pghome}/lib/bitcode/pgpool_adm.index.bc
+  %{pghome}/lib/bitcode/pgpool_adm/pgpool_adm.bc
 %endif
 
 %changelog
+* Wed Sep 19 2018 Bo Peng <pengbo@sraoss.co.jp> 4.0.0
+- Update to 4.0
+
+* Tue Oct 17 2017 Bo Peng <pengbo@sraoss.co.jp> 3.7.0
+- Update to 4.0
+
 * Tue Nov 22 2016 Bo Peng <pengbo@sraoss.co.jp> 3.6.0
 - Update to 3.6.0
 

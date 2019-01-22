@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.5 Documentation"
+TITLE="pgpool-II 4.0.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Other commands"
 HREF="other-commands.html"><LINK
 REL="PREVIOUS"
-TITLE="pg_md5"
-HREF="pg-md5.html"><LINK
+TITLE="pgproto"
+HREF="pgproto.html"><LINK
 REL="NEXT"
 TITLE="watchdog_setup"
 HREF="watchdog-setup.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:19"></HEAD
+CONTENT="2018-10-19T01:17:51"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.5 Documentation</A
+>pgpool-II 4.0.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="pg_md5"
-HREF="pg-md5.html"
+TITLE="pgproto"
+HREF="pgproto.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -95,7 +95,7 @@ NAME="PGPOOL-SETUP"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN6340"
+NAME="AEN7037"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN6340"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN6343"
+NAME="AEN7040"
 ></A
 ><H2
 >Synopsis</H2
@@ -172,7 +172,7 @@ HREF="watchdog-setup.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6361"
+NAME="AEN7058"
 ></A
 ><H2
 >Options</H2
@@ -320,6 +320,58 @@ CLASS="OPTION"
 >	 Start pgpool with debug mode.
        </P
 ></DD
+><DT
+><TT
+CLASS="OPTION"
+>-s</TT
+></DT
+><DD
+><P
+>	 In streaming replication mode, use replication slot instead
+	 of archive.  Since the archive directory is shared by all
+	 <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> clusters, if a standby
+	 is promoted, the time line in the archive directory will be
+	 changed and other standby servers will be stopped. Using a
+	 replication slot does not have this problem and is always
+	 preferable if you can
+	 use <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.4 or later, which
+	 supports replication slot. The replication slot name used
+	 by <SPAN
+CLASS="APPLICATION"
+>pgpool_setup</SPAN
+>
+	 is <TT
+CLASS="LITERAL"
+>pgpool_setup_slot</TT
+>.
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-r</TT
+></DT
+><DD
+><P
+>	 Use <TT
+CLASS="COMMAND"
+>pg_rewind</TT
+> command in recovery script
+	 (basebackup.sh).  If the command fails, switch to use ordinal
+	 rsync command.  In certain cases recovery
+	 using <TT
+CLASS="COMMAND"
+>pg_rewind</TT
+> is much faster than rsync
+	 since it does not copy whole database cluster.
+       </P
+></DD
 ></DL
 ></DIV
 ><P>
@@ -328,7 +380,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6413"
+NAME="AEN7126"
 ></A
 ><H2
 >Environment variables</H2
@@ -411,6 +463,31 @@ CLASS="OPTION"
         The default is "--no-locale -E UTF_8".
        </P
 ></DD
+><DT
+><TT
+CLASS="OPTION"
+>USE_REPLICATION_SLOT</TT
+></DT
+><DD
+><P
+>	 If "true", in streaming replication mode, use replication slot instead
+	 of archive. This brings the same effect as "-s" option is specified.
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>USE_PG_REWIND</TT
+></DT
+><DD
+><P
+>	 If "true", in streaming replication mode, use <TT
+CLASS="COMMAND"
+>pg_rewind</TT
+> in basebackup.sh script.
+	 This brings the same effect as "-r" option is specified.
+       </P
+></DD
 ></DL
 ></DIV
 ><P>
@@ -420,7 +497,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6448"
+NAME="AEN7172"
 ></A
 ><H2
 >Example</H2
@@ -428,7 +505,7 @@ NAME="AEN6448"
 ></P><PRE
 CLASS="SCREEN"
 >$ pgpool_setup
-Satrting set up in streaming replication mode
+Starting set up in streaming replication mode
 creating startall and shutdownall
 creating failover script
 creating database cluster /home/t-ishii/tmp/test/data0...done.
@@ -515,7 +592,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="pg-md5.html"
+HREF="pgproto.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -543,7 +620,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->pg_md5</TD
+>pgproto</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

@@ -1,12 +1,10 @@
 /* -*-pgsql-c-*- */
 /*
  *
- * $Header$
- *
- * pgpool: a language independent connection pool server for PostgreSQL 
+ * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2017	PgPool Global Development Group
+ * Copyright (c) 2003-2018	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -33,27 +31,28 @@
 #include "protocol/pool_proto_modules.h"
 
 static POOL_SESSION_CONTEXT session_context_d;
-static POOL_SESSION_CONTEXT *session_context = NULL;
+static POOL_SESSION_CONTEXT * session_context = NULL;
 static void GetTranIsolationErrorCb(void *arg);
 static void init_sent_message_list(void);
-static POOL_PENDING_MESSAGE *copy_pending_message(POOL_PENDING_MESSAGE *messag);
-static void dump_sent_message(char *caller, POOL_SENT_MESSAGE *m);
+static POOL_PENDING_MESSAGE * copy_pending_message(POOL_PENDING_MESSAGE * messag);
+static void dump_sent_message(char *caller, POOL_SENT_MESSAGE * m);
 
 #ifdef PENDING_MESSAGE_DEBUG
-static int Elevel = LOG;
+static int	Elevel = LOG;
 #else
-static int Elevel = DEBUG1;
+static int	Elevel = DEBUG2;
 #endif
 
 /*
  * Initialize per session context
  */
-void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *backend)
+void
+pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 {
 	session_context = &session_context_d;
 	ProcessInfo *process_info;
-	int node_id;
-	int i;
+	int			node_id;
+	int			i;
 
 	/* Clear session context memory */
 	memset(&session_context_d, 0, sizeof(session_context_d));
@@ -75,13 +74,13 @@ void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *
 	pool_incremnet_local_session_id();
 
 	/* Create memory context */
-	/* TODO re-think about the parent for this context ??*/
+	/* TODO re-think about the parent for this context ?? */
 	session_context->memory_context = AllocSetContextCreate(ProcessLoopContext,
-									 "SessionContext",
-									 ALLOCSET_SMALL_MINSIZE,
-									 ALLOCSET_SMALL_INITSIZE,
-									 ALLOCSET_SMALL_MAXSIZE);
-									 
+															"SessionContext",
+															ALLOCSET_SMALL_MINSIZE,
+															ALLOCSET_SMALL_INITSIZE,
+															ALLOCSET_SMALL_MAXSIZE);
+
 	/* Initialize sent message list */
 	init_sent_message_list();
 
@@ -98,18 +97,18 @@ void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *
 	}
 	else
 	{
-		node_id = SL_MODE? PRIMARY_NODE_ID: MASTER_NODE_ID;
+		node_id = SL_MODE ? PRIMARY_NODE_ID : MASTER_NODE_ID;
 	}
 
 	session_context->load_balance_node_id = node_id;
 
-	for (i=0;i<NUM_BACKENDS;i++)
+	for (i = 0; i < NUM_BACKENDS; i++)
 	{
 		pool_coninfo(session_context->process_context->proc_id,
 					 pool_pool_index(), i)->load_balancing_node = node_id;
 	}
 
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("initializing session context"),
 			 errdetail("selected load balancing node: %d", node_id)));
 
@@ -138,9 +137,11 @@ void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *
 #ifdef NOT_USED
 	memset(&session_context->prep_where, 0, sizeof(session_context->prep_where));
 	session_context->prep_where.nelem = POOL_MAX_PREPARED_STATEMENTS;
-#endif /* NOT_USED */
-	/* Reset flag to indicate difference in number of affected tuples
-	 * in UPDATE/DELETE.
+#endif							/* NOT_USED */
+
+	/*
+	 * Reset flag to indicate difference in number of affected tuples in
+	 * UPDATE/DELETE.
 	 */
 	session_context->mismatch_ntuples = false;
 
@@ -165,7 +166,8 @@ void pool_init_session_context(POOL_CONNECTION *frontend, POOL_CONNECTION_POOL *
 /*
  * Destroy session context.
  */
-void pool_session_context_destroy(void)
+void
+pool_session_context_destroy(void)
 {
 	if (session_context)
 	{
@@ -189,13 +191,14 @@ void pool_session_context_destroy(void)
 /*
  * Return session context
  */
-POOL_SESSION_CONTEXT *pool_get_session_context(bool noerror)
+POOL_SESSION_CONTEXT *
+pool_get_session_context(bool noerror)
 {
 	if (!session_context && !noerror)
 	{
-        ereport(FATAL,
-            (return_code(2),
-                errmsg("unable to get session context")));
+		ereport(FATAL,
+				(return_code(2),
+				 errmsg("unable to get session context")));
 	}
 	return session_context;
 }
@@ -203,7 +206,8 @@ POOL_SESSION_CONTEXT *pool_get_session_context(bool noerror)
 /*
  * Return local session id
  */
-int pool_get_local_session_id(void)
+int
+pool_get_local_session_id(void)
 {
 	return pool_get_session_context(false)->process_context->local_session_id;
 }
@@ -211,7 +215,8 @@ int pool_get_local_session_id(void)
 /*
  * Return true if query is in progress
  */
-bool pool_is_query_in_progress(void)
+bool
+pool_is_query_in_progress(void)
 {
 	return pool_get_session_context(false)->in_progress;
 }
@@ -219,10 +224,11 @@ bool pool_is_query_in_progress(void)
 /*
  * Set query is in progress
  */
-void pool_set_query_in_progress(void)
+void
+pool_set_query_in_progress(void)
 {
-	ereport(DEBUG1,
-		(errmsg("session context: setting query in progress. DONE")));
+	ereport(DEBUG5,
+			(errmsg("session context: setting query in progress. DONE")));
 
 	pool_get_session_context(false)->in_progress = true;
 }
@@ -230,19 +236,20 @@ void pool_set_query_in_progress(void)
 /*
  * Unset query is in progress
  */
-void pool_unset_query_in_progress(void)
+void
+pool_unset_query_in_progress(void)
 {
 	POOL_SESSION_CONTEXT *s = pool_get_session_context(false);
 
-	ereport(DEBUG1,
-		(errmsg("session context: unsetting query in progress. DONE")));
+	ereport(DEBUG5,
+			(errmsg("session context: unsetting query in progress. DONE")));
 
 	s->in_progress = false;
 
 	/* Restore where_to_send map if neccessary */
 	if (s->need_to_restore_where_to_send)
 	{
-		memcpy(s->query_context->where_to_send,s->where_to_send_save, sizeof(s->where_to_send_save));
+		memcpy(s->query_context->where_to_send, s->where_to_send_save, sizeof(s->where_to_send_save));
 	}
 	s->need_to_restore_where_to_send = false;
 }
@@ -250,7 +257,8 @@ void pool_unset_query_in_progress(void)
 /*
  * Return true if we skip reading from backends
  */
-bool pool_is_skip_reading_from_backends(void)
+bool
+pool_is_skip_reading_from_backends(void)
 {
 	return pool_get_session_context(false)->skip_reading_from_backends;
 }
@@ -258,9 +266,10 @@ bool pool_is_skip_reading_from_backends(void)
 /*
  * Set skip_reading_from_backends
  */
-void pool_set_skip_reading_from_backends(void)
+void
+pool_set_skip_reading_from_backends(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: setting skip reading from backends. DONE")));
 
 
@@ -270,18 +279,20 @@ void pool_set_skip_reading_from_backends(void)
 /*
  * Unset skip_reading_from_backends
  */
-void pool_unset_skip_reading_from_backends(void)
+void
+pool_unset_skip_reading_from_backends(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: clearing skip reading from backends. DONE")));
-	
+
 	pool_get_session_context(false)->skip_reading_from_backends = false;
 }
 
 /*
  * Return true if we are doing extended query message
  */
-bool pool_is_doing_extended_query_message(void)
+bool
+pool_is_doing_extended_query_message(void)
 {
 	return pool_get_session_context(false)->doing_extended_query_message;
 }
@@ -289,29 +300,32 @@ bool pool_is_doing_extended_query_message(void)
 /*
  * Set doing_extended_query_message
  */
-void pool_set_doing_extended_query_message(void)
+void
+pool_set_doing_extended_query_message(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: setting doing extended query messaging. DONE")));
-	
+
 	pool_get_session_context(false)->doing_extended_query_message = true;
 }
 
 /*
  * Unset doing_extended_query_message
  */
-void pool_unset_doing_extended_query_message(void)
+void
+pool_unset_doing_extended_query_message(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: clearing doing extended query messaging. DONE")));
-	
+
 	pool_get_session_context(false)->doing_extended_query_message = false;
 }
 
 /*
  * Return true if backends ignore extended query message
  */
-bool pool_is_ignore_till_sync(void)
+bool
+pool_is_ignore_till_sync(void)
 {
 	return pool_get_session_context(false)->ignore_till_sync;
 }
@@ -319,20 +333,22 @@ bool pool_is_ignore_till_sync(void)
 /*
  * Set ignore_till_sync
  */
-void pool_set_ignore_till_sync(void)
+void
+pool_set_ignore_till_sync(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: setting ignore till sync. DONE")));
-	
+
 	pool_get_session_context(false)->ignore_till_sync = true;
 }
 
 /*
  * Unset ignore_till_sync
  */
-void pool_unset_ignore_till_sync(void)
+void
+pool_unset_ignore_till_sync(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: clearing ignore till sync. DONE")));
 
 	pool_get_session_context(false)->ignore_till_sync = false;
@@ -341,9 +357,10 @@ void pool_unset_ignore_till_sync(void)
 /*
  * Remove a sent message
  */
-bool pool_remove_sent_message(char kind, const char *name)
+bool
+pool_remove_sent_message(char kind, const char *name)
 {
-	int i;
+	int			i;
 	POOL_SENT_MESSAGE_LIST *msglist;
 
 	if (kind == 0 || name == NULL)
@@ -367,7 +384,7 @@ bool pool_remove_sent_message(char kind, const char *name)
 
 	if (i != msglist->size - 1)
 	{
-		memmove(&msglist->sent_messages[i], &msglist->sent_messages[i+1],
+		memmove(&msglist->sent_messages[i], &msglist->sent_messages[i + 1],
 				sizeof(POOL_SENT_MESSAGE *) * (msglist->size - i - 1));
 	}
 
@@ -379,9 +396,10 @@ bool pool_remove_sent_message(char kind, const char *name)
 /*
  * Remove same kind of sent messages
  */
-void pool_remove_sent_messages(char kind)
+void
+pool_remove_sent_messages(char kind)
 {
-	int i;
+	int			i;
 	POOL_SENT_MESSAGE_LIST *msglist;
 
 	msglist = &pool_get_session_context(false)->message_list;
@@ -391,7 +409,7 @@ void pool_remove_sent_messages(char kind)
 		if (msglist->sent_messages[i]->kind == kind)
 		{
 			if (pool_remove_sent_message(kind, msglist->sent_messages[i]->name))
-				i--;	/* for relocation by removing */
+				i--;			/* for relocation by removing */
 		}
 	}
 }
@@ -399,9 +417,10 @@ void pool_remove_sent_messages(char kind)
 /*
  * Destroy sent message
  */
-void pool_sent_message_destroy(POOL_SENT_MESSAGE *message)
+void
+pool_sent_message_destroy(POOL_SENT_MESSAGE * message)
 {
-	bool in_progress;
+	bool		in_progress;
 	POOL_QUERY_CONTEXT *qc = NULL;
 
 	dump_sent_message("pool_sent_message_destroy", message);
@@ -412,7 +431,7 @@ void pool_sent_message_destroy(POOL_SENT_MESSAGE *message)
 	{
 		if (message->contents)
 			pfree(message->contents);
-		
+
 		if (message->name)
 			pfree(message->name);
 
@@ -424,12 +443,14 @@ void pool_sent_message_destroy(POOL_SENT_MESSAGE *message)
 			if (can_query_context_destroy(message->query_context))
 			{
 				pool_query_context_destroy(message->query_context);
+
 				/*
 				 * set in_progress flag, because pool_query_context_destroy()
 				 * unsets in_progress flag
 				 */
 				if (in_progress)
 					pool_set_query_in_progress();
+
 				/*
 				 * set query_context of session_context, because
 				 * pool_query_context_destroy() sets it to NULL.
@@ -447,7 +468,8 @@ void pool_sent_message_destroy(POOL_SENT_MESSAGE *message)
 /*
  * Clear sent message list
  */
-void pool_clear_sent_message_list(void)
+void
+pool_clear_sent_message_list(void)
 {
 	POOL_SENT_MESSAGE_LIST *msglist;
 
@@ -459,9 +481,10 @@ void pool_clear_sent_message_list(void)
 	}
 }
 
-static void dump_sent_message(char *caller, POOL_SENT_MESSAGE *m)
+static void
+dump_sent_message(char *caller, POOL_SENT_MESSAGE * m)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("called by %s: sent message: address: %p kind: %c name: =%s= state:%d",
 					caller, m, m->kind, m->name, m->state)));
 }
@@ -474,18 +497,20 @@ static void dump_sent_message(char *caller, POOL_SENT_MESSAGE *m)
  * num_tsparams: number of timestamp parameters
  * name: prepared statement name or portal name
  */
-POOL_SENT_MESSAGE *pool_create_sent_message(char kind, int len, char *contents,
-											int num_tsparams, const char *name,
-											POOL_QUERY_CONTEXT *query_context)
+POOL_SENT_MESSAGE *
+pool_create_sent_message(char kind, int len, char *contents,
+						 int num_tsparams, const char *name,
+						 POOL_QUERY_CONTEXT * query_context)
 {
 	POOL_SENT_MESSAGE *msg;
 
 	if (!session_context)
-        ereport(ERROR,
-            (errmsg("unable to create message"),
-                 errdetail("cannot get the session context")));
+		ereport(ERROR,
+				(errmsg("unable to create message"),
+				 errdetail("cannot get the session context")));
 
 	MemoryContext old_context = MemoryContextSwitchTo(session_context->memory_context);
+
 	msg = palloc(sizeof(POOL_SENT_MESSAGE));
 	msg->kind = kind;
 	msg->len = len;
@@ -503,7 +528,8 @@ POOL_SENT_MESSAGE *pool_create_sent_message(char kind, int len, char *contents,
 /*
  * Add a sent message to sent message list
  */
-void pool_add_sent_message(POOL_SENT_MESSAGE *message)
+void
+pool_add_sent_message(POOL_SENT_MESSAGE * message)
 {
 	POOL_SENT_MESSAGE *old_msg;
 	POOL_SENT_MESSAGE_LIST *msglist;
@@ -512,8 +538,8 @@ void pool_add_sent_message(POOL_SENT_MESSAGE *message)
 
 	if (!message)
 	{
-		ereport(DEBUG1,
-			(errmsg("adding sent message to list"),
+		ereport(DEBUG5,
+				(errmsg("adding sent message to list"),
 				 errdetail("message is null")));
 		return;
 	}
@@ -527,7 +553,7 @@ void pool_add_sent_message(POOL_SENT_MESSAGE *message)
 		 * added. We should ignore this because pool_remove_sent_message()
 		 * will free memory allocated in the message.
 		 */
-		ereport(DEBUG1,
+		ereport(DEBUG5,
 				(errmsg("adding sent message to list"),
 				 errdetail("adding exactly same message is prohibited")));
 		return;
@@ -538,13 +564,13 @@ void pool_add_sent_message(POOL_SENT_MESSAGE *message)
 	if (old_msg)
 	{
 		if (message->kind == 'B')
-			ereport(DEBUG1,
-				(errmsg("adding sent message to list"),
-					errdetail("portal \"%s\" already exists",message->name)));
+			ereport(DEBUG5,
+					(errmsg("adding sent message to list"),
+					 errdetail("portal \"%s\" already exists", message->name)));
 		else
-			ereport(DEBUG1,
-				(errmsg("adding sent message to list"),
-					errdetail("prepared statement \"%s\" already exists",message->name)));
+			ereport(DEBUG5,
+					(errmsg("adding sent message to list"),
+					 errdetail("prepared statement \"%s\" already exists", message->name)));
 
 		if (*message->name == '\0')
 			pool_remove_sent_message(old_msg->kind, old_msg->name);
@@ -570,9 +596,10 @@ void pool_add_sent_message(POOL_SENT_MESSAGE *message)
 /*
  * Get a sent message
  */
-POOL_SENT_MESSAGE *pool_get_sent_message(char kind, const char *name, POOL_SENT_MESSAGE_STATE state)
+POOL_SENT_MESSAGE *
+pool_get_sent_message(char kind, const char *name, POOL_SENT_MESSAGE_STATE state)
 {
-	int i;
+	int			i;
 	POOL_SENT_MESSAGE_LIST *msglist;
 
 	msglist = &pool_get_session_context(false)->message_list;
@@ -594,9 +621,10 @@ POOL_SENT_MESSAGE *pool_get_sent_message(char kind, const char *name, POOL_SENT_
 /*
  * Set message state to POOL_SENT_MESSAGE_STATE to POOL_SENT_MESSAGE_CLOSED.
  */
-void pool_set_sent_message_state(POOL_SENT_MESSAGE *message)
+void
+pool_set_sent_message_state(POOL_SENT_MESSAGE * message)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("pool_set_sent_message_state: name:%s kind:%c previous state: %d",
 					message->name, message->kind, message->state)));
 	message->state = POOL_SENT_MESSAGE_CLOSED;
@@ -605,28 +633,44 @@ void pool_set_sent_message_state(POOL_SENT_MESSAGE *message)
 /*
  * We don't have a write query in this transaction yet.
  */
-void pool_unset_writing_transaction(void)
+void
+pool_unset_writing_transaction(void)
 {
-	ereport(DEBUG1,
-			(errmsg("session context: clearing writing transaction. DONE")));
-
-	pool_get_session_context(false)->writing_transaction = false;
+	/*
+	 * If disable_transaction_on_write is 'always', then never turn off
+	 * writing transaction flag.
+	 */
+	if (pool_config->disable_load_balance_on_write != DLBOW_ALWAYS)
+	{
+		pool_get_session_context(false)->writing_transaction = false;
+		ereport(DEBUG5,
+				(errmsg("session context: clearing writing transaction. DONE")));
+	}
 }
 
 /*
  * We have a write query in this transaction.
  */
-void pool_set_writing_transaction(void)
+void
+pool_set_writing_transaction(void)
 {
-	ereport(DEBUG1,
-			(errmsg("session context: setting writing transaction. DONE")));
-	pool_get_session_context(false)->writing_transaction = true;
+	/*
+	 * If disable_transaction_on_write is 'off', then never turn on writing
+	 * transaction flag.
+	 */
+	if (pool_config->disable_load_balance_on_write != DLBOW_OFF)
+	{
+		pool_get_session_context(false)->writing_transaction = true;
+		ereport(DEBUG5,
+				(errmsg("session context: setting writing transaction. DONE")));
+	}
 }
 
 /*
  * Do we have a write query in this transaction?
  */
-bool pool_is_writing_transaction(void)
+bool
+pool_is_writing_transaction(void)
 {
 	return pool_get_session_context(false)->writing_transaction;
 }
@@ -634,20 +678,22 @@ bool pool_is_writing_transaction(void)
 /*
  * Error doesn't occur in this transaction yet.
  */
-void pool_unset_failed_transaction(void)
+void
+pool_unset_failed_transaction(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: clearing failed transaction. DONE")));
-	
+
 	pool_get_session_context(false)->failed_transaction = false;
 }
 
 /*
  * Error occurred in this transaction.
  */
-void pool_set_failed_transaction(void)
+void
+pool_set_failed_transaction(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: setting failed transaction. DONE")));
 
 	pool_get_session_context(false)->failed_transaction = true;
@@ -656,7 +702,8 @@ void pool_set_failed_transaction(void)
 /*
  * Did error occur in this transaction?
  */
-bool pool_is_failed_transaction(void)
+bool
+pool_is_failed_transaction(void)
 {
 	return pool_get_session_context(false)->failed_transaction;
 }
@@ -664,9 +711,10 @@ bool pool_is_failed_transaction(void)
 /*
  * Forget transaction isolation mode
  */
-void pool_unset_transaction_isolation(void)
+void
+pool_unset_transaction_isolation(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: clearing failed transaction. DONE")));
 	pool_get_session_context(false)->transaction_isolation = POOL_UNKNOWN;
 }
@@ -674,9 +722,10 @@ void pool_unset_transaction_isolation(void)
 /*
  * Set transaction isolation mode
  */
-void pool_set_transaction_isolation(POOL_TRANSACTION_ISOLATION isolation_level)
+void
+pool_set_transaction_isolation(POOL_TRANSACTION_ISOLATION isolation_level)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: setting transaction isolation. DONE")));
 	pool_get_session_context(false)->transaction_isolation = isolation_level;
 }
@@ -684,7 +733,8 @@ void pool_set_transaction_isolation(POOL_TRANSACTION_ISOLATION isolation_level)
 /*
  * Get or return cached transaction isolation mode
  */
-POOL_TRANSACTION_ISOLATION pool_get_transaction_isolation(void)
+POOL_TRANSACTION_ISOLATION
+pool_get_transaction_isolation(void)
 {
 	POOL_SELECT_RESULT *res;
 	POOL_TRANSACTION_ISOLATION ret;
@@ -700,6 +750,7 @@ POOL_TRANSACTION_ISOLATION pool_get_transaction_isolation(void)
 	/* It seems cached result is usable. Return it. */
 	if (session_context->transaction_isolation != POOL_UNKNOWN)
 		return session_context->transaction_isolation;
+
 	/*
 	 * Register a error context callback to throw proper context message
 	 */
@@ -711,7 +762,7 @@ POOL_TRANSACTION_ISOLATION pool_get_transaction_isolation(void)
 	/* No cached data is available. Ask backend. */
 
 	do_query(MASTER(session_context->backend),
-					  "SELECT current_setting('transaction_isolation')", &res, MAJOR(session_context->backend));
+			 "SELECT current_setting('transaction_isolation')", &res, MAJOR(session_context->backend));
 
 	error_context_stack = callback.previous;
 
@@ -749,10 +800,10 @@ POOL_TRANSACTION_ISOLATION pool_get_transaction_isolation(void)
 	else
 	{
 		ereport(WARNING,
-				(errmsg("error while getting transaction isolation, unknown transaction isolation level:%s",res->data[0])));
+				(errmsg("error while getting transaction isolation, unknown transaction isolation level:%s", res->data[0])));
 
 		ret = POOL_UNKNOWN;
-	}   
+	}
 
 	free_select_result(res);
 
@@ -762,7 +813,8 @@ POOL_TRANSACTION_ISOLATION pool_get_transaction_isolation(void)
 	return ret;
 }
 
-static void GetTranIsolationErrorCb(void *arg)
+static void
+GetTranIsolationErrorCb(void *arg)
 {
 	errcontext("while getting transaction isolation");
 }
@@ -771,9 +823,10 @@ static void GetTranIsolationErrorCb(void *arg)
 /*
  * The command in progress has not succeeded yet.
  */
-void pool_unset_command_success(void)
+void
+pool_unset_command_success(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: clearing transaction isolation. DONE")));
 	pool_get_session_context(false)->command_success = false;
 }
@@ -781,9 +834,10 @@ void pool_unset_command_success(void)
 /*
  * The command in progress has succeeded.
  */
-void pool_set_command_success(void)
+void
+pool_set_command_success(void)
 {
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("session context: setting command success. DONE")));
 
 	pool_get_session_context(false)->command_success = true;
@@ -792,7 +846,8 @@ void pool_set_command_success(void)
 /*
  * Has the command in progress succeeded?
  */
-bool pool_is_command_success(void)
+bool
+pool_is_command_success(void)
 {
 	return pool_get_session_context(false)->command_success;
 }
@@ -800,17 +855,19 @@ bool pool_is_command_success(void)
 /*
  * Copy send map
  */
-void pool_copy_prep_where(bool *src, bool *dest)
+void
+pool_copy_prep_where(bool *src, bool *dest)
 {
-	memcpy(dest, src, sizeof(bool)*MAX_NUM_BACKENDS);
+	memcpy(dest, src, sizeof(bool) * MAX_NUM_BACKENDS);
 }
 #ifdef NOT_USED
 /*
  * Add to send map a PREPARED statement
  */
-void pool_add_prep_where(char *name, bool *map)
+void
+pool_add_prep_where(char *name, bool *map)
 {
-	int i;
+	int			i;
 
 	if (!session_context)
 	{
@@ -819,7 +876,7 @@ void pool_add_prep_where(char *name, bool *map)
 		return;
 	}
 
-	for (i=0;i<POOL_MAX_PREPARED_STATEMENTS;i++)
+	for (i = 0; i < POOL_MAX_PREPARED_STATEMENTS; i++)
 	{
 		if (*session_context->prep_where.name[i] == '\0')
 		{
@@ -835,16 +892,17 @@ void pool_add_prep_where(char *name, bool *map)
 /*
  * Search send map by PREPARED statement name
  */
-bool *pool_get_prep_where(char *name)
+bool *
+pool_get_prep_where(char *name)
 {
-	int i;
+	int			i;
 
 	if (!session_context)
 		ereport(ERROR,
 				(errmsg("pool_get_prep_where: session context is not initialized")));
 
 
-	for (i=0;i<POOL_MAX_PREPARED_STATEMENTS;i++)
+	for (i = 0; i < POOL_MAX_PREPARED_STATEMENTS; i++)
 	{
 		if (!strcmp(session_context->prep_where.name[i], name))
 		{
@@ -857,29 +915,31 @@ bool *pool_get_prep_where(char *name)
 /*
  * Remove PREPARED statement by name
  */
-void pool_delete_prep_where(char *name)
+void
+pool_delete_prep_where(char *name)
 {
-	int i;
+	int			i;
 
 	if (!session_context)
 		ereport(ERROR,
 				(errmsg("pool_delete_prep_where: session context is not initialized")));
 
-	for (i=0;i<POOL_MAX_PREPARED_STATEMENTS;i++)
+	for (i = 0; i < POOL_MAX_PREPARED_STATEMENTS; i++)
 	{
 		if (!strcmp(session_context->prep_where.name[i], name))
 		{
-			memset(&session_context->prep_where.where_to_send[i], 0, sizeof(bool)*MAX_NUM_BACKENDS);
+			memset(&session_context->prep_where.where_to_send[i], 0, sizeof(bool) * MAX_NUM_BACKENDS);
 			*session_context->prep_where.name[i] = '\0';
 			return;
 		}
 	}
 }
-#endif /* NOT_USED */
+#endif							/* NOT_USED */
 /*
  * Initialize sent message list
  */
-static void init_sent_message_list(void)
+static void
+init_sent_message_list(void)
 {
 	POOL_SENT_MESSAGE_LIST *msglist;
 
@@ -898,10 +958,11 @@ static void init_sent_message_list(void)
  * Look for extended message list to check if given query context qc
  * is used. Returns true if it is not used.
  */
-bool can_query_context_destroy(POOL_QUERY_CONTEXT *qc)
+bool
+can_query_context_destroy(POOL_QUERY_CONTEXT * qc)
 {
-	int i;
-	int count = 0;
+	int			i;
+	int			count = 0;
 	POOL_SENT_MESSAGE_LIST *msglist;
 	ListCell   *cell;
 	ListCell   *next;
@@ -915,10 +976,10 @@ bool can_query_context_destroy(POOL_QUERY_CONTEXT *qc)
 	}
 	if (count > 1)
 	{
-		ereport(DEBUG1,
-			(errmsg("checking if query context can be safely destroyed"),
+		ereport(DEBUG5,
+				(errmsg("checking if query context can be safely destroyed"),
 				 errdetail("query context %p is still used %d times in sent message list. query:\"%s\"",
-						   qc, count,qc->original_query)));
+						   qc, count, qc->original_query)));
 		return false;
 	}
 
@@ -937,7 +998,7 @@ bool can_query_context_destroy(POOL_QUERY_CONTEXT *qc)
 
 	if (count >= 1)
 	{
-		ereport(DEBUG1,
+		ereport(DEBUG5,
 				(errmsg("checking if query context can be safely destroyed"),
 				 errdetail("query context %p is still used %d times in pending message list. query:%s", qc, count, qc->original_query)));
 		return false;
@@ -949,7 +1010,8 @@ bool can_query_context_destroy(POOL_QUERY_CONTEXT *qc)
 /*
  * Initialize pending message list
  */
-void pool_pending_messages_init(void)
+void
+pool_pending_messages_init(void)
 {
 	if (!session_context)
 		ereport(ERROR,
@@ -961,7 +1023,8 @@ void pool_pending_messages_init(void)
 /*
  * Destroy pending message list
  */
-void pool_pending_messages_destroy(void)
+void
+pool_pending_messages_destroy(void)
 {
 	ListCell   *cell;
 	POOL_PENDING_MESSAGE *msg;
@@ -981,9 +1044,10 @@ void pool_pending_messages_destroy(void)
 /*
  * Create one message.
  */
-POOL_PENDING_MESSAGE *pool_pending_message_create(char kind, int len, char *contents)
+POOL_PENDING_MESSAGE *
+pool_pending_message_create(char kind, int len, char *contents)
 {
-	POOL_PENDING_MESSAGE* msg;
+	POOL_PENDING_MESSAGE *msg;
 	MemoryContext old_context;
 
 	if (!session_context)
@@ -996,33 +1060,33 @@ POOL_PENDING_MESSAGE *pool_pending_message_create(char kind, int len, char *cont
 	switch (kind)
 	{
 		case 'P':
-		msg->type = POOL_PARSE;
-		break;
+			msg->type = POOL_PARSE;
+			break;
 
 		case 'B':
-		msg->type = POOL_BIND;
-		break;
+			msg->type = POOL_BIND;
+			break;
 
 		case 'E':
-		msg->type = POOL_EXECUTE;
-		break;
+			msg->type = POOL_EXECUTE;
+			break;
 
 		case 'D':
-		msg->type = POOL_DESCRIBE;
-		break;
+			msg->type = POOL_DESCRIBE;
+			break;
 
 		case 'C':
-		msg->type = POOL_CLOSE;
-		break;
+			msg->type = POOL_CLOSE;
+			break;
 
 		case 'S':
-		msg->type = POOL_SYNC;
-		break;
+			msg->type = POOL_SYNC;
+			break;
 
 		default:
 			ereport(ERROR,
 					(errmsg("pool_pending_message_create: unknow kind: %c", kind)));
-		break;
+			break;
 	}
 
 	if (len > 0)
@@ -1050,12 +1114,13 @@ POOL_PENDING_MESSAGE *pool_pending_message_create(char kind, int len, char *cont
  * Set node_ids field of message which indicates which backend nodes the
  * message was sent.
  */
-void pool_pending_message_dest_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CONTEXT *query_context)
+void
+pool_pending_message_dest_set(POOL_PENDING_MESSAGE * message, POOL_QUERY_CONTEXT * query_context)
 {
-	int i;
-	int j = 0;
+	int			i;
+	int			j = 0;
 
-	for (i=0;i<MAX_NUM_BACKENDS;i++)
+	for (i = 0; i < MAX_NUM_BACKENDS; i++)
 	{
 		if (query_context->where_to_send[i])
 		{
@@ -1081,9 +1146,10 @@ void pool_pending_message_dest_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CON
  * Set where_to_send field in query_context from node_ids field of message
  * which indicates which backend nodes the message was sent.
  */
-void pool_pending_message_query_context_dest_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CONTEXT *query_context)
+void
+pool_pending_message_query_context_dest_set(POOL_PENDING_MESSAGE * message, POOL_QUERY_CONTEXT * query_context)
 {
-	int i;
+	int			i;
 
 	POOL_SESSION_CONTEXT *s = pool_get_session_context(false);
 
@@ -1094,7 +1160,7 @@ void pool_pending_message_query_context_dest_set(POOL_PENDING_MESSAGE* message, 
 	/* Rewrite where_to_send map */
 	memset(query_context->where_to_send, 0, sizeof(query_context->where_to_send));
 
-	for (i=0;i<2;i++)
+	for (i = 0; i < 2; i++)
 	{
 		if (message->node_ids[i] != -1)
 		{
@@ -1106,7 +1172,8 @@ void pool_pending_message_query_context_dest_set(POOL_PENDING_MESSAGE* message, 
 /*
  * Set query field of message.
  */
-void pool_pending_message_query_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CONTEXT *query_context)
+void
+pool_pending_message_query_set(POOL_PENDING_MESSAGE * message, POOL_QUERY_CONTEXT * query_context)
 {
 	StrNCpy(message->query, query_context->original_query, sizeof(message->query));
 }
@@ -1114,9 +1181,10 @@ void pool_pending_message_query_set(POOL_PENDING_MESSAGE* message, POOL_QUERY_CO
 /*
  * Add one message to the tail of the list
  */
-void pool_pending_message_add(POOL_PENDING_MESSAGE* message)
+void
+pool_pending_message_add(POOL_PENDING_MESSAGE * message)
 {
-	POOL_PENDING_MESSAGE* msg;
+	POOL_PENDING_MESSAGE *msg;
 	MemoryContext old_context;
 
 	if (!session_context)
@@ -1127,12 +1195,12 @@ void pool_pending_message_add(POOL_PENDING_MESSAGE* message)
 	{
 		case POOL_PARSE:
 			StrNCpy(message->statement, message->contents, sizeof(message->statement));
-			StrNCpy(message->query, message->contents+strlen(message->contents)+1, sizeof(message->query));
+			StrNCpy(message->query, message->contents + strlen(message->contents) + 1, sizeof(message->query));
 			break;
 
 		case POOL_BIND:
 			StrNCpy(message->portal, message->contents, sizeof(message->portal));
-			StrNCpy(message->statement, message->contents+strlen(message->contents)+1, sizeof(message->statement));
+			StrNCpy(message->statement, message->contents + strlen(message->contents) + 1, sizeof(message->statement));
 			break;
 
 		case POOL_EXECUTE:
@@ -1142,9 +1210,9 @@ void pool_pending_message_add(POOL_PENDING_MESSAGE* message)
 		case POOL_CLOSE:
 		case POOL_DESCRIBE:
 			if (*message->contents == 'S')
-				StrNCpy(message->statement, message->contents+1, sizeof(message->statement));
+				StrNCpy(message->statement, message->contents + 1, sizeof(message->statement));
 			else
-				StrNCpy(message->portal, message->contents+1, sizeof(message->portal));
+				StrNCpy(message->portal, message->contents + 1, sizeof(message->portal));
 			break;
 
 		case POOL_SYNC:
@@ -1177,7 +1245,8 @@ void pool_pending_message_add(POOL_PENDING_MESSAGE* message)
  * Return the message from the head of the list.  If the list is not empty, a
  * copy of the message is returned. If the list is empty, returns NULL.
  */
-POOL_PENDING_MESSAGE *pool_pending_message_head_message(void)
+POOL_PENDING_MESSAGE *
+pool_pending_message_head_message(void)
 {
 	ListCell   *cell;
 	POOL_PENDING_MESSAGE *message;
@@ -1214,7 +1283,8 @@ POOL_PENDING_MESSAGE *pool_pending_message_head_message(void)
  * copy of the message is returned and the message is removed the message
  * list. If the list is empty, returns NULL.
  */
-POOL_PENDING_MESSAGE *pool_pending_message_pull_out(void)
+POOL_PENDING_MESSAGE *
+pool_pending_message_pull_out(void)
 {
 	ListCell   *cell;
 	POOL_PENDING_MESSAGE *message;
@@ -1253,7 +1323,8 @@ POOL_PENDING_MESSAGE *pool_pending_message_pull_out(void)
  * Try to find the first message specified by the message type in the message
  * list. If found, a copy of the message is returned. If not, returns NULL.
  */
-POOL_PENDING_MESSAGE *pool_pending_message_get(POOL_MESSAGE_TYPE type)
+POOL_PENDING_MESSAGE *
+pool_pending_message_get(POOL_MESSAGE_TYPE type)
 {
 	ListCell   *cell;
 	ListCell   *next;
@@ -1289,7 +1360,8 @@ POOL_PENDING_MESSAGE *pool_pending_message_get(POOL_MESSAGE_TYPE type)
  * Get message specification (either statement ('S') or portal ('P')) from a
  * close message.
  */
-char pool_get_close_message_spec(POOL_PENDING_MESSAGE *msg)
+char
+pool_get_close_message_spec(POOL_PENDING_MESSAGE * msg)
 {
 	return *msg->contents;
 }
@@ -1298,16 +1370,17 @@ char pool_get_close_message_spec(POOL_PENDING_MESSAGE *msg)
  * Get statement or portal name from close message.
  * The returned pointer is within "msg".
  */
-char *pool_get_close_message_name(POOL_PENDING_MESSAGE *msg)
+char *
+pool_get_close_message_name(POOL_PENDING_MESSAGE * msg)
 {
-	return (msg->contents)+1;
+	return (msg->contents) + 1;
 }
 
 /*
  * Perform deep copy of POOL_PENDING_MESSAGE object in the current memory
  * context except the query context.
  */
-static POOL_PENDING_MESSAGE *copy_pending_message(POOL_PENDING_MESSAGE *message)
+static POOL_PENDING_MESSAGE * copy_pending_message(POOL_PENDING_MESSAGE * message)
 {
 	POOL_PENDING_MESSAGE *msg;
 
@@ -1323,7 +1396,8 @@ static POOL_PENDING_MESSAGE *copy_pending_message(POOL_PENDING_MESSAGE *message)
  * Free POOL_PENDING_MESSAGE object in the current memory
  * context except the query context.
  */
-void pool_pending_message_free_pending_message(POOL_PENDING_MESSAGE *message)
+void
+pool_pending_message_free_pending_message(POOL_PENDING_MESSAGE * message)
 {
 	if (message == NULL)
 		return;
@@ -1337,7 +1411,8 @@ void pool_pending_message_free_pending_message(POOL_PENDING_MESSAGE *message)
 /*
  * Reset previous message.
  */
-void pool_pending_message_reset_previous_message(void)
+void
+pool_pending_message_reset_previous_message(void)
 {
 	if (!session_context)
 	{
@@ -1351,7 +1426,8 @@ void pool_pending_message_reset_previous_message(void)
 /*
  * Set previous message.
  */
-void pool_pending_message_set_previous_message(POOL_PENDING_MESSAGE *message)
+void
+pool_pending_message_set_previous_message(POOL_PENDING_MESSAGE * message)
 {
 	if (!session_context)
 	{
@@ -1367,7 +1443,8 @@ void pool_pending_message_set_previous_message(POOL_PENDING_MESSAGE *message)
  * Get previous message. This actually returns the address of memory. Do not
  * try to free using pool_pending_message_free_pending_message().
  */
-POOL_PENDING_MESSAGE *pool_pending_message_get_previous_message(void)
+POOL_PENDING_MESSAGE *
+pool_pending_message_get_previous_message(void)
 {
 	if (!session_context)
 	{
@@ -1384,7 +1461,8 @@ POOL_PENDING_MESSAGE *pool_pending_message_get_previous_message(void)
 /*
  * Return true if there's any pending message.
  */
-bool pool_pending_message_exists(void)
+bool
+pool_pending_message_exists(void)
 {
 	return list_length(session_context->pending_messages) > 0;
 }
@@ -1393,10 +1471,12 @@ bool pool_pending_message_exists(void)
  * Convert enum pending message type to string. The returned string must not
  * be modified or freed.
  */
-const char *pool_pending_message_type_to_string(POOL_MESSAGE_TYPE type)
+const char *
+pool_pending_message_type_to_string(POOL_MESSAGE_TYPE type)
 {
 	static const char *pending_msg_string[] = {"Parse", "Bind", "Execute",
-											   "Descripbe", "Close", "Sync"};
+	"Descripbe", "Close", "Sync"};
+
 	if (type < 0 || type > POOL_SYNC)
 		return "unknown type";
 	return pending_msg_string[type];
@@ -1406,23 +1486,24 @@ const char *pool_pending_message_type_to_string(POOL_MESSAGE_TYPE type)
  * Check consistency the message type and backend message kind.
  * This function is intended to be used for debugging.
  */
-void pool_check_pending_message_and_reply(POOL_MESSAGE_TYPE type, char kind)
+void
+pool_check_pending_message_and_reply(POOL_MESSAGE_TYPE type, char kind)
 {
-	/* 
+	/*
 	 * Backend response message sorted by POOL_MESSAGE_TYPE
 	 */
 	static char backend_response_kind[] = {
-		'1',	/* POOL_PARSE, parse complete */
-		'2',	/* POOL_BIND, bind complete */
-		'*',	/* POOL_EXECUTE, skip checking */
-		'*',	/* POOL_DESCRIBE, skip checking */
-		'3',	/* POOL_CLOSE, close complete */
-		'Z'	/* POOL_SYNC, ready for query */
+		'1',					/* POOL_PARSE, parse complete */
+		'2',					/* POOL_BIND, bind complete */
+		'*',					/* POOL_EXECUTE, skip checking */
+		'*',					/* POOL_DESCRIBE, skip checking */
+		'3',					/* POOL_CLOSE, close complete */
+		'Z'						/* POOL_SYNC, ready for query */
 	};
 
 	if (type < POOL_PARSE || type > POOL_SYNC)
 	{
-		ereport(DEBUG1,
+		ereport(DEBUG5,
 				(errmsg("pool_check_pending_message_and_reply: type out of range: %d", type)));
 		return;
 	}
@@ -1434,7 +1515,7 @@ void pool_check_pending_message_and_reply(POOL_MESSAGE_TYPE type, char kind)
 
 	if (backend_response_kind[type] != kind)
 	{
-		ereport(DEBUG1,
+		ereport(DEBUG5,
 				(errmsg("pool_check_pending_message_and_reply: type: %s but is kind: %c",
 						pool_pending_message_type_to_string(type), kind)));
 	}
@@ -1446,12 +1527,13 @@ void pool_check_pending_message_and_reply(POOL_MESSAGE_TYPE type, char kind)
  * returned message is a pointer to the message list. So do not free it using
  * pool_pending_message_free_pending_message.
  */
-POOL_PENDING_MESSAGE *pool_pending_message_find_lastest_by_query_context(POOL_QUERY_CONTEXT *qc)
+POOL_PENDING_MESSAGE *
+pool_pending_message_find_lastest_by_query_context(POOL_QUERY_CONTEXT * qc)
 {
-	List *msgs;
+	List	   *msgs;
 	POOL_PENDING_MESSAGE *msg;
-	int len;
-	ListCell *cell;
+	int			len;
+	ListCell   *cell;
 
 	if (!session_context)
 	{
@@ -1468,7 +1550,7 @@ POOL_PENDING_MESSAGE *pool_pending_message_find_lastest_by_query_context(POOL_QU
 	if (len <= 0)
 		return NULL;
 
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("pool_pending_message_find_lastest_by_query_context: num messages: %d",
 					len)));
 
@@ -1480,12 +1562,12 @@ POOL_PENDING_MESSAGE *pool_pending_message_find_lastest_by_query_context(POOL_QU
 			msg = (POOL_PENDING_MESSAGE *) lfirst(cell);
 			if (msg->query_context == qc)
 			{
-				ereport(DEBUG1,
+				ereport(DEBUG5,
 						(errmsg("pool_pending_message_find_lastest_by_query_context: msg found. type: %s",
 								pool_pending_message_type_to_string(msg->type))));
 				return msg;
 			}
-			ereport(DEBUG1,
+			ereport(DEBUG5,
 					(errmsg("pool_pending_message_find_lastest_by_query_context: type: %s",
 							pool_pending_message_type_to_string(msg->type))));
 		}
@@ -1497,9 +1579,10 @@ POOL_PENDING_MESSAGE *pool_pending_message_find_lastest_by_query_context(POOL_QU
  * Get target backend id from pending message assuming that the destination for
  * the pending message is one of primary or standby node.
  */
-int pool_pending_message_get_target_backend_id(POOL_PENDING_MESSAGE *msg)
+int
+pool_pending_message_get_target_backend_id(POOL_PENDING_MESSAGE * msg)
 {
-	int backend_id = -1;
+	int			backend_id = -1;
 
 	if (msg->node_ids[0] != -1)
 		backend_id = msg->node_ids[0];
@@ -1513,9 +1596,39 @@ int pool_pending_message_get_target_backend_id(POOL_PENDING_MESSAGE *msg)
 }
 
 /*
+ * Get number of pending message list entries of which target backend is same as specified one.
+ */
+int
+pool_pending_message_get_message_num_by_backend_id(int backend_id)
+{
+	ListCell   *cell;
+	ListCell   *next;
+	int        cnt = 0;
+
+	if (!session_context)
+	{
+		ereport(ERROR,
+				(errmsg("pool_pending_message_get_message_num_by_backend_id: session context is not initialized")));
+		return 0;
+	}
+
+	for (cell = list_head(session_context->pending_messages); cell; cell = next)
+	{
+		POOL_PENDING_MESSAGE *msg = (POOL_PENDING_MESSAGE *) lfirst(cell);
+
+		if (msg->node_ids[0] == backend_id || msg->node_ids[1] == backend_id) 
+			cnt++;
+
+		next = lnext(cell);
+	}
+	return cnt;
+}
+
+/*
  * Dump whole pending message list
  */
-void dump_pending_message(void)
+void
+dump_pending_message(void)
 {
 	ListCell   *cell;
 	ListCell   *next;
@@ -1527,14 +1640,14 @@ void dump_pending_message(void)
 		return;
 	}
 
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("start dumping pending message list")));
 
 	for (cell = list_head(session_context->pending_messages); cell; cell = next)
 	{
 		POOL_PENDING_MESSAGE *message = (POOL_PENDING_MESSAGE *) lfirst(cell);
 
-		ereport(DEBUG1,
+		ereport(DEBUG5,
 				(errmsg("pool_pending_message_dump: message type:%d message len:%d query:%s statement:%s portal:%s node_ids[0]:%d node_ids[1]:%d",
 						message->type, message->contents_len, message->query, message->statement, message->portal,
 						message->node_ids[0], message->node_ids[1])));
@@ -1542,25 +1655,27 @@ void dump_pending_message(void)
 		next = lnext(cell);
 	}
 
-	ereport(DEBUG1,
+	ereport(DEBUG5,
 			(errmsg("end dumping pending message list")));
 }
 
 /*
  * Set protocol major version number
  */
-void pool_set_major_version(int major)
+void
+pool_set_major_version(int major)
 {
 	if (session_context)
 	{
-		session_context->major = major; 
+		session_context->major = major;
 	}
 }
 
 /*
  * Get protocol major version number
  */
-int pool_get_major_version(void)
+int
+pool_get_major_version(void)
 {
 	if (session_context)
 	{
@@ -1572,18 +1687,20 @@ int pool_get_major_version(void)
 /*
  * Set protocol minor version number
  */
-void pool_set_minor_version(int minor)
+void
+pool_set_minor_version(int minor)
 {
 	if (session_context)
 	{
-		session_context->minor = minor; 
+		session_context->minor = minor;
 	}
 }
 
 /*
  * Get protocol minor version number
  */
-int pool_get_minor_version(void)
+int
+pool_get_minor_version(void)
 {
 	if (session_context)
 	{
@@ -1597,7 +1714,8 @@ int pool_get_minor_version(void)
  * Set preferred "master" node id.
  * Only used for SimpleForwardToFrontend.
  */
-void pool_set_preferred_master_node_id(int node_id)
+void
+pool_set_preferred_master_node_id(int node_id)
 {
 	session_context->preferred_master_node_id = node_id;
 }
@@ -1606,7 +1724,8 @@ void pool_set_preferred_master_node_id(int node_id)
  * Return preferred "master" node id.
  * Only used for SimpleForwardToFrontend.
  */
-int pool_get_preferred_master_node_id(void)
+int
+pool_get_preferred_master_node_id(void)
 {
 	return session_context->preferred_master_node_id;
 }
@@ -1615,7 +1734,8 @@ int pool_get_preferred_master_node_id(void)
  * Reset preferred "master" node id.
  * Only used for SimpleForwardToFrontend.
  */
-void pool_reset_preferred_master_node_id(void)
+void
+pool_reset_preferred_master_node_id(void)
 {
 	session_context->preferred_master_node_id = -1;
 }

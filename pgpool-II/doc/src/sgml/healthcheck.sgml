@@ -106,6 +106,36 @@
         Otherwise, health check results in an error.
       </para>
       <para>
+        If <varname>health_check_password</varname> is left blank <productname>Pgpool-II</productname>
+        will first try to get the password for <xref linkend="guc-health-check-user"> from
+        <xref linkend="guc-pool-passwd"> file before using the empty password.
+      </para>
+      <para>
+        You can also specify AES256-CBC encrypted password in <varname>health_check_password</varname> field.
+        To specify the <literal>AES</literal> encrypted password, password string must be prefixed with
+        <literal>AES</literal> after encrypting (using <literal>aes-256-cbc</literal> algorithm) and
+        encoding to <literal>base64</literal>.
+      </para>
+        <para>
+            To specify the unencrypted clear text password, prefix the password string with
+            <literal>TEXT</literal>. For example if you want to set <literal>mypass</literal> as
+            a password, you should specify <literal>TEXTmypass</literal> in the password field.
+            In the absence of a valid prefix, <productname>Pgpool-II</productname> will considered
+            the string as a plain text password.
+        </para>
+      <para>
+        You can also use <xref linkend="PG-ENC"> utility to create the correctly formatted
+        <literal>AES</literal> encrypted password strings.
+        <note>
+            <para>
+                <productname>Pgpool-II</productname> will require a valid decryption key at the
+                startup to use the encrypted passwords.
+                see <xref linkend="auth-aes-decryption-key"> for more details on providing the
+                decryption key to <productname>Pgpool-II</productname>
+            </para>
+        </note>
+      </para>
+      <para>
         This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
       </para>
     </listitem>
@@ -151,7 +181,7 @@
         </tip>
         <tip>
           <para>
-            It is advised that <xref linkend="guc-fail-over-on-backend-error"> must be disabled,
+            It is advised that <xref linkend="guc-failover-on-backend-error"> must be disabled,
             if you want to enable <varname>health_check_max_retries</>.
           </para>
         </tip>

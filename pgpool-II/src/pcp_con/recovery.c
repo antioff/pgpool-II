@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2018	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -41,10 +41,10 @@
 #define SECOND_STAGE 1
 
 static void exec_checkpoint(PGconn *conn);
-static void exec_recovery(PGconn *conn, BackendInfo *master_backend, BackendInfo *recovery_backend, char stage);
-static void exec_remote_start(PGconn *conn, BackendInfo *backend);
-static PGconn *connect_backend_libpq(BackendInfo *backend);
-static void check_postmaster_started(BackendInfo *backend);
+static void exec_recovery(PGconn *conn, BackendInfo * master_backend, BackendInfo * recovery_backend, char stage, int recovery_node);
+static void exec_remote_start(PGconn *conn, BackendInfo * backend);
+static PGconn *connect_backend_libpq(BackendInfo * backend);
+static void check_postmaster_started(BackendInfo * backend);
 
 static char recovery_command[1024];
 
@@ -55,19 +55,21 @@ extern volatile sig_atomic_t pcp_worker_wakeup_request;
  * "recovery_node" is the node to be recovered.
  * Master or primary node is chosen in this function.
  */
-void start_recovery(int recovery_node)
+void
+start_recovery(int recovery_node)
 {
-	int node_id;
+	int			node_id;
 	BackendInfo *backend;
 	BackendInfo *recovery_backend;
-	PGconn *conn;
-	int failback_wait_count;
-#define FAILBACK_WAIT_MAX_RETRY 5		/* 5 seconds should be enough for failback operation */
+	PGconn	   *conn;
+	int			failback_wait_count;
+#define FAILBACK_WAIT_MAX_RETRY 5	/* 5 seconds should be enough for failback
+									 * operation */
 
 	ereport(LOG,
-		(errmsg("starting recovering node %d", recovery_node)));
+			(errmsg("starting recovering node %d", recovery_node)));
 
-	if ( (recovery_node < 0) || (recovery_node >= pool_config->backend_desc->num_backends) )
+	if ((recovery_node < 0) || (recovery_node >= pool_config->backend_desc->num_backends))
 		ereport(ERROR,
 				(errmsg("node recovery failed, node id: %d is not valid", recovery_node)));
 
@@ -98,18 +100,18 @@ void start_recovery(int recovery_node)
 		{
 			exec_checkpoint(conn);
 			ereport(LOG,
-				(errmsg("node recovery, CHECKPOINT in the 1st stage done")));
+					(errmsg("node recovery, CHECKPOINT in the 1st stage done")));
 		}
 
-		exec_recovery(conn, backend, recovery_backend, FIRST_STAGE);
+		exec_recovery(conn, backend, recovery_backend, FIRST_STAGE, recovery_node);
 
 		ereport(LOG,
-			(errmsg("node recovery, 1st stage is done")));
+				(errmsg("node recovery, 1st stage is done")));
 
 		if (REPLICATION)
 		{
 			ereport(LOG,
-				(errmsg("node recovery, starting 2nd stage")));
+					(errmsg("node recovery, starting 2nd stage")));
 
 			/* 2nd stage */
 			*InRecovery = RECOVERY_ONLINE;
@@ -126,15 +128,15 @@ void start_recovery(int recovery_node)
 						(errmsg("node recovery failed, waiting connection closed in the other pgpools timeout")));
 
 			ereport(LOG,
-				(errmsg("node recovery, all connections from clients have been closed")));
+					(errmsg("node recovery, all connections from clients have been closed")));
 
 			exec_checkpoint(conn);
 
 			ereport(LOG,
-				(errmsg("node recovery"),
+					(errmsg("node recovery"),
 					 errdetail("CHECKPOINT in the 2nd stage done")));
 
-			exec_recovery(conn, backend, recovery_backend, SECOND_STAGE);
+			exec_recovery(conn, backend, recovery_backend, SECOND_STAGE, recovery_node);
 		}
 
 		exec_remote_start(conn, recovery_backend);
@@ -142,31 +144,32 @@ void start_recovery(int recovery_node)
 		check_postmaster_started(recovery_backend);
 
 		ereport(LOG,
-			(errmsg("node recovery, node: %d restarted", recovery_node)));
+				(errmsg("node recovery, node: %d restarted", recovery_node)));
 
 		/*
-		 * reset failover completion flag.  this is necessary since
-		 * previous failover/failback will set the flag to 1.
+		 * reset failover completion flag.  this is necessary since previous
+		 * failover/failback will set the flag to 1.
 		 */
 		pcp_worker_wakeup_request = 0;
 
 		/* send failback request to pgpool parent */
-		send_failback_request(recovery_node,false, REQ_DETAIL_CONFIRMED);
+		send_failback_request(recovery_node, false, REQ_DETAIL_CONFIRMED);
 
 		/* wait for failback */
 		failback_wait_count = 0;
 		while (!pcp_worker_wakeup_request)
 		{
 			struct timeval t = {1, 0};
+
 			/* polling SIGUSR2 signal every 1 sec */
 			select(0, NULL, NULL, NULL, &t);
 			failback_wait_count++;
 			if (failback_wait_count >= FAILBACK_WAIT_MAX_RETRY)
 			{
 				ereport(LOG,
-					(errmsg("node recovery"),
-						errdetail("waiting for wake up request is timeout(%d seconds)",
-							   FAILBACK_WAIT_MAX_RETRY)));
+						(errmsg("node recovery"),
+						 errdetail("waiting for wake up request is timeout(%d seconds)",
+								   FAILBACK_WAIT_MAX_RETRY)));
 
 				break;
 			}
@@ -189,7 +192,8 @@ void start_recovery(int recovery_node)
 /*
  * Notice all children finishing recovery.
  */
-void finish_recovery(void)
+void
+finish_recovery(void)
 {
 	/* announce end recovery */
 	if (pool_config->use_watchdog && *InRecovery != RECOVERY_INIT)
@@ -204,30 +208,33 @@ void finish_recovery(void)
 /*
  * Execute CHECKPOINT
  */
-static void exec_checkpoint(PGconn *conn)
+static void
+exec_checkpoint(PGconn *conn)
 {
-	PGresult *result;
+	PGresult   *result;
+
 	ereport(DEBUG1,
-		(errmsg("recovery execute checkpoint, start checkpoint")));
+			(errmsg("recovery execute checkpoint, start checkpoint")));
 
 	result = PQexec(conn, "CHECKPOINT");
-	if(PQresultStatus(result) !=  PGRES_COMMAND_OK)
+	if (PQresultStatus(result) != PGRES_COMMAND_OK)
 		ereport(ERROR,
 				(errmsg("executing recovery, execute CHECKPOINT failed")));
 	PQclear(result);
 
 	ereport(DEBUG1,
-		(errmsg("recovery execute checkpoint, finish checkpoint")));
+			(errmsg("recovery execute checkpoint, finish checkpoint")));
 }
 
 /*
  * Call pgpool_recovery() function.
  */
-static void exec_recovery(PGconn *conn, BackendInfo *master_backend, BackendInfo *recovery_backend, char stage)
+static void
+exec_recovery(PGconn *conn, BackendInfo * master_backend, BackendInfo * recovery_backend, char stage, int recovery_node)
 {
-	PGresult *result;
-	char *hostname;
-	char *script;
+	PGresult   *result;
+	char	   *hostname;
+	char	   *script;
 
 	if (strlen(recovery_backend->backend_hostname) == 0 || *(recovery_backend->backend_hostname) == '/')
 		hostname = "localhost";
@@ -248,51 +255,54 @@ static void exec_recovery(PGconn *conn, BackendInfo *master_backend, BackendInfo
 	 */
 	snprintf(recovery_command,
 			 sizeof(recovery_command),
-			 "SELECT pgpool_recovery('%s', '%s', '%s', '%d')",
+			 "SELECT pgpool_recovery('%s', '%s', '%s', '%d', %d)",
 			 script,
 			 hostname,
 			 recovery_backend->backend_data_directory,
-			 master_backend->backend_port);
+			 master_backend->backend_port,
+			 recovery_node
+		);
 
 	ereport(LOG,
-		(errmsg("executing recovery"),
+			(errmsg("executing recovery"),
 			 errdetail("starting recovery command: \"%s\"", recovery_command)));
 
 	ereport(LOG,
-		(errmsg("executing recovery"),
+			(errmsg("executing recovery"),
 			 errdetail("disabling statement_timeout")));
 
 	result = PQexec(conn, "SET statement_timeout To 0");
-	if(PQresultStatus(result) !=  PGRES_COMMAND_OK)
+	if (PQresultStatus(result) != PGRES_COMMAND_OK)
 		ereport(ERROR,
 				(errmsg("executing recovery, SET STATEMENT_TIMEOUT failed at \"%s\"",
 						(stage == FIRST_STAGE) ? "1st stage" : "2nd stage")));
-		
+
 	PQclear(result);
 
 	ereport(DEBUG1,
-		(errmsg("executing recovery, start recovery")));
+			(errmsg("executing recovery, start recovery")));
 
 	result = PQexec(conn, recovery_command);
-	if(PQresultStatus(result) !=  PGRES_TUPLES_OK)
+	if (PQresultStatus(result) != PGRES_TUPLES_OK)
 		ereport(ERROR,
 				(errmsg("executing recovery, execution of command failed at \"%s\"",
 						(stage == FIRST_STAGE) ? "1st stage" : "2nd stage"),
-				 errdetail("command:\"%s\"",script)));
-	
+				 errdetail("command:\"%s\"", script)));
+
 	PQclear(result);
 
 	ereport(DEBUG1,
-		(errmsg("executing recovery, finish recovery")));
+			(errmsg("executing recovery, finish recovery")));
 }
 
 /*
  * Call pgpool_remote_start() function.
  */
-static void exec_remote_start(PGconn *conn, BackendInfo *backend)
+static void
+exec_remote_start(PGconn *conn, BackendInfo * backend)
 {
-	PGresult *result;
-	char *hostname;
+	PGresult   *result;
+	char	   *hostname;
 
 	if (strlen(backend->backend_hostname) == 0 || *(backend->backend_hostname) == '/')
 		hostname = "localhost";
@@ -305,45 +315,49 @@ static void exec_remote_start(PGconn *conn, BackendInfo *backend)
 			 backend->backend_data_directory);
 
 	ereport(DEBUG1,
-		(errmsg("executing remote start"),
+			(errmsg("executing remote start"),
 			 errdetail("start pgpool_remote_start")));
 
 	result = PQexec(conn, recovery_command);
-	if(PQresultStatus(result) !=  PGRES_TUPLES_OK)
+	if (PQresultStatus(result) != PGRES_TUPLES_OK)
 		ereport(ERROR,
-			(errmsg("executing remote start failed with error: \"%s\"",PQresultErrorMessage(result))));
+				(errmsg("executing remote start failed with error: \"%s\"", PQresultErrorMessage(result))));
 
 	PQclear(result);
 
 	ereport(DEBUG1,
-		(errmsg("executing remote start"),
+			(errmsg("executing remote start"),
 			 errdetail("finish pgpool_remote_start")));
 }
 
 /*
  * Check postmaster is started.
  */
-static void check_postmaster_started(BackendInfo *backend)
+static void
+check_postmaster_started(BackendInfo * backend)
 {
-	int i = 0;
-	char port_str[16];
-	PGconn *conn;
-	char *dbname;
+	int			i = 0;
+	char		port_str[16];
+	PGconn	   *conn;
+	char	   *dbname;
+	char	   *password = get_pgpool_config_user_password(pool_config->recovery_user,
+														   pool_config->recovery_password);
 
-	snprintf(port_str, sizeof(port_str),"%d", backend->backend_port);
+	snprintf(port_str, sizeof(port_str), "%d", backend->backend_port);
 
 	/*
 	 * First we try with "postgres" database.
 	 */
 	dbname = "postgres";
 
-	do {
+	do
+	{
 		ConnStatusType r;
 
 		ereport(LOG,
-			(errmsg("checking if postmaster is started"),
-				errdetail("trying to connect to postmaster on hostname:%s database:%s user:%s (retry %d times)",
-					   backend->backend_hostname, dbname, pool_config->recovery_user, i)));
+				(errmsg("checking if postmaster is started"),
+				 errdetail("trying to connect to postmaster on hostname:%s database:%s user:%s (retry %d times)",
+						   backend->backend_hostname, dbname, pool_config->recovery_user, i)));
 
 		conn = PQsetdbLogin(backend->backend_hostname,
 							port_str,
@@ -351,20 +365,23 @@ static void check_postmaster_started(BackendInfo *backend)
 							NULL,
 							dbname,
 							pool_config->recovery_user,
-							pool_config->recovery_password);
+							password ? password : NULL);
 
 		r = PQstatus(conn);
 		PQfinish(conn);
 		if (r == CONNECTION_OK)
+		{
+			if (password)
+				pfree(password);
 			return;
-
+		}
 		ereport(LOG,
-			(errmsg("checking if postmaster is started"),
-				errdetail("failed to connect to postmaster on hostname:%s database:%s user:%s",
-					   backend->backend_hostname, dbname, pool_config->recovery_user)));
-		
+				(errmsg("checking if postmaster is started"),
+				 errdetail("failed to connect to postmaster on hostname:%s database:%s user:%s",
+						   backend->backend_hostname, dbname, pool_config->recovery_user)));
+
 		sleep(3);
-	} while (i++ < 3);	/* XXX Hard coded retry (9 seconds) */
+	} while (i++ < 3);			/* XXX Hard coded retry (9 seconds) */
 
 	/*
 	 * Retry with "template1" database.
@@ -372,13 +389,14 @@ static void check_postmaster_started(BackendInfo *backend)
 	dbname = "template1";
 	i = 0;
 
-	do {
+	do
+	{
 		ConnStatusType r;
 
 		ereport(LOG,
-			(errmsg("checking if postmaster is started"),
-				errdetail("trying to connect to postmaster on hostname:%s database:%s user:%s (retry %d times)",
-					   backend->backend_hostname, dbname, pool_config->recovery_user, i)));
+				(errmsg("checking if postmaster is started"),
+				 errdetail("trying to connect to postmaster on hostname:%s database:%s user:%s (retry %d times)",
+						   backend->backend_hostname, dbname, pool_config->recovery_user, i)));
 
 		conn = PQsetdbLogin(backend->backend_hostname,
 							port_str,
@@ -386,15 +404,19 @@ static void check_postmaster_started(BackendInfo *backend)
 							NULL,
 							dbname,
 							pool_config->recovery_user,
-							pool_config->recovery_password);
+							password ? password : NULL);
 
 		r = PQstatus(conn);
 		PQfinish(conn);
 		if (r == CONNECTION_OK)
+		{
+			if (password)
+				pfree(password);
 			return;
+		}
 
 		ereport(LOG,
-			(errmsg("checking if postmaster is started"),
+				(errmsg("checking if postmaster is started"),
 				 errdetail("failed to connect to postmaster on hostname:%s database:%s user:%s",
 						   backend->backend_hostname, dbname, pool_config->recovery_user)));
 
@@ -402,16 +424,22 @@ static void check_postmaster_started(BackendInfo *backend)
 			sleep(3);
 	} while (i++ < WAIT_RETRY_COUNT);
 
+	if (password)
+		pfree(password);
+
 	ereport(ERROR,
-		(errmsg("recovery is checking if postmaster is started"),
+			(errmsg("recovery is checking if postmaster is started"),
 			 errdetail("postmaster on hostname:\"%s\" database:\"%s\" user:\"%s\" failed to start in %d second",
 					   backend->backend_hostname, dbname, pool_config->recovery_user, pool_config->recovery_timeout)));
 }
 
-static PGconn *connect_backend_libpq(BackendInfo *backend)
+static PGconn *
+connect_backend_libpq(BackendInfo * backend)
 {
-	char port_str[16];
-	PGconn *conn;
+	char		port_str[16];
+	PGconn	   *conn;
+	char	   *password = get_pgpool_config_user_password(pool_config->recovery_user,
+														   pool_config->recovery_password);
 
 	snprintf(port_str, sizeof(port_str),
 			 "%d", backend->backend_port);
@@ -421,7 +449,10 @@ static PGconn *connect_backend_libpq(BackendInfo *backend)
 						NULL,
 						"template1",
 						pool_config->recovery_user,
-						pool_config->recovery_password);
+						password ? password : "");
+
+	if (password)
+		pfree(password);
 
 	if (PQstatus(conn) != CONNECTION_OK)
 	{
@@ -434,11 +465,13 @@ static PGconn *connect_backend_libpq(BackendInfo *backend)
 /*
  * Wait all connections are closed.
  */
-int wait_connection_closed(void)
+int
+wait_connection_closed(void)
 {
-	int i = 0;
+	int			i = 0;
 
-	do {
+	do
+	{
 
 		if (Req_info->conn_counter == 0)
 			return 0;

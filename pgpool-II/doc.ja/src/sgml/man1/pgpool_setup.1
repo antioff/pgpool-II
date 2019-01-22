@@ -2,12 +2,12 @@
 .\"     Title: pgpool_setup
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: Pgpool-II 3.7.5 文書
-.\"    Source: Pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: Pgpool-II 4.0.0 文書
+.\"    Source: Pgpool-II 4.0.0
 .\"  Language: Japanese
 .\"
-.TH "PGPOOL_SETUP" "1" "2016" "Pgpool-II 3.7.5" "Pgpool-II 3.7.5 文書"
+.TH "PGPOOL_SETUP" "1" "2018" "Pgpool-II 4.0.0" "Pgpool-II 4.0.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -106,6 +106,19 @@ Pgpool\-II, PostgreSQL を終了しません。
 Pgpool\-II
 を起動します。
 .RE
+.PP
+\fB\-s\fR
+.RS 4
+ストリーミングレプリケーションモードの時に、アーカイブの代わりにレプリケーションスロットを使います。 アーカイブディレクトリはPostgreSQLクラスタに共有されているので、スタンバイが昇格すると、アーカイアブディレクトリ内のタイムラインが変わり、他のスタンバイが停止してしまいます。 レプリケーションスロットを使うとこの問題が起きないので、レプリケーションスロットをサポートしているPostgreSQL
+9\&.4以降が使えるのであれば、常にレプリケーションスロットを使うのが常にお勧めです。
+pgpool_setupが使うレプリケーションスロット名は、pgpool_setup_slotです。
+.RE
+.PP
+\fB\-r\fR
+.RS 4
+リカバリスクリプト(basebackup\&.sh)中で\fBpg_rewind\fRを使います。 このコマンドが失敗すると、通常のrsyncを使います。
+\fBpg_rewind\fRは、データベースクラスタのすべてをコピーしないので、rsyncに比べてずっと高速になることがあります。
+.RE
 .SH "環境変数"
 .PP
 pgpool_setup
@@ -151,6 +164,16 @@ Unixソケットのディレクトリへのパスを指定します。 デフォ
 .RS 4
 initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\-locale \-E UTF_8" です。
 .RE
+.PP
+\fBUSE_REPLICATION_SLOT\fR
+.RS 4
+ストリーミングレプリケーション環境において、この環境変数が"true"に指定されると、アーカイブログの代わりにレプリケーションスロットを使います。 これは、"\-s"オプションを使ったのと同じ効果をもたらします。
+.RE
+.PP
+\fBUSE_PG_REWIND\fR
+.RS 4
+ストリーミングレプリケーション環境において、この環境変数が"true"に指定されると、basebackup\&.sh中で\fBpg_rewind\fRを使います。 これは、"\-r"オプションを使ったのと同じ効果をもたらします。
+.RE
 .SH "出力例"
 .PP
 .if n \{\
@@ -158,7 +181,7 @@ initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\
 .\}
 .nf
 $ pgpool_setup
-Satrting set up in streaming replication mode
+Starting set up in streaming replication mode
 creating startall and shutdownall
 creating failover script
 creating database cluster /home/t\-ishii/tmp/test/data0\&.\&.\&.done\&.

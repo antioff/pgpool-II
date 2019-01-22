@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.5 文書"
+TITLE="Pgpool-II 4.0.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP コマンド"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:21"></HEAD
+CONTENT="2018-10-19T01:18:05"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.5 文書</A
+>Pgpool-II 4.0.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PCP-NODE-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN5789"
+NAME="AEN6229"
 ></A
 ><H2
 >名前</H2
@@ -104,7 +104,7 @@ NAME="AEN5789"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN5792"
+NAME="AEN6232"
 ></A
 ><H2
 >概要</H2
@@ -143,7 +143,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5803"
+NAME="AEN6243"
 ></A
 ><H2
 >オプション</H2
@@ -199,7 +199,7 @@ HREF="pcp-common-options.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5822"
+NAME="AEN6262"
 ></A
 ><H2
 >例</H2
@@ -208,8 +208,8 @@ NAME="AEN5822"
     ここでは例を示します。
     </P><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_node_info -h localhost -U postgres 0
-host1 5432 1 0.500000 waiting primary
+>$ pcp_node_info -h localhost -U postgres 1
+/tmp 11003 2 0.500000 up standby 208 2018-07-03 08:26:39
     </PRE
 ><P>
   </P
@@ -223,7 +223,9 @@ CLASS="LITERALLAYOUT"
 3. ステータス
 4. ロードバランスウェイト
 5. バックエンド状態名
-6. バックエンドの役割</PRE
+6. バックエンドの役割
+7. レプリケーションの遅延
+8. 最終ステータス変更時刻</PRE
 ><P>
   </P
 ><P
@@ -264,13 +266,15 @@ CLASS="OPTION"
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_node_info --verbose -h localhost -U postgres 0
-Hostname   : host1
-Port       : 5432
-Status     : 1
-Weight     : 0.500000
-Status Name: waiting
-Role       : primary
+>$ pcp_node_info --verbose -h localhost -U postgres 1
+Hostname          : /tmp
+Port              : 11003
+Status            : 2
+Weight            : 0.500000
+Status Name       : up
+Role              : standby
+Replication Delay : 208
+Last Status Change: 2018-07-03 08:26:39
     </PRE
 ></DIV
 ><DIV

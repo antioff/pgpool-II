@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.5 文書"
+TITLE="Pgpool-II 4.0.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:21"></HEAD
+CONTENT="2018-10-19T01:18:05"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.5 文書</A
+>Pgpool-II 4.0.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-6"
->A.19. リリース 3.6</A
+>A.20. リリース 3.6</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8525"
->A.19.1. 概要</A
+NAME="AEN9537"
+>A.20.1. 概要</A
 ></H2
 ><P
 >    
@@ -125,7 +125,7 @@ CLASS="PRODUCTNAME"
 ><UL
 ><LI
 ><P
->      fail-over の挙動が改善されました。
+>      failover の挙動が改善されました。
       </P
 ><P
 >      Streaming Replicationモードで、フェイルオーバーが発生した時に、ダウンしたスタンバイサーバを利用しなければ、クライアントセッションが切断されなくなります。
@@ -195,8 +195,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8550"
->A.19.2. 主な改善点</A
+NAME="AEN9562"
+>A.20.2. 主な改善点</A
 ></H2
 ><P
 ></P
@@ -204,7 +204,7 @@ NAME="AEN8550"
 ><LI
 ><P
 >    
-      fail-over の挙動が改善されました。(Tatsuo Ishii)
+      failover の挙動が改善されました。(Tatsuo Ishii)
 	</P
 ><P
 >    
@@ -215,7 +215,7 @@ NAME="AEN8550"
 	</P
 ><P
 >    
-fail-over が発生する場合にローカル負荷分散ノードの情報が重要なので、<TT
+failover が発生する場合にローカル負荷分散ノードの情報が重要なので、<TT
 CLASS="COMMAND"
 >show pool_nodes</TT
 > コマンドで、ローカル負荷分散ノードの情報が利用者の便宜のために表示されるようになりました。
@@ -228,8 +228,8 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > に接続できるようになりました。
 以前は、<A
-HREF="runtime-config-failover.html#GUC-FAIL-OVER-ON-BACKEND-ERROR"
->fail_over_on_backend_error</A
+HREF="runtime-config-failover.html#GUC-FAILOVER-ON-BACKEND-ERROR"
+>failover_on_backend_error</A
 >がオフの場合でも<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -461,8 +461,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8622"
->A.19.3. 他の改善点</A
+NAME="AEN9634"
+>A.20.3. 他の改善点</A
 ></H2
 ><P
 ></P
@@ -616,8 +616,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8667"
->A.19.4. 変更点</A
+NAME="AEN9679"
+>A.20.4. 変更点</A
 ></H2
 ><P
 ></P
@@ -691,8 +691,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8688"
->A.19.5. 不具合修正</A
+NAME="AEN9700"
+>A.20.5. 不具合修正</A
 ></H2
 ><P
 ></P
@@ -1022,8 +1022,8 @@ CLASS="FUNCTION"
 ><P
 >        
         <A
-HREF="runtime-config-failover.html#GUC-FAIL-OVER-ON-BACKEND-ERROR"
->fail_over_on_backend_error</A
+HREF="runtime-config-failover.html#GUC-FAILOVER-ON-BACKEND-ERROR"
+>failover_on_backend_error</A
 > が off の場合、
         <CODE
 CLASS="FUNCTION"

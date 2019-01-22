@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.5 文書"
+TITLE="Pgpool-II 4.0.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP コマンド"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:21"></HEAD
+CONTENT="2018-10-19T01:18:05"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.5 文書</A
+>Pgpool-II 4.0.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PCP-PROC-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN5940"
+NAME="AEN6380"
 ></A
 ><H2
 >名前</H2
@@ -107,7 +107,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN5944"
+NAME="AEN6384"
 ></A
 ><H2
 >概要</H2
@@ -149,7 +149,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5956"
+NAME="AEN6396"
 ></A
 ><H2
 >オプション</H2
@@ -159,6 +159,19 @@ NAME="AEN5956"
 ></P><DIV
 CLASS="VARIABLELIST"
 ><DL
+><DT
+><TT
+CLASS="OPTION"
+>-a</TT
+><BR><TT
+CLASS="OPTION"
+>--all</TT
+></DT
+><DD
+><P
+>すべての子プロセスと、それに関するコネクションスロットを表示します。
+       </P
+></DD
 ><DT
 ><TT
 CLASS="OPTION"
@@ -200,12 +213,17 @@ HREF="pcp-common-options.html"
 ></DL
 ></DIV
 ><P>
+もし-aオプションも-Pオプションも指定されない場合は、すべての接続された<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>子プロセスが表示されます。
+この場合、接続された子プロセスが存在しない場合は、"No process information available"メッセージだけが表示されます。
    </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5975"
+NAME="AEN6423"
 ></A
 ><H2
 >例</H2
@@ -214,9 +232,9 @@ NAME="AEN5975"
     例を示します。
     </P><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info -p 11001
-test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4157 1
-test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4158 1
+>$ pcp_proc_info -p 11001 1406
+test t-ishii 2018-07-09 16:43:53 2018-07-09 16:44:08 3 0 1 1435 1 1406 0
+test t-ishii 2018-07-09 16:43:53 2018-07-09 16:44:08 3 0 1 1436 1 1406 1
     </PRE
 ><P>
   </P
@@ -233,7 +251,9 @@ CLASS="LITERALLAYOUT"
 6. プロトコルのマイナーバージョン
 7. 接続の再利用カウンタ値
 8. PostgreSQLバックエンドプロセスのプロセスID
-9. フロントエンドが接続中なら1、そうでなければ0</PRE
+9. フロントエンドが接続中なら1、そうでなければ0
+10. pgpool子プロセスID
+11. PostgreSQLバックエンドID</PRE
 ><P>
   </P
 ><P
@@ -249,25 +269,29 @@ CLASS="OPTION"
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info -p 11001 --verbose
+>$ pcp_proc_info -p 11001 --verbose 1406
 Database     : test
 Username     : t-ishii
-Start time   : 2018-05-09 11:10:16
-Creation time: 2018-05-09 11:10:40
+Start time   : 2018-07-09 16:43:53
+Creation time: 2018-07-09 16:44:08
 Major        : 3
 Minor        : 0
 Counter      : 1
-Backend PID  : 4157
+Backend PID  : 1435
 Connected    : 1
+PID          : 1406
+Backend ID   : 0
 Database     : test
 Username     : t-ishii
-Start time   : 2018-05-09 11:10:16
-Creation time: 2018-05-09 11:10:40
+Start time   : 2018-07-09 16:43:53
+Creation time: 2018-07-09 16:44:08
 Major        : 3
 Minor        : 0
 Counter      : 1
-Backend PID  : 4158
+Backend PID  : 1436
 Connected    : 1
+PID          : 1406
+Backend ID   : 1
     </PRE
 ></DIV
 ><DIV

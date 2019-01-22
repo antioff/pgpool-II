@@ -2,12 +2,12 @@
 .\"     Title: pgpool_setup
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: pgpool-II 3.7.5 Documentation
-.\"    Source: pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: pgpool-II 4.0.0 Documentation
+.\"    Source: pgpool-II 4.0.0
 .\"  Language: English
 .\"
-.TH "PGPOOL_SETUP" "1" "2016" "pgpool-II 3.7.5" "pgpool-II 3.7.5 Documentation"
+.TH "PGPOOL_SETUP" "1" "2018" "pgpool-II 4.0.0" "pgpool-II 4.0.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -111,6 +111,27 @@ Do not stop pgpool and PostgreSQL after the work\&.
 .RS 4
 Start pgpool with debug mode\&.
 .RE
+.PP
+\fB\-s\fR
+.RS 4
+In streaming replication mode, use replication slot instead of archive\&. Since the archive directory is shared by all
+PostgreSQL
+clusters, if a standby is promoted, the time line in the archive directory will be changed and other standby servers will be stopped\&. Using a replication slot does not have this problem and is always preferable if you can use
+PostgreSQL
+9\&.4 or later, which supports replication slot\&. The replication slot name used by
+pgpool_setup
+is
+pgpool_setup_slot\&.
+.RE
+.PP
+\fB\-r\fR
+.RS 4
+Use
+\fBpg_rewind\fR
+command in recovery script (basebackup\&.sh)\&. If the command fails, switch to use ordinal rsync command\&. In certain cases recovery using
+\fBpg_rewind\fR
+is much faster than rsync since it does not copy whole database cluster\&.
+.RE
 .SH "ENVIRONMENT VARIABLES"
 .PP
 pgpool_setup
@@ -145,6 +166,18 @@ Specifies the path to Unix socket directory\&. The default is /tmp\&.
 .RS 4
 Specifies the arguments for initdb command\&. The default is "\-\-no\-locale \-E UTF_8"\&.
 .RE
+.PP
+\fBUSE_REPLICATION_SLOT\fR
+.RS 4
+If "true", in streaming replication mode, use replication slot instead of archive\&. This brings the same effect as "\-s" option is specified\&.
+.RE
+.PP
+\fBUSE_PG_REWIND\fR
+.RS 4
+If "true", in streaming replication mode, use
+\fBpg_rewind\fR
+in basebackup\&.sh script\&. This brings the same effect as "\-r" option is specified\&.
+.RE
 .SH "EXAMPLE"
 .PP
 .if n \{\
@@ -152,7 +185,7 @@ Specifies the arguments for initdb command\&. The default is "\-\-no\-locale \-E
 .\}
 .nf
 $ pgpool_setup
-Satrting set up in streaming replication mode
+Starting set up in streaming replication mode
 creating startall and shutdownall
 creating failover script
 creating database cluster /home/t\-ishii/tmp/test/data0\&.\&.\&.done\&.

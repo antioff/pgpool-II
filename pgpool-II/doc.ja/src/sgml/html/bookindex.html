@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 3.7.5 文書"
+TITLE="Pgpool-II 4.0.0 文書"
 HREF="index.html"><LINK
 REL="PREVIOUS"
 TITLE="リリース 3.1.21"
@@ -20,7 +20,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:21"></HEAD
+CONTENT="2018-10-19T01:18:05"></HEAD
 ><BODY
 CLASS="INDEX"
 ><DIV
@@ -38,7 +38,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 3.7.5 文書</A
+>Pgpool-II 4.0.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -86,64 +86,64 @@ NAME="BOOKINDEX"
 ><P
 CLASS="INDEXDIV-QUICKLINKS"
 ><A
-HREF="bookindex.html#AEN10297"
+HREF="bookindex.html#AEN11309"
 >Symbols</A
 > | <A
-HREF="bookindex.html#AEN10325"
+HREF="bookindex.html#AEN11337"
 >A</A
 > | <A
-HREF="bookindex.html#AEN10345"
+HREF="bookindex.html#AEN11364"
 >B</A
 > | <A
-HREF="bookindex.html#AEN10371"
+HREF="bookindex.html#AEN11393"
 >C</A
 > | <A
-HREF="bookindex.html#AEN10406"
+HREF="bookindex.html#AEN11431"
 >D</A
 > | <A
-HREF="bookindex.html#AEN10417"
+HREF="bookindex.html#AEN11448"
 >E</A
 > | <A
-HREF="bookindex.html#AEN10422"
+HREF="bookindex.html#AEN11453"
 >F</A
 > | <A
-HREF="bookindex.html#AEN10448"
+HREF="bookindex.html#AEN11479"
 >H</A
 > | <A
-HREF="bookindex.html#AEN10480"
+HREF="bookindex.html#AEN11511"
 >I</A
 > | <A
-HREF="bookindex.html#AEN10497"
+HREF="bookindex.html#AEN11528"
 >L</A
 > | <A
-HREF="bookindex.html#AEN10544"
+HREF="bookindex.html#AEN11578"
 >M</A
 > | <A
-HREF="bookindex.html#AEN10595"
+HREF="bookindex.html#AEN11629"
 >N</A
 > | <A
-HREF="bookindex.html#AEN10600"
+HREF="bookindex.html#AEN11634"
 >O</A
 > | <A
-HREF="bookindex.html#AEN10611"
+HREF="bookindex.html#AEN11645"
 >P</A
 > | <A
-HREF="bookindex.html#AEN10712"
+HREF="bookindex.html#AEN11752"
 >R</A
 > | <A
-HREF="bookindex.html#AEN10750"
+HREF="bookindex.html#AEN11790"
 >S</A
 > | <A
-HREF="bookindex.html#AEN10819"
+HREF="bookindex.html#AEN11863"
 >T</A
 > | <A
-HREF="bookindex.html#AEN10824"
+HREF="bookindex.html#AEN11868"
 >U</A
 > | <A
-HREF="bookindex.html#AEN10829"
+HREF="bookindex.html#AEN11873"
 >W</A
 > | <A
-HREF="bookindex.html#AEN10916"
+HREF="bookindex.html#AEN11960"
 >Y</A
 ></P
 ><DIV
@@ -151,7 +151,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10297"
+NAME="AEN11309"
 >Symbols</A
 ></H2
 ><DL
@@ -240,10 +240,17 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10325"
+NAME="AEN11337"
 >A</A
 ></H2
 ><DL
+><DT
+>allow_clear_text_frontend_auth configuration parameter,
+    <A
+HREF="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS"
+>認証設定</A
+>
+  </DT
 ><DT
 >allow_multiple_failover_requests_from_node 設定パラメータ,
     <A
@@ -280,6 +287,17 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL"
 >
   </DT
 ><DT
+>AUTH,
+    <A
+HREF="auth-different-auth-method.html"
+>フロンエンドとバックエンド認証に対する異なる認証方式の使用</A
+>,
+    <A
+HREF="auth-aes-encrypted-password.html"
+>pool_passwdにおけるAES256暗号化パスワードの使用</A
+>
+  </DT
+><DT
 >authentication_timeout 設定パラメータ,
     <A
 HREF="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS"
@@ -293,7 +311,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10345"
+NAME="AEN11364"
 >B</A
 ></H2
 ><DL
@@ -353,6 +371,13 @@ HREF="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG"
 >共通設定</A
 >
   </DT
+><DT
+>black_query_pattern_list 設定パラメータ,
+    <A
+HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
+>負荷分散の設定</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -360,10 +385,17 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10371"
+NAME="AEN11393"
 >C</A
 ></H2
 ><DL
+><DT
+>Certificate,
+    <A
+HREF="auth-methods.html#AUTH-CERT"
+>証明書認証</A
+>
+  </DT
 ><DT
 >check_temp_table 設定パラメータ,
     <A
@@ -448,7 +480,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10406"
+NAME="AEN11431"
 >D</A
 ></H2
 ><DL
@@ -473,6 +505,20 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL"
 >仮想IP制御</A
 >
   </DT
+><DT
+>detach_false_primary設定パラメータ,
+    <A
+HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
+>フェイルオーバとフェイルバックの設定</A
+>
+  </DT
+><DT
+>disable_load_balance_on_write設定パラメータ,
+    <A
+HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
+>負荷分散の設定</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -480,7 +526,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10417"
+NAME="AEN11448"
 >E</A
 ></H2
 ><DL
@@ -498,7 +544,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10422"
+NAME="AEN11453"
 >F</A
 ></H2
 ><DL
@@ -524,6 +570,13 @@ HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
 >
   </DT
 ><DT
+>failover_on_backend_error 設定パラメータ,
+    <A
+HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
+>フェイルオーバとフェイルバックの設定</A
+>
+  </DT
+><DT
 >failover_require_consensus 設定パラメータ,
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR"
@@ -535,13 +588,6 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR"
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR"
 >フェイルオーバの挙動の制御</A
->
-  </DT
-><DT
->fail_over_on_backend_error 設定パラメータ,
-    <A
-HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
->フェイルオーバとフェイルバックの設定</A
 >
   </DT
 ><DT
@@ -565,7 +611,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10448"
+NAME="AEN11479"
 >H</A
 ></H2
 ><DL
@@ -646,7 +692,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10480"
+NAME="AEN11511"
 >I</A
 ></H2
 ><DL
@@ -692,7 +738,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10497"
+NAME="AEN11528"
 >L</A
 ></H2
 ><DL
@@ -736,6 +782,13 @@ HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
     <A
 HREF="runtime-misc.html"
 >その他の設定パラメータ</A
+>
+  </DT
+><DT
+>log_client_messages 設定パラメータ,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG"
+>何をログに</A
 >
   </DT
 ><DT
@@ -808,7 +861,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10544"
+NAME="AEN11578"
 >M</A
 ></H2
 ><DL
@@ -935,7 +988,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10595"
+NAME="AEN11629"
 >N</A
 ></H2
 ><DL
@@ -953,7 +1006,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10600"
+NAME="AEN11634"
 >O</A
 ></H2
 ><DL
@@ -985,7 +1038,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10611"
+NAME="AEN11645"
 >P</A
 ></H2
 ><DL
@@ -1179,6 +1232,20 @@ HREF="pgpool-setup.html"
 >
   </DT
 ><DT
+>pgproto,
+    <A
+HREF="pgproto.html"
+>pgproto</A
+>
+  </DT
+><DT
+>pg_enc,
+    <A
+HREF="pg-enc.html"
+>pg_enc</A
+>
+  </DT
+><DT
 >pg_md5,
     <A
 HREF="pg-md5.html"
@@ -1227,7 +1294,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10712"
+NAME="AEN11752"
 >R</A
 ></H2
 ><DL
@@ -1322,10 +1389,21 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10750"
+NAME="AEN11790"
 >S</A
 ></H2
 ><DL
+><DT
+>SCRAM,
+    <A
+HREF="auth-methods.html#AUTH-SCRAM"
+>scram-sha-256認証</A
+>,
+    <A
+HREF="auth-methods.html#SETTING-SCRAM-SHA-256-AUTHENTICATION"
+>scram-sha-256認証の設定</A
+>
+  </DT
 ><DT
 >search_primary_node_timeout 設定パラメータ,
     <A
@@ -1491,7 +1569,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10819"
+NAME="AEN11863"
 >T</A
 ></H2
 ><DL
@@ -1509,7 +1587,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10824"
+NAME="AEN11868"
 >U</A
 ></H2
 ><DL
@@ -1527,7 +1605,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10829"
+NAME="AEN11873"
 >W</A
 ></H2
 ><DL
@@ -1763,7 +1841,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10916"
+NAME="AEN11960"
 >Y</A
 ></H2
 ><DL

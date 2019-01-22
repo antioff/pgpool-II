@@ -8,13 +8,12 @@
     works with Master Slave mode (<xref linkend="runtime-config-master-slave-mode">)
     and Replication mode (<xref linkend="runtime-config-replication-mode">). When enabled
     <productname>Pgpool-II</productname> sends the writing queries to the
-    <acronym>primay node</acronym> in Master Slave mode, all of the backend nodes
-    in Replication mode, and other queries get load balanced among all backend nodes.
-    To which node
-    the load balancing mechanism sends read queries is decided at the
-    session start time and will not be changed until the session
-    ends. The only exception is by writing special SQL comments. See
-    below for more details.
+    <acronym>primay node</acronym> in Master Slave mode, all of the
+    backend nodes in Replication mode, and other queries get load
+    balanced among all backend nodes.  To which node the load
+    balancing mechanism sends read queries is decided at the session
+    start time and will not be changed until the session ends. However
+    there are some exceptions.  See below for more details.
   </para>
   <note>
     <para>
@@ -161,6 +160,59 @@
 
  </sect2>
 
+ <sect2 id="runtime-config-writing-queries-may-affect-load-balancing">
+
+   <title>Writing queries may affect Load Balancing</title>
+   <para>
+     In general, read queries are load balanced if certain conditions
+     are met. However, writing queries may affect the load
+     balancing. Here "writing queries" mean all the queries except
+     below:
+   </para>
+
+   <para>
+   <itemizedlist>
+     <listitem>
+       <para>
+	 SELECT/WITH without FOR UPDATE/SHARE
+       </para>
+     </listitem>
+
+     <listitem>
+       <para>
+	 COPY TO STODUT
+       </para>
+     </listitem>
+
+     <listitem>
+       <para>
+	 EXPLAIN
+       </para>
+     </listitem>	 
+
+     <listitem>
+       <para>
+	 EXPLAIN ANALYZE and the query is SELECT not including writing functions
+       </para>
+     </listitem>	 
+
+     <listitem>
+       <para>
+	 SHOW
+       </para>
+     </listitem>	 
+
+   </itemizedlist>
+   </para>
+
+   <para>
+     If writing queires appear, succeeding read queries may not be
+     load balanced. i.e. sent to primary node (in streaming
+     replication mode) or master node (in other mode) depending on the
+     setting of <xref linkend="guc-disable-load-balance-on-write">.
+   </para>
+ </sect2>
+
  <sect2 id="runtime-config-load-balancing-in-streaming-raplication">
 
    <title>Load Balancing in Streaming Replication</title>
@@ -274,11 +326,31 @@
              SELECT not listed above
              </para>
            </listitem>
+
            <listitem>
              <para>
-             COPY TO
+             COPY TO STDOUT
              </para>
            </listitem>
+
+	   <listitem>
+	     <para>
+	       EXPLAIN
+	     </para>
+	   </listitem>	 
+
+	   <listitem>
+	     <para>
+	       EXPLAIN ANALYZE and the query is SELECT not including writing functions
+	     </para>
+	   </listitem>	 
+
+	   <listitem>
+	     <para>
+	       SHOW
+	     </para>
+	   </listitem>	 
+
          </itemizedlist>
         </para>
       </listitem>
@@ -511,6 +583,77 @@ black_function_list = 'nextval,setval,lastval,currval'
       </listitem>
     </varlistentry>
 
+   <varlistentry id="guc-black-query-pattern-list" xreflabel="black_query_pattern_list">
+      <term><varname>black_query_pattern_list</varname> (<type>string</type>)
+        <indexterm>
+          <primary><varname>black_query_pattern_list</varname> configuration parameter</primary>
+        </indexterm>
+      </term>
+      <listitem>
+        <para>
+          Specifies a semicolon separated list of SQL patterns that
+          should be sent to primary node.
+          SQL that matched patterns specified in this list are
+          not load balanced.
+          Only Maste Slave mode is supported.
+        </para>
+        <para>
+          You can use regular expression to match SQL patterns,
+          to which <literal>^</> and <literal>$</> are automatically added.
+          When using  special characters in regular expressions 
+          (such as "'", ";", "*", "(", ")", "|", "+", ".", "\", "?", "^", "$",
+          "{","}", "{" or "}", etc.)
+          in SQL patterns, you need to escape them by using "\".
+          SQL pattern specified in this parameter is case-insensitive.
+        </para>
+
+        <example id="example-black-query-pattern-list-1">
+          <title>Using regular expression</title>
+          <para>
+            If the following SQL should be sent to the primary node only, You can
+            set the <xref linkend="guc-black-query-pattern-list"> like below:
+         <itemizedlist>
+           <listitem>
+             <para>
+             SELECT * FROM table_name1;
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+             SELECT col1, col2 FROM table_name2 WHERE col1 LIKE '%a%';
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+             SQL including table_nama3
+             </para>
+           </listitem>
+         </itemizedlist>
+          </para>
+
+          <para>
+          <programlisting>
+black_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, col2 FROM table_name2 WHERE col1 LIKE \'%a%\'\;;.*table_name3.*'
+          </programlisting>
+          </para>
+        </example>
+
+        <note>
+          <para>
+            If SQL matches both <xref linkend="guc-black-function-list"> and
+            <xref linkend="guc-white-function-list">, <xref linkend="guc-white-function-list">
+            setting is ignored and the SQL should be sent only to the primary node.
+          </para>
+        </note>
+        <para>
+          Depending on the SQL patterns, performance might be 1-2% lower when using this feature.
+        </para>
+        <para>
+          This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+        </para>
+      </listitem>
+    </varlistentry>
+
    <varlistentry id="guc-database-redirect-preference-list" xreflabel="database_redirect_preference_list">
       <term><varname>database_redirect_preference_list</varname> (<type>string</type>)
         <indexterm>
@@ -519,11 +662,14 @@ black_function_list = 'nextval,setval,lastval,currval'
       </term>
       <listitem>
         <para>
-         Specifies the list of <replaceable>"database-name:node id"</replaceable> pairs
+         Specifies the list of <replaceable>"database-name:node id(ratio)"</replaceable> pairs
          to send <acronym>SELECT</acronym> queries to a particular backend
-         node for a particular database connection.
-         For example, by specifying "test:1", <productname>Pgpool-II</productname>
-         will redirect all <acronym>SELECT</acronym> queries to the backend node of ID 1 for
+         node for a particular database connection at a specified load balance ratio.
+		 The load balance ratio specifies a value between 0 and 1. The default is 1.0.
+        </para>
+        <para>
+         For example, by specifying "test:1(0.5)", <productname>Pgpool-II</productname>
+         will redirect 50% <acronym>SELECT</acronym> queries to the backend node of ID 1 for
          the connection to "test" database.
          You can specify multiple <replaceable>"database name:node id"</replaceable> pair by separating them
          using comma (,).
@@ -533,7 +679,7 @@ black_function_list = 'nextval,setval,lastval,currval'
          You can use special keywords as <replaceable>node id</replaceable>.
          If <emphasis>"primary"</emphasis> is specified, queries are sent to the primary node, and
          if <emphasis>"standby"</emphasis> is specified, one of the standby nodes are selected randomly
-         based on weights.
+         based on weights (<xref linkend="guc-backend-weight">).
         </para>
 
         <example id="example-database-redirect-list">
@@ -551,8 +697,9 @@ black_function_list = 'nextval,setval,lastval,currval'
             </listitem>
             <listitem>
               <para>
-                Route all <acronym>SELECT</acronym> queries on <literal>mydb0</literal> or on
-                <literal>mydb1</literal> databases to backend node of ID 1.
+                Route 30% <acronym>SELECT</acronym> queries on <literal>mydb0</literal> or on
+                <literal>mydb1</literal> databases to backend node of ID.
+				The other 70% <acronym>SELECT</acronym> queries will be sent to other backend nodes.
               </para>
             </listitem>
             <listitem>
@@ -566,7 +713,7 @@ black_function_list = 'nextval,setval,lastval,currval'
           <para>
             then the <xref linkend="guc-database-redirect-preference-list"> will be configured as follows:
               <programlisting>
-database_redirect_preference_list = 'postgres:primary,mydb[01]:1,mydb2:standby'
+database_redirect_preference_list = 'postgres:primary,mydb[01]:1(0.3),mydb2:standby'
               </programlisting>
           </para>
         </example>
@@ -586,9 +733,9 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1,mydb2:standby'
       <listitem>
 
         <para>
-          Specifies the list of <replaceable>"application-name:node id"</replaceable> pairs
+          Specifies the list of <replaceable>"application-name:node id(ratio)"</replaceable> pairs
           to send <acronym>SELECT</acronym> queries to a particular backend
-          node for a particular client application connection.
+          node for a particular client application connection at a specified load balance ratio.
         </para>
 
         <note>
@@ -600,7 +747,7 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1,mydb2:standby'
 
         <para>
           For example, application name of <command>psql</command> command is
-          <literal>"psql"</literal>
+          <literal>"psql"</literal>.
         </para>
 
         <note>
@@ -619,6 +766,7 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1,mydb2:standby'
           thus you can also use the regular expressions for application names.
           Similarly special keyword <emphasis>"primary"</emphasis> indicates the primary node and
          <emphasis>"standby"</emphasis> indicates one of standby nodes.
+		  The load balance weight specifies a value between 0 and 1. The default is 1.0.
         </para>
 
         <example id="example-app-name-redirect-list">
@@ -636,8 +784,8 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1,mydb2:standby'
             </listitem>
             <listitem>
               <para>
-                Route all <acronym>SELECT</acronym> queries from <literal>myapp1</literal>
-                client to backend node of ID 1.
+                Route 30% <acronym>SELECT</acronym> queries from <literal>myapp1</literal>
+                client to backend node of ID 1. The other 70% SELECT queries will be sent to other backend nodes.
               </para>
             </listitem>
             <listitem>
@@ -651,7 +799,7 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1,mydb2:standby'
           <para>
             then the <xref linkend="guc-app-name-redirect-preference-list"> will be configured as follows:
               <programlisting>
-app_name_redirect_preference_list = 'psql:primary,myapp1:1,myapp2:standby'
+app_name_redirect_preference_list = 'psql:primary,myapp1:1(0.3),myapp2:standby'
               </programlisting>
           </para>
         </example>
@@ -660,6 +808,25 @@ app_name_redirect_preference_list = 'psql:primary,myapp1:1,myapp2:standby'
           <para>
             <xref linkend="guc-app-name-redirect-preference-list"> takes precedence
             over the <xref linkend="guc-database-redirect-preference-list">.
+          </para>
+          <para>
+			For example, if you set
+			<literal>database_redirect_preference_list = 'postgres:standby(1.0)'</literal> and
+			<literal>app_name_redirect_preference_list = 'myapp1:primary(1.0)'</literal>,
+			all SELECT from application myapp1 on postgres database will be sent to primary backend node.
+          </para>
+        </note>
+
+        <note>
+          <para>
+			By specifying of <xref linkend="guc-app-name-redirect-preference-list"> and
+			<xref linkend="guc-database-redirect-preference-list">, when multiple database
+			names and application names are matched, the first setting will be used.
+          </para>
+          <para>
+			For example, if you set
+			<literal>database_redirect_preference_list = 'postgres:primary,postgres:standby'</literal>,
+			<literal>"postgres: primary"</literal> will be used.
           </para>
         </note>
 
@@ -702,6 +869,69 @@ app_name_redirect_preference_list = 'psql:primary,myapp1:1,myapp2:standby'
                     You can also use <xref linkend="SQL-PGPOOL-SET"> command to alter the value of
                     this parameter for a current session.
         </para>
+      </listitem>
+    </varlistentry>
+
+   <varlistentry id="guc-disable-load-balance-on-write" xreflabel="disable_load_balance_on_write">
+      <term><varname>disable_load_balance_on_write</varname> (<type>string</type>)
+        <indexterm>
+          <primary><varname>disable_load_balance_on_write</varname> configuration parameter</primary>
+        </indexterm>
+      </term>
+      <listitem>
+        <para>
+	  Specify load balance behavior after write queries appear.
+	  This parameter is especially useful in streaming replication
+	  mode. When write queries are sent to primary server, the
+	  changes are applied to standby servers but there's a time
+	  lag. So if a client read the same row right after the write
+	  query, the client may not see the latest value of the
+	  row. If that's the problem, clients should always read data
+	  from the primary server. However this effectively disables
+	  load balancing, which leads to lesser performance. This
+	  parameter allows a fine tuning for the trade off between
+	  not-clustering-aware applications compatibility and
+	  performance.
+	</para>
+	<para>
+	  If this parameter is set to <varname>off</varname>, read
+	  queries are load balanced even if write queries appear. This
+	  gives the best load balance performance but clients may see
+	  older data. This is useful for an environment where
+	  PostgreSQL parameter synchronous_commit = 'remote_apply', or
+	  in the native replication mode, since there's no replication
+	  delay in such environments.
+	</para>
+	<para>
+	  If this parameter is set to <varname>transaction</varname>
+	  and write queries appear in an explicit transaction,
+	  subsequent read queries are not load balanced until the
+	  transaction ends.  Please note that read queries not in an
+	  explicit transaction are not affected by the parameter. This
+	  setting gives the best balance in most cases and you should
+	  start from this. This is the default and same behavior in
+	  <productname>Pgpool-II 3.7</productname> or before.
+	</para>
+	<para>
+	  If this parameter is set
+	  to <varname>trans_transaction</varname> and write queries
+	  appear in an explicit transaction, subsequent read queries
+	  are not load balanced in the transaction and subsequent
+	  explicit transaction until the session ends. So this
+	  parameter is safer for older applications but give lesser
+	  performance than <varname>transaction</varname>. Please note
+	  that read queries not in an explicit transaction are not
+	  affected by the parameter.
+	</para>
+
+	<para>
+	  If this parameter is set to <varname>always</varname> and
+	  write queries appear, subsequent read queries are not load
+	  balanced until the session ends regardless they are in
+	  explicit transactions or not. This gives the highest
+	  compatibility with not-clustering-aware applications and the
+	  lowest performance.
+	</para>
       </listitem>
     </varlistentry>
 

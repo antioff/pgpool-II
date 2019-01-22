@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.5 Documentation"
+TITLE="pgpool-II 4.0.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:19"></HEAD
+CONTENT="2018-10-19T01:17:51"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.5 Documentation</A
+>pgpool-II 4.0.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -529,6 +529,34 @@ HREF="runtime-config-logging.html#GUC-LOG-STATEMENT"
 >, except that it print the
 					logs for each DB node separately. It can be useful to make sure that
 					replication or load-balancing is working.
+				</P
+><P
+>          This parameter can be changed by reloading the <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> configurations.
+					You can also use <A
+HREF="sql-pgpool-set.html"
+>PGPOOL SET</A
+> command to alter the value of
+					this parameter for a current session.
+        </P
+></DD
+><DT
+><A
+NAME="GUC-LOG-CLIENT-MESSAGES"
+></A
+><TT
+CLASS="VARNAME"
+>log_client_messages</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+        </DT
+><DD
+><P
+>					Setting to on, prints client messages to the log.
 				</P
 ><P
 >          This parameter can be changed by reloading the <SPAN

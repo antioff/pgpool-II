@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.5 Documentation"
+TITLE="pgpool-II 4.0.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:19"></HEAD
+CONTENT="2018-10-19T01:17:51"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.5 Documentation</A
+>pgpool-II 4.0.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PCP-PROC-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN5969"
+NAME="AEN6412"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN5969"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN5972"
+NAME="AEN6415"
 ></A
 ><H2
 >Synopsis</H2
@@ -119,7 +119,7 @@ CLASS="REPLACEABLE"
 >...] [<TT
 CLASS="REPLACEABLE"
 ><I
->processid</I
+>pgpool_child_processid</I
 ></TT
 >]</P
 ></DIV
@@ -141,7 +141,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN5983"
+NAME="AEN6426"
 ></A
 ><H2
 >Options</H2
@@ -151,6 +151,19 @@ NAME="AEN5983"
 ></P><DIV
 CLASS="VARIABLELIST"
 ><DL
+><DT
+><TT
+CLASS="OPTION"
+>-a</TT
+><BR><TT
+CLASS="OPTION"
+>--all</TT
+></DT
+><DD
+><P
+>	 Display all child processes and their available connection slots.
+       </P
+></DD
 ><DT
 ><TT
 CLASS="OPTION"
@@ -171,7 +184,10 @@ CLASS="REPLACEABLE"
 ></DT
 ><DD
 ><P
->	   PID of Pgpool-II child process.
+>	   PID of <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> child process.
        </P
 ></DD
 ><DT
@@ -190,12 +206,25 @@ HREF="pcp-common-options.html"
 ></DL
 ></DIV
 ><P>
-   </P
+
+    If -a nor -P is not specified, process information of all
+    connected <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> child process will
+    be printed. In this case if there's no
+    connected <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> child process,
+    nothing but "No process information available" message will be
+    printed.
+    </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6002"
+NAME="AEN6455"
 ></A
 ><H2
 >Example</H2
@@ -203,9 +232,9 @@ NAME="AEN6002"
 >	Here is an example output:
     </P><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info -p 11001
-test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4157 1
-test t-ishii 2018-05-09 11:10:16 2018-05-09 11:10:40 3 0 1 4158 1
+>$ pcp_proc_info -p 11001 1406
+test t-ishii 2018-07-09 16:43:53 2018-07-09 16:44:08 3 0 1 1435 1 1406 0
+test t-ishii 2018-07-09 16:43:53 2018-07-09 16:44:08 3 0 1 1436 1 1406 1
     </PRE
 ><P>
   </P
@@ -221,7 +250,9 @@ CLASS="LITERALLAYOUT"
 6. protocol minor version
 7. connection-reuse counter
 8. PostgreSQL backend process id
-9. 1 if frontend conncted 0 if not</PRE
+9. 1 if frontend conncted 0 if not
+10. pgpool child process id
+11. PostgreSQL backend id </PRE
 ><P>
   </P
 ><P
@@ -236,25 +267,29 @@ CLASS="OPTION"
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_proc_info -p 11001 --verbose
+>$ pcp_proc_info -p 11001 --verbose 1406
 Database     : test
 Username     : t-ishii
-Start time   : 2018-05-09 11:10:16
-Creation time: 2018-05-09 11:10:40
+Start time   : 2018-07-09 16:43:53
+Creation time: 2018-07-09 16:44:08
 Major        : 3
 Minor        : 0
 Counter      : 1
-Backend PID  : 4157
+Backend PID  : 1435
 Connected    : 1
+PID          : 1406
+Backend ID   : 0
 Database     : test
 Username     : t-ishii
-Start time   : 2018-05-09 11:10:16
-Creation time: 2018-05-09 11:10:40
+Start time   : 2018-07-09 16:43:53
+Creation time: 2018-07-09 16:44:08
 Major        : 3
 Minor        : 0
 Counter      : 1
-Backend PID  : 4158
+Backend PID  : 1436
 Connected    : 1
+PID          : 1406
+Backend ID   : 1
     </PRE
 ></DIV
 ><DIV

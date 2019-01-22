@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.5 Documentation"
+TITLE="pgpool-II 4.0.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:19"></HEAD
+CONTENT="2018-10-19T01:17:51"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.5 Documentation</A
+>pgpool-II 4.0.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -288,15 +288,48 @@ CLASS="PRODUCTNAME"
 >	    However from <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> 3.6, In
+> 3.6, in
 	    the steaming replication mode, client sessions will not be
-	    disconnected when a fail-over occurs any more if the
+	    disconnected when a failover occurs any more if the
 	    session does not use the failed standby server. If the
 	    primary server goes down, still all sessions will be
 	    disconnected. Health check timeout case will also cause
 	    the full session disconnection. Other health check error,
 	    including retry over case does not trigger full session
 	    disconnection.
+	  </P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>	    You can run <TT
+CLASS="COMMAND"
+>psql</TT
+> (or whatever command)
+	    against backend to retrieve some information in the
+	    script, but you cannot run <TT
+CLASS="COMMAND"
+>psql</TT
+> against
+	    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> itself, since the
+	    script is called from <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>
+	    and it needs to run
+	    while <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> is working on
+	    failover.
 	  </P
 ></BLOCKQUOTE
 ></DIV
@@ -425,6 +458,39 @@ CLASS="CALSTABLE"
 ></TBODY
 ></TABLE
 ></DIV
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>	    You can run <TT
+CLASS="COMMAND"
+>psql</TT
+> (or whatever command)
+	    against backend to retrieve some information in the
+	    script, but you cannot run <TT
+CLASS="COMMAND"
+>psql</TT
+> against
+	    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> itself, since the
+	    script is called from <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>
+	    and it needs to run
+	    while <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> is working on
+	    failover.
+	  </P
+></BLOCKQUOTE
+></DIV
 ><P
 >          This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
@@ -509,13 +575,13 @@ CLASS="CALSTABLE"
 ><TD
 >%m</TD
 ><TD
->	New master node ID</TD
+>	New primary node ID</TD
 ></TR
 ><TR
 ><TD
 >%H</TD
 ><TD
->Hostname of the new master node</TD
+>Hostname of the new primary node</TD
 ></TR
 ><TR
 ><TD
@@ -527,13 +593,13 @@ CLASS="CALSTABLE"
 ><TD
 >%r</TD
 ><TD
->Port number of the new master node</TD
+>Port number of the new primary node</TD
 ></TR
 ><TR
 ><TD
 >%R</TD
 ><TD
->Database cluster directory of the new master node</TD
+>Database cluster directory of the new primary node</TD
 ></TR
 ><TR
 ><TD
@@ -554,7 +620,7 @@ CLASS="NOTE"
 >          If <TT
 CLASS="VARNAME"
 >follow_master_command</TT
->&#62; is not empty, then after failover
+> is not empty, then after failover
           on the primary node gets completed in Master Slave mode with streaming replication,
           <SPAN
 CLASS="PRODUCTNAME"
@@ -588,11 +654,11 @@ CLASS="PRODUCTNAME"
 ></DD
 ><DT
 ><A
-NAME="GUC-FAIL-OVER-ON-BACKEND-ERROR"
+NAME="GUC-FAILOVER-ON-BACKEND-ERROR"
 ></A
 ><TT
 CLASS="VARNAME"
->fail_over_on_backend_error</TT
+>failover_on_backend_error</TT
 > (<TT
 CLASS="TYPE"
 >boolean</TT
@@ -626,7 +692,7 @@ HREF="runtime-config-health-check.html"
 >)
             when <TT
 CLASS="VARNAME"
->fail_over_on_backend_error</TT
+>failover_on_backend_error</TT
 > is set to off.
             Note, however, that <SPAN
 CLASS="PRODUCTNAME"
@@ -650,6 +716,39 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
         </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>            Prior to <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.0</I
+></SPAN
+>,
+            this configuration parameter name was <TT
+CLASS="VARNAME"
+>fail</TT
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>_</I
+></SPAN
+><TT
+CLASS="VARNAME"
+>over_on_backend_error</TT
+>.
+        </P
+></BLOCKQUOTE
+></DIV
 ></DD
 ><DT
 ><A
@@ -683,6 +782,117 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
         </P
+></DD
+><DT
+><A
+NAME="GUC-DETACH-FALSE-PRIMARY"
+></A
+><TT
+CLASS="VARNAME"
+>detach_false_primary</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+        </DT
+><DD
+><P
+>	  If set to on, detach false primary node. The default is
+          off. This parameter is only valid in streaming replication
+          mode and for <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.6 or
+          after since this feature
+          uses <CODE
+CLASS="FUNCTION"
+>pg_stat_wal_receiver</CODE
+>.
+          If <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.5.x or older
+          version is used, no error is raised, just the feature is
+          ignored.
+	</P
+><P
+>	  If there's no primary node, no checking will be performed.
+	</P
+><P
+>	  If there's no standby node, and there's only one primary
+	  node, no checking will be performed.
+	</P
+><P
+>	  If there's no standby node, and there's multiple primary
+	  nodes, leave the primary node which has the youngest node
+	  id and detach rest of primary nodes.
+	</P
+><P
+>	  If there are one or more primaries and one or more standbys,
+	  check the connectivity between primary and standby nodes by
+	  using <CODE
+CLASS="FUNCTION"
+>pg_stat_wal_receiver</CODE
+>
+	  if <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.6 or after. In
+	  this case if a primary node connects to all standby nodes,
+	  the primary is regarded as "true" primary. Other primaries
+	  are regarded as "false" primary and the false primaries will
+	  be detached if <TT
+CLASS="VARNAME"
+>detach_false_primary</TT
+> is
+	  true.  If no "true" primary is found, nothing will happen.
+        </P
+><P
+>	  When <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> starts, the
+	  checking of false primaries are performed only once in
+	  the <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> main
+	  process. If <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-PERIOD"
+>sr_check_period</A
+> is greater
+	  than 0, the false primaries checking will be performed at
+	  the same timing of streaming replication delay checking.
+	</P
+><P
+>          This parameter is only applicable in the streaming replication mode.
+        </P
+><P
+>          This parameter can be changed by reloading
+          the <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> configurations.
+        </P
+><P
+>	  <DIV
+CLASS="FIGURE"
+><A
+NAME="AEN3165"
+></A
+><P
+><B
+>Figure 5-1. Detecting false primaries</B
+></P
+><DIV
+CLASS="MEDIAOBJECT"
+><P
+><IMG
+SRC="detach_false_primary.gif"></P
+></DIV
+></DIV
+>
+	</P
 ></DD
 ></DL
 ></DIV

@@ -2,12 +2,12 @@
 .\"     Title: pcp_node_info
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: pgpool-II 3.7.5 Documentation
-.\"    Source: pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: pgpool-II 4.0.0 Documentation
+.\"    Source: pgpool-II 4.0.0
 .\"  Language: English
 .\"
-.TH "PCP_NODE_INFO" "1" "2016" "pgpool-II 3.7.5" "pgpool-II 3.7.5 Documentation"
+.TH "PCP_NODE_INFO" "1" "2018" "pgpool-II 4.0.0" "pgpool-II 4.0.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -59,8 +59,8 @@ Here is an example output:
 .RS 4
 .\}
 .nf
-$ pcp_node_info \-h localhost \-U postgres 0
-host1 5432 1 0\&.500000 waiting primary
+$ pcp_node_info \-h localhost \-U postgres 1
+/tmp 11003 2 0\&.500000 up standby 208 2018\-07\-03 08:26:39
     
 .fi
 .if n \{\
@@ -79,6 +79,8 @@ The result is in the following order:
 4\&. load balance weight
 5\&. status name
 6\&. backend role
+7\&. replication delay
+8\&. last status change time
 .fi
 .if n \{\
 .RE
@@ -140,13 +142,15 @@ option can help understand the output\&. For example:
 .RS 4
 .\}
 .nf
-$ pcp_node_info \-\-verbose \-h localhost \-U postgres 0
-Hostname   : host1
-Port       : 5432
-Status     : 1
-Weight     : 0\&.500000
-Status Name: waiting
-Role       : primary
+$ pcp_node_info \-\-verbose \-h localhost \-U postgres 1
+Hostname          : /tmp
+Port              : 11003
+Status            : 2
+Weight            : 0\&.500000
+Status Name       : up
+Role              : standby
+Replication Delay : 208
+Last Status Change: 2018\-07\-03 08:26:39
     
 .fi
 .if n \{\

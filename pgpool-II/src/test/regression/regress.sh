@@ -16,6 +16,7 @@ MODE=install
 PG_INSTALL_DIR=/usr/local/pgsql/bin
 PGPOOL_PATH=/usr/local
 JDBC_DRIVER=/usr/local/pgsql/share/postgresql-9.2-1003.jdbc4.jar
+export USE_REPLICATION_SLOT=true
 export log=$dir/log
 fail=0
 ok=0
@@ -57,6 +58,13 @@ function verify_pginstallation
 		echo "$0: cannot locate pg_config"
 		exit 1
 	fi
+
+	# PostgreSQL lib directory
+	PGLIB=`$PG_INSTALL_DIR/pg_config --libdir`
+	if [ -z $PGLIB ]; then
+		echo "$0: cannot locate pg_config"
+		exit 1
+	fi
 }
 
 function export_env_vars
@@ -94,16 +102,18 @@ function export_env_vars
 	export JDBC_DRIVER=$JDBC_DRIVER
 	export PGBENCH_PATH=$PGBENCH_PATH
 	export PGSOCKET_DIR=$PGSOCKET_DIR
+	export PGVERSION=`$PGBIN/initdb -V|awk '{print $3}'|sed 's/\..*//'`
 }
 function print_info
 {
 	echo ${CBLUE}"*************************"${CNORM}
 
-	echo "REGRESSION MODE : "${CBLUE}$MODE${CNORM}
-	echo "PGPOOL-II       : "${CBLUE}$PGPOOL_PATH${CNORM}
-	echo "PostgreSQL bin  : "${CBLUE}$PGBIN${CNORM}
-	echo "pgbench         : "${CBLUE}$PGBENCH_PATH${CNORM}
-	echo "PostgreSQL jdbc : "${CBLUE}$JDBC_DRIVER${CNORM}
+	echo "REGRESSION MODE          : "${CBLUE}$MODE${CNORM}
+	echo "PGPOOL-II                : "${CBLUE}$PGPOOL_PATH${CNORM}
+	echo "PostgreSQL bin           : "${CBLUE}$PGBIN${CNORM}
+	echo "PostgreSQL Major version : "${CBLUE}$PGVERSION${CNORM}
+	echo "pgbench                  : "${CBLUE}$PGBENCH_PATH${CNORM}
+	echo "PostgreSQL jdbc          : "${CBLUE}$JDBC_DRIVER${CNORM}
 	echo ${CBLUE}"*************************"${CNORM}
 }
 

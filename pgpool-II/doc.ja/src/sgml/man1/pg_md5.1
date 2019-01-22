@@ -2,12 +2,12 @@
 .\"     Title: pg_md5
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: Pgpool-II 3.7.5 文書
-.\"    Source: Pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: Pgpool-II 4.0.0 文書
+.\"    Source: Pgpool-II 4.0.0
 .\"  Language: Japanese
 .\"
-.TH "PG_MD5" "1" "2016" "Pgpool-II 3.7.5" "Pgpool-II 3.7.5 文書"
+.TH "PG_MD5" "1" "2018" "Pgpool-II 4.0.0" "Pgpool-II 4.0.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -54,7 +54,10 @@ md5 暗号化したパスワードを生成します。
 .br
 \fB\-\-md5auth\fR
 .RS 4
-md5 認証パスワードを生成します。
+pool_passwd
+認証ファイルに
+md5
+認証パスワードを生成します。
 .RE
 .PP
 \fB\-u \fR\fB\fIyour_username\fR\fR
@@ -66,15 +69,27 @@ md5 認証パスワードを生成する際、pool_passwd
 your_username
 の md5 認証のエントリが登録されます。
 .RE
+.PP
+\fB\-f \fR\fB\fIconfig_file\fR\fR
+.br
+\fB\-\-config\-file=\fR\fB\fIconfig_file\fR\fR
+.RS 4
+設定ファイル
+pgpool\&.confへのパスを指定します。
+.RE
 .SH "例"
 .PP
-ここでは例を示します。
+以下は
+pcp\&.conf
+に登録する
+md5
+暗号化されたパスワードを生成する例です。
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-pg_md5 \-p
+$ pg_md5 \-p
 password: [your password]
     
 .fi
@@ -88,10 +103,32 @@ password: [your password]
 .RS 4
 .\}
 .nf
-\&./pg_md5 foo
+$ pg_md5 [your password]
 acbd18db4cc2f85cedef654fccc4a4d8
     
 .fi
 .if n \{\
 .RE
 .\}
+.PP
+また、\fBpg_md5\fR
+は、pool_passwd
+に ユーザー名とmd5
+暗号化されたパスワードのエントリを生成するためにも使用できます。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$pg_md5 \-m \-f /path/to/pgpool\&.conf \-u username \-p
+password: [your password]
+
+$ cat /path/to/pool_passwd 
+username:md55a231fcdb710d73268c4f44283487ba2
+      
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

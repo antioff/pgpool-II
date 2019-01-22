@@ -173,6 +173,8 @@ hostname:port:username:password
    </partintro>
 
    &pgMd5;
+   &pgEnc;
+   &pgproto;
    &pgpoolSetup;
    &watchdoglSetup;
 

@@ -2,12 +2,12 @@
 .\"     Title: SHOW POOL NODES
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016
-.\"    Manual: pgpool-II 3.7.5 Documentation
-.\"    Source: pgpool-II 3.7.5
+.\"      Date: 2018
+.\"    Manual: pgpool-II 4.0.0 Documentation
+.\"    Source: pgpool-II 4.0.0
 .\"  Language: English
 .\"
-.TH "SHOW POOL NODES" "1" "2016" "pgpool-II 3.7.5" "pgpool-II 3.7.5 Documentation"
+.TH "SHOW POOL NODES" "1" "2018" "pgpool-II 4.0.0" "pgpool-II 4.0.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,13 +38,15 @@ SHOW POOL_NODES
 .SH "DESCRIPTION"
 .PP
 \fBSHOW POOL_NODES\fR
-displays the node id, the hostname, the port, the status, the weight (only meaningful if you use the load balancing mode), the role, the SELECT query counts issued to each backend, whether each node is the load bakance node or not, and the replication delay (only if in streaming replication mode)\&. The possible values in the status column are explained in the
+displays the node id, the hostname, the port, the status, the weight (only meaningful if you use the load balancing mode), the role, the SELECT query counts issued to each backend, whether each node is the load bakance node or not, the replication delay (only if in streaming replication mode) and last status change time\&. The possible values in the status column are explained in the
 \fBpcp_node_info\fR(1)
 reference\&. If the hostname is something like "/tmp", that means
 Pgpool\-II
 is connecting to backend by using UNIX domain sockets\&. The SELECT count does not include internal queries used by
 Pgoool\-II\&. Also the counters are reset to zero upon starting up of
-Pgpool\-II\&.
+Pgpool\-II\&. The last status change time is initially set to the time
+Pgpool\-II
+starts\&. After that whenever "status" or "role" is changed, it is updated\&.
 .PP
 Here is an example session:
 .sp
@@ -53,10 +55,10 @@ Here is an example session:
 .\}
 .nf
 test=# show pool_nodes;
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
- 0       | /tmp     | 11002 | up     | 0\&.500000  | primary | 0          | false             | 0
- 1       | /tmp     | 11003 | up     | 0\&.500000  | standby | 0          | true              | 0
+ node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | last_status_change  
+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+ 0       | /tmp     | 11002 | up     | 0\&.500000  | primary | 0          | true              | 0                 | 2018\-06\-12 21:45:59
+ 1       | /tmp     | 11003 | up     | 0\&.500000  | standby | 0          | false             | 0                 | 2018\-06\-12 21:45:59
 (2 rows)
 .fi
 .if n \{\

@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [3.7.5], [pgpool-hackers@pgpool.net], [pgpool-II])
+AC_INIT([pgpool-II], [4.0.0], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -427,6 +427,5 @@ fi
 AC_MSG_RESULT([enable cassert = $enable_cassert])
 
 AM_CONFIG_HEADER(src/include/config.h)
-AC_CONFIG_FILES([src/sql/pgpool_adm/Makefile])
 
-AC_OUTPUT([Makefile doc/Makefile  doc/src/Makefile doc/src/sgml/Makefile doc.ja/Makefile  doc.ja/src/Makefile doc.ja/src/sgml/Makefile src/Makefile src/include/Makefile src/parser/Makefile src/libs/Makefile src/libs/pcp/Makefile src/tools/Makefile src/tools/pgmd5/Makefile src/tools/pcp/Makefile src/watchdog/Makefile])
+AC_OUTPUT([Makefile doc/Makefile  doc/src/Makefile doc/src/sgml/Makefile doc.ja/Makefile  doc.ja/src/Makefile doc.ja/src/sgml/Makefile src/Makefile src/include/Makefile src/parser/Makefile src/libs/Makefile src/libs/pcp/Makefile src/tools/Makefile src/tools/pgmd5/Makefile src/tools/pgenc/Makefile src/tools/pcp/Makefile src/tools/pgproto/Makefile src/watchdog/Makefile])

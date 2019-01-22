@@ -153,6 +153,37 @@
           <xref linkend="guc-recovery-user"> to perform online recovery.
         </para>
         <para>
+            If <varname>recovery_password</varname> is left blank <productname>Pgpool-II</productname>
+            will first try to get the password for <xref linkend="guc-recovery-user"> from
+            <xref linkend="guc-pool-passwd"> file before using the empty password.
+        </para>
+        <para>
+            You can also specify AES256-CBC encrypted password in <varname>recovery_password</varname> field.
+            To specify the <literal>AES</literal> encrypted password, password string must be prefixed with
+            <literal>AES</literal> after encrypting (using <literal>aes-256-cbc</literal> algorithm) and
+            encoding to <literal>base64</literal>.
+        </para>
+        <para>
+            To specify the unencrypted clear text password, prefix the password string with
+            <literal>TEXT</literal>. For example if you want to set <literal>mypass</literal> as
+            a password, you should specify <literal>TEXTmypass</literal> in the password field.
+            In the absence of a valid prefix, <productname>Pgpool-II</productname> will considered
+            the string as a plain text password.
+        </para>
+        <para>
+            You can also use <xref linkend="PG-ENC"> utility to create the correctly formatted
+            <literal>AES</literal> encrypted password strings.
+            <note>
+                <para>
+                    <productname>Pgpool-II</productname> will require a valid decryption key at the
+                    startup to use the encrypted passwords.
+                    see <xref linkend="auth-aes-decryption-key"> for more details on providing the
+                    decryption key to <productname>Pgpool-II</productname>
+                </para>
+            </note>
+        </para>
+
+        <para>
           This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
         </para>
       </listitem>
@@ -175,7 +206,7 @@
           try to execute <command>$PGDATA/sync-command</command>.
         </para>
         <para>
-          <varname>recovery_1st_stage_command</varname> receives following 4 parameters:
+          <varname>recovery_1st_stage_command</varname> receives following 5 parameters:
         </para>
 
         <itemizedlist>
@@ -196,7 +227,12 @@
           </listitem>
           <listitem>
             <para>
-              Port number of the master (primary) node.
+              Port number of the master (primary) node (<productname>Pgpool-II</productname> 3.4 or after).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Node number to be recovered (<productname>Pgpool-II</productname> 4.0 or after)
             </para>
           </listitem>
         </itemizedlist>
@@ -253,7 +289,7 @@ rsync used in the command is killed by signal 2 for example.
           will try to execute <command>$PGDATA/sync-command</command>.
         </para>
         <para>
-          <varname>recovery_2nd_stage_command</varname> receives following 4 parameters:
+          <varname>recovery_2nd_stage_command</varname> receives following 5 parameters:
         </para>
 
         <itemizedlist>
@@ -274,7 +310,12 @@ rsync used in the command is killed by signal 2 for example.
           </listitem>
           <listitem>
             <para>
-              Port number of database to be recovered.
+              Port number of the master (primary) node (<productname>Pgpool-II</productname> 3.4 or after).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Node number to be recovered (<productname>Pgpool-II</productname> 4.0 or after)
             </para>
           </listitem>
         </itemizedlist>
@@ -348,11 +389,25 @@ rsync used in the command is killed by signal 2 for example.
           connection between the client and <productname>Pgpool-II</productname>
           is accidentally down (a cut cable for instance).
         </para>
+
+        <note>
+          <para>
+	    <varname>client_idle_limit_in_recovery</varname> must be smaller than
+	    <xref linkend="guc-recovery-timeout">.
+              Otherwise, <xref linkend="guc-recovery-timeout"> comes
+              first and you will see following error while executing online recovery:
+		<programlisting>
+ERROR:  node recovery failed, waiting connection closed in the other pgpools timeout
+		</programlisting>
+          </para>
+        </note>
+
         <para>
           If set to -1, all clients get immediately disconnected when the second
           stage of online recovery starts.
           The default is 0, which turns off the feature.
         </para>
+
 
         <para>
           This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.

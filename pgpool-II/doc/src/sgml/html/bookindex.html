@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 3.7.5 Documentation"
+TITLE="pgpool-II 4.0.0 Documentation"
 HREF="index.html"><LINK
 REL="PREVIOUS"
 TITLE="Release 3.1.21"
@@ -20,7 +20,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2018-07-31T00:19:19"></HEAD
+CONTENT="2018-10-19T01:17:51"></HEAD
 ><BODY
 CLASS="INDEX"
 ><DIV
@@ -38,7 +38,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 3.7.5 Documentation</A
+>pgpool-II 4.0.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -86,61 +86,61 @@ NAME="BOOKINDEX"
 ><P
 CLASS="INDEXDIV-QUICKLINKS"
 ><A
-HREF="bookindex.html#AEN10188"
+HREF="bookindex.html#AEN11201"
 >A</A
 > | <A
-HREF="bookindex.html#AEN10208"
+HREF="bookindex.html#AEN11228"
 >B</A
 > | <A
-HREF="bookindex.html#AEN10234"
+HREF="bookindex.html#AEN11257"
 >C</A
 > | <A
-HREF="bookindex.html#AEN10279"
+HREF="bookindex.html#AEN11305"
 >D</A
 > | <A
-HREF="bookindex.html#AEN10290"
+HREF="bookindex.html#AEN11322"
 >E</A
 > | <A
-HREF="bookindex.html#AEN10295"
+HREF="bookindex.html#AEN11327"
 >F</A
 > | <A
-HREF="bookindex.html#AEN10321"
+HREF="bookindex.html#AEN11353"
 >H</A
 > | <A
-HREF="bookindex.html#AEN10357"
+HREF="bookindex.html#AEN11389"
 >I</A
 > | <A
-HREF="bookindex.html#AEN10377"
+HREF="bookindex.html#AEN11409"
 >L</A
 > | <A
-HREF="bookindex.html#AEN10427"
+HREF="bookindex.html#AEN11462"
 >M</A
 > | <A
-HREF="bookindex.html#AEN10481"
+HREF="bookindex.html#AEN11516"
 >N</A
 > | <A
-HREF="bookindex.html#AEN10489"
+HREF="bookindex.html#AEN11524"
 >O</A
 > | <A
-HREF="bookindex.html#AEN10500"
+HREF="bookindex.html#AEN11535"
 >P</A
 > | <A
-HREF="bookindex.html#AEN10601"
+HREF="bookindex.html#AEN11642"
 >R</A
 > | <A
-HREF="bookindex.html#AEN10639"
+HREF="bookindex.html#AEN11680"
 >S</A
 > | <A
-HREF="bookindex.html#AEN10711"
+HREF="bookindex.html#AEN11756"
 >T</A
 > | <A
-HREF="bookindex.html#AEN10716"
+HREF="bookindex.html#AEN11761"
 >U</A
 > | <A
-HREF="bookindex.html#AEN10721"
+HREF="bookindex.html#AEN11766"
 >W</A
 > | <A
-HREF="bookindex.html#AEN10805"
+HREF="bookindex.html#AEN11850"
 >Y</A
 ></P
 ><DIV
@@ -148,10 +148,17 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10188"
+NAME="AEN11201"
 >A</A
 ></H2
 ><DL
+><DT
+>allow_clear_text_frontend_auth configuration parameter,
+    <A
+HREF="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS"
+>Authentication Settings</A
+>
+  </DT
 ><DT
 >allow_multiple_failover_requests_from_node configuration parameter,
     <A
@@ -188,6 +195,17 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL"
 >
   </DT
 ><DT
+>AUTH,
+    <A
+HREF="auth-different-auth-method.html"
+>Using different methods for frontend and backend authentication</A
+>,
+    <A
+HREF="auth-aes-encrypted-password.html"
+>Using AES256 encrypted passwords in </A
+>
+  </DT
+><DT
 >authentication_timeout configuration parameter,
     <A
 HREF="runtime-config-connection.html#RUNTIME-CONFIG-AUTHENTICATION-SETTINGS"
@@ -201,7 +219,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10208"
+NAME="AEN11228"
 >B</A
 ></H2
 ><DL
@@ -261,6 +279,13 @@ HREF="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG"
 >Common configurations</A
 >
   </DT
+><DT
+>black_query_pattern_list configuration parameter,
+    <A
+HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
+>Load Balancing Settings</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -268,10 +293,17 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10234"
+NAME="AEN11257"
 >C</A
 ></H2
 ><DL
+><DT
+>Certificate,
+    <A
+HREF="auth-methods.html#AUTH-CERT"
+>Certificate Authentication</A
+>
+  </DT
 ><DT
 >check_temp_table configuration parameter,
     <A
@@ -388,7 +420,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10279"
+NAME="AEN11305"
 >D</A
 ></H2
 ><DL
@@ -413,6 +445,20 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-VIP-CONTROL"
 >Virtual IP control</A
 >
   </DT
+><DT
+>detach_false_primary configuration parameter,
+    <A
+HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
+>Failover and Failback Settings</A
+>
+  </DT
+><DT
+>disable_load_balance_on_write configuration parameter,
+    <A
+HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
+>Load Balancing Settings</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -420,7 +466,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10290"
+NAME="AEN11322"
 >E</A
 ></H2
 ><DL
@@ -438,7 +484,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10295"
+NAME="AEN11327"
 >F</A
 ></H2
 ><DL
@@ -464,6 +510,13 @@ HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
 >
   </DT
 ><DT
+>failover_on_backend_error configuration parameter,
+    <A
+HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
+>Failover and Failback Settings</A
+>
+  </DT
+><DT
 >failover_require_consensus configuration parameter,
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR"
@@ -475,13 +528,6 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR"
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR"
 >Controlling the Failover behavior</A
->
-  </DT
-><DT
->fail_over_on_backend_error configuration parameter,
-    <A
-HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
->Failover and Failback Settings</A
 >
   </DT
 ><DT
@@ -505,7 +551,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10321"
+NAME="AEN11353"
 >H</A
 ></H2
 ><DL
@@ -604,7 +650,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10357"
+NAME="AEN11389"
 >I</A
 ></H2
 ><DL
@@ -657,7 +703,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10377"
+NAME="AEN11409"
 >L</A
 ></H2
 ><DL
@@ -708,6 +754,13 @@ HREF="runtime-misc.html"
     <A
 HREF="configuring-pgpool.html#RUNNING-MODE"
 >Running mode of Pgpool-II</A
+>
+  </DT
+><DT
+>log_client_messages configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG"
+>What To Log</A
 >
   </DT
 ><DT
@@ -780,7 +833,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10427"
+NAME="AEN11462"
 >M</A
 ></H2
 ><DL
@@ -914,7 +967,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10481"
+NAME="AEN11516"
 >N</A
 ></H2
 ><DL
@@ -939,7 +992,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10489"
+NAME="AEN11524"
 >O</A
 ></H2
 ><DL
@@ -971,7 +1024,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10500"
+NAME="AEN11535"
 >P</A
 ></H2
 ><DL
@@ -1165,6 +1218,20 @@ HREF="pgpool-setup.html"
 >
   </DT
 ><DT
+>pgproto,
+    <A
+HREF="pgproto.html"
+>pgproto</A
+>
+  </DT
+><DT
+>pg_enc,
+    <A
+HREF="pg-enc.html"
+>pg_enc</A
+>
+  </DT
+><DT
 >pg_md5,
     <A
 HREF="pg-md5.html"
@@ -1213,7 +1280,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10601"
+NAME="AEN11642"
 >R</A
 ></H2
 ><DL
@@ -1308,10 +1375,21 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10639"
+NAME="AEN11680"
 >S</A
 ></H2
 ><DL
+><DT
+>SCRAM,
+    <A
+HREF="auth-methods.html#AUTH-SCRAM"
+>scram-sha-256 Authentication</A
+>,
+    <A
+HREF="auth-methods.html#SETTING-SCRAM-SHA-256-AUTHENTICATION"
+>Setting scram-sha-256 Authentication</A
+>
+  </DT
 ><DT
 >search_primary_node_timeout configuration parameter,
     <A
@@ -1484,7 +1562,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10711"
+NAME="AEN11756"
 >T</A
 ></H2
 ><DL
@@ -1502,7 +1580,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10716"
+NAME="AEN11761"
 >U</A
 ></H2
 ><DL
@@ -1520,7 +1598,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10721"
+NAME="AEN11766"
 >W</A
 ></H2
 ><DL
@@ -1749,7 +1827,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN10805"
+NAME="AEN11850"
 >Y</A
 ></H2
 ><DL
