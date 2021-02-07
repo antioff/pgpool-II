@@ -278,11 +278,12 @@ main(int argc, char **argv)
 		{
 			if (kill(pid, 0) == 0)
 			{
-				fprintf(stderr, "ERROR: pid file found. is another pgpool(%d) is running?\n", pid);
-				exit(EXIT_FAILURE);
+				ereport(FATAL,
+						(errmsg("pid file found. is another pgpool(%d) is running?\n", pid)));
 			}
 			else
-				fprintf(stderr, "NOTICE: pid file found but it seems bogus. Trying to start pgpool anyway...\n");
+				ereport(NOTICE,
+						(errmsg("pid file found but it seems bogus. Trying to start pgpool anyway...\n")));
 		}
 	}
 
@@ -336,10 +337,17 @@ main(int argc, char **argv)
 		char		dirnamebuf[POOLMAXPATHLEN + 1];
 		char	   *dirp;
 
-		strlcpy(dirnamebuf, conf_file, sizeof(dirnamebuf));
-		dirp = dirname(dirnamebuf);
-		snprintf(pool_passwd, sizeof(pool_passwd), "%s/%s",
-				 dirp, pool_config->pool_passwd);
+		if (pool_config->pool_passwd[0] != '/')
+		{
+			strlcpy(dirnamebuf, conf_file, sizeof(dirnamebuf));
+			dirp = dirname(dirnamebuf);
+			snprintf(pool_passwd, sizeof(pool_passwd), "%s/%s",
+					 dirp, pool_config->pool_passwd);
+		}
+		else
+			strlcpy(pool_passwd, pool_config->pool_passwd,
+				 sizeof(pool_passwd));
+
 		pool_init_pool_passwd(pool_passwd, POOL_PASSWD_R);
 	}
 
@@ -640,7 +648,7 @@ write_pid_file(void)
 						   pool_config->pid_file_name)));
 	}
 
-	fd = open(pid_file, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+	fd = open(pid_file, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
 	if (fd == -1)
 	{
 		ereport(FATAL,

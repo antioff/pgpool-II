@@ -5,7 +5,7 @@ CREATE FUNCTION pgpool_recovery(IN script_name text,
 	   IN remote_host text,
 	   IN remote_data_directory text,
 	   IN remote_port text,
-   	   IN recovery_node integer)
+	   IN recovery_node integer)
 RETURNS bool
 AS 'MODULE_PATHNAME', 'pgpool_recovery'
 LANGUAGE C STRICT;
@@ -30,12 +30,12 @@ RETURNS bool
 AS 'MODULE_PATHNAME', 'pgpool_remote_start'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION pgpool_pgctl(IN action text, IN stop_mode text)
+CREATE OR REPLACE FUNCTION pgpool_pgctl(IN action text, IN stop_mode text)
 RETURNS bool
 AS '$libdir/pgpool-recovery', 'pgpool_pgctl'
 LANGUAGE C STRICT;
 
-CREATE FUNCTION pgpool_switch_xlog(IN arcive_dir text)
+CREATE OR REPLACE FUNCTION pgpool_switch_xlog(IN arcive_dir text)
 RETURNS text
 AS 'MODULE_PATHNAME', 'pgpool_switch_xlog'
 LANGUAGE C STRICT;

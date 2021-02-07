@@ -25,9 +25,10 @@
   <para>
    If you don't want a query that qualifies for the load balancing to be
    load balanced by <productname>Pgpool-II</productname>, you can put
-   <emphasis>/*NO LOAD BALANCE*/</emphasis> comment before the <acronym>SELECT
-   </acronym> statement. This will disable the load balance of the particular query
-   and <productname>Pgpool-II</productname> will send it to the master node (the primary node in Master Slave mode).
+   arbitrary comment(<emphasis>/*NO LOAD BALANCE*/</emphasis> is usually used)
+   before the <acronym>SELECT</acronym> statement. This will disable the
+   load balance of the particular query and <productname>Pgpool-II</productname>
+   will send it to the master node (the primary node in Master Slave mode).
   </para>
  </note>
 
@@ -75,9 +76,9 @@
 	  <para>
 	   transaction has not issued a write query yet (until a write
 	   query is issued, load balance is possible. Here "write query"
-	   means non SELECT DML or DDL. SELECTs having write functions as
-	   specified in black or white function list is not regarded as
-	   a write query. This may be changed in the future.)
+	   means non SELECT DML or DDL. <EMPHASIS>Before <productname>Pgpool-II</> 4.1</>,
+	   SELECTs having write functions as specified in black or
+	   white function list is not regarded as a write query.)
 	  </para>
 	 </listitem>
 	 <listitem>
@@ -180,7 +181,7 @@
 
     <listitem>
      <para>
-      COPY TO STDOUT
+      COPY TO STODUT
      </para>
     </listitem>
 
@@ -206,7 +207,7 @@
   </para>
 
   <para>
-   If writing queries appear, succeeding read queries may not be
+   If writing queires appear, succeeding read queries may not be
    load balanced. i.e. sent to primary node (in streaming
    replication mode) or master node (in other mode) depending on the
    setting of <xref linkend="guc-disable-load-balance-on-write">.
@@ -656,7 +657,7 @@
 	 </listitem>
 	 <listitem>
 	  <para>
-	   SQL including table_name3
+	   SQL including table_nama3
 	  </para>
 	 </listitem>
 	</itemizedlist>
@@ -863,13 +864,13 @@
 
      <caution>
       <para>
-       <acronym>JDBC</acronym> driver PostgreSQL-9.3 and earlier versions
+       <acronym>JDBC</acronym> driver postgreSQL-9.3 and earlier versions
        does not send the application name in the startup packet even if
        the application name is specified using the <acronym>JDBC</acronym>
        driver option <literal>"ApplicationName"</literal> and
        <literal>"assumeMinServerVersion=9.0"</literal>.
        So if you want to use the <xref linkend="guc-app-name-redirect-preference-list">
-	feature through <acronym>JDBC</acronym>, Use PostgreSQL-9.4 or later version of the driver.
+	feature through <acronym>JDBC</acronym>, Use postgreSQL-9.4 or later version of the driver.
       </para>
      </caution>
 
@@ -962,6 +963,29 @@
       explicit transactions or not. This gives the highest
       compatibility with not-clustering-aware applications and the
       lowest performance.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry id="guc-statement-level-load-balance" xreflabel="statement_level_load_balance">
+    <term><varname>statement_level_load_balance</varname> (<type>boolean</type>)
+     <indexterm>
+      <primary><varname>statement_level_load_balance</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      When set to on, the load balancing node is decided for each read query.
+      When set to off, load balancing node is decided at the session start time
+      and will not be changed until the session ends.
+      For example, in applications that use connection pooling remain connections
+      open to the backend server, because the session may be held for a long time,
+      the load balancing node does not change until the session ends.
+      In such applications, When <varname>statement_level_load_balance</varname> is enabled,
+      it is possible to decide load balancing node per query, not per session.
+      The default is off.
+     </para>
+     <para>
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
      </para>
     </listitem>
    </varlistentry>

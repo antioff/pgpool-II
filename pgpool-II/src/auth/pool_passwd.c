@@ -388,15 +388,13 @@ pool_get_user_credentials(char *username)
 			char	   *pwd;
 
 			t = getNextToken(t, &pwd);
-			if (pwd)
+			if (tok)
 			{
 				pwdMapping->backendUser.password = pwd;
 				pwdMapping->backendUser.userName = tok;
 				pwdMapping->backendUser.passwordType = get_password_type(pwdMapping->backendUser.password);
 				pwdMapping->mappedUser = true;
 			}
-			else
-				pfree(tok);
 		}
 		break;
 	}
@@ -451,10 +449,10 @@ pool_reopen_passwd_file(void)
 }
 
 /*
- * function first uses the password in the argument, if the
- * argument is empty string or NULL, it looks for the password
- * for uset in pool_passwd file.
- * The returned password is always in plain text and palloc'd (if not null)
+ * function first uses the password in the argument, if the argument is empty
+ * string or NULL, it looks for the password for uset in pool_passwd file.
+ * The returned password is always in plain text or md5 hashed and palloc'd
+ * (if not null)
  */
 char *
 get_pgpool_config_user_password(char *username, char *password_in_config)
@@ -464,7 +462,7 @@ get_pgpool_config_user_password(char *username, char *password_in_config)
 	PasswordMapping *password_mapping = NULL;
 
 	/*
-	 * if the password specified in config is empty strin or NULL look for the
+	 * if the password specified in confg is empty strin or NULL look for the
 	 * password in pool_passwd file
 	 */
 	if (password_in_config == NULL || strlen(password_in_config) == 0)
@@ -516,11 +514,13 @@ get_pgpool_config_user_password(char *username, char *password_in_config)
 			password = (char*)(password + strlen(PASSWORD_TEXT_PREFIX));
 	}
 
-	if (password && strlen(password) && passwordType != PASSWORD_TYPE_PLAINTEXT)
+	if (password && strlen(password) && (passwordType != PASSWORD_TYPE_PLAINTEXT &&
+										 passwordType != PASSWORD_TYPE_MD5))
 	{
 		/*
-		 * Could not find plain text password in pool_passwd corresponding to the user.
-		 * This is normal. Just use empty password in pgpool.conf.
+		 * Could not find either plain text or md5 hashed password in
+		 * pool_passwd corresponding to the user.  This is normal. Just use
+		 * empty password in pgpool.conf.
 		 */
 		ereport(DEBUG5,
 				(errmsg("could not get the password for user:%s", username),

@@ -1,3 +1,26 @@
+/* -*-pgsql-c-*- */
+/*
+ *
+ * pgpool: a language independent connection pool server for PostgreSQL
+ * written by Tatsuo Ishii
+ *
+ * Copyright (c) 2003-2019	PgPool Global Development Group
+ *
+ * Permission to use, copy, modify, and distribute this software and
+ * its documentation for any purpose and without fee is hereby
+ * granted, provided that the above copyright notice appear in all
+ * copies and that both that copyright notice and this permission
+ * notice appear in supporting documentation, and that the name of the
+ * author not be used in advertising or publicity pertaining to
+ * distribution of the software without specific, written prior
+ * permission. The author makes no representations about the
+ * suitability of this software for any purpose.  It is provided "as
+ * is" without express or implied warranty.
+ *
+ * pool_config_variables.c.
+ *
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -87,6 +110,7 @@ static const char *BackendDataDirShowFunc(int index);
 static const char *BackendHostShowFunc(int index);
 static const char *BackendPortShowFunc(int index);
 static const char *BackendWeightShowFunc(int index);
+static const char *BackendAppNameShowFunc(int index);
 
 static const char *HealthCheckPeriodShowFunc(int index);
 static const char *HealthCheckTimeOutShowFunc(int index);
@@ -110,6 +134,7 @@ static bool BackendHostAssignFunc(ConfigContext context, char *newval, int index
 static bool BackendDataDirAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool BackendFlagsAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool BackendWeightAssignFunc(ConfigContext context, double newval, int index, int elevel);
+static bool BackendAppNameAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool HBDestinationAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool HBDestinationPortAssignFunc(ConfigContext context, int newval, int index, int elevel);
 static bool HBDeviceAssignFunc(ConfigContext context, char *newval, int index, int elevel);
@@ -136,7 +161,7 @@ static struct config_generic *get_index_free_record_if_any(struct config_generic
 
 #ifndef POOL_PRIVATE
 /* These functions are used to provide Hints for enum type config parameters and
- * to output the values of the parameters.
+ * to output the vslues of the parameters.
  * These functuons are not available for tools since they use the stringInfo that is
  * not present for tools.
  */
@@ -228,6 +253,21 @@ static const struct config_enum_entry disable_load_balance_on_write_options[] = 
 	{NULL, 0, false}
 };
 
+static const struct config_enum_entry relcache_query_target_options[] = {
+	{"master", RELQTARGET_MASTER, false},
+	{"load_balance_node", RELQTARGET_LOAD_BALANCE_NODE, false},
+	{NULL, 0, false}
+};
+
+static const struct config_enum_entry check_temp_table_options[] = {
+	{"catalog", CHECK_TEMP_CATALOG, false},	/* search system catalogs */
+	{"trace", CHECK_TEMP_TRACE, false},		/* tracing temp tables */
+	{"none", CHECK_TEMP_NONE, false},		/* do not check temp tables */
+	{"on", CHECK_TEMP_ON, false},			/* same as CHECK_TEMP_CATALOG. Just for backward compatibilty. */
+	{"off", CHECK_TEMP_OFF, false},			/* same as CHECK_TEMP_NONE. Just for backward compatibilty. */
+	{NULL, 0, false}
+};
+
 static struct config_bool ConfigureNamesBool[] =
 {
 	{
@@ -265,6 +305,15 @@ static struct config_bool ConfigureNamesBool[] =
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.allow_multiple_failover_requests_from_node,
+		false,
+		NULL, NULL, NULL
+	},
+	{
+		{"enable_consensus_with_half_votes", CFGCXT_INIT, FAILOVER_CONFIG,
+			"apply majority rule for consensus and quorum computation at 50% of votes in a cluster with an even number of nodes.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.enable_consensus_with_half_votes,
 		false,
 		NULL, NULL, NULL
 	},
@@ -489,16 +538,6 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"check_temp_table", CFGCXT_SESSION, GENERAL_CONFIG,
-			"Enables temporary table check.",
-			CONFIG_VAR_TYPE_BOOL, false, 0
-		},
-		&g_pool_config.check_temp_table,
-		true,
-		NULL, NULL, NULL
-	},
-
-	{
 		{"check_unlogged_table", CFGCXT_SESSION, GENERAL_CONFIG,
 			"Enables unlogged table check.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
@@ -515,6 +554,16 @@ static struct config_bool ConfigureNamesBool[] =
 		},
 		&g_pool_config.memory_cache_enabled,
 		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"enable_shared_relcache", CFGCXT_INIT, CACHE_CONFIG,
+			"relation cache stored in memory cache.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.enable_shared_relcache,
+		true,
 		NULL, NULL, NULL
 	},
 
@@ -543,6 +592,26 @@ static struct config_bool ConfigureNamesBool[] =
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.allow_clear_text_frontend_auth,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"statement_level_load_balance", CFGCXT_RELOAD, LOAD_BALANCE_CONFIG,
+			"Enables statement level load balancing",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.statement_level_load_balance,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"auto_failback", CFGCXT_RELOAD, FAILOVER_CONFIG,
+			"Enables nodes automatically reattach, when dettached node continue streaming replication.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.auto_failback,
 		false,
 		NULL, NULL, NULL
 	},
@@ -868,7 +937,7 @@ static struct config_string ConfigureNamesString[] =
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.if_up_cmd,
-		"ip addr add $_IP_$/24 dev eth0 label eth0:0",
+		"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -878,7 +947,7 @@ static struct config_string ConfigureNamesString[] =
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.if_down_cmd,
-		"ip addr del $_IP_$/24 dev eth0",
+		"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -898,7 +967,7 @@ static struct config_string ConfigureNamesString[] =
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.arping_cmd,
-		"arping -U $_IP_$ -w 1",
+		"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -999,6 +1068,26 @@ static struct config_string ConfigureNamesString[] =
 		},
 		&g_pool_config.ssl_ciphers,
 		"HIGH:MEDIUM:+3DES:!aNULL",
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"ssl_ecdh_curve", CFGCXT_INIT, SSL_CONFIG,
+			"The curve to use in ECDH key exchange.",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.ssl_ecdh_curve,
+		"prime256v1",
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"ssl_dh_params_file", CFGCXT_INIT, SSL_CONFIG,
+			"Path to the Diffie-Hellman parameters contained file",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.ssl_dh_params_file,
+		"",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -1385,6 +1474,17 @@ static struct config_string_array ConfigureNamesStringArray[] =
 	},
 
 	{
+		{"backend_application_name", CFGCXT_RELOAD, CONNECTION_CONFIG,
+			"applicaton_name of the backend.",
+			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, MAX_NUM_BACKENDS
+		},
+		NULL,
+		"",
+		EMPTY_CONFIG_STRING,
+		BackendAppNameAssignFunc, NULL, BackendAppNameShowFunc, BackendSlotEmptyCheckFunc
+	},
+
+	{
 		{"backend_flag", CFGCXT_RELOAD, CONNECTION_CONFIG,
 			"Controls various backend behavior.",
 			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, MAX_NUM_BACKENDS
@@ -1536,6 +1636,17 @@ static struct config_int ConfigureNamesInt[] =
 		&g_pool_config.num_init_children,
 		32,
 		1, INT_MAX,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"reserved_connections", CFGCXT_INIT, CONNECTION_POOL_CONFIG,
+			"Number of reserved connections.",
+			CONFIG_VAR_TYPE_INT, false, 0
+		},
+		&g_pool_config.reserved_connections,
+		0,
+		0, INT_MAX,
 		NULL, NULL, NULL
 	},
 
@@ -1803,6 +1914,17 @@ static struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 
+	{
+		{"auto_failback_interval", CFGCXT_RELOAD, FAILOVER_CONFIG,
+			"min interval of executing auto_failback in seconds",
+			CONFIG_VAR_TYPE_INT, false, 0
+		},
+		&g_pool_config.auto_failback_interval,
+		60,
+		0, INT_MAX,
+		NULL, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	EMPTY_CONFIG_INT
 };
@@ -1907,6 +2029,28 @@ static struct config_enum ConfigureNamesEnum[] =
 		(int *) &g_pool_config.disable_load_balance_on_write,
 		DLBOW_TRANSACTION,
 		disable_load_balance_on_write_options,
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"relcache_query_target", CFGCXT_RELOAD, LOAD_BALANCE_CONFIG,
+			"Target node to send relache queries.",
+			CONFIG_VAR_TYPE_ENUM, false, 0
+		},
+		(int *) &g_pool_config.relcache_query_target,
+		RELQTARGET_MASTER,
+		relcache_query_target_options,
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"check_temp_table", CFGCXT_RELOAD, GENERAL_CONFIG,
+			"Enables temporary table check.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		(int *) &g_pool_config.check_temp_table,
+		CHECK_TEMP_CATALOG,
+		check_temp_table_options,
 		NULL, NULL, NULL, NULL
 	},
 
@@ -2154,7 +2298,7 @@ build_variable_groups(void)
 {
 	/* we build these by hand */
 	/* group 1. Backend config vars */
-	ConfigureVarGroups[0].var_count = 5;
+	ConfigureVarGroups[0].var_count = 6;
 	ConfigureVarGroups[0].var_list = palloc0(sizeof(struct config_generic *) * ConfigureVarGroups[0].var_count);
 	ConfigureVarGroups[0].var_list[0] = find_option("backend_hostname", FATAL);
 	ConfigureVarGroups[0].var_list[0]->flags |= VAR_PART_OF_GROUP;
@@ -2164,8 +2308,10 @@ build_variable_groups(void)
 	ConfigureVarGroups[0].var_list[2]->flags |= VAR_PART_OF_GROUP;
 	ConfigureVarGroups[0].var_list[3] = find_option("backend_data_directory", FATAL);
 	ConfigureVarGroups[0].var_list[3]->flags |= VAR_PART_OF_GROUP;
-	ConfigureVarGroups[0].var_list[4] = find_option("backend_flag", FATAL);
+	ConfigureVarGroups[0].var_list[4] = find_option("backend_application_name", FATAL);
 	ConfigureVarGroups[0].var_list[4]->flags |= VAR_PART_OF_GROUP;
+	ConfigureVarGroups[0].var_list[5] = find_option("backend_flag", FATAL);
+	ConfigureVarGroups[0].var_list[5]->flags |= VAR_PART_OF_GROUP;
 	ConfigureVarGroups[0].gen.max_elements = ConfigureVarGroups[0].var_list[0]->max_elements;
 
 	/* group 2. other_pgpool config vars */
@@ -3781,6 +3927,26 @@ BackendFlagsAssignFunc(ConfigContext context, char *newval, int index, int eleve
 }
 
 static bool
+BackendAppNameAssignFunc(ConfigContext context, char *newval, int index, int elevel)
+{
+	BACKEND_STATUS backend_status = g_pool_config.backend_desc->backend_info[index].backend_status;
+
+	if (context <= CFGCXT_INIT || backend_status == CON_UNUSED || backend_status == CON_DOWN)
+	{
+		if (newval == NULL || strlen(newval) == 0)
+			g_pool_config.backend_desc->backend_info[index].backend_application_name[0] = '\0';
+		else
+			strlcpy(g_pool_config.backend_desc->backend_info[index].backend_application_name, newval, NAMEDATALEN - 1);
+		return true;
+	}
+	/* silent the warning in reload contxt */
+	if (context != CFGCXT_RELOAD)
+		ereport(WARNING,
+				(errmsg("backend_application_name%d cannot be changed in context %d and backend status = %d", index, context, backend_status)));
+	return false;
+}
+
+static bool
 LogDestinationProcessFunc(char *newval, int elevel)
 {
 #ifndef POOL_PRIVATE
@@ -3896,25 +4062,21 @@ BackendDataDirShowFunc(int index)
 static const char *
 BackendFlagsShowFunc(int index)
 {
-	static char buffer[1024];
+	static char buffer[21];
 
 	unsigned short flag = g_pool_config.backend_desc->backend_info[index].flag;
-
-	*buffer = '\0';
 
 	if (POOL_ALLOW_TO_FAILOVER(flag))
 		snprintf(buffer, sizeof(buffer), "ALLOW_TO_FAILOVER");
 	else if (POOL_DISALLOW_TO_FAILOVER(flag))
 		snprintf(buffer, sizeof(buffer), "DISALLOW_TO_FAILOVER");
-
-	if (POOL_ALWAYS_MASTER & flag)
-	{
-		if (*buffer == '\0')
-			snprintf(buffer, sizeof(buffer), "ALWAYS_MASTER");
-		else
-			snprintf(buffer+strlen(buffer), sizeof(buffer), "|ALWAYS_MASTER");
-	}
 	return buffer;
+}
+
+static const char *
+BackendAppNameShowFunc(int index)
+{
+	return g_pool_config.backend_desc->backend_info[index].backend_application_name;
 }
 
 static bool
@@ -4318,20 +4480,6 @@ config_post_processor(ConfigContext context, int elevel)
 		}
 	}
 
-	/*
-	 * Quarantine state in native replication mode is dangerous and it can
-	 * potentially cause data inconsistency.
-	 * So as per the discussions, we agreed on disallowing setting
-	 * failover_when_quorum_exists in native replication mode
-	 */
-
-	if (pool_config->failover_when_quorum_exists && pool_config->replication_mode)
-	{
-		pool_config->failover_when_quorum_exists = false;
-		ereport(elevel,
-				(errmsg("invalid configuration, failover_when_quorum_exists is not allowed in native replication mode")));
-		return false;
-	}
 	return true;
 }
 

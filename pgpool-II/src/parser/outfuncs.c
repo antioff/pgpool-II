@@ -3,8 +3,8 @@
  * outfuncs.c
  *	  Output functions for Postgres tree nodes.
  *
- * Portions Copyright (c) 2003-2018, PgPool Global Development Group
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2019, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -47,7 +47,7 @@ static void _outConst(String * str, Const *node);
 static void _outParam(String * str, Param *node);
 static void _outAggref(String * str, Aggref *node);
 static void _outGroupingFunc(String * str, GroupingFunc *node);
-static void _outArrayRef(String * str, ArrayRef *node);
+static void _outSubscriptingRef(String * str, SubscriptingRef *node);
 static void _outFuncExpr(String * str, FuncExpr *node);
 static void _outNamedArgExpr(String * str, NamedArgExpr *node);
 static void _outOpExpr(String * str, OpExpr *node);
@@ -401,8 +401,9 @@ _outGroupingFunc(String * str, GroupingFunc *node)
 }
 
 static void
-_outArrayRef(String * str, ArrayRef *node)
+_outSubscriptingRef(String * str, SubscriptingRef *node)
 {
+
 }
 
 static void
@@ -1534,7 +1535,14 @@ _outCommonTableExpr(String * str, CommonTableExpr *node)
 		string_append_char(str, ") ");
 	}
 
-	string_append_char(str, "AS (");
+	string_append_char(str, "AS ");
+
+	if (node->ctematerialized & CTEMaterializeAlways)
+		string_append_char(str, "MATERIALIZED ");
+	else if (node->ctematerialized & CTEMaterializeNever)
+		string_append_char(str, "NOT MATERIALIZED ");
+
+	string_append_char(str, "(");
 	_outNode(str, node->ctequery);
 	string_append_char(str, ")");
 }
@@ -1734,6 +1742,15 @@ _outAExpr(String * str, A_Expr *node)
 		default:
 			break;
 	}
+}
+
+/*
+ * Node types found in raw parse trees (supported for debug purposes)
+ */
+
+static void
+_outRawStmt(String * str, const RawStmt *node)
+{
 }
 
 static void
@@ -2500,22 +2517,32 @@ _outTruncateStmt(String * str, TruncateStmt *node)
 static void
 _outVacuumStmt(String * str, VacuumStmt *node)
 {
-	if (node->options & VACOPT_VACUUM)
+
+	VacuumParams params;
+	params.options = node->is_vacuumcmd ? VACOPT_VACUUM : VACOPT_ANALYZE;
+
+	if (params.options & VACOPT_VACUUM)
 		string_append_char(str, "VACUUM ");
-	else if (node->options & VACOPT_ANALYZE)
+	else
 		string_append_char(str, "ANALYZE ");
 
-	if (node->options & VACOPT_FULL)
+	if (params.options & VACOPT_FULL)
 		string_append_char(str, "FULL ");
 
-	if (node->options & VACOPT_FREEZE)
+	if (params.options & VACOPT_FREEZE)
 		string_append_char(str, "FREEZE ");
 
-	if (node->options & VACOPT_VERBOSE)
+	if (params.options & VACOPT_VERBOSE)
 		string_append_char(str, "VERBOSE ");
 
-	if (node->options & VACOPT_VACUUM && node->options & VACOPT_ANALYZE)
+	if (params.options & VACOPT_VACUUM && params.options & VACOPT_ANALYZE)
 		string_append_char(str, "ANALYZE ");
+
+	if (params.options & VACOPT_DISABLE_PAGE_SKIPPING)
+		string_append_char(str, "DISABLE_PAGE_SKIPPING ");
+
+	if (params.options & VACOPT_SKIP_LOCKED)
+		string_append_char(str, "SKIP_LOCKED ");
 
 	ListCell   *lc;
 	foreach(lc, node->rels)
@@ -2775,6 +2802,12 @@ _outCopyStmt(String * str, CopyStmt *node)
 			}
 			string_append_char(str, ")");
 		}
+	}
+
+	if (node->whereClause)
+	{
+		string_append_char(str, " WHERE ");
+		_outNode(str, node->whereClause);
 	}
 }
 
@@ -5544,12 +5577,8 @@ _outOnConflictClause(String * str, OnConflictClause *node)
 			string_append_char(str, " ( ");
 			_outList(str, node->infer->indexElems);
 			string_append_char(str, " ) ");
-
-			if (node->infer->whereClause)
-			{
-				string_append_char(str, " WHERE ");
-				_outNode(str, node->infer->whereClause);
-			}
+			string_append_char(str, " WHERE ");
+			_outNode(str, node->infer->whereClause);
 		}
 		else
 		{
@@ -5611,6 +5640,11 @@ _outPartitionRangeDatum(String * str, PartitionRangeDatum *node)
 void
 _outNode(String * str, void *obj)
 {
+	/* Guard against stack overflow due to overly complex expressions */
+	/*
+	 * check_stack_depth();
+	 */
+
 	if (obj == NULL)
 		return;
 	else if (IsA(obj, List) ||IsA(obj, IntList) || IsA(obj, OidList))
@@ -5656,8 +5690,8 @@ _outNode(String * str, void *obj)
 				/*
 				 * case T_WindowFunc: _outWindowFunc(str, obj); break;
 				 */
-			case T_ArrayRef:
-				_outArrayRef(str, obj);
+			case T_SubscriptingRef:
+				_outSubscriptingRef(str, obj);
 				break;
 			case T_FuncExpr:
 				_outFuncExpr(str, obj);
@@ -5871,6 +5905,9 @@ _outNode(String * str, void *obj)
 				break;
 			case T_ParamRef:
 				_outParamRef(str, obj);
+				break;
+			case T_RawStmt:
+				_outRawStmt(str, obj);
 				break;
 			case T_A_Const:
 				_outAConst(str, obj);

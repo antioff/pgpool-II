@@ -35,12 +35,3 @@ function wait_for_failover_done {
 		sleep 1
 	done
 }
-
-#-------------------------------------------
-# clean remaining processes and sockets
-#-------------------------------------------
-function clean_all {
-	pgrep pgpool | xargs kill -9 > /dev/null 2>&1
-	pgrep postgres | xargs kill -9 > /dev/null 2>&1
-	rm -f $PGSOCKET_DIR/.s.PGSQL.*
-}

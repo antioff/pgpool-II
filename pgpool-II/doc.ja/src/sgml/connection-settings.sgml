@@ -223,16 +223,17 @@
       <productname>Pgpool-II</productname>, <emphasis>they are
       blocked (not rejected with an error, like <productname>PostgreSQL</>)
       until a connection to any <productname>Pgpool-II</productname>
-      process is closed</emphasis>.  Up to
+      process is closed</emphasis> unless <xref linkend="guc-reserved-connections">
+      is set to 1 or more..  Up to
       <xref linkend="guc-listen-backlog-multiplier">*
       num_init_children can be queued.
       -->
       preforkする<productname>Pgpool-II</productname>のサーバプロセスの数です。
       デフォルト値は32です。
       num_init_childrenは<productname>Pgpool-II</productname>に対してクライアントが同時に接続できる上限の数でもあります。
-      num_init_childrenより多いクライアントが<productname>Pgpool-II</productname>に接続しようとした場合、<emphasis>それらのクライアントは、<productname>Pgpool-II</productname>のどれかのプロセスへの接続が閉じられるまで待たされます(<productname>PostgreSQL</>のように接続拒否エラーにはなりません。)</emphasis>。
+      num_init_childrenより多いクライアントが<productname>Pgpool-II</productname>に接続しようとした場合、<xref linkend="guc-reserved-connections">が1以上に設定されている場合を除き、<emphasis>それらのクライアントは、<productname>Pgpool-II</productname>のどれかのプロセスへの接続が閉じられるまで待たされます(<productname>PostgreSQL</>のように接続拒否エラーにはなりません。)</emphasis>。
 
-      待たされる数の上限は、<xref linkend="guc-listen-backlog-multiplier"> * num_init_children です。
+       待たされる数の上限は、<xref linkend="guc-listen-backlog-multiplier"> * num_init_children です。
      </para>
      <para>
       <!--
@@ -242,18 +243,34 @@
       num_init_children*<xref linkend="guc-listen-backlog-multiplier">
       exceeds the number, you need to set the backlog higher.
       Otherwise, following problems may occur in heavy loaded systems:
-      1) connecting to <productname>Pgpool-II</productname> fails
-      2) connecting to <productname>Pgpool-II</productname> is
-      getting slow because of retries in the kernel.  You can
-      check if the listen queue is actually overflowed by using
-      "netstat -s" command.  If you find something like:
       -->
       待ち行列は、OS内部に作られ、「listenキュー」と呼ばれます。
       listenキューの長さは「バックログ」と呼ばれます。
       システムによってはバックログの上限が設定されており、<xref linkend="guc-listen-backlog-multiplier">*num_init_childrenがこれを越える場合はバックログを大きく設定する必要があります。
        さもないと高負荷時に以下のような問題が発生する可能性があります:
-       1) <productname>Pgpool-II</productname>への接続が失敗する。
-       2) カーネル内で行われるリトライにより<productname>Pgpool-II</productname>への接続が遅くなる。
+       <itemizedlist>
+	<listitem>
+	 <para>
+	  <!--
+	  connecting to <productname>Pgpool-II</productname> fails
+	  -->
+	  <productname>Pgpool-II</productname>への接続が失敗する。
+	 </para>
+	</listitem>
+	<listitem>
+	 <para>
+	  <!--
+	  connecting to <productname>Pgpool-II</productname> is
+	  getting slow because of retries in the kernel.
+	  -->
+	  カーネル内で行われるリトライにより<productname>Pgpool-II</productname>への接続が遅くなる。
+	 </para>
+	</listitem>
+       </itemizedlist>
+       <!--
+       You can check if the listen queue is actually overflowed by using
+       "netstat -s" command.  If you find something like:
+       -->
        実際にlistenキューが溢れているかどうかは、"netstat -s"コマンドを使って確認できます。
        もし、以下のような出力があった場合、
        <programlisting>
@@ -328,6 +345,56 @@
      </para>
     </listitem>
    </varlistentry>
+
+   <varlistentry id="guc-reserved-connections" xreflabel="reserved_connections">
+    <term><varname>reserved_connections</varname> (<type>integer</type>)
+     <indexterm>
+      <!--
+      <primary><varname>reserverd_connections</varname> configuration parameter</primary>
+      -->
+      <primary><varname>reserverd_connections</varname>設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      When this parameter is set to 1 or greater, incoming
+      connections from clients are not accepted with error
+      message "Sorry, too many clients already", rather than
+      blocked if the number of current connections from clients
+      is more than (<xref linkend="guc-num-init-children"> -
+      <varname>reserved_connections</varname>). For example,
+      if <varname>reserved_connections</varname> = 1
+      and <xref linkend="guc-num-init-children"> = 32, then the
+      32th connection from a client will be refused. This
+      behavior is similar
+      to <productname>PostgreSQL</productname> and good for
+      systems on which the number of connections from clients is
+      large and each session may take long time. In this case
+      length of the listen queue could be very long and may
+      cause the system unstable. In this situation setting this
+      parameter to non 0 is a good idea to prevent the listen
+      queue becomes very long.
+      -->
+      このパラメータが1以上に設定されていると、(<xref linkend="guc-num-init-children"> - <varname>reserved_connections</varname>)以上のクライアントからの接続はブロックされるのではなく受け付けられず、"Sorry, too many clients already"というエラーになります。
+       たとえば、<varname>reserved_connections</varname> = 1で、<xref linkend="guc-num-init-children"> = 32なら、32番目のクライアントからの接続は拒否されます。
+	これは、<productname>PostgreSQL</productname>と似た挙動で、クライアントからの接続数が多く、各セッションが長時間に渡るようなシステムで有効です。
+	この場合、listenキューが非常に長くなる可能性があり、システムを不安定にさせます。
+	こうした状況では、このパラメータを0以外にして、listenキューが長くなるのを防ぐのは良い考えです。
+     </para>
+     <para>
+      <!--
+      If this parameter is set to 0, no connection from clients
+      will be refused. The default value is 0.
+      This parameter can only be set at server start.
+      -->
+      このパラメータを0にすると、クライアントからの接続要求は拒否されなくなります。
+      デフォルト値は0です。
+      このパラメータはサーバ起動時にのみ設定可能です。
+     </para>
+    </listitem>
+   </varlistentry>
+
   </variablelist>
  </sect2>
 
@@ -382,13 +449,16 @@
     <listitem>
      <para>
       <!--
-      Specify the password file name for authentication.
-      Default value is <literal>"pool_passwd"</literal>.
+      Specify the path (absolute or relative) to password file for
+      authentication. Default value is <literal>"pool_passwd"</literal>.
+      A relative path will be interpreted with respect to the directory
+      where configuration file is placed.
       Specifying <literal>''</literal> (empty) disables the use
       of password file.
       -->
-      認証に用いるパスワードファイルのファイル名を指定します。
-      デフォルト値は<literal>"pool_passwd"</literal>です。
+      認証用のパスワードファイルへのパス(絶対パスまたは相対パス)を指定します。 
+      デフォルト値は<literal>"pool_passwd"</literal>です。 
+      相対パスは、設定ファイルが置かれているディレクトリを基準としています。
       <literal>''</literal>（空文字列）を指定すると パスワードファイルの使用は無効になります。
      </para>
      <para>
@@ -538,7 +608,7 @@
    with another master/slave replication software (like <acronym>Slony-I</acronym>
    and Streaming replication), that is responsible for doing the actual data replication.
    -->
-   このモードは<productname>Pgpool-II</productname>と（<acronym>Slony-I</acronym>やストリームレプリケーションのような）他のマスター/スレーブ型のレプリケーションソフトウェアと組み合わせるのに使用されます。
+   このモードは<productname>Pgpool-II</productname>と（<acronym>Slony-I</acronym>やストリーミングレプリケーションのような）他のマスター/スレーブ型のレプリケーションソフトウェアと組み合わせるのに使用されます。
    実際にデータレプリケーションを行うのはこれらのソフトウェアに任されます。
   </para>
 
@@ -647,19 +717,19 @@
 
        <tbody>
 	<row>
-	 <entry><literal>'slony'</literal></entry>
-	 <!--
-	 <entry>Suitable for <acronym>Slony-I</acronym></entry>
-	 -->
-	 <entry> <acronym>Slony-I</acronym>に適合</entry>
-	</row>
-
-	<row>
 	 <entry><literal>'stream'</literal></entry>
 	 <!--
 	 <entry>Suitable for <productname>PostgreSQL</>'s built-in replication system (Streaming Replication)</entry>
 	 -->
 	 <entry><productname>PostgreSQL</>の組み込みレプリケーションシステム（ストリーミングレプリケーション）に適合</entry>
+	</row>
+
+	<row>
+	 <entry><literal>'slony'</literal></entry>
+	 <!--
+	 <entry>Suitable for <acronym>Slony-I</acronym></entry>
+	 -->
+	 <entry> <acronym>Slony-I</acronym>に適合</entry>
 	</row>
 
 	<row>
@@ -676,9 +746,9 @@
 
      <para>
       <!--
-      Default is <literal>'slony'</literal>.
+      Default is <literal>'stream'</literal>.
       -->
-      デフォルトは<literal>'slony'</literal>です。
+      デフォルトは<literal>'stream'</literal>です。
      </para>
      <para>
       <!--
@@ -1648,7 +1718,24 @@
 
     </listitem>
    </varlistentry>
+   <varlistentry id="guc-backend-application-name" xreflabel="backend_application_name">
+    <term><varname>backend_application_name</varname> (<type>string</type>)
+     <indexterm>
+      <primary><varname>backend_application_name</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
 
+    <listitem>
+     <para>
+      <varname>backend_application_name</varname>はWAL logをプライマリサーバから読み込むwalsenderのために使用するapplication_nameを設定します。
+      ですから、ストリーミングレプリケーションモード以外では設定する必要がありません。
+      また、このパラメータは<xref linkend="SQL-SHOW-POOL-NODES">コマンド中に表示される"replication_state"と"replication_sync_state"のために使用されます。
+     </para>
+     <para>
+      このパラメータは<productname>Pgpool-II</>の設定を再読み込みすることで変更可能です。
+     </para>
+    </listitem>
+   </varlistentry>
   </variablelist>
 
  </sect2>

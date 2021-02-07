@@ -1,712 +1,6 @@
 <!-- doc/src/sgml/release-4.0.sgml -->
 <!-- See header comment in release.sgml about typical markup -->
 
-<sect1 id=release-4-0-12>
- <title>Release 4.0.12</title>
- <note>
-  <title>Release Date</title>
-  <simpara>2020-11-19</simpara>
- </note>
-
- <sect2>
-  <title>Changes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-11-17 [544cb97]
-    -->
-    <para>
-     Doc: update "Aurora Configuration Example". (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-10-03 [e24d792]
-    -->
-    <para>
-     Doc: mention that <acronym>GSSAPI</acronym> is not supported. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-10-03 [db31d2c]
-    -->
-    <para>
-     <productname>Pgpool-II</productname> doesn't support <acronym>GSSAPI</acronym>.
-	 Allow <productname>Pgpool-II</productname> to deal with <acronym>GSSAPI</acronym> encrypted connection request from frontend instead of responding with an error. (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch is created by me, reviewed and tested by Umar Hayat.
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-
- <sect2>
-  <title>Bug fixes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-11-17 [94cbceb]
-    -->
-    <para>
-	 Fix query rewrite syntax error of "INSERT ... ON CONFLICT" in native replication mode.
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=654">bug 654</ulink>) (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-10-30 [37d32b9]
-    -->
-    <para>
-     Fix connection counter was not counted down when query is canceled.
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=656">bug 656</ulink>) (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-09-30 [3cd8c2b]
-    -->
-    <para>
-     Doc: fix usable versions of PostgreSQL to be 7.4 or later. (Tatsuo Ishii)
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-</sect1>
-
-<sect1 id=release-4-0-11>
- <title>Release 4.0.11</title>
- <note>
-  <title>Release Date</title>
-  <simpara>2020-09-17</simpara>
- </note>
-
- <sect2>
-  <title>Changes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-09-13 [4e1771e]
-    -->
-    <para>
-     Follow the guide line of <productname>PostgreSQL</productname> 12.4 regarding extensions. (Tatsuo Ishii)
-    </para>
-    <para>
-     <command>CREATE OR REPLACE FUNCTION</command> should be avoided. Use <command>CREATE FUNCTION</command> instead.
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-08-24 [0d184da]
-    -->
-    <para>
-     Replace "PGBIN" and "LPATH" in <xref linkend="PGPOOL-SETUP"> and <xref linkend="WATCHDOG-SETUP"> using PostgreSQL's bin path and lib path. (Bo Peng)
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-
- <sect2>
-  <title>Bug fixes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-09-16 [957d3b3]
-    -->
-    <para>
-     Doc: fix the incorrect description regarding the running modes of Pgpoo-II in which online recovery is available. (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-09-14 [f238eb6]
-    -->
-    <para>
-     Remove unnecessary checks in some code path. (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch contributed by Hou, Zhijie.
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-09-06 [54f7767]
-    -->
-    <para>
-     Fix relcache query sometimes sent to other than primary. (Tatsuo Ishii)
-    </para>
-    <para>
-     In streaming replication mode, relcache queries are supposed to be
-     sent to the primary node. But actually they were not sent to the primary
-     node if primary node was not the master node. Typically this could
-     happen when the primary is not node 0.
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-09-01 [8ffd26b]
-    -->
-    <para>
-     Fix <xref linkend="GUC-CONNECTION-LIFE-TIME"> not working when <xref linkend="GUC-SERIALIZE-ACCEPT"> is enabled. (Tatsuo Ishii)
-    </para>
-    <para>
-	 Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2020-August/007233.html">[pgpool-general: 7175]</ulink>
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-08-30 [1baf413]
-    -->
-    <para>
-     Display more informative error message in authentication process. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-08-21 [aa1a170]
-    -->
-    <para>
-     Fix segfault in pgpool child process in certain case. (Tatsuo Ishii)
-    </para>
-    <para>
-	 This issue can be reproduced with the following steps:
-     <orderedlist>
-	  <listitem>
-	   <para>
-        Shutdown all backends.
-	   </para>
-	  </listitem>
-	  <listitem>
-	   <para>
-        Connect to pgpool with invalid client. I have used <command>pcp_attach_node</command> with pgpool's port number, not pcp's.
-	   </para>
-	  </listitem>
-     </orderedlist>
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-</sect1>
-
-<sect1 id=release-4-0-10>
- <title>Release 4.0.10</title>
- <note>
-  <title>Release Date</title>
-  <simpara>2020-08-20</simpara>
- </note>
-
- <sect2>
-  <title>Changes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-08-12 [8523d12]
-    -->
-    <para>
-     Doc: mention that <xref linkend="GUC-SSL-CIPHERS"> only affects to TLS 1.2 and lower. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-05-22 [fdd01d9]
-    -->
-    <para>
-     Doc: Improve the description of <xref linkend="GUC-WD-PRIORITY">. (Bo Peng)
-    </para>
-    <para>
-     Patch is provided by Kenichiro Tanaka.
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-05-22 [a8e3712]
-    -->
-    <para>
-     Add mention about <literal>hostssl/hostnossl</literal> to <filename>pool_hba.conf</filename> sample file. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-07-17 [44096e2]
-    2020-07-16 [5115de1]
-    2020-06-30 [8941202]
-    2020-05-30 [6f128fc]
-    2020-05-23 [dde82d3]
-    2020-05-23 [7a73705]
-    2020-07-28 [1e13a96]
-    -->
-    <para>
-     Doc: documentation improvements. (Tatsuo Ishii)
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-
- <sect2>
-  <title>Bug fixes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-08-12 [b2dbfe2]
-    -->
-    <para>
-     At pgpool startup, if pid file exists, truncate pid file to zero length before writing. (Bo Peng)
-    </para>
-    <para>
-     Patch is created by maliangzhu.
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-08-11 [e402d68]
-    -->
-    <para>
-     Doc: fix error in <xref linkend="GUC-FAILBACK-COMMAND"> parameter description. (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-08-11 [96fa3c9]
-    -->
-    <para>
-     Fix <xref linkend="guc-connection-life-time"> does not work if primary node is not 0 in streaming replication mode. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-08-05 [4bd2a0d]
-    -->
-    <para>
-     Fix <command>pgpool_setup</command> problem with -r option and <productname>PostgreSQL</productname> 12. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-07-31 [8fb0b88]
-    -->
-    <para>
-     Change PCP <literal>UNIX_DOMAIN_PATH</literal> of RPM package to <filename>/var/run/postgresql</filename>. (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-	2020-08-05 [8108c40]
-    2020-07-14 [70a2ac3]
-    -->
-    <para>
-     Fix query cache bugs. (Tatsuo Ishii)
-    </para>
-    <para>
-     If query cache is enable, when a table is updated, Pgpool-II should delete all the caches related to the table.
-	 However, <command>EXPLAIN ANALYZE</command> and <acronym>CTE</acronym> with data-modifying SQLs
-	 were mistakenly treated as normal read only query so that the query caches were not deleted.
-    </para>
-    <para>
-     Patch is created by Hou, Zhijie and modified by Tatsuo Ishii.
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-07-09 [69ae44f]
-    -->
-    <para>
-     Fix <productname>Pgpool-II</productname> hang in a corner case. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-06-26 [a312e4b]
-    -->
-    <para>
-     If there are parameters other than "user", "database" and "application_name", reading startup packet failed. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-06-22 [a678a04]
-    -->
-    <para>
-     Fix miscount of connections when <function>pg_terminate_backend()</function> is executed. (Takuma Hoshiai)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-06-04 [6474b3f]
-    -->
-    <para>
-     Fix segmentation fault when application name is included in <xref linkend="GUC-LOG-LINE-PREFIX">. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=615">bug 615</ulink>) (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-06-02 [4799953]
-    -->
-    <para>
-     Fix incorrectly performing failover when <function>pg_terminate_backend()</function> is executed in native replication mode. (Takuma Hoshiai)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-05-27 [f31f781]
-    -->
-    <para>
-     Fix 004.watchdog test crash on IBM Z hardware. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=614">bug 614</ulink>) (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch is provided by gregn123, slightly modified by Tatsuo Ishii.
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-</sect1>
-
-<sect1 id=release-4-0-9> 
- <title>Release 4.0.9</title>
- <note>
-  <title>Release Date</title>
-  <simpara>2020-05-21</simpara>
- </note>
-
- <sect2>
-  <title>Bug fixes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-05-16 [2fd983b]
-    2020-04-26 [1304dcc]
-    -->
-    <para>
-     Fix build error on some system (Fedora 32). (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-05-06 [7c13a60]
-    -->
-    <para>
-     Fix pgpool ssl front end accept all ciphers. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=608">bug 608</ulink>) (Muhammad Usama)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-04-26 [311cdc7]
-    -->
-    <para>
-     Downgrade too verbose authentication logs. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-04-23 [1221a65]
-    -->
-    <para>
-     Fix unnecessary checks. (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch contributed by sherlockcpp. Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2020-April/007062.html">[pgpool-general: 7004]</ulink>
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-04-23 [8ea84b9]
-    -->
-    <para>
-     Doc: Fix typo. (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch contributed by Umar Hayat. Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2020-April/003587.html">[pgpool-hackers: 3587]</ulink>
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-04-16 [75432c0]
-    -->
-    <para>
-     Fix for segmentation fault in PCP process. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=598">bug 598</ulink>) (Muhammad Usama)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-04-15 [595a3ec]
-    -->
-    <para>
-     Fix a warning message is never output in watchdog. (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch provided by sherlockcpp. Discussion: (<ulink url="https://www.pgpool.net/pipermail/pgpool-general/2020-April/007014.html">[pgpool-general: 6956]</ulink>
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-04-12 [237793e]
-    2020-04-06 [225290a]
-    -->
-    <para>
-     Doc: Fix typo. (Tatsuo Ishii, Bo Peng)
-    </para>
-    <para>
-     Patch provided by sherlockcpp.
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-03-31 [9151b53]
-    -->
-    <para>
-     Fix <productname>Pgpool-II</productname> hangs when an Execute message is issued right after Sync message and query cache hits. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-03-13 [a558287]
-    -->
-    <para>
-     Fix problems in watchdog source code processing json data. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=596">bug 596</ulink>) (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch is provided by Greg Nancarrow (Fujitsu Australia).
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-03-12 [0c1649e]
-    -->
-    <para>
-     Fix <literal>SCRAM</literal> auth handling bug. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=596">bug 596</ulink>) (Tatsuo Ishii)
-    </para>
-    <para>
-     Patch is provided by Greg Nancarrow (Fujitsu Australia).
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-03-11 [a639141]
-    -->
-    <para>
-     Fix possible data inconsistency in native replication mode. (Tatsuo Ishii)
-    </para>
-    <para>
-     Discussions:
-     <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2020-March/006954.html">[pgpool-general: 6896]</ulink>
-     <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2020-March/003540.html">[pgpool-hackers: 3540]</ulink>
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-03-06 [5ce6273]
-    -->
-    <para>
-     Fix watchdog ping probes fail with long hostnames due to small buffer. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=516">bug 516</ulink>) (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-03-02 [ffb3c59]
-    2020-02-27 [d0774d5]
-    2020-02-27 [f1e3ac9]
-    -->
-    <para>
-     Doc: Enhance documents. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-02-26 [99abd2e]
-    -->
-    <para>
-     Fix "last status change" timestamp is not set properly. (Tatsuo Ishii)
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-</sect1>
-
-<sect1 id=release-4-0-8> 
- <title>Release 4.0.8</title>
- <note>
-  <title>Release Date</title>
-  <simpara>2020-02-20</simpara>
- </note>
-
- <sect2>
-  <title>Changes</title>
-  <itemizedlist>
-
-   <listitem>
-    <!--
-    2020-02-18 [e9309ba]
-    -->
-    <para>
-     Disallowing the quorum aware failover option for the native replication mode. (Muhammad Usama)
-    </para>
-    <para>
-     In native replication mode, <productname>Pgpool-II</productname>. is responsible for replicating the data
-     on all backend nodes, and if a node becomes <literal>quarantined</literal> then Pgpool-II stops
-     sending the writes to that node. This is dangerous since it can cause data inconsistency.
-    </para>
-    <para>
-     So as per the discussion, we reached the conclusion to disallow
-     <xref linkend="GUC-FAILOVER-WHEN-QUORUM-EXISTS"> with the native replication mode so that backend
-     node should never get into quarantine when Pgpool-II is configured in the replication mode.
-    </para>
-   </listitem>
-   <listitem>
-    <!--
-    2020-01-28 [304e091]
-    -->
-    <para>
-     Check if socket file exists at startup and remove them if PID file doesn't exist to avoid bind() failure. (Bo Peng)
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-
- <sect2>
-  <title>Bug fixes</title>
-  <itemizedlist>
-   <listitem>
-    <!--
-    2020-02-18 [3889f69]
-    -->
-    <para>
-     Fix incorrect query rewriting in native replication mode. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=551">bug 551</ulink>) (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-02-18 [47fc7fc]
-    2020-02-17 [4dc2ec3]
-    2020-02-12 [1581295]
-    2020-02-04 [d4f37bb]
-    2020-02-04 [3ca4924]
-    2020-01-28 [6d5eda7]
-    2020-01-13 [ee7e42c]
-    2020-01-12 [d213f2a]
-    -->
-    <para>
-     Doc: Update documentation and fix documentation typos. (Takuma Hoshiai, Tatsuo Ishii, Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-02-12 [21d620d]
-    -->
-    <para>
-     Fix child process segfault after reload if <xref linkend="GUC-HEALTH-CHECK-DATABASE"> is empty.
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=571">bug 571</ulink>) (Bo Peng)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-02-08 [ade4f22]
-    -->
-    <para>
-     Fix <xref linkend="PGPOOL-SETUP"> to support <productname>PostgreSQL</productname> 12. (Tatsuo Ishii)
-    </para>
-   </listitem>
-   <listitem>
-    <!--
-    2020-01-28 [f8bbd91]
-    -->
-    <para>
-     Doc: Change the sample follow_master_command script %M %H parameter's order. (Bo Peng)
-    </para>
-    <para>
-     
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2020-01-19 [6b8ba75]
-    2020-01-11 [ce2f63b]
-    2020-01-10 [0462350]
-    2020-01-04 [9ec04f0]
-    2019-12-31 [3818be6]
-    2019-12-26 [6b19fbb]
-    2019-12-24 [e402ba9]
-    -->
-    <para>
-     Fix occasional regression test failure. (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2019-12-12 [5611c0e]
-    -->
-    <para>
-     Fix replication delay worker segfault when application_name in primary_conninfo is an empty string.
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=565">bug 565</ulink>) (Tatsuo Ishii)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2019-12-03 [ba4f142]
-    -->
-    <para>
-     Fix <xref linkend="SQL-PGPOOL-SHOW"> command doesn't display <literal>ALWAYS_MASTER</literal>,
-     when <xref linkend="GUC-BACKEND-FLAG"> = 'ALWAYS_MASTER'. (Takuma Hoshiai)
-    </para>
-   </listitem>
-
-   <listitem>
-    <!--
-    2019-11-18 [0ef0d13]
-    2019-11-15 [604ff2f]
-    -->
-    <para>
-     Fix the bug with ignored syslog setting. (Bo Peng)
-    </para>
-   </listitem>
-  </itemizedlist>
- </sect2>
-</sect1>
-
 <sect1 id=release-4-0-7> 
  <title>Release 4.0.7</title>
  <note>
@@ -862,7 +156,7 @@
     2019-09-04 [3ba4e73]
     -->
     <para>
-     Doc: mention that VIP will not be brought up if quorum does not exist. (Tatsuo Ishii)
+     Doc: mention that VIP will not be brougt up if quorum does not exist. (Tatsuo Ishii)
     </para>
     <para>
      
@@ -1109,7 +403,7 @@
     2019-07-03 [5d042e4]
     -->
     <para>
-     Fix segfault when query cache is enabled. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=525">bug 525</ulink>) (Tatsuo Ishii)
+     Fix sefault when query cache is enabled. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=525">bug 525</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1269,7 +563,7 @@
     -->
     <para>
      Fix the wrong error message "ERROR: connection cache is full", when all backend nodes are down. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=487">bug 487</>) (Bo Peng)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=487">bug 487</>) (Bo Peng)
     </para>
     <para>
      When all backend nodes are down, <productname>Pgpool-II</> throws an incorrect
@@ -1318,7 +612,7 @@
     -->
     <para>
      Fix "not enough space in buffer" error. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=499">bug 499</>) (Tatsuo Ishii)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=499">bug 499</>) (Tatsuo Ishii)
     </para>
     <para>
      The error occurred while processing error message returned from
@@ -1344,7 +638,7 @@
     -->
     <para>
      Fix wrong variable in <function>read_status_file()</> function.
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=493">bug 493</>) (Takuma Hoshiai)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=493">bug 493</>) (Takuma Hoshiai)
     </para>
    </listitem>
 
@@ -1353,7 +647,7 @@
     2019-04-08 [7984154]
     -->
     <para>
-     Add missing <filename>test/watchdog_setup</> to EXTRA_DIST. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=470">bug 470</>) (Bo Peng)
+     Add missing <filename>test/watchdog_setup</> to EXTRA_DIST. (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=470">bug 470</>) (Bo Peng)
     </para>
    </listitem>
 
@@ -1362,7 +656,7 @@
     2019-04-07 [df4c94f]
     -->
     <para>
-     Doc: mention that multi-statement queries are sent to primary node only. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=492">bug 492</>) (Tatsuo Ishii)
+     Doc: mention that multi-statement queries are sent to primary node only. (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=492">bug 492</>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1372,7 +666,7 @@
     -->
     <para>
      Fix md5 auth broken in raw mode with more than 1 backends. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=491">bug 491</>) (Tatsuo Ishii)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=491">bug 491</>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1391,8 +685,8 @@
     -->
     <para>
      Abort session if failover/failback is ongoing to prevent potential segfault. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=481">bug 481</ulink>, 
-     <ulink url="https://www.pgpool.net/mantisbt/view.php?id=482">bug 482</ulink>) (Tatsuo Ishii)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=481">bug 481</ulink>, 
+     <ulink url="http://www.pgpool.net/mantisbt/view.php?id=482">bug 482</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1412,14 +706,14 @@
     -->
     <para>
      Fix memory leak in "batch" mode in extended query. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=468">bug 468</>) (Tatsuo Ishii)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=468">bug 468</>) (Tatsuo Ishii)
     </para>
    </listitem>
   </itemizedlist>
  </sect2>
- </sect1>
+</sect1>
 
- <sect1 id=release-4-0-4> 
+<sect1 id=release-4-0-4> 
  <title>Release 4.0.4</title>
  <note>
   <title>Release Date</title>
@@ -1507,7 +801,7 @@
     -->
     <para>
      Doc: add note to <xref linkend="guc-detach-false-primary"> configuration parameter. 
-      (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=469">bug 469</ulink>) (Tatsuo Ishii)
+      (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=469">bug 469</ulink>) (Tatsuo Ishii)
     </para>
     <para>
      To use this feature, <xref linkend="guc-sr-check-user"> must be super user or in pg_monitor group.
@@ -1515,9 +809,9 @@
    </listitem>
   </itemizedlist>
  </sect2>
- </sect1>
+</sect1>
 
- <sect1 id=release-4-0-3> 
+<sect1 id=release-4-0-3> 
  <title>Release 4.0.3</title>
  <note>
   <title>Release Date</title>
@@ -1577,7 +871,7 @@
     -->
     <para>
      Fix online recovery failed due to <xref linkend="GUC-CLIENT-IDLE-LIMIT-IN-RECOVERY"> in certain cases. 
-      (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=431">bug 431</ulink>) (Tatsuo Ishii)
+      (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=431">bug 431</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1587,7 +881,7 @@
     -->
     <para>
      Reduce memory usage when large data set is returned from backend. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=462">bug 462</ulink>) (Tatsuo Ishii)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=462">bug 462</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1605,7 +899,7 @@
     2019-01-29 [f7427e2]
     -->
     <para>
-     Fix corner case bug when <function>strip_quote()</function> handle a empty query string. <ulink url="https://www.pgpool.net/mantisbt/view.php?id=458">(bug 458</ulink>) (Tatsuo Ishii)
+     Fix corner case bug when <function>strip_quote()</function> handle a empty query string. <ulink url="http://www.pgpool.net/mantisbt/view.php?id=458">(bug 458</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1632,7 +926,7 @@
     2019-01-18 [3ae4acf]
     -->
     <para>
-     Fixed segfault when <varname>wd_lifecheck_method = 'query'</varname>. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=455">bug 455</ulink>) (Muhammad Usama)
+     Fixed segfault when <varname>wd_lifecheck_method = 'query'</varname>. (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=455">bug 455</ulink>) (Muhammad Usama)
     </para>
     <para>
      The fix was proposed by Muhammad Usama and some adjustments to the patch and testing is done by Yugo Nagata.
@@ -1653,7 +947,7 @@
     2019-01-03 [de632ca]
     -->
     <para>
-     Doc: fix typo in <xref linkend="GUC-LOGDIR"> description. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=453">bug 453</ulink>) (Tatsuo Ishii)
+     Doc: fix typo in <xref linkend="GUC-LOGDIR"> description. (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=453">bug 453</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -1686,14 +980,14 @@
     2018-12-06 [3f5986e]
     -->
     <para>
-     Fix <productname>Pgpool-II</productname> hang when <varname>idle_in_transaction_session_timeout = on</varname>. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=448">bug 448</ulink>) (Tatsuo Ishii)
+     Fix <productname>Pgpool-II</productname> hang when <varname>idle_in_transaction_session_timeout = on</varname>. (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=448">bug 448</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
   </itemizedlist>
  </sect2>
- </sect1>
+</sect1>
 
- <sect1 id=release-4-0-2> 
+<sect1 id=release-4-0-2> 
  <title>Release 4.0.2</title>
  <note>
   <title>Release Date</title>
@@ -1711,7 +1005,7 @@
     
     <para>
      Fix to sort startup packet's parameters sent by client. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=444">bug 444</ulink>)(Takuma Hoshiai)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=444">bug 444</ulink>)(Takuma Hoshiai)
     </para>
     <para>
      If order of startup packet's  parameters differ between cached connection
@@ -1758,7 +1052,7 @@
     
     <para>
      Fix segmentation fault occurs when a certain Bind message is sent in native replication mode. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=443">bug 443</ulink>)(Bo Peng)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=443">bug 443</ulink>)(Bo Peng)
     </para>
     <para>
      If the number of parameter format codes is specified to one, but the number
@@ -1811,9 +1105,9 @@
    </listitem>
   </itemizedlist>
  </sect2>
- </sect1>
+</sect1>
 
- <sect1 id="release-4-0-1">
+<sect1 id="release-4-0-1">
  <title>Release 4.0.1</title>
  <note>
   <title>Release Date</title>
@@ -1876,7 +1170,7 @@
     2018-10-22 [5e6d598]
     -->
     <para>
-     Fix segmentation fault when error query and Sync message are sent in native replication mode. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=434">bug 434</ulink>) (Takuma Hoshiai)
+     Fix segmentation fault when error query and Sync message are sent in native replication mode. (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=434">bug 434</ulink>) (Takuma Hoshiai)
     </para>
     <para>
      In native replication mode, segmentation fault occurs when Sync messages is sent just after a query error.
@@ -1884,7 +1178,7 @@
    </listitem>
   </itemizedlist>
  </sect2>
- </sect1>
+</sect1>
 
 <sect1 id="release-4-0">
  <title>Release 4.0</title>
@@ -1896,7 +1190,7 @@
  <sect2>
   <title>Overview</title>
   <para>
-   This version adds support for SCRAM and CERT authentication,
+   This version addes support for SCRAM and CERT authentication,
    improves load balancing control and import PostgreSQL 11 
    new SQL parser. 
   </para>
@@ -2388,7 +1682,7 @@
      Fix syntax error in native replication, when queries including time functions
      (<literal>now()</literal>, etc.) and <literal>IN (SELECT ...)</literal> 
      in <literal>WHERE</literal> clause. 
-     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=433">bug 433</ulink>) (Bo Peng)
+     (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=433">bug 433</ulink>) (Bo Peng)
     </para>
    </listitem>
 

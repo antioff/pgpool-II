@@ -160,6 +160,9 @@ pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * bac
 	/* Initialize previous pending message */
 	pool_pending_message_reset_previous_message();
 
+	/* Initialize temp tables */
+	pool_temp_tables_init();
+	
 #ifdef NOT_USED
 	/* Initialize preferred master node id */
 	pool_reset_preferred_master_node_id();
@@ -249,7 +252,7 @@ pool_unset_query_in_progress(void)
 
 	s->in_progress = false;
 
-	/* Restore where_to_send map if necessary */
+	/* Restore where_to_send map if neccessary */
 	if (s->need_to_restore_where_to_send)
 	{
 		memcpy(s->query_context->where_to_send, s->where_to_send_save, sizeof(s->where_to_send_save));
@@ -1153,7 +1156,7 @@ pool_pending_message_create(char kind, int len, char *contents)
 	msg->portal[0] = '\0';
 	msg->is_rows_returned = false;
 	msg->not_forward_to_frontend = false;
-	msg->node_ids[0] = msg->node_ids[1] = -1;
+	memset(msg->node_ids, false, sizeof(msg->node_ids));
 
 	MemoryContextSwitchTo(old_context);
 
@@ -1167,22 +1170,7 @@ pool_pending_message_create(char kind, int len, char *contents)
 void
 pool_pending_message_dest_set(POOL_PENDING_MESSAGE * message, POOL_QUERY_CONTEXT * query_context)
 {
-	int			i;
-	int			j = 0;
-
-	for (i = 0; i < MAX_NUM_BACKENDS; i++)
-	{
-		if (query_context->where_to_send[i])
-		{
-			if (j > 1)
-			{
-				ereport(ERROR,
-						(errmsg("pool_pending_messages_dest_set: node ids exceeds 2")));
-				return;
-			}
-			message->node_ids[j++] = i;
-		}
-	}
+	memcpy(message->node_ids, query_context->where_to_send, sizeof(message->node_ids));
 
 	message->query_context = query_context;
 
@@ -1210,11 +1198,11 @@ pool_pending_message_query_context_dest_set(POOL_PENDING_MESSAGE * message, POOL
 	/* Rewrite where_to_send map */
 	memset(query_context->where_to_send, 0, sizeof(query_context->where_to_send));
 
-	for (i = 0; i < 2; i++)
+	for (i = 0; i < MAX_NUM_BACKENDS; i++)
 	{
-		if (message->node_ids[i] != -1)
+		if (message->node_ids[i])
 		{
-			query_context->where_to_send[message->node_ids[i]] = 1;
+			query_context->where_to_send[i] = 1;
 		}
 	}
 }
@@ -1633,12 +1621,18 @@ int
 pool_pending_message_get_target_backend_id(POOL_PENDING_MESSAGE * msg)
 {
 	int			backend_id = -1;
+	int			i;
 
-	if (msg->node_ids[0] != -1)
-		backend_id = msg->node_ids[0];
-	else if (msg->node_ids[1] != -1)
-		backend_id = msg->node_ids[1];
-	else
+	for (i = 0; i < MAX_NUM_BACKENDS; i++)
+	{
+		if (msg->node_ids[i])
+		{
+			backend_id = i;
+			break;
+		}
+	}
+
+	if (backend_id == -1)
 		ereport(ERROR,
 				(errmsg("pool_pending_message_get_target_backend_id: no target backend id found")));
 
@@ -1654,6 +1648,7 @@ pool_pending_message_get_message_num_by_backend_id(int backend_id)
 	ListCell   *cell;
 	ListCell   *next;
 	int        cnt = 0;
+	int        i;
 
 	if (!session_context)
 	{
@@ -1666,8 +1661,14 @@ pool_pending_message_get_message_num_by_backend_id(int backend_id)
 	{
 		POOL_PENDING_MESSAGE *msg = (POOL_PENDING_MESSAGE *) lfirst(cell);
 
-		if (msg->node_ids[0] == backend_id || msg->node_ids[1] == backend_id) 
-			cnt++;
+		for (i = 0; i < MAX_NUM_BACKENDS; i++)
+		{
+			if (msg->node_ids[i] && i == backend_id)
+			{
+				cnt++;
+				break;
+			}
+		}
 
 		next = lnext(cell);
 	}
@@ -1817,3 +1818,233 @@ pool_reset_preferred_master_node_id(void)
 	session_context->preferred_master_node_id = -1;
 }
 #endif
+
+/*-----------------------------------------------------------------------
+ * Temporary table list management modules.
+ *-----------------------------------------------------------------------
+ */
+
+/*
+ * Initialize temp table list
+ */
+void
+pool_temp_tables_init(void)
+{
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_init: session context is not initialized")));
+
+	session_context->temp_tables = NIL;
+}
+
+/*
+ * Destroy temp table list
+ */
+void
+pool_temp_tables_destroy(void)
+{
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_destory: session context is not initialized")));
+
+	list_free(session_context->temp_tables);
+}
+
+/*
+ * Add a temp table to the tail of the list.
+ * If the table already exists, just replace state.
+ */
+void
+pool_temp_tables_add(char * tablename, POOL_TEMP_TABLE_STATE state)
+{
+	MemoryContext old_context;
+	POOL_TEMP_TABLE * table;
+
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_add: session context is not initialized")));
+
+	old_context = MemoryContextSwitchTo(session_context->memory_context);
+
+	table = pool_temp_tables_find(tablename);
+	if (table)
+	{
+		/* Table already exists. Just replace state. */
+		table->state = state;
+	}
+	else
+	{
+		table = palloc(sizeof(POOL_TEMP_TABLE));
+		StrNCpy(table->tablename, tablename, sizeof(table->tablename));
+		table->state = state;
+		session_context->temp_tables = lappend(session_context->temp_tables, table);
+	}
+
+	MemoryContextSwitchTo(old_context);
+}
+
+/*
+ * Returns pointer to the table cell if specified tablename is in the temp table list.
+ */
+
+POOL_TEMP_TABLE *
+pool_temp_tables_find(char * tablename)
+{
+	ListCell   *cell;
+
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_find: session context is not initialized")));
+
+	foreach(cell, session_context->temp_tables)
+	{
+		POOL_TEMP_TABLE * table = (POOL_TEMP_TABLE *)lfirst(cell);
+		if (strcmp(tablename, table->tablename) == 0)
+			return table;
+	}
+	return NULL;
+}
+
+/*
+ * If requested state or table state is TEMP_TABLE_DROP_COMMITTED, removes the
+ * temp table entry from the list.  Otherwise just set the requested state to
+ * the table state.
+ */
+void
+pool_temp_tables_delete(char * tablename, POOL_TEMP_TABLE_STATE state)
+{
+	POOL_TEMP_TABLE * table;
+	MemoryContext old_context;
+
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_delete: session context is not initialized")));
+
+	ereport(LOG,
+			(errmsg("pool_temp_tables_delete: table: %s state: %d", tablename, state)));
+
+	old_context = MemoryContextSwitchTo(session_context->memory_context);
+
+	table = pool_temp_tables_find(tablename);
+
+	if (table)
+	{
+		if (table->state == TEMP_TABLE_DROP_COMMITTED)
+		{
+			ereport(DEBUG1,
+					(errmsg("pool_temp_tables_delete: remove %s. previous state: %d requested state: %d",
+							table->tablename, table->state, state)));
+
+			session_context->temp_tables = list_delete_ptr(session_context->temp_tables, table);
+		}
+		else
+		{
+			ereport(DEBUG1,
+					(errmsg("pool_temp_tables_delete: set state %s. previous state: %d requested state: %d",
+							table->tablename, table->state, state)));
+			table->state = state;
+		}
+	}
+
+	MemoryContextSwitchTo(old_context);
+}
+
+/*
+ * Commits creating entries. Also remove dropping entries. This is supposed to
+ * be called when an explicit transaction commits.
+ */
+void
+pool_temp_tables_commit_pending(void)
+{
+	ListCell   *cell;
+	MemoryContext old_context;
+
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_commit_pending: session context is not initialized")));
+
+	old_context = MemoryContextSwitchTo(session_context->memory_context);
+
+	pool_temp_tables_dump();
+
+Retry:
+	foreach(cell, session_context->temp_tables)
+	{
+		POOL_TEMP_TABLE * table = (POOL_TEMP_TABLE *)lfirst(cell);
+
+		if (table->state == TEMP_TABLE_CREATING)
+		{
+			ereport(DEBUG1,
+					(errmsg("pool_temp_tables_commit_pending: commit: %s", table->tablename)));
+
+			table->state = TEMP_TABLE_CREATE_COMMITTED;
+		}
+		else if (table->state == TEMP_TABLE_DROPPING)
+		{
+			ereport(DEBUG1,
+					(errmsg("pool_temp_tables_commit_pending: remove: %s", table->tablename)));
+			session_context->temp_tables = list_delete_ptr(session_context->temp_tables, table);
+			pool_temp_tables_dump();
+			goto Retry;
+		}
+	}
+
+	MemoryContextSwitchTo(old_context);
+}
+
+/*
+ * Removes all ongoing creating or dropping entries. This is supposed to be
+ * called when an explicit transaction aborts.
+ */
+void
+pool_temp_tables_remove_pending(void)
+{
+	ListCell   *cell;
+	MemoryContext old_context;
+
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_remove_pending: session context is not initialized")));
+
+	old_context = MemoryContextSwitchTo(session_context->memory_context);
+
+	pool_temp_tables_dump();
+
+Retry:
+	foreach(cell, session_context->temp_tables)
+	{
+		POOL_TEMP_TABLE * table = (POOL_TEMP_TABLE *)lfirst(cell);
+
+		if (table->state == TEMP_TABLE_CREATING || table->state == TEMP_TABLE_DROPPING)
+		{
+			ereport(DEBUG1,
+					(errmsg("pool_temp_tables_remove_pending: remove: %s", table->tablename)));
+
+			session_context->temp_tables = list_delete_ptr(session_context->temp_tables, table);
+			pool_temp_tables_dump();
+			goto Retry;
+		}
+	}
+
+	MemoryContextSwitchTo(old_context);
+}
+
+void
+pool_temp_tables_dump(void)
+{
+#ifdef TEMP_TABLES_DEBUG
+	ListCell   *cell;
+
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("pool_temp_tables_dump: session context is not initialized")));
+
+	foreach(cell, session_context->temp_tables)
+	{
+		POOL_TEMP_TABLE * table = (POOL_TEMP_TABLE *)lfirst(cell);
+		ereport(DEBUG1,
+				(errmsg("pool_temp_tables_dump: table %s state: %d",
+						table->tablename, table->state)));
+	}
+#endif
+}

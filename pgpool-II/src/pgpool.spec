@@ -36,11 +36,10 @@ Source2:        pgpool_rhel6.sysconfig
 %if %{systemd_enabled}
 Source3:        pgpool.service
 %endif
-Source4:        pgpool_rhel.sysconfig
+Source4:        pgpool_rhel7.sysconfig
 Patch1:         pgpool-II-head.patch
 %if %{pgsql_ver} >=94 && %{rhel} >= 7
 Patch2:         pgpool_socket_dir.patch
-Patch3:         pcp_unix_domain_path.patch
 %endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel jade libxslt docbook-dtds docbook-style-xsl docbook-style-dsssl
@@ -97,7 +96,6 @@ Postgresql extensions libraries and sql files for pgpool-II.
 %patch1 -p1
 %if %{pgsql_ver} >=94 && %{rhel} >= 7
 %patch2 -p0
-%patch3 -p0
 %endif
 
 %build
@@ -130,9 +128,10 @@ make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool_adm
 
 install -d %{buildroot}%{_datadir}/%{short_name}
 install -d %{buildroot}%{_sysconfdir}/%{short_name}
-cp %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf
-cp %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf
-cp %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf
+mv %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf
+mv %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf
+mv %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf
+touch %{buildroot}%{_sysconfdir}/%{short_name}/pool_passwd
 
 %if %{systemd_enabled}
 install -d %{buildroot}%{_unitdir}
@@ -140,7 +139,7 @@ install -m 644 %{SOURCE3} %{buildroot}%{_unitdir}/pgpool.service
 
 mkdir -p %{buildroot}%{_tmpfilesdir}
 cat > %{buildroot}%{_tmpfilesdir}/%{name}.conf <<EOF
-d %{_varrundir} 0755 root root -
+d %{_varrundir} 0755 postgres postgres -
 EOF
 %else
 install -d %{buildroot}%{_initrddir}
@@ -169,8 +168,15 @@ install doc/src/sgml/man8/*.8 %{buildroot}%{_mandir}/man8
 %clean
 rm -rf %{buildroot}
 
+%pre
+groupadd -g 26 -o -r postgres >/dev/null 2>&1 || :
+useradd -M -g postgres -o -r -d /var/lib/pgsql -s /bin/bash \
+        -c "PostgreSQL Server" -u 26 postgres >/dev/null 2>&1 || :
+
 %post
 /sbin/ldconfig
+echo 'postgres ALL=NOPASSWD: /sbin/ip' | sudo EDITOR='tee -a' visudo
+echo 'postgres ALL=NOPASSWD: /usr/sbin/arping' | sudo EDITOR='tee -a' visudo
 
 %if %{systemd_enabled}
 %systemd_post pgpool.service
@@ -236,13 +242,6 @@ fi
 %{_mandir}/man1/*.1.gz
 %{_datadir}/%{short_name}/insert_lock.sql
 %{_datadir}/%{short_name}/pgpool.pam
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-master-slave
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-logical
-%{_sysconfdir}/%{short_name}/pcp.conf.sample
-%{_sysconfdir}/%{short_name}/pool_hba.conf.sample
 %{_libdir}/libpcp.so.*
 %if %{systemd_enabled}
 %ghost %{_varrundir}
@@ -251,7 +250,19 @@ fi
 %else
 %{_initrddir}/pgpool
 %endif
-%attr(764,root,root) %config(noreplace) %{_sysconfdir}/%{short_name}/*.conf
+%defattr(600,postgres,postgres,-)
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-master-slave
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-logical
+%defattr(755,postgres,postgres,-)
+%{_sysconfdir}/%{short_name}/failover.sh.sample
+%{_sysconfdir}/%{short_name}/follow_master.sh.sample
+%{_sysconfdir}/%{short_name}/pgpool_remote_start.sample
+%{_sysconfdir}/%{short_name}/recovery_1st_stage.sample
+%{_sysconfdir}/%{short_name}/recovery_2nd_stage.sample
+%attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/*.conf
+%attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/pool_passwd
 %config(noreplace) %{_sysconfdir}/sysconfig/pgpool
 
 %files devel
@@ -268,11 +279,15 @@ fi
 %{pghome}/share/extension/pgpool_recovery--1.1.sql
 %{pghome}/share/extension/pgpool_recovery--1.2.sql
 %{pghome}/share/extension/pgpool_recovery--1.1--1.2.sql
+%{pghome}/share/extension/pgpool_recovery--1.3.sql
+%{pghome}/share/extension/pgpool_recovery--1.2--1.3.sql
 %{pghome}/share/extension/pgpool_recovery.control
 %{pghome}/lib/pgpool-recovery.so
 %{pghome}/share/extension/pgpool_adm--1.0.sql
 %{pghome}/share/extension/pgpool_adm--1.1.sql
 %{pghome}/share/extension/pgpool_adm--1.0--1.1.sql
+%{pghome}/share/extension/pgpool_adm--1.2.sql
+%{pghome}/share/extension/pgpool_adm--1.1--1.2.sql
 %{pghome}/share/extension/pgpool_adm.control
 %{pghome}/lib/pgpool_adm.so
 # From PostgreSQL 9.4 pgpool-regclass.so is not needed anymore
@@ -293,11 +308,11 @@ fi
 %endif
 
 %changelog
-* Mon Jul 27 2020 Bo Peng <pengbo@sraoss.co.jp> 4.0.10
-- Rename src/redhat/pgpool_rhel7.sysconfig to src/redhat/pgpool_rhel.sysconfig.
-
-* Thu Oct 10 2019 Bo Peng <pengbo@sraoss.co.jp> 4.0.7
+* Thu Oct 10 2019 Bo Peng <pengbo@sraoss.co.jp> 4.1.0
 - Update to support PostgreSQL 12
+
+* Thu Sep 5 2019 Bo Peng <pengbo@sraoss.co.jp> 4.1.0
+- Add sample scripts
 
 * Wed Sep 19 2018 Bo Peng <pengbo@sraoss.co.jp> 4.0.0
 - Update to 4.0

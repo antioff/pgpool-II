@@ -51,17 +51,25 @@
    Just like the <filename>pg_hba.conf</filename> file for <productname>PostgreSQL</>,
    <productname>Pgpool-II</productname> supports a similar client authentication
    function using a configuration file called <filename>pool_hba.conf</filename>.
-   <productname>Pgpool-II</productname> installation also includes the sample
+   If <productname>Pgpool-II</productname> is installed from source code, it also includes the sample
    <filename>pool_hba.conf.sample</filename> file in the default configuration directory
    (<literal>"/usr/local/etc"</literal>).
    By default, pool_hba authentication is disabled, and setting <varname>enable_pool_hba</varname>
    to <literal>on</literal> enables it. see the <xref linkend="guc-enable-pool-hba"> configuration parameter.
    -->
-   <productname>PostgreSQL</>の<filename>pg_hba.conf</filename>と同じように<productname>Pgpool-II</productname>でも<filename>pool_hba.conf</filename>とよばれる設定ファイルを使った同様のクライアント認証機能をサポートしています。
-   <productname>Pgpool-II</productname>をインストールするとデフォルトインストール先の設定ファイルディレクトリ（<literal>"/usr/local/etc"</literal>）にサンプルの<filename>pool_hba.conf.sample</filename>が含まれています。
+   <productname>PostgreSQL</productname>の<filename>pg_hba.conf</filename>と同じように<productname>Pgpool-II</productname>でも<filename>pool_hba.conf</filename>とよばれる設定ファイルを使った同様のクライアント認証機能をサポートしています。
+   <productname>Pgpool-II</productname>をソースコードからインストールした場合、デフォルトインストール先の設定ファイルディレクトリ（<literal>"/usr/local/etc"</literal>）にサンプルの<filename>pool_hba.conf.sample</filename>が含まれています。
    デフォルトではpool_hbaによる認証は無効になっており、<varname>enable_pool_hba</varname>を<literal>on</literal>に設定することで有効になります。
    <xref linkend="guc-enable-pool-hba">設定パラメータをご覧ください。
   </para>
+
+  <note>
+   <para>
+    <productname>PostgreSQL</productname>の数が1台のみ、あるいはraw mode(<xref linkend="running-mode">参照)では、<filename>pool_hba.conf</filename>は必要なく、<varname>enable_pool_hba</varname>はoffのままで構いません。
+     この場合、クライアントの認証方式は<productname>PostgreSQL</productname>に完全に任されます。
+     <productname>PostgreSQL</productname>の数が複数台、あるいはraw mode以外の場合でも、<productname>PostgreSQL</productname>での認証方式が<literal>trust</literal>なら、やはり<filename>pool_hba.conf</filename>は必要なく、<varname>enable_pool_hba</varname>はoffのままで構いません。
+   </para>
+  </note>
 
   <para>
    <!--
@@ -84,7 +92,7 @@
    レコードは行をまたいで続けることはできません。
    レコードはスペースもしくはタブ、もしくはその両方で区切られた、複数のフィールドで構成されています。
    フィールドには、フィールド値が二重引用符付きの場合空白文字を含むことができます。
-   データベース、ユーザもしくはアドレスフィールド内のキーワード(例：<literal>all</>または<literal>replication</>)の一つを引用するとその特別な意味が失われ、その名称のデータベース、ユーザもしくはホストと一致するようになります。
+   データベース、ユーザもしくはアドレスフィールド内のキーワード(例：<literal>all</>または<literal>replication</>)の一つを引用符で囲むとその特別な意味が失われ、その名称のデータベース、ユーザもしくはホストと一致するようになります。
   </para>
 
   <para>
@@ -495,6 +503,7 @@
 	      -->
 	      <literal>md5</literal>認証を使うには、ユーザ名とパスワードを<xref linkend="guc-pool-passwd">というパスワードファイルに登録する必要があります。
 	       詳細は<xref linkend="auth-md5">を参照してください。
+		なお、<filename>pool_passwd</filename>でパスワードを管理したくない場合は、<xref linkend="guc-allow-clear-text-frontend-auth">を使うこともできます。
 	     </para>
 	    </note>
 	   </para>
@@ -518,6 +527,7 @@
 	      -->
 	      <literal>scram-sha-256</literal>認証を使用するためには、<xref linkend="guc-pool-passwd">ファイルにユーザ名とパスワードを登録する必要があります。
 	       詳細は<xref linkend="auth-scram">を参照してください。
+		なお、<filename>pool_passwd</filename>でパスワードを管理したくない場合は、<xref linkend="guc-allow-clear-text-frontend-auth">を使うこともできます。
 	     </para>
             </note>
 	   </para>
@@ -1038,37 +1048,6 @@
     </para>
    </note>
   </sect2>
-
-  <sect2 id="auth-gssapi">
-   <!--
-   <title>GSSAPI Authentication</title>
-   -->
-   <title>GSSAPI認証</title>
-
-   <indexterm zone="auth-gssapi">
-    <primary>GSSAPI</primary>
-   </indexterm>
-
-   <para>
-    <!--
-    GSSAPI is an industry-standard protocol for secure authentication
-    defined in RFC 2743.  Currently
-    <productname>Pgpool-II</productname> does not support GSSAPI.
-    Clients should not use GSSAPI authentication, or should use
-    "prefer GSSAPI authentication if possible" option (this is the
-    default setting of <productname>PostgreSQL</productname> clients).
-    If latter is chosen, <productname>Pgpool-II</productname> requests
-    non-GSSAPI authentication to client, and the clients will fall
-    back to non-GSSAPI authentication method. Thus, usually users do
-    not need to worry about that <productname>Pgpool-II</productname>
-    does not accept GSSAPI authentication.
-    -->
-    GSSAPIは、RFC 2743で定義されている安全な認証のための業界標準のプロトコルです。
-    今の所<productname>Pgpool-II</productname>はGSSAPIをサポートしていません。
-    クライアントはGSSAPI認証要求を行わないようにするか、「可能ならばGSSAPI認証を使う」オプションを選択しなければなりません（これは<productname>PostgreSQL</productname>クライアントのデフォルト設定です)。
-    後者を選択した場合、<productname>Pgpool-II</productname>はGSSAPIを使わない認証方式をクライアントにリクエストし、その結果クライアントはGSSAPIを使わない認証方式を使用するので、通常ユーザはGSSAPI認証方式を<productname>Pgpool-II</productname>が受け入れないことを意識する必要はありません。
-   </para>
-  </sect2>
  </sect1>
 
  <sect1 id="auth-different-auth-method">
@@ -1094,7 +1073,6 @@
    -->
    <productname>Pgpool-II</productname><emphasis>V4.0</emphasis>以降では、クライアントアプリケーションとバックエンドの<productname>PostgreSQL</productname>サーバに対して異なる認証を使用することが可能です。
    例えば、クライアントアプリケーションは<productname>Pgpool-II</productname>への接続に<literal>scram-sha-256</literal>を使用し、次に同じセッションの<productname>PostgreSQL</productname>バックエンドへの接続に<literal>trust</literal>または<literal>md5</literal>認証を使用できます。
-
   </para>
  </sect1>
 
@@ -1188,9 +1166,6 @@
     startup from the <filename>pgpoolkey</filename> file.
     -->
     もし、<xref linkend="guc-pool-passwd"> ファイルに<literal>AES</literal>暗号化パスワードが保存されていた場合、<productname>Pgpool-II</productname>はそれらのパスワードを復号化するために復号鍵が必要となり、<productname>Pgpool-II</productname>は起動時に<filename>.pgpoolkey</filename>ファイルから復号鍵を読み込もうとします。
-     <indexterm><primary>pgpoolkey</primary></indexterm>
-     <indexterm><primary>PGPOOLKEYFILE</primary></indexterm>
-     <filename>.pgpoolkey</filename>は複合鍵の文字列を格納した単純なテキストファイルです。
    </para>
    <para>
     <!--

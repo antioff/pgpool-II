@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.12 Documentation"
+TITLE="pgpool-II 4.1.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Getting Started"
 HREF="tutorial-start.html"><LINK
 REL="PREVIOUS"
-TITLE="Testing Replication"
-HREF="tutorial-testing-replication.html"><LINK
+TITLE="Testing Load Balance"
+HREF="tutorial-testing-load-balance.html"><LINK
 REL="NEXT"
 TITLE="Testing Online Recovery"
 HREF="tutorial-testing-online-recovery.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:11"></HEAD
+CONTENT="2019-10-31T07:38:45"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.12 Documentation</A
+>pgpool-II 4.1.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="Testing Replication"
-HREF="tutorial-testing-replication.html"
+TITLE="Testing Load Balance"
+HREF="tutorial-testing-load-balance.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -116,17 +116,11 @@ CLASS="PROGRAMLISTING"
     waiting for server to shut down.... done
     server stopped
     $ psql -p 11000 -c "show pool_nodes" test
-    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay 
-    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
-    0       | /tmp     | 11002 | up     | 0.500000  | primary | 2172       | true              | 0
-    1       | /tmp     | 11003 | down   | 0.500000  | standby | 0          | false             | 0
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | last_status_change
+    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------+---------------------
+    0       | /tmp     | 11002 | up     | 0.500000  | primary | 4276       | true              | 0                 | 2019-01-31 12:00:09
+    1       | /tmp     | 11003 | down   | 0.500000  | standby | 1          | false             | 0                 | 2019-01-31 12:03:07
     (2 rows)
-
-    $ psql -p 11000 -c "SELECT sum(abalance) FROM pgbench_accounts" test
-    sum   
-    --------
-    192112
-    (1 row)
    </PRE
 ><P>
    The standby node was shut down by pg_ctl
@@ -142,7 +136,7 @@ CLASS="PROGRAMLISTING"
 >    $ psql -p 11000 -c "SELECT sum(abalance) FROM pgbench_accounts" test
     sum   
     --------
-    192112
+    216117
     (1 row)
    </PRE
 ><P>
@@ -153,20 +147,20 @@ CLASS="PROGRAMLISTING"
    </P><PRE
 CLASS="PROGRAMLISTING"
 >    $ psql -p 11000 -c "show pool_nodes" test
-    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay 
-    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
-    0       | /tmp     | 11002 | up     | 0.500000  | primary | 2173       | true              | 0
-    1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | false             | 0
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | last_status_change
+    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------+---------------------
+    0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | false             | 0                 | 2019-01-31 12:04:58
+    1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | true              | 0                 | 2019-01-31 12:04:58
     (2 rows)
 
     $ pg_ctl -D data0 stop
     waiting for server to shut down.... done
     server stopped
     $ psql -p 11000 -c "show pool_nodes" test
-    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay 
-    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
-    0       | /tmp     | 11002 | down   | 0.500000  | standby | 2173       | false             | 0
-    1       | /tmp     | 11003 | up     | 0.500000  | primary | 0          | true              | 0
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | last_status_change
+    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------+---------------------
+    0       | /tmp     | 11002 | down   | 0.500000  | standby | 0          | false             | 0                 | 2019-01-31 12:05:20
+    1       | /tmp     | 11003 | up     | 0.500000  | primary | 0          | true              | 0                 | 2019-01-31 12:05:20
     (2 rows)
    </PRE
 ><P>
@@ -176,7 +170,10 @@ CLASS="PROGRAMLISTING"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > detects it and
-   executes "fail_over_script" defined
+   executes <TT
+CLASS="VARNAME"
+>failover_command</TT
+> defined
    in <TT
 CLASS="FILENAME"
 >pgpool.conf</TT
@@ -220,6 +217,7 @@ CLASS="PROGRAMLISTING"
     ! 	new_primary_db_cluster=${mydir}/data"$new_master_id"
     echo $pg_ctl -D $new_primary_db_cluster promote &#62;&#62;$log	# let standby take over
     $pg_ctl -D $new_primary_db_cluster promote &#62;&#62;$log	# let standby take over
+    sleep 2
     fi
    </PRE
 ><P>
@@ -248,7 +246,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="tutorial-testing-replication.html"
+HREF="tutorial-testing-load-balance.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -276,7 +274,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->Testing Replication</TD
+>Testing Load Balance</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

@@ -45,6 +45,10 @@ static int	ssl_passwd_cb(char *buf, int size, int rwflag, void *userdata);
 static int	verify_cb(int ok, X509_STORE_CTX *ctx);
 static const char *SSLerrmessage(unsigned long ecode);
 static void fetch_pool_ssl_cert(POOL_CONNECTION * cp);
+static DH *load_dh_file(char *filename);
+static DH *load_dh_buffer(const char *, size_t);
+static bool initialize_dh(SSL_CTX *context);
+static bool initialize_ecdh(SSL_CTX *context);
 
 #define SSL_RETURN_VOID_IF(cond, msg) \
 	do { \
@@ -309,6 +313,14 @@ init_ssl_ctx(POOL_CONNECTION * cp, enum ssl_conn_type conntype)
 	 */
 	SSL_CTX_set_mode(cp->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
+	/* set up the allowed cipher list */
+	error = SSL_CTX_set_cipher_list(cp->ssl_ctx, pool_config->ssl_ciphers);
+	SSL_RETURN_ERROR_IF((error != 1), "Setting allowed cipher list");
+
+	/* Let server choose order */
+	if (pool_config->ssl_prefer_server_ciphers)
+		SSL_CTX_set_options(cp->ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+
 	if (conntype == ssl_conn_serverclient)
 	{
 		/* between frontend and pgpool */
@@ -492,6 +504,9 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 /*
  *	Initialize global SSL context.
  *
+ * If isServerStart is true, report any errors as FATAL (so we don't return).
+ * Otherwise, log errors at LOG level and return -1 to indicate trouble,
+ * preserving the old SSL state if any.  Returns 0 if OK.
  */
 int
 SSL_ServerSide_init(void)
@@ -632,13 +647,12 @@ SSL_ServerSide_init(void)
 	/* disallow SSL session caching, too */
 	SSL_CTX_set_session_cache_mode(context, SSL_SESS_CACHE_OFF);
 
-	/* set up the allowed cipher list */
-	if (SSL_CTX_set_cipher_list(context, pool_config->ssl_ciphers) != 1)
+	/* set up ephemeral DH and ECDH keys */
+	/* only isServerStart = true */
+	if (!initialize_dh(context))
 		goto error;
-
-	/* Let server choose order */
-	if (pool_config->ssl_prefer_server_ciphers)
-		SSL_CTX_set_options(context, SSL_OP_CIPHER_SERVER_PREFERENCE);
+	if (!initialize_ecdh(context))
+		goto error;
 
 	/*
 	 * Load CA store, so we can verify client certificates if needed.
@@ -694,6 +708,161 @@ error:
 	if (context)
 		SSL_CTX_free(context);
 	return -1;
+}
+
+/*
+ * Set DH parameters for generating ephemeral DH keys.  The
+ * DH parameters can take a long time to compute, so they must be
+ * precomputed.
+ *
+ * Since few sites will bother to create a parameter file, we also
+ * provide a fallback to the parameters provided by the OpenSSL
+ * project.
+ *
+ * These values can be static (once loaded or computed) since the
+ * OpenSSL library can efficiently generate random keys from the
+ * information provided.
+ */
+static bool
+initialize_dh(SSL_CTX *context)
+{
+	DH *dh = NULL;
+
+	SSL_CTX_set_options(context, SSL_OP_SINGLE_DH_USE);
+
+	if (pool_config->ssl_dh_params_file[0])
+		dh = load_dh_file(pool_config->ssl_dh_params_file);
+	if (!dh)
+		dh = load_dh_buffer(FILE_DH2048, sizeof(FILE_DH2048));
+	if (!dh)
+	{
+		ereport(WARNING,
+				(errmsg("DH: could not load DH parameters")));
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Set ECDH parameters for generating ephemeral Elliptic Curve DH
+ * keys.  This is much simpler than the DH parameters, as we just
+ * need to provide the name of the curve to OpenSSL.
+ */
+static bool
+initialize_ecdh(SSL_CTX *context)
+{
+#ifndef OPENSSL_NO_ECDH
+	EC_KEY	   *ecdh;
+	int			nid;
+
+	nid = OBJ_sn2nid(pool_config->ssl_ecdh_curve);
+	if (!nid)
+	{
+		ereport(WARNING,
+				(errmsg("ECDH: unrecognized curve name: %s", pool_config->ssl_ecdh_curve)));
+		return false;
+	}
+
+	ecdh = EC_KEY_new_by_curve_name(nid);
+	if (!ecdh)
+	{
+		ereport(WARNING,
+				(errmsg("ECDH: could not create key")));
+		return false;
+	}
+
+	SSL_CTX_set_options(context, SSL_OP_SINGLE_ECDH_USE);
+	SSL_CTX_set_tmp_ecdh(context, ecdh);
+	EC_KEY_free(ecdh);
+#endif
+
+	return true;
+}
+
+
+/*
+ *	Load precomputed DH parameters.
+ *
+ *	To prevent "downgrade" attacks, we perform a number of checks
+ *	to verify that the DBA-generated DH parameters file contains
+ *	what we expect it to contain.
+ */
+static DH *
+load_dh_file(char *filename)
+{
+	FILE *fp;
+	DH		   *dh = NULL;
+	int			codes;
+
+	/* attempt to open file.  It's not an error if it doesn't exist. */
+	if ((fp = fopen(filename, "r")) == NULL)
+	{
+		ereport(WARNING,
+				(errmsg("could not open DH parameters file \"%s\": %m",
+						filename)));
+		return NULL;
+	}
+
+	dh = PEM_read_DHparams(fp, NULL, NULL, NULL);
+	fclose(fp);
+
+	if (dh == NULL)
+	{
+		ereport(WARNING,
+				(errmsg("could not load DH parameters file: %s",
+						SSLerrmessage(ERR_get_error()))));
+		return NULL;
+	}
+
+	/* make sure the DH parameters are usable */
+	if (DH_check(dh, &codes) == 0)
+	{
+		ereport(WARNING,
+				(errmsg("invalid DH parameters: %s",
+						SSLerrmessage(ERR_get_error()))));
+		return NULL;
+	}
+	if (codes & DH_CHECK_P_NOT_PRIME)
+	{
+		ereport(WARNING,
+				(errmsg("invalid DH parameters: p is not prime")));
+		return NULL;
+	}
+	if ((codes & DH_NOT_SUITABLE_GENERATOR) &&
+		(codes & DH_CHECK_P_NOT_SAFE_PRIME))
+	{
+		ereport(WARNING,
+				(errmsg("invalid DH parameters: neither suitable generator or safe prime")));
+		return NULL;
+	}
+
+	return dh;
+}
+
+/*
+ *	Load hardcoded DH parameters.
+ *
+ *	To prevent problems if the DH parameters files don't even
+ *	exist, we can load DH parameters hardcoded into this file.
+ */
+static DH  *
+load_dh_buffer(const char *buffer, size_t len)
+{
+	BIO		   *bio;
+	DH		   *dh = NULL;
+
+	bio = BIO_new_mem_buf(unconstify(char *, buffer), len);
+	if (bio == NULL)
+		return NULL;
+	dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+	if (dh == NULL)
+		ereport(DEBUG2,
+				(errmsg_internal("DH load buffer: %s",
+								 SSLerrmessage(ERR_get_error()))));
+	BIO_free(bio);
+
+	return dh;
 }
 
 #else							/* USE_SSL: wrap / no-op ssl functionality if

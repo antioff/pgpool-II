@@ -145,6 +145,7 @@ pool_start_query(POOL_QUERY_CONTEXT * query_context, char *query, int len, Node 
 		query_context->rewritten_query = NULL;
 		query_context->parse_tree = node;
 		query_context->virtual_master_node_id = my_master_node_id;
+		query_context->load_balance_node_id = my_master_node_id;
 		query_context->is_cache_safe = false;
 		query_context->num_original_params = -1;
 		if (pool_config->memory_cache_enabled)
@@ -226,7 +227,7 @@ pool_setall_node_to_be_sent(POOL_QUERY_CONTEXT * query_context)
 			 * In streaming replication mode, if the node is not primary node
 			 * nor load balance node, there's no point to send query.
 			 */
-			if (SL_MODE &&
+			if (SL_MODE && !pool_config->statement_level_load_balance &&
 				i != PRIMARY_NODE_ID && i != sc->load_balance_node_id)
 			{
 				continue;
@@ -358,7 +359,7 @@ pool_virtual_master_db_node_id(void)
 					(errmsg("pool_virtual_master_db_node_id: virtual_master_node_id:%d load_balance_node_id:%d PRIMARY_NODE_ID:%d",
 							node_id, sc->load_balance_node_id, PRIMARY_NODE_ID)));
 
-			if (node_id != sc->load_balance_node_id && node_id != PRIMARY_NODE_ID)
+			if (node_id != sc->query_context->load_balance_node_id && node_id != PRIMARY_NODE_ID)
 			{
 				/*
 				 * Only return the primary node id if we are not processing
@@ -429,16 +430,6 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 	pool_clear_node_to_be_sent(query_context);
 
 	/*
-	 * When query match the query patterns in black_query_pattern_list, we
-	 * send only to master node.
-	 */
-	if (MASTER_SLAVE && pattern_compare(query, BLACKLIST, "black_query_pattern_list") == 1)
-	{
-		pool_set_node_to_be_sent(query_context, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID);
-		return;
-	}
-
-	/*
 	 * If there is "NO LOAD BALANCE" comment, we send only to master node.
 	 */
 	if (!strncasecmp(query, NO_LOAD_BALANCE, NO_LOAD_BALANCE_COMMENT_SZ))
@@ -477,7 +468,10 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 		 * be able to understand all part of multi statement queries, but
 		 * until that day we need this band aid.
 		 */
-		pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+		if (query_context->is_multi_statement)
+		{
+			pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+		}
 	}
 	else if (MASTER_SLAVE)
 	{
@@ -556,19 +550,6 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 					}
 
 					/*
-					 * If a writing function call is used, we prefer to send
-					 * to the primary.
-					 */
-					else if (pool_has_function_call(node))
-					{
-						ereport(DEBUG1,
-								(errmsg("could not load balance because writing functions are used"),
-								 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-
-					/*
 					 * If system catalog is used in the SELECT, we prefer to
 					 * send to the primary. Example: SELECT * FROM pg_class
 					 * WHERE relname = 't1'; Because 't1' is a constant, it's
@@ -612,11 +593,34 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 
 						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
 					}
+					/*
+					 * When query match the query patterns in black_query_pattern_list, we
+					 * send only to master node.
+					 */
+					else if (pattern_compare(query, BLACKLIST, "black_query_pattern_list") == 1)
+					{
+						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+					}
+					/*
+					 * If a writing function call is used, we prefer to send
+					 * to the primary.
+					 */
+					else if (pool_has_function_call(node))
+					{
+						ereport(DEBUG1,
+								(errmsg("could not load balance because writing functions are used"),
+								 errdetail("destination = %d for query= \"%s\"", dest, query)));
 
+						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+					}
 					else
 					{
+						if (pool_config->statement_level_load_balance)
+							session_context->load_balance_node_id = select_load_balancing_node();
+
+						session_context->query_context->load_balance_node_id = session_context->load_balance_node_id;
 						pool_set_node_to_be_sent(query_context,
-												 session_context->load_balance_node_id);
+												 session_context->query_context->load_balance_node_id);
 					}
 				}
 				else
@@ -658,9 +662,17 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 					  !pool_is_failed_transaction() &&
 					  pool_get_transaction_isolation() != POOL_SERIALIZABLE))
 			{
+
+
+
 				/* load balance */
+				if (pool_config->statement_level_load_balance)
+					session_context->load_balance_node_id = select_load_balancing_node();
+
+				session_context->query_context->load_balance_node_id = session_context->load_balance_node_id;
+
 				pool_set_node_to_be_sent(query_context,
-										 session_context->load_balance_node_id);
+										 session_context->query_context->load_balance_node_id);
 			}
 			else
 			{
@@ -1481,10 +1493,13 @@ where_to_send_deallocate(POOL_QUERY_CONTEXT * query_context, Node *node)
 			/* Inherit same map from PREPARE or PARSE */
 			pool_copy_prep_where(msg->query_context->where_to_send,
 								 query_context->where_to_send);
-			return;
+
+			/* copy load balance node id as well */
+			query_context->load_balance_node_id = msg->query_context->load_balance_node_id;
 		}
-		/* prepared statement was not found */
-		pool_setall_node_to_be_sent(query_context);
+		else
+			/* prepared statement was not found */
+			pool_setall_node_to_be_sent(query_context);
 	}
 }
 

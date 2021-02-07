@@ -68,7 +68,7 @@ static RETSIGTYPE reload_config_handler(int sig);
 static RETSIGTYPE authentication_timeout(int sig);
 static void send_params(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend);
 static void send_frontend_exits(void);
-static void connection_count_up(void);
+static int	connection_count_up(void);
 static void connection_count_down(void);
 static bool connect_using_existing_connection(POOL_CONNECTION * frontend,
 								  POOL_CONNECTION_POOL * backend,
@@ -242,10 +242,7 @@ do_child(int *fds)
 		MemoryContextSwitchTo(ProcessLoopContext);
 
 		if (accepted)
-		{
-			accepted = 0;
 			connection_count_down();
-		}
 
 		backend_cleanup(&child_frontend, backend, frontend_invalid);
 
@@ -294,6 +291,7 @@ do_child(int *fds)
 		StartupPacket *sp;
 		int			front_end_fd;
 		SockAddr	saddr;
+		int			con_count;
 
 		/* reset per iteration memory context */
 		MemoryContextSwitchTo(ProcessLoopContext);
@@ -324,7 +322,32 @@ do_child(int *fds)
 		if (front_end_fd == RETRY)
 			continue;
 
-		connection_count_up();
+		/*
+		 * Check if max connections from clients execeeded.
+		 */
+		con_count = connection_count_up();
+		if (con_count > (pool_config->num_init_children - pool_config->reserved_connections))
+		{
+			POOL_CONNECTION * cp;
+			cp = pool_open(front_end_fd, false);
+			if (cp == NULL)
+			{
+				connection_count_down();
+				continue;
+			}
+			connection_count_down();
+			pool_send_fatal_message(cp, 3, "53300",
+									"Sorry, too many clients already",
+									"",
+									"",
+									__FILE__, __LINE__);
+			ereport(ERROR,
+					(errcode(ERRCODE_TOO_MANY_CONNECTIONS),
+					 errmsg("Sorry, too many clients already")));
+			pool_close(cp);
+			continue;
+		}
+
 		accepted = 1;
 
 		check_config_reload();
@@ -644,10 +667,6 @@ read_startup_packet(POOL_CONNECTION * cp)
 					ereport(DEBUG1,
 							(errmsg("reading startup packet"),
 							 errdetail("application_name: %s", p)));
-				}
-				else
-				{
-					p += (strlen(p) + 1);
 				}
 
 				p += (strlen(p) + 1);
@@ -1276,7 +1295,8 @@ child_will_go_down(int code, Datum arg)
 	if (accepted)
 		connection_count_down();
 
-	if (pool_config->memory_cache_enabled && !pool_is_shmem_cache())
+	if ((pool_config->memory_cache_enabled || pool_config->enable_shared_relcache)
+		&& !pool_is_shmem_cache())
 	{
 		memcached_disconnect();
 	}
@@ -1516,10 +1536,11 @@ discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT * cp)
 }
 
 /*
- * Count up connection counter (from frontend to pgpool)
- * in shared memory
+ * Count up connection counter (from frontend to pgpool) in shared memory and
+ * returns current counter value.  Please note that the returned value may not
+ * be up to date since locking has been already released.
  */
-static void
+static int
 connection_count_up(void)
 {
 	pool_sigset_t oldmask;
@@ -1527,8 +1548,10 @@ connection_count_up(void)
 	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(CONN_COUNTER_SEM);
 	Req_info->conn_counter++;
+	elog(DEBUG5, "connection_count_up: number of connected children: %d", Req_info->conn_counter);
 	pool_semaphore_unlock(CONN_COUNTER_SEM);
 	POOL_SETMASK(&oldmask);
+	return Req_info->conn_counter;
 }
 
 /*
@@ -1552,6 +1575,7 @@ connection_count_down(void)
 	 */
 	if (Req_info->conn_counter > 0)
 		Req_info->conn_counter--;
+	elog(DEBUG5, "connection_count_down: number of connected children: %d", Req_info->conn_counter);
 	pool_semaphore_unlock(CONN_COUNTER_SEM);
 	POOL_SETMASK(&oldmask);
 }
@@ -1704,7 +1728,7 @@ select_load_balancing_node(void)
 
 	for (i = 0; i < NUM_BACKENDS; i++)
 	{
-		if (VALID_BACKEND(i))
+		if (VALID_BACKEND_RAW(i))
 		{
 			if (i == no_load_balance_node_id)
 				continue;
@@ -1730,7 +1754,7 @@ select_load_balancing_node(void)
 		if ((suggested_node_id == -1 && i == PRIMARY_NODE_ID) || i == no_load_balance_node_id)
 			continue;
 
-		if (VALID_BACKEND(i) && BACKEND_INFO(i).backend_weight > 0.0)
+		if (VALID_BACKEND_RAW(i) && BACKEND_INFO(i).backend_weight > 0.0)
 		{
 			if (r >= total_weight)
 				selected_slot = i;
@@ -1804,7 +1828,7 @@ check_restart_request(void)
 	if (pool_get_my_process_info()->need_to_restart)
 	{
 		ereport(LOG,
-				(errmsg("failback event detected"),
+				(errmsg("failover or failback event detected"),
 				 errdetail("restarting myself")));
 
 		pool_get_my_process_info()->need_to_restart = 0;
@@ -1876,50 +1900,7 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 	 */
 	if (SERIALIZE_ACCEPT)
 	{
-		if (pool_config->connection_life_time == 0)
-		{
-			pool_semaphore_lock(ACCEPT_FD_SEM);
-		}
-		else
-		{
-			int sts;
-
-			for (;;)
-			{
-				sts = pool_semaphore_lock_allow_interrupt(ACCEPT_FD_SEM);
-
-				/* Interrupted by alarm */
-				if (sts == -2)
-				{
-					/*
-					 * Check if there are expired connection_life_time.
-					 */
-					if (backend_timer_expired)
-					{
-						/*
-						 * We add 10 seconds to connection_life_time so that there's
-						 * enough margin.
-						 */
-						int	seconds = pool_config->connection_life_time + 10;
-
-						while (seconds-- > 0)
-						{
-							/* check backend timer is expired */
-							if (backend_timer_expired)
-							{
-								pool_backend_timer();
-								backend_timer_expired = 0;
-								break;
-							}
-							sleep(1);
-						}
-					}
-				}
-				else	/* success or other error */
-					break;
-			}
-		}
-
+		pool_semaphore_lock(ACCEPT_FD_SEM);
 		set_ps_display("wait for connection request", false);
 		ereport(DEBUG1,
 				(errmsg("LOCKING select()")));
@@ -2150,7 +2131,7 @@ validate_backend_connectivity(int front_end_fd)
 		if (front_end_fd > 0)
 		{
 			POOL_CONNECTION *cp;
-			StartupPacket *volatile sp = NULL;
+			StartupPacket *volatile sp;
 
 			/*
 			 * we do not want to report socket error, as above errors will be
@@ -2174,15 +2155,17 @@ validate_backend_connectivity(int front_end_fd)
 										error_hint,
 										__FILE__,
 										__LINE__);
+				
 			}
 			PG_CATCH();
 			{
+				pool_free_startup_packet(sp);
 				FlushErrorState();
 				ereport(FATAL,
 						(errmsg("%s", error_msg), errdetail("%s", error_detail), errhint("%s", error_hint)));
-				pfree(sp);
 			}
 			PG_END_TRY();
+			pool_free_startup_packet(sp);
 		}
 		ereport(FATAL,
 				(errmsg("%s", error_msg), errdetail("%s", error_detail), errhint("%s", error_hint)));
@@ -2269,7 +2252,6 @@ retry_startup:
 	{
 		cancel_request((CancelPacket *) sp->startup_packet);
 		pool_free_startup_packet(sp);
-		connection_count_down();
 		return NULL;
 	}
 
@@ -2281,20 +2263,6 @@ retry_startup:
 				 errdetail("SSLRequest from client")));
 
 		pool_ssl_negotiate_serverclient(frontend);
-		pool_free_startup_packet(sp);
-		goto retry_startup;
-	}
-
-	/* GSSAPI? */
-	if (sp->major == 1234 && sp->minor == 5680)
-	{
-		ereport(DEBUG1,
-				(errmsg("selecting backend connection"),
-				 errdetail("GSSAPI request from client")));
-
-		/* sorry, Pgpool-II does not support GSSAPI yet */
-		pool_write_and_flush(frontend, "N", 1);
-
 		pool_free_startup_packet(sp);
 		goto retry_startup;
 	}
@@ -2335,7 +2303,7 @@ retry_startup:
 	{
 		ereport(LOG,
 				(errmsg("selecting backend connection"),
-				 errdetail("failback event detected, discarding existing connections")));
+				 errdetail("failover or failback event detected, discarding existing connections")));
 
 		pool_get_my_process_info()->need_to_restart = 0;
 		close_idle_connection(0);

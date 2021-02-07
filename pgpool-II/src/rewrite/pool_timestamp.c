@@ -814,35 +814,8 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 		stmt = ((PrepareStmt *) node)->query;
 		ctx.rewrite_to_params = true;
 	}
-	/*
-	 * CopyStmt
-	 */
 	else if (IsA(node, CopyStmt) &&((CopyStmt *) node)->query != NULL)
 		stmt = ((CopyStmt *) node)->query;
-	/*
-	 * ExplainStmt
-	 */
-	else if (IsA(node, ExplainStmt))
-	{
-		ListCell   *lc;
-		bool        analyze = false;
-
-		/* Check to see if this is EXPLAIN ANALYZE */
-		foreach(lc, ((ExplainStmt *) node)->options)
-		{
-			DefElem    *opt = (DefElem *) lfirst(lc);
-
-			if (strcmp(opt->defname, "analyze") == 0)
-			{
-				stmt = ((ExplainStmt *) node)->query;
-				analyze = true;
-				break;
-			}
-		}
-
-		if (!analyze)
-			return NULL;
-	}
 	else
 		stmt = node;
 
@@ -882,6 +855,25 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 								   rewrite_timestamp_walker, (void *) &ctx);
 
 		rewrite = ctx.rewrite;
+	}
+	else if (IsA(stmt, CopyStmt))
+	{
+		CopyStmt *c_stmt = (CopyStmt *) stmt;
+
+		raw_expression_tree_walker(
+								   (Node *) c_stmt->attlist,
+								   rewrite_timestamp_walker, (void *) &ctx);
+
+		raw_expression_tree_walker(
+								   (Node *) c_stmt->options,
+								   rewrite_timestamp_walker, (void *) &ctx);
+
+		raw_expression_tree_walker(
+								   (Node *) c_stmt->whereClause,
+								   rewrite_timestamp_walker, (void *) &ctx);
+
+		rewrite = ctx.rewrite;
+
 	}
 	else if (IsA(stmt, ExecuteStmt))
 	{
@@ -937,13 +929,6 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 		{
 			raw_expression_tree_walker(
 									   (Node *) s_stmt,
-									   rewrite_timestamp_walker, (void *) &ctx);
-		}
-
-		if (s_stmt->withClause)
-		{
-			raw_expression_tree_walker(
-									   (Node *) s_stmt->withClause,
 									   rewrite_timestamp_walker, (void *) &ctx);
 		}
 
@@ -1319,8 +1304,8 @@ raw_expression_tree_walker(Node *node,
 	if (node == NULL)
 		return false;
 
-	/* Guard against stack overflow due to overly complex expressions */
 
+	/* Guard against stack overflow due to overly complex expressions */
 	/*
 	 * check_stack_depth();
 	 */

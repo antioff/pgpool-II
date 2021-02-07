@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -62,6 +62,7 @@
 #include "auth/pool_hba.h"
 #include "utils/pool_stream.h"
 
+char		remote_ps_data[NI_MAXHOST]; /* used for set_ps_display */
 static POOL_CONNECTION_POOL_SLOT * slot;
 static volatile sig_atomic_t reload_config_request = 0;
 static volatile sig_atomic_t restart_request = 0;
@@ -235,7 +236,9 @@ establish_persistent_connection(int node)
 {
 	BackendInfo *bkinfo;
 	int			retry_cnt;
-	char		*dbname;
+	static time_t auto_failback_interval = 0; /* resume time of auto_failback */
+	bool		check_failback = false;
+	time_t		now;
 
 	bkinfo = pool_get_node_info(node);
 
@@ -247,15 +250,26 @@ establish_persistent_connection(int node)
 	 */
 	if (bkinfo->backend_status == CON_UNUSED ||
 		(bkinfo->backend_status == CON_DOWN && bkinfo->quarantine == false))
-		return false;
+	{
+		/* get current time to use auto_faliback_interval */
+		now = time(NULL);
+
+		if (pool_config->auto_failback && auto_failback_interval < now &&
+			STREAM && !strcmp(bkinfo->replication_state, "streaming") && !Req_info->switching)
+		{
+				ereport(DEBUG1,
+						(errmsg("health check DB node: %d (status:%d) for auto_failback", node, bkinfo->backend_status)));
+				check_failback = true;
+		}
+		else
+			return false;
+	}
 
 	/*
 	 * If database is not specified, "postgres" database is assumed.
 	 */
 	if (*pool_config->health_check_params[node].health_check_database == '\0')
-		dbname = "postgres";
-	else
-		dbname = pool_config->health_check_params[node].health_check_database;
+		pool_config->health_check_params[node].health_check_database = "postgres";
 
 	/*
 	 * Try to connect to the database.
@@ -284,7 +298,7 @@ establish_persistent_connection(int node)
 
 			slot = make_persistent_db_connection_noerror(node, bkinfo->backend_hostname,
 														 bkinfo->backend_port,
-														 dbname,
+														 pool_config->health_check_params[node].health_check_database,
 														 pool_config->health_check_params[node].health_check_user,
 														 password ? password : "", false);
 
@@ -328,6 +342,22 @@ establish_persistent_connection(int node)
 
 		if (password)
 			pfree(password);
+
+		if (check_failback && !Req_info->switching && slot)
+		{
+				ereport(LOG,
+					(errmsg("request auto failback, node id:%d", node)));
+				/* get current time to use auto_faliback_interval */
+				now = time(NULL);
+				auto_failback_interval = now + pool_config->auto_failback_interval;
+
+				send_failback_request(node, true, REQ_DETAIL_CONFIRMED);
+		}
+	}
+	/* if check_failback is true, backend_status is DOWN or UNUSED. */
+	if (check_failback)
+	{
+		return false;
 	}
 	return true;
 }
@@ -425,7 +455,10 @@ static RETSIGTYPE health_check_timer_handler(int sig)
  * Check backend down request file with specified backend node id.  If it's
  * down ("down"), returns true and set the status to "already_down" to
  * prevent repeatable * failover. If it's other than "down", returns false.
-*/
+ *
+ * When done_requests is true (second arg to function) the function returns
+ * true if the node has already_done status in the file.
+ */
 
 static bool
 check_backend_down_request(int node, bool done_requests)
@@ -470,11 +503,20 @@ check_backend_down_request(int node, bool done_requests)
 		strncpy(buf, readbuf, sizeof(buf));
 		if (strlen(readbuf) > 0 && readbuf[strlen(readbuf) - 1] == '\n')
 			buf[strlen(readbuf) - 1] = '\0';
+		sscanf(buf, "%d\t%s", &node_id, status);
 
+		if (done_requests)
+		{
+			if (node_id == node && !strcmp(status, "already_down"))
+			{
+				fclose(fd);
+				return true;
+			}
+			continue;
+		}
 		p = readbuf;
 		if (found == false)
 		{
-			sscanf(buf, "%d\t%s", &node_id, status);
 			if (node_id == node && !strcmp(status, "down"))
 			{
 				snprintf(linebuf, sizeof(linebuf), "%d\t%s\n", node_id, "already_down");

@@ -107,8 +107,10 @@ Pgpool-II documentation
    </literallayout>
   </para>
   <para>
-   If there is no connection to the backends, nothing will be displayed.
-   If there are multiple connections, one connection's information will be displayed on each line multiple times.
+   If <literal>-a</literal> or <literal>--all</literal> option is not specified and
+   there is no connection to the backends, nothing will be displayed. If there are
+   multiple connections, one connection's information will be displayed on each
+   line multiple times. Timestamps are displayed in EPOCH format.
   </para>
   <para>
    The <option>--verbose</option> option can help understand the output. For example:

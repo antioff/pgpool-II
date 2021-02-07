@@ -69,6 +69,14 @@
      <para>
       This parameter can only be set at server start.
      </para>
+
+     <note>
+      <para>
+       The query cache is used the relation cache too, if <xref linkend="guc-enable-shared-relcache"> is on.
+	You notes that the query cache is used regardless <xref linkend="guc-memory-cache-enabled"> parameter, when It is used by relation cache.
+	 See <xref linkend="runtime-misc"> for more details to relation cache.
+      </para>
+     </note>
     </listitem>
    </varlistentry>
   </variablelist>
@@ -294,7 +302,7 @@
 	#to refer the table1 then the black_memqcache_table_list
 	#would be configured as follows.
 
-	black_memqcache_table_list = "table1,public.table1"
+	black_function_list = "table1,public.table1"
 
        </programlisting>
 
@@ -412,7 +420,7 @@
      </para>
 
      <para>
-      <varname>memqcache_cache_block_size</varname> must be set to at least 512.
+      <varname>memqcache_cache_block_size</varname> must be set to atleast 512.
      </para>
 
      <para>

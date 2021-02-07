@@ -177,8 +177,9 @@
       client servers (application servers etc.).  When a
       <productname>Pgpool-II</productname> is switched from standby to
       active, the <productname>Pgpool-II</productname> takes over this
-      VIP. <emphasis>VIP will not be brought up in case the quorum
-      does not exist</emphasis>. Default is <literal>''</literal>(empty): which
+      VIP.  If <xref linkend="guc-failover-require-consensus"> is on
+      (the default), VIP will not be brought up in case the quorum
+      does not exist.  Default is <literal>''</literal>(empty): which
       means virtual IP will never be brought up.
      </para>
      <para>
@@ -199,6 +200,8 @@
       will use to switch the virtual IP on the system.
       Set only the path of the directory containing the binary,
       such as <literal>"/sbin"</literal> or such directory.
+      If <xref linkend="guc-if-up-cmd"> or <xref linkend="guc-if-down-cmd"> starts with "/",
+      this parameter will be ignored.
      </para>
      <para>
       This parameter can only be set at server start.
@@ -216,7 +219,12 @@
      <para>
       Specifies the command to bring up the virtual IP.
       Set the command and parameters such as
-      <command>"ip addr add $_IP_$/24 dev eth0 label eth0:0"</command>
+      <literal>"ip addr add $_IP_$/24 dev eth0 label eth0:0"</literal>.
+      Since root privilege is required to execute this command,
+      use <command>setuid</command> on <command>ip</command> command or
+      allow <productname>Pgpool-II</productname> startup user (<literal>postgres</literal> user by default)
+      to run <command>sudo</command> command without a password, and specify it such as
+      <literal>"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0"</literal>.
       <literal>$_IP_$</literal> will get replaced by the IP address
       specified in the <xref linkend="guc-delegate-IP">.
      </para>
@@ -237,6 +245,13 @@
       Specifies the command to bring down the virtual IP.
       Set the command and parameters such as
       <literal>"ip addr del $_IP_$/24 dev eth0"</literal>.
+      Since root privilege is required to execute this command,
+      use <command>setuid</command> on <command>ip</command> command or
+      allow <productname>Pgpool-II</productname> startup user (<literal>postgres</literal> user by default)
+      to run <command>sudo</command> command without a password, and specify it such as
+      <literal>"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0"</literal>.
+      <literal>$_IP_$</literal> will get replaced by the IP address
+      specified in the <xref linkend="guc-delegate-IP">.
      </para>
      <para>
       This parameter can only be set at server start.
@@ -256,6 +271,8 @@
       will use to send the ARP requests after the virtual IP switch.
       Set only the path of the directory containing the binary,
       such as <literal>"/usr/sbin"</literal> or such directory.
+      If <xref linkend="guc-arping-cmd"> starts with "/",
+      this parameter will be ignored.
      </para>
      <para>
       This parameter can only be set at server start.
@@ -274,7 +291,12 @@
       Specifies the command to use for sending the ARP requests
       after the virtual IP switch.
       Set the command and parameters such as
-      <literal>"arping -U $_IP_$ -w 1"</literal>.
+      <literal>"arping -U $_IP_$ -w 1 -I eth0"</literal>.
+      Since root privilege is required to execute this command,
+      use <command>setuid</command> on <command>ip</command> command or
+      allow <productname>Pgpool-II</productname> startup user (<literal>postgres</literal> user by default)
+      to run <command>sudo</command> command without a password, and specify it such as
+      <literal>"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0"</literal>.
       <literal>$_IP_$</literal> will get replaced by
       the IP address specified in the <varname>delegate_IP</varname>.
      </para>
@@ -288,7 +310,7 @@
  </sect2>
 
  <sect2 id="config-watchdog-escalation-de-escalation">
-  <title>Behaviour on escalation and de-escalation</title>
+  <title>Behaivor on escalation and de-escalation</title>
 
   <para>
    Configuration about behavior when <productname>Pgpool-II</productname>
@@ -306,8 +328,8 @@
     <listitem>
      <para>
       When set to on, watchdog clears all the query cache in the shared memory
-      when pgpool-II escalates to active. This prevents the new active <productname>Pgpool-II</productname>
-      from using old query caches inconsistent to the old active.
+      when pgpool-II escaltes to active. This prevents the new active <productname>Pgpool-II</productname>
+      from using old query caches inconsistence to the old active.
      </para>
      <para>
       Default is on.
@@ -355,7 +377,7 @@
       watchdog node when that node resigns from the master node responsibilities.
       A master watchdog node can resign from being a master node,
       when the master node <productname>Pgpool-II</productname> shuts down, detects a network
-      blackout or detects the lost of quorum.
+      blackout or detects the lost of <indexterm><primary>quorum</primary></indexterm><firstterm>quorum</firstterm>.
      </para>
      <para>
       This command is executed before bringing down the virtual/floating IP address
@@ -373,7 +395,7 @@
   </variablelist>
  </sect2>
 
- <sect2 id="config-watchdog-failover-behavior" xreflabel="Controlling the Failover behavior">
+ <sect2 id="config-watchdog-failover-behavior">
   <title>Controlling the Failover behavior</title>
 
   <para>
@@ -393,16 +415,63 @@
     </term>
     <listitem>
      <para>
-      When enabled, <productname>Pgpool-II</productname> will perform the degenerate/failover on
-      backend node if the quorum exists. In the absence of the quorum, <productname>Pgpool-II</productname>
-      node that detects the backend failure will quarantine the failed backend node until the quorum exists again.
+      When enabled, <productname>Pgpool-II</productname> will consider <indexterm><primary>quorum</primary></indexterm>quorum when it performs the degenerate/failover on backend node.
      </para>
      <para>
-      The quarantine nodes behaves similar to the detached backend nodes but unlike failed/degenerated backends
-      the quarantine status is not propagated to the other <productname>Pgpool-II</productname> nodes in the
-      watchdog cluster, So even if the backend node is in the quarantine state on one
-      <productname>Pgpool-II</productname> node, other <productname>Pgpool-II</productname> nodes may
-      still continue to use that backend.
+      We can say that "quorum exists" if the number of live
+      watchdog nodes (that is number
+      of <productname>Pgpool-II</productname> nodes) can be a
+      majority against the total number of watchdog nodes. For
+      example, suppose number of watchdog nodes is 5. If number of
+      live nodes is greater than or equal to 3, then quorum
+      exists. On the other hand if number of live nodes is 2 or
+      lower, quorum does not exist since it never be
+      majority.
+     </para>
+     <para>
+      If the quorum exists, <productname>Pgpool-II</productname>
+      could work better on failure detection because even if a
+      watchdog node mistakenly detects a failure of backend node,
+      it would be denied by other major watchdog nodes.
+      <productname>Pgpool-II</productname> works that way
+      when <xref linkend="guc-failover-require-consensus"> is on
+       (the default), but you can change it so that immediate
+       failover happens when a failure is detected.
+       A <productname>Pgpool-II</productname> node which mistakenly
+       detects failure of backend node will quarantine the backend
+       node.
+     </para>
+     <para>
+      The existence of quorum can be shown by invoking <xref linkend="pcp-watchdog-info"> command with <literal>--verbose</literal> option.
+       If <literal>Quorum state</literal> is <literal>QUORUM EXIST</literal> or <literal>QUORUM IS ON THE EDGE</literal>, then the quorum exists.
+       If <literal>Quorum state</literal> is <literal>QUORUM ABSENT</literal>, then the quorum does not exist.
+     </para>
+     <para>
+      Please note that if the number of watchdog nodes is even, we
+      regard that quorum exists when the number of live nodes is
+      greater than or equal to half of total watchdog nodes.
+     </para>
+     <para>
+      In the absence of the
+      quorum, <productname>Pgpool-II</productname> node that
+      detects the backend failure will quarantine the failed
+      backend node until the quorum exists again.
+     </para>
+     <para>
+      Although it is possible to force detaching the quarantine
+      node by using <command>pcp_detach_node</command> command, it
+      is not possible to attach the node again by
+      using <command>pcp_attach_node</command> command.
+     </para>
+     <para>
+      The <indexterm><primary>quarantine</primary></indexterm>
+      quarantine nodes behaves similar to the detached backend nodes
+      but unlike failed/degenerated backends the quarantine status is
+      not propagated to the other <productname>Pgpool-II</productname>
+      nodes in the watchdog cluster, So even if the backend node is in
+      the quarantine state on one <productname>Pgpool-II</productname>
+      node, other <productname>Pgpool-II</productname> nodes may still
+      continue to use that backend.
      </para>
      <para>
       Although there are many similarities in quarantine and failover operations, but they both differ in a very
@@ -411,6 +480,29 @@
        <productname>Pgpool-II</productname> will not promote the standby to take over the master responsibilities
        and until the master node is quarantined the <productname>Pgpool-II</productname> will not have
        any usable master backend node.
+     </para>
+     <para>
+      Moreover, unlike for the failed
+      nodes, <productname>Pgpool-II</productname> keeps the
+      health-check running on the quarantined nodes and as soon as
+      the quarantined node becomes reachable again it gets
+      automatically re-attached.
+     </para>
+     <para>
+      From <productname>Pgpool-II </productname><emphasis>V4.1</emphasis> onwards, if the watchdog-master node
+      fails to build the consensus for primary backend node failover and the primary backend node gets into a
+      quarantine state, then it resigns from its master/coordinator responsibilities and lowers its wd_priority
+      for next leader election and let the cluster elect some different new leader.
+      <note>
+       <para>
+	When the master node fails to build the consensus for standby backend node failure, it takes no action
+	and similarly quarantined standby backend nodes on watchdog-master do not trigger a new leader election.
+       </para>
+      </note>
+     </para>
+     <para>
+      If this parameter is off, failover will be triggered even if
+      quorum does not exist.
      </para>
      <para>
       Default is on.
@@ -422,12 +514,7 @@
      <para>
       This parameter can only be set at server start.
      </para>
-     <note>
-      <para>
-       enabling <varname>failover_when_quorum_exists</varname> is not allowed in native replication mode.
-      </para>
-     </note>
-   </listitem>
+    </listitem>
    </varlistentry>
 
    <varlistentry id="guc-failover-require-consensus" xreflabel="failover_require_consensus">
@@ -447,6 +534,10 @@
       least two nodes ask for performing the failover on the particular backend node.
      </para>
      <para>
+      If this parameter is off, failover will be triggered even if
+      there's no consensus.
+     </para>
+     <para>
       Default is on.
      </para>
 
@@ -464,12 +555,6 @@
        see <xref linkend="runtime-config-health-check">.
       </para>
      </caution>
-
-     <note>
-      <para>
-       enabling <varname>failover_require_consensus</varname> is not allowed in native replication mode.
-      </para>
-     </note>
 
      <para>
       <varname>failover_require_consensus</varname> is not available prior to
@@ -501,6 +586,13 @@
       even if it does not get the vote from any other <productname>Pgpool-II</productname> node.
      </para>
      <para>
+      For example, if an error found in a health check round does
+      not get enough vote and the error still persists, next round
+      of health check will give one more vote.  This parameter is
+      useful if you want to detect a persistent error which might
+      not be found by other watchdog nodes.
+     </para>
+     <para>
       Default is off.
      </para>
      <para>
@@ -508,6 +600,66 @@
       <productname>Pgpool-II </productname><emphasis>V3.7</emphasis>. and it is only
       effective when both <xref linkend="guc-failover-when-quorum-exists"> and
        <xref linkend="guc-failover-require-consensus"> are enabled
+     </para>
+     <para>
+      This parameter can only be set at server start.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-enable-consensus-with-half-votes" xreflabel="enable_consensus_with_half_votes">
+    <term><varname>enable_consensus_with_half_votes</varname> (<type>boolean</type>)
+     <indexterm>
+      <primary><varname>cenable_consensus_with_half_votes</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      This parameter configures how the majority rule computation
+      is made by <productname>Pgpool-II</productname> for calculating
+      the quorum and resolving the consensus for failover.
+     </para>
+     <para>
+      when enabled the existence of quorum and consensus on failover requires only half of
+      the total number of votes configured in the cluster. Otherwise, both of these
+      decisions require at least one more vote than half of the total number of votes.
+      For failover, this parameter works in conjunction with the
+      <xref linkend="guc-failover-require-consensus">. In both cases, whether making a
+      decision of quorum existence or building the consensus on failover this
+      parameter only comes into play when the watchdog cluster is configured for even
+      number of <productname>Pgpool-II</productname> nodes.
+      The majority rule decision in the watchdog cluster having an odd number of participants.
+      It is not affected by the value of this configuration parameter.
+     </para>
+     <para>
+      For example, when this parameter is enabled in a two node watchdog
+      cluster, one <productname>Pgpool-II</productname> node needs to
+      be alive to make the quorum exist. If the parameter is off, two
+      nodes need to be alive to make quorum exist.
+     </para>
+     <para>
+      When this parameter is enabled in a four node watchdog cluster,
+      two <productname>Pgpool-II</productname> node needs to be alive
+      to make the quorum exist. If the parameter is off, three nodes
+      need to be alive to make quorum exist.
+     </para>
+     <para>
+      By enabling this parameter, you should aware that you take a
+      risk to make split-brain happen. For example, in four node
+      cluster consisted of node A, B, C and D, it is possible that the
+      cluster goes into two separated networks (A, B) and (C, D). For
+      (A, B) and (C, D) the quorum still exist since for both groups
+      there are two live nodes out of 4. The two groups choose their
+      own master watchdog, which is a split-brain.
+     </para>
+     <para>
+      Default is off.
+     </para>
+     <para>
+      <varname>enable_consensus_with_half_votes</varname> is not available
+      prior to <productname>Pgpool-II
+      </productname><emphasis>V4.1</emphasis>. The prior versions work
+      as if the parameter is on.
      </para>
      <para>
       This parameter can only be set at server start.
@@ -547,7 +699,9 @@
      </para>
      <para>
       <literal>query</literal>: In this mode, watchdog sends the monitoring queries
-      to other <productname>Pgpool-II</productname> and checks the response
+      to other <productname>Pgpool-II</productname> and checks the response.
+      When installation location between <productname>Pgpool-II</productname>
+      servers is far, <literal>query</literal> may be useful.
       <caution>
        <para>
         In query mode, you need to set <xref linkend="guc-num-init-children">
@@ -633,12 +787,7 @@
       to select master watchdog node.
       The node with the higher <varname>wd_priority</varname> value will get selected
       as master watchdog node when cluster will be electing its new master node
-      in the event of old master watchdog node failure.
-      <varname>wd_priority</varname> is also valid at the time of cluster startup.
-      When some watchdog nodes start up at same time,a node with the higher <varname>wd_priority</varname>
-      value is selected as a master node.
-      So we should start watchdog nodes in order of <varname>wd_priority</varname> priority to prevent
-      unintended nodes from being selected as masters.
+      at the time of cluster startup or in the event of old master watchdog node failure
      </para>
      <para>
       <varname>wd_priority</varname> is not available in versions prior to

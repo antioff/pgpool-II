@@ -41,8 +41,6 @@ do
 	$PSQL test <<EOF
 CREATE TABLE t1 (i int);
 CREATE TABLE black_t (i int);
-CREATE TABLE with_modify (i int);
-CREATE TABLE explain_analyze (i int);
 CREATE VIEW normal_v AS SELECT * FROM t1;
 CREATE VIEW white_v AS SELECT * FROM t1;
 SELECT pg_sleep(2);	-- Sleep for a while to make sure object creations are replicated
@@ -54,13 +52,6 @@ SELECT * FROM normal_v;
 SELECT * FROM normal_v;
 SELECT * FROM white_v;
 SELECT * FROM white_v;
-SELECT * FROM with_modify;
-WITH cte AS (INSERT INTO with_modify values(1) RETURNING *) SELECT * FROM with_modify;
-WITH cte AS (INSERT INTO with_modify values(1) RETURNING *) SELECT * FROM with_modify;
-SELECT * FROM with_modify;
-SELECT * FROM explain_analyze;
-EXPLAIN ANALYZE INSERT INTO explain_analyze VALUES(1);
-SELECT * FROM explain_analyze;
 EOF
 
 	success=true
@@ -68,8 +59,6 @@ EOF
 	grep "fetched from cache" log/pgpool.log | grep black_t > /dev/null && success=false
 	grep "fetched from cache" log/pgpool.log | grep normal_v > /dev/null && success=false
 	grep "fetched from cache" log/pgpool.log | grep white_v > /dev/null || success=false
-	grep "fetched from cache" log/pgpool.log | grep with_modify > /dev/null && success=false
-	grep "fetched from cache" log/pgpool.log | grep explain_analyze > /dev/null && success=false
 	if [ $success = false ];then
 		./shutdownall
 		exit 1

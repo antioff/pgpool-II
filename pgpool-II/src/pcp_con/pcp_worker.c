@@ -102,6 +102,7 @@ pcp_worker_main(int port)
 	struct timeval uptime;
 	char		tos;
 	int			rsize;
+	char	   *buf = NULL;
 
 	ereport(DEBUG1,
 			(errmsg("I am PCP worker child with pid:%d", getpid())));
@@ -158,8 +159,6 @@ pcp_worker_main(int port)
 
 	for (;;)
 	{
-		char	*buf = NULL;
-
 		MemoryContextSwitchTo(PCPMemoryContext);
 		MemoryContextResetAndDeleteChildren(PCPMemoryContext);
 
@@ -208,6 +207,7 @@ pcp_worker_main(int port)
 
 		/* process a request */
 		pcp_process_command(tos, buf, rsize);
+		pfree(buf);
 	}
 	exit(0);
 }
@@ -872,6 +872,8 @@ inform_node_info(PCP_CONNECTION * frontend, char *buf)
 				  strlen(weight_str) + 1 +
 				  strlen(role_str) + 1 +
 				  strlen(standby_delay_str) + 1 +
+				  strlen(bi->replication_state) + 1 +
+				  strlen(bi->replication_sync_state) + 1 +
 				  strlen(status_changed_time_str) + 1 +
 				  sizeof(int));
 	pcp_write(frontend, &wsize, sizeof(int));
@@ -882,6 +884,8 @@ inform_node_info(PCP_CONNECTION * frontend, char *buf)
 	pcp_write(frontend, weight_str, strlen(weight_str) + 1);
 	pcp_write(frontend, role_str, strlen(role_str) + 1);
 	pcp_write(frontend, standby_delay_str, strlen(standby_delay_str) + 1);
+	pcp_write(frontend, bi->replication_state, strlen(bi->replication_state) + 1);
+	pcp_write(frontend, bi->replication_sync_state, strlen(bi->replication_sync_state) + 1);
 	pcp_write(frontend, status_changed_time_str, strlen(status_changed_time_str) + 1);
 
 	do_pcp_flush(frontend);

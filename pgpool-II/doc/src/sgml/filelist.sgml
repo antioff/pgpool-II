@@ -60,12 +60,18 @@
 <!ENTITY memcache      SYSTEM "memcache.sgml">
 <!ENTITY ssl           SYSTEM "ssl.sgml">
 <!ENTITY watchdog      SYSTEM "watchdog.sgml">
+<!ENTITY performance   SYSTEM "performance.sgml">
 <!ENTITY misc-config   SYSTEM "misc-config.sgml">
 <!ENTITY config-last   SYSTEM "config-last.sgml">
 <!ENTITY user-manag    SYSTEM "user-manag.sgml">
 <!ENTITY wal           SYSTEM "wal.sgml">
 
-<!ENTITY examples      SYSTEM "examples.sgml">
+<!ENTITY examples           SYSTEM "examples.sgml">
+<!ENTITY example-basic      SYSTEM "example-basic.sgml">
+<!ENTITY example-watchdog   SYSTEM "example-watchdog.sgml">
+<!ENTITY example-cluster    SYSTEM "example-cluster.sgml">
+<!ENTITY example-AWS        SYSTEM "example-AWS.sgml">
+<!ENTITY example-Aurora     SYSTEM "example-Aurora.sgml">
 
 <!-- programmer's guide -->
 <!ENTITY bgworker   SYSTEM "bgworker.sgml">
@@ -181,6 +187,7 @@
 <!ENTITY sourcerepo SYSTEM "sourcerepo.sgml">
 
 <!ENTITY release    SYSTEM "release.sgml">
+<!ENTITY release-4.1    SYSTEM "release-4.1.sgml">
 <!ENTITY release-4.0    SYSTEM "release-4.0.sgml">
 <!ENTITY release-3.7    SYSTEM "release-3.7.sgml">
 <!ENTITY release-3.6    SYSTEM "release-3.6.sgml">

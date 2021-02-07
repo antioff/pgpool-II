@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -76,7 +76,7 @@ static int	reset_backend(POOL_CONNECTION_POOL * backend, int qcnt);
 static char *get_insert_command_table_name(InsertStmt *node);
 static bool is_cache_empty(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend);
 static bool is_panic_or_fatal_error(const char *message, int major);
-static int	detect_error(POOL_CONNECTION * master, char *error_code, int major, char class, bool unread);
+static int	extract_message(POOL_CONNECTION * master, char *error_code, int major, char class, bool unread);
 static int	detect_postmaster_down_error(POOL_CONNECTION * master, int major);
 static bool is_internal_transaction_needed(Node *node);
 static bool pool_has_insert_lock(void);
@@ -86,9 +86,6 @@ static POOL_STATUS insert_oid_into_insert_lock(POOL_CONNECTION * frontend, POOL_
 static POOL_STATUS read_packets_and_process(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, int reset_request, int *state, short *num_fields, bool *cont);
 static bool is_all_slaves_command_complete(unsigned char *kind_list, int num_backends, int master);
 static bool pool_process_notice_message_from_one_backend(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, int backend_idx, char kind);
-
-/* timeout sec for pool_check_fd */
-static int	timeoutsec = -1;
 
 /*
  * Main module for query processing
@@ -123,7 +120,8 @@ pool_process_query(POOL_CONNECTION * frontend,
 
 
 	/* Try to connect memcached */
-	if (pool_config->memory_cache_enabled && !pool_is_shmem_cache())
+	if ((pool_config->memory_cache_enabled || pool_config->enable_shared_relcache)
+		&& !pool_is_shmem_cache())
 	{
 		memcached_connect();
 	}
@@ -640,95 +638,6 @@ synchronize(POOL_CONNECTION * cp)
 }
 
 /*
- * Set timeout in seconds for pool_check_fd
- * if timeoutval < 0, we assume no timeout (wait forever).
- */
-void
-pool_set_timeout(int timeoutval)
-{
-	if (timeoutval >= 0)
-		timeoutsec = timeoutval;
-	else
-		timeoutsec = -1;
-}
-
-/*
- * Wait until read data is ready.
- * return values: 0: normal 1: data is not ready -1: error
- */
-int
-pool_check_fd(POOL_CONNECTION * cp)
-{
-	fd_set		readmask;
-	fd_set		exceptmask;
-	int			fd;
-	int			fds;
-	struct timeval timeout;
-	struct timeval *timeoutp;
-	int			save_errno;
-
-	/*
-	 * If SSL is enabled, we need to check SSL internal buffer is empty or not
-	 * first. Otherwise select(2) will stuck.
-	 */
-	if (pool_ssl_pending(cp))
-	{
-		return 0;
-	}
-
-	fd = cp->fd;
-
-	if (timeoutsec >= 0)
-	{
-		timeout.tv_sec = timeoutsec;
-		timeout.tv_usec = 0;
-		timeoutp = &timeout;
-	}
-	else
-		timeoutp = NULL;
-
-	for (;;)
-	{
-		FD_ZERO(&readmask);
-		FD_ZERO(&exceptmask);
-		FD_SET(fd, &readmask);
-		FD_SET(fd, &exceptmask);
-
-		fds = select(fd + 1, &readmask, NULL, &exceptmask, timeoutp);
-		save_errno = errno;
-		if (fds == -1)
-		{
-			if (processType == PT_HEALTH_CHECK && errno == EINTR && health_check_timer_expired)
-			{
-				ereport(WARNING,
-						(errmsg("health check timed out while waiting for reading data")));
-				errno = save_errno;
-				return 1;
-			}
-
-			if (errno == EAGAIN || errno == EINTR)
-				continue;
-
-			ereport(WARNING,
-					(errmsg("waiting for reading data. select failed with error: \"%s\"", strerror(errno))));
-			break;
-		}
-		else if (fds == 0)		/* timeout */
-			return 1;
-
-		if (FD_ISSET(fd, &exceptmask))
-		{
-			ereport(WARNING,
-					(errmsg("waiting for reading data. exception occurred in select ")));
-			break;
-		}
-		errno = save_errno;
-		return 0;
-	}
-	return -1;
-}
-
-/*
  * send "terminate"(X) message to all backends, indicating that
  * backend should prepare to close connection to frontend (actually
  * pgpool). Note that caller must be proteceted from a signal
@@ -851,19 +760,24 @@ SimpleForwardToFrontend(char kind, POOL_CONNECTION * frontend,
 	pool_write(frontend, &sendlen, sizeof(sendlen));
 
 	/*
-	 * Optimization for "Data Row" message.  Since it is too often to receive
-	 * and forward "Data Row" message, we do not flush the message to frontend
-	 * now. We expect that "Command Complete" message (or "Error response" or
-	 * "Notice response" message) follows the stream of data row message
-	 * anyway, so flushing will be done at that time.
+	 * Optimization for other than "Command Complete", "Ready For query",
+	 * "Error response" and "Notice message" messages.  Especially, since it
+	 * is too often to receive and forward "Data Row" message, we do not flush
+	 * the message to frontend now. We expect that "Command Complete" message
+	 * (or "Error response" or "Notice response" message) follows the stream
+	 * of data row message anyway, so flushing will be done at that time.
+	 *
+	 * Same thing can be said to CopyData message. Tremendous number of
+	 * CopyData messages are sent to frontend (typical use case is pg_dump).
+	 * So eliminating per CopyData flush significantly enhances performance.
 	 */
-	if (kind == 'D')
+	if (kind == 'C' || kind == 'Z' || kind == 'E' || kind == 'N')
 	{
-		pool_write(frontend, p1, len1);
+		pool_write_and_flush(frontend, p1, len1);
 	}
 	else
 	{
-		pool_write_and_flush(frontend, p1, len1);
+		pool_write(frontend, p1, len1);
 	}
 
 	ereport(DEBUG5,
@@ -936,7 +850,7 @@ SimpleForwardToBackend(char kind, POOL_CONNECTION * frontend,
 	}
 	else if (len < 0)
 		ereport(ERROR,
-				(errmsg("unable to forward message to backend"),
+				(errmsg("unable to forward message to frontend"),
 				 errdetail("invalid message length:%d for message:%c", len, kind)));
 
 
@@ -2395,7 +2309,7 @@ do_query(POOL_CONNECTION * backend, char *query, POOL_SELECT_RESULT * *result, i
 
 							res->nullflags[num_data] = len;
 
-							if (len >= 0)	/* NOT NULL? */
+							if (len > 0)	/* NOT NULL? */
 							{
 								res->data[num_data] = palloc(len + 1);
 								memcpy(res->data[num_data], p, len);
@@ -2418,7 +2332,7 @@ do_query(POOL_CONNECTION * backend, char *query, POOL_SELECT_RESULT * *result, i
 
 								res->nullflags[num_data] = len;
 
-								if (len >= 0)
+								if (len > 0)
 								{
 									p = pool_read2(backend, len);
 									res->data[num_data] = palloc(len + 1);
@@ -3102,19 +3016,16 @@ is_backend_cache_empty(POOL_CONNECTION_POOL * backend)
 static bool
 is_cache_empty(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 {
-	/* Are we suspending reading from frontend? */
-	if (!pool_is_suspend_reading_from_frontend())
-	{
-		/*
-		 * If SSL is enabled, we need to check SSL internal buffer is empty or not
-		 * first.
-		 */
-		if (pool_ssl_pending(frontend))
-			return false;
+	/*
+	 * If SSL is enabled, we need to check SSL internal buffer is empty or not
+	 * first.
+	 */
+	if (pool_ssl_pending(frontend))
+		return false;
 
-		if (!pool_read_buffer_is_empty(frontend))
-			return false;
-	}
+	if (!pool_read_buffer_is_empty(frontend))
+		return false;
+
 	return is_backend_cache_empty(backend);
 }
 
@@ -3714,7 +3625,7 @@ read_kind_from_backend(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backen
 						Node	   *node;
 						bool		error;
 
-						parse_tree_list = raw_parser(query_string_buffer, &error);
+						parse_tree_list = raw_parser(query_string_buffer, strlen(query_string_buffer), &error, !REPLICATION);
 
 						if (parse_tree_list != NIL)
 						{
@@ -4199,10 +4110,6 @@ is_panic_or_fatal_error(const char *message, int major)
 			if (id == '\0')
 				break;
 
-			/* V is never localized. Only available 9.6 or later. */
-			if (id == 'V' && (strcasecmp("PANIC", message) == 0 || strcasecmp("FATAL", message) == 0))
-				return true;
-
 			if (id == 'S' && (strcasecmp("PANIC", message) == 0 || strcasecmp("FATAL", message) == 0))
 				return true;
 			else
@@ -4224,7 +4131,7 @@ is_panic_or_fatal_error(const char *message, int major)
 static int
 detect_postmaster_down_error(POOL_CONNECTION * backend, int major)
 {
-	int			r = detect_error(backend, ADMIN_SHUTDOWN_ERROR_CODE, major, 'E', false);
+	int			r = extract_message(backend, ADMIN_SHUTDOWN_ERROR_CODE, major, 'E', false);
 
 	if (r < 0)
 	{
@@ -4246,7 +4153,7 @@ detect_postmaster_down_error(POOL_CONNECTION * backend, int major)
 		return r;
 	}
 
-	r = detect_error(backend, CRASH_SHUTDOWN_ERROR_CODE, major, 'N', false);
+	r = extract_message(backend, CRASH_SHUTDOWN_ERROR_CODE, major, 'N', false);
 	if (r < 0)
 	{
 		ereport(LOG,
@@ -4264,7 +4171,7 @@ detect_postmaster_down_error(POOL_CONNECTION * backend, int major)
 int
 detect_active_sql_transaction_error(POOL_CONNECTION * backend, int major)
 {
-	int			r = detect_error(backend, ACTIVE_SQL_TRANSACTION_ERROR_CODE, major, 'E', true);
+	int			r = extract_message(backend, ACTIVE_SQL_TRANSACTION_ERROR_CODE, major, 'E', true);
 
 	if (r == SPECIFIED_ERROR)
 	{
@@ -4278,7 +4185,7 @@ detect_active_sql_transaction_error(POOL_CONNECTION * backend, int major)
 int
 detect_deadlock_error(POOL_CONNECTION * backend, int major)
 {
-	int			r = detect_error(backend, DEADLOCK_ERROR_CODE, major, 'E', true);
+	int			r = extract_message(backend, DEADLOCK_ERROR_CODE, major, 'E', true);
 
 	if (r == SPECIFIED_ERROR)
 		ereport(DEBUG1,
@@ -4290,7 +4197,7 @@ detect_deadlock_error(POOL_CONNECTION * backend, int major)
 int
 detect_serialization_error(POOL_CONNECTION * backend, int major, bool unread)
 {
-	int			r = detect_error(backend, SERIALIZATION_FAIL_ERROR_CODE, major, 'E', unread);
+	int			r = extract_message(backend, SERIALIZATION_FAIL_ERROR_CODE, major, 'E', unread);
 
 	if (r == SPECIFIED_ERROR)
 		ereport(DEBUG1,
@@ -4302,7 +4209,7 @@ detect_serialization_error(POOL_CONNECTION * backend, int major, bool unread)
 int
 detect_query_cancel_error(POOL_CONNECTION * backend, int major)
 {
-	int			r = detect_error(backend, QUERY_CANCEL_ERROR_CODE, major, 'E', true);
+	int			r = extract_message(backend, QUERY_CANCEL_ERROR_CODE, major, 'E', true);
 
 	if (r == SPECIFIED_ERROR)
 		ereport(DEBUG1,
@@ -4315,7 +4222,7 @@ detect_query_cancel_error(POOL_CONNECTION * backend, int major)
 int
 detect_idle_in_transaction_sesion_timeout_error(POOL_CONNECTION * backend, int major)
 {
-	int			r = detect_error(backend, IDLE_IN_TRANSACTION_SESSION_TIMEOUT_ERROR_CODE, major, 'E', true);
+	int			r = extract_message(backend, IDLE_IN_TRANSACTION_SESSION_TIMEOUT_ERROR_CODE, major, 'E', true);
 
 	if (r == SPECIFIED_ERROR)
 		ereport(DEBUG1,
@@ -4325,12 +4232,12 @@ detect_idle_in_transaction_sesion_timeout_error(POOL_CONNECTION * backend, int m
 }
 
 /*
- * detect_error: Detect specified error from error code.
- * returns 0 in case of sucess or 1 in cause of specified error.
- * and throws an ereport for all other errors
+ * extract_message: extract specified error by an error code.
+ * returns 0 in case of success or 1 in case of specified error.
+ * throw an ereport for all other errors.
  */
 static int
-detect_error(POOL_CONNECTION * backend, char *error_code, int major, char class, bool unread)
+extract_message(POOL_CONNECTION * backend, char *error_code, int major, char class, bool unread)
 {
 	int			is_error = 0;
 	char		kind;
@@ -4342,7 +4249,7 @@ detect_error(POOL_CONNECTION * backend, char *error_code, int major, char class,
 		return -1;
 
 	ereport(DEBUG5,
-			(errmsg("detect error: kind: %c", kind)));
+			(errmsg("extract_message: kind: %c", kind)));
 
 
 	/* Specified class? */
@@ -4893,28 +4800,6 @@ SELECT_RETRY:
 							sleep(5);
 						}
 						break;
-					}
-
-					/*
-					 * In native replication mode, we need to trigger failover
-					 * to avoid data inconsistency.
-					 */
-					else if (REPLICATION)
-					{
-						was_error = 1;
-						if (!VALID_BACKEND(i))
-							break;
-						if (CONNECTION(backend, i)->con_info->swallow_termination == 1)
-						{
-							ereport(FATAL,
-									(errmsg("connection to postmaster on DB node %d was lost due to pg_terminate_backend", i),
-									 errdetail("pg_terminate_backend was called on the backend")));
-						}
-						else
-						{
-							notice_backend_error(i, REQ_DETAIL_SWITCHOVER);
-							sleep(5);
-						}
 					}
 
 					/*

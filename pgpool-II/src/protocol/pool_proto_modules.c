@@ -199,12 +199,13 @@ SimpleQuery(POOL_CONNECTION * frontend,
 
 	/* log query to log file if necessary */
 	if (pool_config->log_statement)
-		ereport(pool_config->log_statement ? LOG : DEBUG1, (errmsg("statement: %s", contents)));
+		ereport(LOG, (errmsg("statement: %s", contents)));
 
 	/*
 	 * Fetch memory cache if possible
 	 */
-	is_likely_select = pool_is_likely_select(contents);
+	if (pool_config->memory_cache_enabled)
+	    is_likely_select = pool_is_likely_select(contents);
 
 	/*
 	 * If memory query cache enabled and the query seems to be a SELECT use
@@ -247,7 +248,7 @@ SimpleQuery(POOL_CONNECTION * frontend,
 	MemoryContext old_context = MemoryContextSwitchTo(query_context->memory_context);
 
 	/* parse SQL string */
-	parse_tree_list = raw_parser(contents, &error);
+	parse_tree_list = raw_parser(contents, len, &error, !REPLICATION);
 
 	if (parse_tree_list == NIL)
 	{
@@ -259,7 +260,7 @@ SimpleQuery(POOL_CONNECTION * frontend,
 			 * the empty query with SELECT command not to affect load balance.
 			 * [Pgpool-general] Confused about JDBC and load balancing
 			 */
-			parse_tree_list = raw_parser(POOL_DUMMY_READ_QUERY, &error);
+			parse_tree_list = get_dummy_read_query_tree();
 		}
 		else
 		{
@@ -282,7 +283,7 @@ SimpleQuery(POOL_CONNECTION * frontend,
 				ereport(LOG,
 						(errmsg("Unable to parse the query: \"%s\" from client %s(%s)", contents, remote_host, remote_port)));
 			}
-			parse_tree_list = raw_parser(POOL_DUMMY_WRITE_QUERY, &error);
+			parse_tree_list = get_dummy_write_query_tree();
 			query_context->is_parse_error = true;
 		}
 	}
@@ -296,6 +297,13 @@ SimpleQuery(POOL_CONNECTION * frontend,
 		 * Start query context
 		 */
 		pool_start_query(query_context, contents, len, node);
+
+		/*
+		 * Create PostgreSQL version cache.  Since the provided query might
+		 * cause a syntax error, we want to issue "SELECT version()" which is
+		 * called inside Pgversion() here.
+		 */
+		Pgversion(backend);
 
 		/*
 		 * If the query is DROP DATABASE, after executing it, cache files
@@ -465,7 +473,7 @@ SimpleQuery(POOL_CONNECTION * frontend,
 			 * If table is to be cached and the query is DML, save the table
 			 * oid
 			 */
-			if (!query_context->is_parse_error)
+			if (!is_select_query && !query_context->is_parse_error)
 			{
 				num_oids = pool_extract_table_oids(node, &oids);
 
@@ -572,11 +580,6 @@ SimpleQuery(POOL_CONNECTION * frontend,
 				}
 			}
 		}
-		else if (REPLICATION && contents == NULL && start_internal_transaction(frontend, backend, node))
-		{
-			pool_query_context_destroy(query_context);
-			return POOL_ERROR;
-		}
 	}
 
 	if (MAJOR(backend) == PROTO_MAJOR_V2 && is_start_transaction_query(node))
@@ -616,7 +619,7 @@ SimpleQuery(POOL_CONNECTION * frontend,
 		 */
 		if (!commit)
 		{
-			char	   *rewrite_query = NULL;
+			char	   *rewrite_query;
 
 			if (node)
 			{
@@ -634,9 +637,7 @@ SimpleQuery(POOL_CONNECTION * frontend,
 				}
 
 				/* rewrite `now()' to timestamp literal */
-				if (!is_select_query(node, query_context->original_query) ||
-					pool_has_function_call(node) || pool_config->replicate_select)
-					rewrite_query = rewrite_timestamp(backend, query_context->parse_tree, false, msg);
+				rewrite_query = rewrite_timestamp(backend, query_context->parse_tree, false, msg);
 
 				/*
 				 * If the query is BEGIN READ WRITE or BEGIN ... SERIALIZABLE
@@ -776,22 +777,25 @@ Execute(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 
 	ereport(DEBUG2, (errmsg("Execute: query string = <%s>", query)));
 
-	ereport(DEBUG1, (errmsg("Execute: pool_is_likely_select: %d pool_is_writing_transaction: %d TSTATE: %c",
-							pool_is_likely_select(query), pool_is_writing_transaction(),
+	ereport(DEBUG1, (errmsg("Execute: pool_is_writing_transaction: %d TSTATE: %c",
+							pool_is_writing_transaction(),
 							TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID))));
 
 	/*
 	 * Fetch memory cache if possible
 	 */
-	if (pool_config->memory_cache_enabled && pool_is_likely_select(query) &&
-		!pool_is_writing_transaction() &&
-		(TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID) != 'E'))
+	if (pool_config->memory_cache_enabled && !pool_is_writing_transaction() &&
+		(TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID) != 'E')
+		&& pool_is_likely_select(query))
 	{
 		POOL_STATUS status;
 		char	   *search_query = NULL;
 		int			len;
 
 #define STR_ALLOC_SIZE 1024
+		ereport(DEBUG1, (errmsg("Execute: pool_is_likely_select: true pool_is_writing_transaction: %d TSTATE: %c",
+								pool_is_writing_transaction(),
+								TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID))));
 
 		len = strlen(query) + 1;
 		search_query = MemoryContextStrdup(query_context->memory_context, query);
@@ -970,8 +974,9 @@ Execute(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 		/*
 		 * Take care of "writing transaction" flag.
 		 */
-		if (!is_select_query(node, query) && !is_start_transaction_query(node) &&
-			!is_commit_or_rollback_query(node))
+		if ((!is_select_query(node, query) || pool_has_function_call(node)) &&
+			 !is_start_transaction_query(node) &&
+			 !is_commit_or_rollback_query(node))
 		{
 			ereport(DEBUG1,
 					(errmsg("Execute: TSTATE:%c",
@@ -1041,7 +1046,7 @@ Parse(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 	/* parse SQL string */
 	MemoryContext old_context = MemoryContextSwitchTo(query_context->memory_context);
 
-	parse_tree_list = raw_parser(stmt, &error);
+	parse_tree_list = raw_parser(stmt, strlen(stmt),&error,!REPLICATION);
 
 	if (parse_tree_list == NIL)
 	{
@@ -1053,7 +1058,7 @@ Parse(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 			 * the empty query with SELECT command not to affect load balance.
 			 * [Pgpool-general] Confused about JDBC and load balancing
 			 */
-			parse_tree_list = raw_parser(POOL_DUMMY_READ_QUERY, &error);
+			parse_tree_list = get_dummy_read_query_tree();
 		}
 		else
 		{
@@ -1076,7 +1081,7 @@ Parse(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 				ereport(LOG,
 						(errmsg("Unable to parse the query: \"%s\" from client %s(%s)", stmt, remote_host, remote_port)));
 			}
-			parse_tree_list = raw_parser(POOL_DUMMY_WRITE_QUERY, &error);
+			parse_tree_list = get_dummy_write_query_tree();
 			query_context->is_parse_error = true;
 		}
 	}
@@ -1100,6 +1105,13 @@ Parse(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 		 * Start query context
 		 */
 		pool_start_query(query_context, stmt, strlen(stmt) + 1, node);
+
+		/*
+		 * Create PostgreSQL version cache.  Since the provided query might
+		 * cause a syntax error, we want to issue "SELECT version()" which is
+		 * called inside Pgversion() here.
+		 */
+		Pgversion(backend);
 
 		msg = pool_create_sent_message('P', len, contents, 0, name, query_context);
 
@@ -1962,27 +1974,6 @@ ReadyForQuery(POOL_CONNECTION * frontend,
 		}
 	}
 
-	/*
-	 * Make sure that no message remains in the backend buffer.  If something
-	 * remains, it could be an "out of band" ERROR or FATAL error, or a NOTICE
-	 * message, which was generated by backend itself for some reasons like
-	 * recovery conflict or SIGTERM received. If so, let's consume it and emit
-	 * a log message so that next read_kind_from_backend() will not hang in
-	 * trying to read from backend which may have not produced such a message.
-	 */
-	if (pool_is_query_in_progress())
-	{
-		for (i = 0; i < NUM_BACKENDS; i++)
-		{
-			if (!VALID_BACKEND(i))
-				continue;
-			if (!pool_read_buffer_is_empty(CONNECTION(backend, i)))
-				per_node_error_log(backend, i,
-								   "(out of band message)",
-								   "ReadyForQuery: Error or notice message from backend: ", false);
-		}
-	}
-
 	if (send_ready)
 	{
 		pool_write(frontend, "Z", 1);
@@ -2512,8 +2503,6 @@ ProcessFrontendResponse(POOL_CONNECTION * frontend,
 			POOL_QUERY_CONTEXT *query_context;
 			char	   *query;
 			Node	   *node;
-			List	   *parse_tree_list;
-			bool		error;
 
 		case 'X':				/* Terminate */
 			if (contents)
@@ -2615,8 +2604,7 @@ ProcessFrontendResponse(POOL_CONNECTION * frontend,
 			query = "INSERT INTO foo VALUES(1)";
 			MemoryContext old_context = MemoryContextSwitchTo(query_context->memory_context);
 
-			parse_tree_list = raw_parser(query, &error);
-			node = raw_parser2(parse_tree_list);
+			node = get_dummy_insert_query_node();
 			pool_start_query(query_context, query, strlen(query) + 1, node);
 
 			MemoryContextSwitchTo(old_context);
@@ -2828,7 +2816,12 @@ ProcessBackendResponse(POOL_CONNECTION * frontend,
 				pool_unset_command_success();
 				if (TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID :
 						   REAL_MASTER_NODE_ID) != 'I')
+				{
 					pool_set_failed_transaction();
+
+					/* Remove ongoing CRETAE/DROP temp tables */
+					pool_temp_tables_remove_pending();
+				}
 				if (pool_is_doing_extended_query_message())
 				{
 					pool_set_ignore_till_sync();
@@ -3362,8 +3355,17 @@ per_node_error_log(POOL_CONNECTION_POOL * backend, int node_id, char *query, cha
 {
 	POOL_CONNECTION_POOL_SLOT *slot = backend->slots[node_id];
 	char	   *message;
+	char	   kind;
 
-	if (pool_extract_error_message(true, CONNECTION(backend, node_id), MAJOR(backend), unread, &message) == 1)
+	pool_read(CONNECTION(backend, node_id), &kind, sizeof(kind));
+	pool_unread(CONNECTION(backend, node_id), &kind, sizeof(kind));
+
+	if (kind != 'E' && kind != 'N')
+	{
+		return;
+	}
+
+	if (pool_extract_error_message(true, CONNECTION(backend, node_id), MAJOR(backend), true, &message) == 1)
 	{
 		ereport(LOG,
 				(errmsg("%s: DB node id: %d backend pid: %d statement: \"%s\" message: \"%s\"",
@@ -3412,6 +3414,7 @@ static POOL_STATUS parse_before_bind(POOL_CONNECTION * frontend,
 			memset(new_qc->where_to_send, 0, sizeof(new_qc->where_to_send));
 			new_qc->where_to_send[PRIMARY_NODE_ID] = 1;
 			new_qc->virtual_master_node_id = PRIMARY_NODE_ID;
+			new_qc->load_balance_node_id = PRIMARY_NODE_ID;
 
 			/*
 			 * Before sending the parse message to the primary, we need to
@@ -3977,7 +3980,7 @@ pool_at_command_success(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backe
 		close_standby_transactions(frontend, backend);
 	}
 
-	else if (!is_select_query(node, query))
+	else if (!is_select_query(node, query) || pool_has_function_call(node))
 	{
 		/*
 		 * If the query was not READ SELECT, and we are in an explicit

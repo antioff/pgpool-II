@@ -70,7 +70,13 @@ sysconf_DATA = sample/pgpool.conf.sample \
 			   sample/pgpool.conf.sample-replication \
 			   sample/pgpool.conf.sample-master-slave \
 			   sample/pgpool.conf.sample-stream \
-			   sample/pgpool.conf.sample-logical
+			   sample/pgpool.conf.sample-logical \
+			   sample/scripts/failover.sh.sample \
+			   sample/scripts/follow_master.sh.sample \
+			   sample/scripts/pgpool_remote_start.sample \
+			   sample/scripts/recovery_1st_stage.sample \
+			   sample/scripts/recovery_2nd_stage.sample
+
 
 pkgdata_DATA = sql/insert_lock.sql \
 			   sample/pgpool.pam
@@ -91,7 +97,11 @@ endif
 AM_YFLAGS = -d
 
 EXTRA_DIST = sample/pgpool.pam \
-		sample/pgpool_remote_start sample/pgpool_recovery sample/pgpool_recovery_pitr \
+		sample/scripts/failover.sh.sample \
+		sample/scripts/follow_master.sh.sample \
+		sample/scripts/pgpool_remote_start.sample \
+		sample/scripts/recovery_1st_stage.sample \
+		sample/scripts/recovery_2nd_stage.sample \
 		sample/pgpool.conf.sample sample/pool_hba.conf.sample \
 		sample/pgpool.conf.sample-replication sample/pgpool.conf.sample-master-slave \
 		sample/pgpool.conf.sample-stream sample/pgpool.conf.sample-logical sample/pcp.conf.sample \
@@ -100,6 +110,8 @@ EXTRA_DIST = sample/pgpool.pam \
 		sql/pgpool-recovery/pgpool-recovery.c \
 		sql/pgpool-recovery/pgpool-recovery.sql.in \
 		sql/pgpool-recovery/uninstall_pgpool-recovery.sql \
+		sql/pgpool-recovery/pgpool_recovery--1.3.sql \
+		sql/pgpool-recovery/pgpool_recovery--1.2--1.3.sql \
 		sql/pgpool-recovery/pgpool_recovery--1.2.sql \
 		sql/pgpool-recovery/pgpool_recovery--1.1--1.2.sql \
 		sql/pgpool-recovery/pgpool_recovery--1.1.sql \
@@ -117,6 +129,8 @@ EXTRA_DIST = sample/pgpool.pam \
 		sql/pgpool_adm/pgpool_adm--1.1.sql \
 		sql/pgpool_adm/pgpool_adm--1.0--1.1.sql \
 		sql/pgpool_adm/pgpool_adm--1.0.sql \
+		sql/pgpool_adm/pgpool_adm--1.2.sql \
+		sql/pgpool_adm/pgpool_adm--1.1--1.2.sql \
 		sql/pgpool_adm/Makefile \
 		test/parser/expected/copy.out test/parser/expected/create.out \
 		test/parser/expected/cursor.out test/parser/expected/delete.out \
@@ -146,23 +160,11 @@ EXTRA_DIST = sample/pgpool.pam \
 		test/pdo-test/pdotest.php test/pdo-test/regsql.inc \
 		test/pdo-test/SQLlist/test1.sql test/pdo-test/SQLlist/test2.sql \
 		test/pdo-test/mod/database.inc test/pdo-test/mod/errorhandler.inc \
-		test/pgpool_setup.in test/watchdog_setup.in test/regression \
+		test/pgpool_setup test/watchdog_setup test/regression \
 		redhat/pgpool.init \
-		redhat/pgpool_rhel.sysconfig redhat/pgpool_rhel6.sysconfig \
+		redhat/pgpool_rhel7.sysconfig redhat/pgpool_rhel6.sysconfig \
 	   	redhat/pgpool.conf.sample.patch \
 		redhat/pgpool.service \
 		pgpool.spec
-
-bin_SCRIPTS = test/pgpool_setup test/watchdog_setup
-
-%: %.in
-	sed -e 's#[@][@]PGPOOL_INSTALL_DIR[@][@]#$(prefix)#g' \
-		-e 's#[@][@]PGPOOL_CONFIG_DIR[@][@]#$(sysconfdir)#g' \
-		-e 's#[@][@]PGSQL_BIN_DIR[@][@]#$(PGSQL_BIN_DIR)#g' \
-		-e 's#[@][@]PGSQL_LIB_DIR[@][@]#$(PGSQL_LIB_DIR)#g' $^ > $@
-	chmod +x $@
-
-clean-local:
-	-rm -f test/pgpool_setup test/watchdog_setup
 
 SUBDIRS = parser libs watchdog . tools include

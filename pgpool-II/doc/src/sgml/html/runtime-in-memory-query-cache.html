@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.12 Documentation"
+TITLE="pgpool-II 4.1.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -18,7 +18,7 @@ REL="PREVIOUS"
 TITLE="Streaming Replication Check"
 HREF="runtime-streaming-replication-check.html"><LINK
 REL="NEXT"
-TITLE="Secure Socket Layer (SSL)"
+TITLE="Secure Sockect Layer (SSL)"
 HREF="runtime-ssl.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:11"></HEAD
+CONTENT="2019-10-31T07:38:45"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.12 Documentation</A
+>pgpool-II 4.1.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -77,7 +77,7 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="Secure Socket Layer (SSL)"
+TITLE="Secure Sockect Layer (SSL)"
 HREF="runtime-ssl.html"
 ACCESSKEY="N"
 >Next</A
@@ -204,6 +204,28 @@ CLASS="TYPE"
 ><P
 >      This parameter can only be set at server start.
      </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>       The query cache is used the relation cache too, if <A
+HREF="runtime-misc.html#GUC-ENABLE-SHARED-RELCACHE"
+>enable_shared_relcache</A
+> is on.
+	You notes that the query cache is used regardless <A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMORY-CACHE-ENABLED"
+>memory_cache_enabled</A
+> parameter, when It is used by relation cache.
+	 See <A
+HREF="runtime-misc.html"
+>Section 5.15</A
+> for more details to relation cache.
+      </P
+></BLOCKQUOTE
+></DIV
 ></DD
 ></DL
 ></DIV
@@ -580,7 +602,7 @@ CLASS="PROGRAMLISTING"
 	#to refer the table1 then the black_memqcache_table_list
 	#would be configured as follows.
 
-	black_memqcache_table_list = "table1,public.table1"
+	black_function_list = "table1,public.table1"
 
        </PRE
 ><P>
@@ -778,7 +800,7 @@ CLASS="VARNAME"
 >      <TT
 CLASS="VARNAME"
 >memqcache_cache_block_size</TT
-> must be set to at least 512.
+> must be set to atleast 512.
      </P
 ><P
 >      This parameter can only be set at server start.
@@ -923,7 +945,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->Secure Socket Layer (SSL)</TD
+>Secure Sockect Layer (SSL)</TD
 ></TR
 ></TABLE
 ></DIV

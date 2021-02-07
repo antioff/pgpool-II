@@ -74,6 +74,7 @@ pool_get_major_version(void)
 	return PROTO_MAJOR_V3;
 }
 
+
 PGVersion *
 Pgversion(POOL_CONNECTION_POOL * backend)
 {
@@ -150,7 +151,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	tree = raw_parser(argv[1], &error);
+    tree = raw_parser(argv[1], strlen(argv[1]), &error, false);
 	if (tree == NULL)
 	{
 		printf("syntax error: %s\n", argv[1]);

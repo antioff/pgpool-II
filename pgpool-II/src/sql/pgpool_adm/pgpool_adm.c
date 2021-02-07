@@ -3,7 +3,7 @@
  * pgpool_adm.c
  *
  *
- * Copyright (c) 2002-2018, PostgreSQL Global Development Group
+ * Copyright (c) 2002-2019, PostgreSQL Global Development Group
  *
  * Author: Jehan-Guillaume (ioguix) de Rorthais <jgdr@dalibo.com>
  *
@@ -51,7 +51,7 @@ connect_to_server(char *host, int port, char *user, char *pass)
 
 	pcpConnInfo = pcp_connect(host, port, user, pass, NULL);
 	if (PCPConnectionStatus(pcpConnInfo) != PCP_CONNECTION_OK)
-		ereport(ERROR, (errcode(ERRCODE_CONNECTION_FAILURE),
+		ereport(ERROR, (0,
 						errmsg("connection to PCP server failed."),
 						errdetail("%s\n", pcp_get_last_error(pcpConnInfo) ? pcp_get_last_error(pcpConnInfo) : "unknown reason")));
 
@@ -130,15 +130,15 @@ _pcp_node_info(PG_FUNCTION_ARGS)
 	PCPResultInfo *pcpResInfo;
 
 	BackendInfo *backend_info = NULL;
-	Datum		values[7];		/* values to build the returned tuple from */
-	bool		nulls[] = {false, false, false, false, false, false, false};
+	Datum		values[9];		/* values to build the returned tuple from */
+	bool		nulls[] = {false, false, false, false, false, false, false, false, false};
 	TupleDesc	tupledesc;
 	HeapTuple	tuple;
 	struct tm	tm;
 	char		datebuf[20];
 
 	if (nodeID < 0 || nodeID >= MAX_NUM_BACKENDS)
-		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("NodeID is out of range.")));
+		ereport(ERROR, (0, errmsg("NodeID is out of range.")));
 
 	if (PG_NARGS() == 5)
 	{
@@ -157,7 +157,7 @@ _pcp_node_info(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("Wrong number of argument.")));
+		ereport(ERROR, (0, errmsg("Wrong number of argument.")));
 	}
 
 	pcpResInfo = pcp_node_info(pcpConnInfo, nodeID);
@@ -167,7 +167,7 @@ _pcp_node_info(PG_FUNCTION_ARGS)
 
 		pcp_disconnect(pcpConnInfo);
 		pcp_free_connection(pcpConnInfo);
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+		ereport(ERROR, (0,
 						errmsg("failed to get node information"),
 						errdetail("%s\n", error ? error : "unknown reason")));
 	}
@@ -176,9 +176,9 @@ _pcp_node_info(PG_FUNCTION_ARGS)
 	 * Construct a tuple descriptor for the result rows.
 	 **/
 #if defined(PG_VERSION_NUM) && (PG_VERSION_NUM >= 120000)
-	tupledesc = CreateTemplateTupleDesc(7);
+	tupledesc = CreateTemplateTupleDesc(9);
 #else
-	tupledesc = CreateTemplateTupleDesc(7, false);
+	tupledesc = CreateTemplateTupleDesc(9, false);
 #endif
 	TupleDescInitEntry(tupledesc, (AttrNumber) 1, "hostname", TEXTOID, -1, 0);
 	TupleDescInitEntry(tupledesc, (AttrNumber) 2, "port", INT4OID, -1, 0);
@@ -186,7 +186,9 @@ _pcp_node_info(PG_FUNCTION_ARGS)
 	TupleDescInitEntry(tupledesc, (AttrNumber) 4, "weight", FLOAT4OID, -1, 0);
 	TupleDescInitEntry(tupledesc, (AttrNumber) 5, "role", TEXTOID, -1, 0);
 	TupleDescInitEntry(tupledesc, (AttrNumber) 6, "replication_delay", INT8OID, -1, 0);
-	TupleDescInitEntry(tupledesc, (AttrNumber) 7, "last_status_change", TIMESTAMPOID, -1, 0);
+	TupleDescInitEntry(tupledesc, (AttrNumber) 7, "replcation_state", TEXTOID, -1, 0);
+	TupleDescInitEntry(tupledesc, (AttrNumber) 8, "replcation_sync_state", TEXTOID, -1, 0);
+	TupleDescInitEntry(tupledesc, (AttrNumber) 9, "last_status_change", TIMESTAMPOID, -1, 0);
 	tupledesc = BlessTupleDesc(tupledesc);
 
 	backend_info = (BackendInfo *) pcp_get_binary_data(pcpResInfo, 0);
@@ -222,9 +224,15 @@ _pcp_node_info(PG_FUNCTION_ARGS)
 	values[5] = Int64GetDatum(backend_info->standby_delay);
 
 	nulls[6] = false;
+	values[6] = CStringGetTextDatum(backend_info->replication_state);
+
+	nulls[7] = false;
+	values[7] = CStringGetTextDatum(backend_info->replication_sync_state);
+
+	nulls[8] = false;
 	localtime_r(&backend_info->status_changed_time, &tm);
 	strftime(datebuf, sizeof(datebuf), "%F %T", &tm);
-	values[6] = DatumGetTimestamp(DirectFunctionCall3(timestamp_in,
+	values[8] = DatumGetTimestamp(DirectFunctionCall3(timestamp_in,
 													  CStringGetDatum(datebuf),
 													  ObjectIdGetDatum(InvalidOid),
 													  Int32GetDatum(-1)));
@@ -289,7 +297,7 @@ _pcp_pool_status(PG_FUNCTION_ARGS)
 		else
 		{
 			MemoryContextSwitchTo(oldcontext);
-			ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("Wrong number of argument.")));
+			ereport(ERROR, (0, errmsg("Wrong number of argument.")));
 		}
 
 		pcpResInfo = pcp_pool_status(pcpConnInfo);
@@ -301,7 +309,7 @@ _pcp_pool_status(PG_FUNCTION_ARGS)
 			pcp_free_connection(pcpConnInfo);
 
 			MemoryContextSwitchTo(oldcontext);
-			ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+			ereport(ERROR, (0,
 							errmsg("failed to get pool status"),
 							errdetail("%s\n", error ? error : "unknown reason")));
 		}
@@ -413,7 +421,7 @@ _pcp_node_count(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("Wrong number of argument.")));
+		ereport(ERROR, (0, errmsg("Wrong number of argument.")));
 	}
 
 	pcpResInfo = pcp_node_count(pcpConnInfo);
@@ -424,7 +432,7 @@ _pcp_node_count(PG_FUNCTION_ARGS)
 
 		pcp_disconnect(pcpConnInfo);
 		pcp_free_connection(pcpConnInfo);
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+		ereport(ERROR, (0,
 						errmsg("failed to get node count"),
 						errdetail("%s\n", error ? error : "unknown reason")));
 	}
@@ -454,7 +462,7 @@ _pcp_attach_node(PG_FUNCTION_ARGS)
 	PCPResultInfo *pcpResInfo;
 
 	if (nodeID < 0 || nodeID >= MAX_NUM_BACKENDS)
-		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("NodeID is out of range.")));
+		ereport(ERROR, (0, errmsg("NodeID is out of range.")));
 
 	if (PG_NARGS() == 5)
 	{
@@ -473,7 +481,7 @@ _pcp_attach_node(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("Wrong number of argument.")));
+		ereport(ERROR, (0, errmsg("Wrong number of argument.")));
 	}
 
 	pcpResInfo = pcp_attach_node(pcpConnInfo, nodeID);
@@ -484,7 +492,7 @@ _pcp_attach_node(PG_FUNCTION_ARGS)
 
 		pcp_disconnect(pcpConnInfo);
 		pcp_free_connection(pcpConnInfo);
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+		ereport(ERROR, (0,
 						errmsg("failed to attach node"),
 						errdetail("%s\n", error ? error : "unknown reason")));
 	}
@@ -515,7 +523,7 @@ _pcp_detach_node(PG_FUNCTION_ARGS)
 	PCPResultInfo *pcpResInfo;
 
 	if (nodeID < 0 || nodeID >= MAX_NUM_BACKENDS)
-		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("NodeID is out of range.")));
+		ereport(ERROR, (0, errmsg("NodeID is out of range.")));
 
 	if (PG_NARGS() == 6)
 	{
@@ -534,7 +542,7 @@ _pcp_detach_node(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("Wrong number of argument.")));
+		ereport(ERROR, (0, errmsg("Wrong number of argument.")));
 	}
 
 	if (gracefully)
@@ -552,7 +560,7 @@ _pcp_detach_node(PG_FUNCTION_ARGS)
 
 		pcp_disconnect(pcpConnInfo);
 		pcp_free_connection(pcpConnInfo);
-		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+		ereport(ERROR, (0,
 						errmsg("failed to detach node"),
 						errdetail("%s\n", error ? error : "unknown reason")));
 	}
@@ -562,4 +570,3 @@ _pcp_detach_node(PG_FUNCTION_ARGS)
 
 	PG_RETURN_BOOL(true);
 }
-

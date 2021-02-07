@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.12 文書"
+TITLE="Pgpool-II 4.1.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="さあ始めましょう"
@@ -18,15 +18,15 @@ REL="PREVIOUS"
 TITLE="インストール"
 HREF="tutorial-install.html"><LINK
 REL="NEXT"
-TITLE="負荷分散を試してみる"
-HREF="tutorial-testing-load-balance.html"><LINK
+TITLE="レプリケーションを試してみる"
+HREF="tutorial-testing-replication.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:29"></HEAD
+CONTENT="2019-10-31T07:39:29"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.12 文書</A
+>Pgpool-II 4.1.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="負荷分散を試してみる"
-HREF="tutorial-testing-load-balance.html"
+TITLE="レプリケーションを試してみる"
+HREF="tutorial-testing-replication.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -111,11 +111,21 @@ CLASS="PRODUCTNAME"
 CLASS="FILENAME"
 >pgpool.conf</TT
 >を設定しましょう。
-   このためには、少なくとも次の2つの項目を設定しなければなりません。
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>では設定のサンプルが用意されています。
+   これらの設定ファイルはデフォルトのソースコードからのインストールでは/usr/local/etcに配置されています。
+   <TT
+CLASS="FILENAME"
+>pgpool.conf.sample-stream</TT
+>を<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>としてコピーします。
    </P><PRE
 CLASS="PROGRAMLISTING"
->    master_slave_mode = on
-    master_slave_sub_mode = 'stream'
+>    cp /usr/local/etc/pgpool.conf.sample-stream pgpool.conf
    </PRE
 ><P>
   </P
@@ -141,6 +151,10 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >の非同期スタンバイのインストールが行われます。
+   <TT
+CLASS="COMMAND"
+>pgpool_setup</TT
+>では、pgpool.confの設定も自動で行われます。
   </P
 ><P
 >   
@@ -160,7 +174,7 @@ CLASS="PROGRAMLISTING"
   </P
 ><P
 >   
-   システムが起動すれば、任意のデータベースに擬似SQLコマンドの"show pool_node"を発行して、クラスタの状態を確認することができます。
+   システムが起動すれば、任意のデータベースに擬似SQLコマンドの"show pool_nodes"を発行して、クラスタの状態を確認することができます。
    <TT
 CLASS="COMMAND"
 >pgpool_setup</TT
@@ -176,10 +190,10 @@ CLASS="PRODUCTNAME"
    </P><PRE
 CLASS="PROGRAMLISTING"
 >    $ psql -p 11000 -c "show pool_nodes" test
-    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay 
-    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
-    0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | false             | 0
-    1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | true              | 0
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | last_status_change
+    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------+---------------------
+    0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | false             | 0                 | 2019-01-31 10:23:09
+    1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | true              | 0                 | 2019-01-31 10:23:09
     (2 rows)
    </PRE
 ><P>
@@ -225,7 +239,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="tutorial-testing-load-balance.html"
+HREF="tutorial-testing-replication.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -249,7 +263,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->負荷分散を試してみる</TD
+>レプリケーションを試してみる</TD
 ></TR
 ></TABLE
 ></DIV

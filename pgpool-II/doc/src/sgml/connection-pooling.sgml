@@ -48,7 +48,8 @@
       in each <productname>Pgpool-II</productname> child
       process.  <productname>Pgpool-II</productname> reuses the
       cached connection if an incoming connection is connecting
-      to the same database with the same user name.  If not,
+      to the same database with the same user name and the same
+      run-time parameters.  If not,
       <productname>Pgpool-II</productname> creates a new
       connection to the backend.  If the number of cached
       connections exceeds max_pool, the oldest connection will
@@ -121,7 +122,7 @@
      </para>
 
      <para>
-      But serialization has its own overheads, and it is recommended
+      But serialization has its own overheads, and it is recomended
       to be used only with the larger values of <xref linkend="guc-num-init-children">.
        For the small number of <xref linkend="guc-num-init-children">,
 	the serialize accept can degrade the performance because of
@@ -130,8 +131,8 @@
 
      <note>
       <para>
-       It is recommended to do a benchmark before deciding whether to use
-       <varname>serialize_accept</varname> or not, because the correlation
+       It is recomended to do a benchmark before deciding wether to use
+       <varname>serialize_accept</varname> or not, because the corelation
        of <xref linkend="guc-num-init-children"> and <varname>serialize_accept</varname>
 	can be different on different environments.
       </para>

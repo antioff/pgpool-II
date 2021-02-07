@@ -145,9 +145,11 @@
        blocked (not rejected with an error,
        like <productname>PostgreSQL</productname>) until a
        connection to any <productname>Pgpool-II</productname>
-       process is closed</emphasis>.  Up to
-      <xref linkend="guc-listen-backlog-multiplier">*
-       num_init_children can be queued.
+       process is closed</emphasis>
+      unless <xref linkend="guc-reserved-connections"> is set
+       to 1 or more.  Up to
+       <xref linkend="guc-listen-backlog-multiplier">*
+	num_init_children can be queued.
      </para>
      <para>
       The queue is inside the kernel called "listen queue". The
@@ -156,10 +158,20 @@
       num_init_children*<xref linkend="guc-listen-backlog-multiplier">
        exceeds the number, you need to set the backlog higher.
        Otherwise, following problems may occur in heavy loaded systems:
-       1) connecting to <productname>Pgpool-II</productname> fails
-       2) connecting to <productname>Pgpool-II</productname> is
-       getting slow because of retries in the kernel.  You can
-       check if the listen queue is actually overflowed by using
+       <itemizedlist>
+	<listitem>
+	 <para>
+	  connecting to <productname>Pgpool-II</productname> fails
+	 </para>
+	</listitem>
+	<listitem>
+	 <para>
+	  connecting to <productname>Pgpool-II</productname> is
+	  getting slow because of retries in the kernel.
+	 </para>
+	</listitem>
+       </itemizedlist>
+       You can check if the listen queue is actually overflowed by using
        "netstat -s" command.  If you find something like:
        <programlisting>
 	535 times the listen queue of a socket overflowed
@@ -207,6 +219,40 @@
      </para>
     </listitem>
    </varlistentry>
+
+   <varlistentry id="guc-reserved-connections" xreflabel="reserved_connections">
+    <term><varname>reserved_connections</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>reserverd_connections</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      When this parameter is set to 1 or greater, incoming
+      connections from clients are not accepted with error
+      message "Sorry, too many clients already", rather than
+      blocked if the number of current connections from clients
+      is more than (<xref linkend="guc-num-init-children"> -
+       <varname>reserved_connections</varname>). For example,
+       if <varname>reserved_connections</varname> = 1
+       and <xref linkend="guc-num-init-children"> = 32, then the
+	32th connection from a client will be refused. This
+	behavior is similar
+	to <productname>PostgreSQL</productname> and good for
+	systems on which the number of connections from clients is
+	large and each session may take long time. In this case
+	length of the listen queue could be very long and may
+	cause the system unstable. In this situation setting this
+	parameter to non 0 is a good idea to prevent the listen
+	queue becomes very long.
+     </para>
+     <para>
+      If this parameter is set to 0, no connection from clients
+      will be refused. The default value is 0.
+      This parameter can only be set at server start.
+     </para>
+    </listitem>
+   </varlistentry>
   </variablelist>
  </sect2>
 
@@ -244,8 +290,10 @@
     </term>
     <listitem>
      <para>
-      Specify the password file name for authentication.
-      Default value is <literal>"pool_passwd"</literal>.
+      Specify the path (absolute or relative) to password file for
+      authentication. Default value is <literal>"pool_passwd"</literal>.
+      A relative path will be interpreted with respect to the directory
+      where configuration file is placed.
       Specifying <literal>''</literal> (empty) disables the use
       of password file.
      </para>
@@ -417,15 +465,15 @@
 
        <tbody>
 	<row>
-	 <entry><literal>'slony'</literal></entry>
-	 <entry>Suitable for <acronym>Slony-I</acronym></entry>
-	</row>
-
-	<row>
 	 <entry><literal>'stream'</literal></entry>
 	 <entry>Suitable
 	  for <productname>PostgreSQL</productname>'s built-in
 	  replication system (Streaming Replication)</entry>
+	</row>
+
+	<row>
+	 <entry><literal>'slony'</literal></entry>
+	 <entry>Suitable for <acronym>Slony-I</acronym></entry>
 	</row>
 
 	<row>
@@ -440,7 +488,7 @@
      </table>
 
      <para>
-      Default is <literal>'slony'</literal>.
+      Default is <literal>'stream'</literal>.
      </para>
      <para>
       This parameter can only be set at server start.
@@ -710,7 +758,7 @@
       <productname>Pgpool-II</productname> <emphasis>V2.2</emphasis>
       or later, automatically detects whether the table has a
       SERIAL columns or not, so it never locks the table if it
-      doesn't have the SERIAL columns.
+      desn't have the SERIAL columns.
      </para>
 
      <para>
@@ -1128,6 +1176,30 @@
       the <productname>Pgpool-II</productname> configurations.
      </para>
 
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-backend-application-name" xreflabel="backend_application_name">
+    <term><varname>backend_application_name</varname> (<type>string</type>)
+     <indexterm>
+      <primary><varname>backend_application_name</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+
+    <listitem>
+     <para>
+      <varname>backend_application_name</varname> specifies the
+      application name of walsender, which receives WAL log
+      from primary node. Thus in other than streaming
+      replication mode, this parameter does not need to be set.
+      Also this parameter is required to if you want to show
+      "replication_state" and "replication_sync_state" column
+      in <xref linkend="SQL-SHOW-POOL-NODES"> command.
+     </para>
+     <para>
+      This parameter can be changed by reloading
+      the <productname>Pgpool-II</productname> configurations.
+     </para>
     </listitem>
    </varlistentry>
 

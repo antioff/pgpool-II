@@ -52,7 +52,7 @@
 											 * lifecheck process should waits
 											 * before giving up while fetching
 											 * the configured watchdog node
-											 * information from watchdog
+											 * infromation from watchdog
 											 * process through IPC channel */
 
 /*

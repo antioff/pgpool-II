@@ -189,7 +189,7 @@
     to <productname>PostgreSQL</productname> with the result
     (3). <productname>PostgreSQL</productname> returns the result
     to <productname>Pgpool-II</productname> (5)
-    and <productname>Pgpool-II</productname> forwards the data to
+    and <productname>Pgpool-II</productname> fowards the data to
     the user (6).
    </para>
    <para>
@@ -199,7 +199,7 @@
     and <productname>Pgpool-II</productname> reply back
     to <productname>PostgreSQL</productname> with the result (3).
     <productname>PostgreSQL</productname> replies back the data to
-    the user (4).
+    the user (6).
    </para>
    <para>
     There are two forms to call pgpool_adm functions: first form
@@ -214,7 +214,7 @@
     of <productname>PostgreSQL</productname>.  The pcp port number
     is hard coded as 9898, the pcp user name is assumes to be same
     as caller's <productname>PostgreSQL</productname> user name.
-    password is extracted from $HOME/.pcppass.
+    password is extraced from $HOME/.pcppass.
    </para>
 
    <sect1 id="installing-pgpool-adm">

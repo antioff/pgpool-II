@@ -140,13 +140,21 @@ typedef struct
 	bool		not_forward_to_frontend;	/* Do not forward response from
 											 * backend to frontend. This is
 											 * used by parse_before_bind() */
-	int			node_ids[2];	/* backend node ids this message was sent to.
-								 * -1 means no message was sent. */
+	bool		node_ids[MAX_NUM_BACKENDS];	/* backend node map which this message was sent to */
 	POOL_QUERY_CONTEXT *query_context;	/* query context */
 }			POOL_PENDING_MESSAGE;
 
-/* Return true if node_id is one of node_ids */
-#define IS_SENT_NODE_ID(msg, node_id)	(msg->node_ids[0] == node_id || msg->node_ids[1] == node_id)
+typedef enum {
+	TEMP_TABLE_CREATING = 1,		/* temp table creating, not committed yet. */
+	TEMP_TABLE_DROPPING,			/* temp table dropping, not committed yet. */
+	TEMP_TABLE_CREATE_COMMITTED,		/* temp table created and committed. */
+	TEMP_TABLE_DROP_COMMITTED,		/* temp table dropped and committed. */
+}		POOL_TEMP_TABLE_STATE;
+
+typedef struct {
+	char		tablename[MAX_IDENTIFIER_LEN];	/* temporary table name */
+	POOL_TEMP_TABLE_STATE	state;	/* see above */
+}			POOL_TEMP_TABLE;
 
 /*
  * Per session context:
@@ -265,6 +273,11 @@ typedef struct
 	 */
 	bool		suspend_reading_from_frontend;
 
+	/*
+	 * Temp tables list
+	 */
+	List	   *temp_tables;
+
 #ifdef NOT_USED
 	/* Preferred "master" node id. Only used for SimpleForwardToFrontend. */
 	int			preferred_master_node_id;
@@ -342,6 +355,15 @@ extern int	pool_get_minor_version(void);
 extern bool pool_is_suspend_reading_from_frontend(void);
 extern void pool_set_suspend_reading_from_frontend(void);
 extern void pool_unset_suspend_reading_from_frontend(void);
+
+extern void pool_temp_tables_init(void);
+extern void pool_temp_tables_destroy(void);
+extern void	pool_temp_tables_add(char * tablename, POOL_TEMP_TABLE_STATE state);
+extern POOL_TEMP_TABLE * pool_temp_tables_find(char * tablename);
+extern void pool_temp_tables_delete(char * tablename, POOL_TEMP_TABLE_STATE state);
+extern void	pool_temp_tables_commit_pending(void);
+extern void	pool_temp_tables_remove_pending(void);
+extern void	pool_temp_tables_dump(void);
 
 #ifdef NOT_USED
 extern void pool_set_preferred_master_node_id(int node_id);

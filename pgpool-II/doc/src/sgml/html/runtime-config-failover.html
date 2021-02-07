@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.12 Documentation"
+TITLE="pgpool-II 4.1.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:11"></HEAD
+CONTENT="2019-10-31T07:38:45"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.12 Documentation</A
+>pgpool-II 4.1.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -117,11 +117,11 @@ CLASS="EMPHASIS"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > confirms the
-  inaccessibility of <SPAN
+  inacceibility of <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
-> backend node
-  by using following methods:
+> backend
+  node by using following methods:
 
   <P
 ></P
@@ -175,7 +175,7 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >, or network level
-     errors occur while communicating with it.
+     erros occur while communicating with it.
      <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -272,7 +272,14 @@ CLASS="PRODUCTNAME"
 HREF="pcp-attach-node.html"
 >pcp_attach_node</A
 > makes it to
-   the attached state.
+   the attached state. It is recommended to confirm the
+   replication_state of <A
+HREF="sql-show-pool-nodes.html"
+>SHOW POOL NODES</A
+> is
+    "streaming" before doing that. The state indicates that the
+    standby server is properly connected to the primary server
+    through streaming replication and both databases are in sync.
  </P
 ><DIV
 CLASS="SECT2"
@@ -394,9 +401,27 @@ CLASS="CALSTABLE"
 ></TR
 ><TR
 ><TD
+>%N</TD
+><TD
+>Hostname of the old primary node (<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.1 or after)</TD
+></TR
+><TR
+><TD
+>%S</TD
+><TD
+>Port number of the old primary node (<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.1 or after)</TD
+></TR
+><TR
+><TD
 >%%</TD
 ><TD
->'%' character</TD
+>	'%' character</TD
 ></TR
 ></TBODY
 ></TABLE
@@ -429,7 +454,7 @@ CLASS="PRODUCTNAME"
 	2. Suppose node 1 the primary and all of them are healthy
 	(no down node). If node 1 fails, failover_command is
 	called with %m = 0. And, if all standby nodes are down and primary node
-	failover happens, failover_command is called with %m = -1 and %H,%R,$r = "".
+    failover happens, failover_command is called with %m = -1 and %H,%R,$r = "".
       </P
 ></BLOCKQUOTE
 ></DIV
@@ -468,15 +493,14 @@ CLASS="PRODUCTNAME"
 >       However from <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> 3.6, in the
-       steaming replication mode, client sessions will not be
-       disconnected any more when a failover occurs if the session
-       does not use the failed standby server. Please note that if a
-       query is sent while failover is processing, the session will be
-       disconnected. If the primary server goes down, still all
-       sessions will be disconnected. Health check timeout case will
-       also cause the full session disconnection. Other health check
-       error, including retry over case does not trigger full session
+> 3.6, in
+       the steaming replication mode, client sessions will not be
+       disconnected when a failover occurs any more if the
+       session does not use the failed standby server. If the
+       primary server goes down, still all sessions will be
+       disconnected. Health check timeout case will also cause
+       the full session disconnection. Other health check error,
+       including retry over case does not trigger full session
        disconnection.
       </P
 ></BLOCKQUOTE
@@ -515,6 +539,13 @@ CLASS="PRODUCTNAME"
 ></BLOCKQUOTE
 ></DIV
 ><P
+>      A complete failover_command example can be found
+      in <A
+HREF="example-cluster.html"
+>Section 8.3</A
+>.
+     </P
+><P
 >      This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -547,7 +578,7 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
       replaces the following special characters with the backend specific information.
-      before executing the command.
+      before excuting the command.
      </P
 ><DIV
 CLASS="TABLE"
@@ -604,7 +635,7 @@ CLASS="CALSTABLE"
 ><TD
 >%m</TD
 ><TD
->New master node ID</TD
+>	New master node ID</TD
 ></TR
 ><TR
 ><TD
@@ -616,7 +647,7 @@ CLASS="CALSTABLE"
 ><TD
 >%P</TD
 ><TD
->Old primary node ID</TD
+>	Current primary node ID</TD
 ></TR
 ><TR
 ><TD
@@ -632,9 +663,27 @@ CLASS="CALSTABLE"
 ></TR
 ><TR
 ><TD
+>%N</TD
+><TD
+>Hostname of the old primary node (<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.1 or after)</TD
+></TR
+><TR
+><TD
+>%S</TD
+><TD
+>Port number of the old primary node (<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.1 or after)</TD
+></TR
+><TR
+><TD
 >%%</TD
 ><TD
->'%' character</TD
+>	'%' character</TD
 ></TR
 ></TBODY
 ></TABLE
@@ -796,7 +845,7 @@ CLASS="CALSTABLE"
 ><TD
 >%m</TD
 ><TD
->New primary node ID</TD
+>	New primary node ID</TD
 ></TR
 ><TR
 ><TD
@@ -808,7 +857,7 @@ CLASS="CALSTABLE"
 ><TD
 >%P</TD
 ><TD
->Old primary node ID</TD
+>	Old primary node ID</TD
 ></TR
 ><TR
 ><TD
@@ -824,9 +873,27 @@ CLASS="CALSTABLE"
 ></TR
 ><TR
 ><TD
+>%N</TD
+><TD
+>Hostname of the old primary node (<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.1 or after)</TD
+></TR
+><TR
+><TD
+>%S</TD
+><TD
+>Port number of the old primary node (<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.1 or after)</TD
+></TR
+><TR
+><TD
 >%%</TD
 ><TD
->'%' character</TD
+>	'%' character</TD
 ></TR
 ></TBODY
 ></TABLE
@@ -863,8 +930,31 @@ CLASS="VARNAME"
 >      Typically <TT
 CLASS="VARNAME"
 >follow_master_command</TT
-> command is used to recover
-      the slave from the new primary by calling the pcp_recovery_node command.
+> command
+      is used to recover the slave from the new primary by calling
+      the pcp_recovery_node command.  In
+      the <TT
+CLASS="VARNAME"
+>follow_master_command</TT
+>, it is
+      recommended to check whether
+      target <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> node is running
+      or not using pg_ctl since already stopped node usually has a
+      reason to be stopped: for example, it's broken by hardware
+      problems or administrator is maintaining the node.  If the
+      node is stopped, skip the node. If the node is running, stop
+      the node first and recovery it.  A
+      complete <TT
+CLASS="VARNAME"
+>follow_master_command</TT
+> example
+      can be found in <A
+HREF="example-cluster.html"
+>Section 8.3</A
+>.
      </P
 ><P
 >      This parameter can be changed by reloading the <SPAN
@@ -1150,7 +1240,7 @@ CLASS="PRODUCTNAME"
 >      <DIV
 CLASS="FIGURE"
 ><A
-NAME="AEN3256"
+NAME="AEN3382"
 ></A
 ><P
 ><B
@@ -1164,6 +1254,74 @@ SRC="detach_false_primary.gif"></P
 ></DIV
 ></DIV
 >
+     </P
+></DD
+><DT
+><A
+NAME="GUC-AUTO-FAILBACK"
+></A
+><TT
+CLASS="VARNAME"
+>auto_failback</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+     </DT
+><DD
+><P
+>      When set to on, standby node be automatically failback, if the node status
+      is down but streaming replication works normally. This is useful when
+      standby node is degenerated by pgpool because of the tempolary network failure.
+     </P
+><P
+>      To use this feature, <A
+HREF="runtime-streaming-replication-check.html"
+>Section 5.11</A
+>
+       must be enabled, and <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.1 or later
+       is required as backend nodes. This feature use <CODE
+CLASS="FUNCTION"
+>pg_stat_replicatoin</CODE
+>
+       on primary node, the automatic failback is performed to standby node only.
+       Note that failback_command will be executed as well if failback_commnad is not empty.
+       If you plan to detach standby node for maintenance, set this parameter to off beforehand.
+       Otherwise it's possible that standby node is reattached against your intention.
+     </P
+><P
+>      The default is off. This parameter can be changed by reloading the <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> configurations.
+     </P
+></DD
+><DT
+><A
+NAME="GUC-AUTO-FAILBACK-INTERVAL"
+></A
+><TT
+CLASS="VARNAME"
+>auto_failback_interval</TT
+> (<TT
+CLASS="TYPE"
+>integer</TT
+>)
+     </DT
+><DD
+><P
+>      Specifies the minimum amount of time in seconds for execution interval of auto failback.
+      Next auto failback won't execute until that specified time have passed
+      after previous auto failback. When <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> frequently detect
+      backend down because of network error for example, you may avoid repeating
+      failover and failback by setting this parameter to large enough value.
+      The default is 60. Setting this parameter to 0 means that auto failback don't wait.
      </P
 ></DD
 ></DL

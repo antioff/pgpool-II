@@ -277,7 +277,7 @@
       -->
       （アプリケーションサーバなど）クライアントサーバから接続される<productname>Pgpool-II</productname>の仮想IP（VIP） アドレスを指定します。
       <productname>Pgpool-II</productname>がスタンバイからアクティブに切り替わった時、<productname>Pgpool-II</productname>はこのVIPを引き継ぎます。
-      <emphasis>クォーラムが存在しなければVIPは立ち上がりません</emphasis>。
+      <xref linkend="guc-failover-require-consensus">がオンの場合（デフォルトです）、クォーラムが存在しなければVIPは立ち上がりません。
       デフォルトは<literal>''</literal>（空文字）で、この場合仮想IPは決して立ち上がりません。
      </para>
      <para>
@@ -305,9 +305,13 @@
       will use to switch the virtual IP on the system.
       Set only the path of the directory containing the binary,
       such as <literal>"/sbin"</literal> or such directory.
+      If <xref linkend="guc-if-up-cmd"> or <xref linkend="guc-if-down-cmd"> starts with "/",
+      this parameter will be ignored.
       -->
       <productname>Pgpool-II</productname>が仮想IPを切り替えるために使用するコマンドへのパスを指定します。
-      <literal>"/bin"</literal>のようにパスだけを指定します。
+      <literal>"/sbin"</literal>のようにパスだけを指定します。
+      <varname>if_up_cmd</varname>や<varname>if_down_cmd</varname>に指定したコマンドが"/"で始まる場合、
+      フルパスとみなし<varname>if_cmd_path</varname>の設定を無視します。
      </para>
      <para>
       <!--
@@ -332,12 +336,21 @@
       <!--
       Specifies the command to bring up the virtual IP.
       Set the command and parameters such as
-      <command>"ip addr add $_IP_$/24 dev eth0 label eth0:0"</command>
+      <literal>"ip addr add $_IP_$/24 dev eth0 label eth0:0"</literal>.
+      Since root privilege is required to execute this command,
+      use <command>setuid</command> on <command>ip</command> command or
+      allow Pgpool-II startup user (<literal>postgres</literal> user by default)
+      to run <command>sudo</command> command without a password, and specify it such as
+      <literal>"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0"</literal>.
       <literal>$_IP_$</literal> will get replaced by the IP address
       specified in the <xref linkend="guc-delegate-IP">.
       -->
       仮想IPを起動するために実行するコマンドを指定します。
       <command>"ip addr add $_IP_$/24 dev eth0 label eth0:0"</command>のようにコマンドとパラメータを指定します。
+      こをコマンドを実行するには<literal>root</literal>権限が必要となりますので、一般ユーザが実行できるように
+      <command>ip</command>コマンドに<command>setuid</command>を設定するか、
+      <productname>Pgpool-II</productname>起動ユーザ(デフォルトでは<literal>postgres</literal>)がパスワードなしに<command>sudo</command>を実行できるように設定し、
+      <command>sudo</command>を介したコマンドを<literal>"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0"</literal>のように指定します。
       <literal>$_IP_$</literal>は<xref linkend="guc-delegate-IP">で指定されたIPアドレスに置換されます。
      </para>
      <para>
@@ -361,9 +374,21 @@
       Specifies the command to bring down the virtual IP.
       Set the command and parameters such as
       <literal>"ip addr del $_IP_$/24 dev eth0"</literal>.
+      Since root privilege is required to execute this command,
+      use <command>setuid</command> on <command>ip</command> command or
+      allow Pgpool-II startup user (<literal>postgres</literal> user by default)
+      to run <command>sudo</command> command without a password, and specify it such as
+      <literal>"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0"</literal>.
+      <literal>$_IP_$</literal> will get replaced by the IP address
+      specified in the <xref linkend="guc-delegate-IP">.
       -->
       仮想IPを停止するために実行するコマンドを指定します。
       <literal>"ip addr del $_IP_$/24 dev eth0"</literal>のようにコマンドとパラメータを指定します。
+      こをコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
+      <command>ip</command>コマンドに<command>setuid</command>を設定するか、
+      <productname>Pgpool-II</productname>起動ユーザ(デフォルトでは<literal>postgres</literal>)がパスワードなしに<command>sudo</command>を実行できるように設定し、
+      <command>sudo</command>を介したコマンドを<literal>"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0"</literal>のように指定します。
+      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-IP">で指定されたIPアドレスに置換されます。
      </para>
      <para>
       <!--
@@ -390,9 +415,13 @@
       will use to send the ARP requests after the virtual IP switch.
       Set only the path of the directory containing the binary,
       such as <literal>"/usr/sbin"</literal> or such directory.
+      If <xref linkend="guc-arping-cmd"> starts with "/",
+      this parameter will be ignored.
       -->
       IPアドレス切り替え後に<productname>Pgpool-II</productname>がARPリクエストを送信するコマンドへのパス指定します。
-      <literal>"/usr/sbin"</literal>のようにパスだけを指定します。 
+      <literal>"/usr/sbin"</literal>のようにパスだけを指定します。
+      <varname>arping_cmd</varname>に指定したコマンドが"/"で始まる場合、
+      フルパスとみなし<varname>arping_path</varname>の設定を無視します。
      </para>
      <para>
       <!--
@@ -418,13 +447,22 @@
       Specifies the command to use for sending the ARP requests
       after the virtual IP switch.
       Set the command and parameters such as
-      <literal>"arping -U $_IP_$ -w 1"</literal>.
+      <literal>"arping -U $_IP_$ -w 1 -I eth0"</literal>.
+      Since root privilege is required to execute this command,
+      use <command>setuid</command> on <command>ip</command> command or
+      allow Pgpool-II startup user (<literal>postgres</literal> user by default)
+      to run <command>sudo</command> command without a password, and specify it such as
+      <literal>"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0"</literal>.
       <literal>$_IP_$</literal> will get replaced by
       the IP address specified in the <varname>delegate_IP</varname>.
       -->
       IPアドレス切り替え後にARPリクエストを送信するコマンドです。
-      <literal>"arping -U $_IP_$ -w 1"</literal>のようにコマンドとパラメータを指定します。
-      <literal>$_IP_$</literal>は<varname>delegate_IP</varname>で指定されたIPアドレスに置換されます。
+      <literal>"arping -U $_IP_$ -w 1 -I eth0"</literal>のようにコマンドとパラメータを指定します。
+      こをコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
+      <command>arping</command>コマンドに<literal>setuid</literal>を設定するか、
+      <productname>Pgpool-II</productname>起動ユーザ(デフォルトでは<literal>postgres</literal>ユーザ)がパスワードなしに<command>sudo</command>を実行できるように設定し、
+      <command>sudo</command>を介したコマンドを<literal>"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0"</literal>のように設定します。
+      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-IP">で指定されたIPアドレスに置換されます。
      </para>
      <para>
       <!--
@@ -546,7 +584,7 @@
       blackout or detects the lost of quorum.
       -->
       <productname>Pgpool-II</productname>のマスターwatchdogが責務を辞退し降格するときに、ここで指定したコマンドが実行されます。
-      マスターwatchdogノードは、そのマスターノードの<productname>Pgpool-II</productname>が停止したとき、ネットワーク切断やクォーラムが失われたことを検出した時に、マスターから辞任します。
+      マスターwatchdogノードは、そのマスターノードの<productname>Pgpool-II</productname>が停止したとき、ネットワーク切断や<firstterm>クォーラム(quorum)</firstterm><indexterm><primary>クォーラム</primary></indexterm><indexterm><primary>quorum</primary></indexterm>が失われたことを検出した時に、マスターから辞任します。
      </para>
      <para>
       <!--
@@ -573,7 +611,7 @@
   </variablelist>
  </sect2>
 
- <sect2 id="config-watchdog-failover-behavior" xreflabel="Controlling the Failover behavior">
+ <sect2 id="config-watchdog-failover-behavior">
   <!--
   <title>Controlling the Failover behavior</title>
   -->
@@ -604,13 +642,33 @@
     </term>
     <listitem>
      <para>
-      <!--
-      When enabled, <productname>Pgpool-II</productname> will perform the degenerate/failover on
-      backend node if the quorum exists. In the absence of the quorum, <productname>Pgpool-II</productname>
-      node that detects the backend failure will quarantine the failed backend node until the quorum exists again.
-      -->
-      このパラメータを有効にすると、クォーラムが存在する場合、<productname>Pgpool-II</productname>はバックエンドノードで縮退/フェイルオーバを実行します。
-      クォーラムが存在しない場合、クォーラムが再び存在するまで、バックエンドの障害を検出する<productname>Pgpool-II</productname>ノードは、障害の発生したバックエンドノードを隔離します。
+      このパラメータを有効にすると、<productname>Pgpool-II</productname>がバックエンドノードの縮退/フェイルオーバを実行する際にクォーラム<indexterm><primary>quorum</primary></indexterm><indexterm><primary>クォーラム</primary></indexterm>が存在するかどうかを考慮するようになります。
+     </para>
+     <para>
+      「クォーラムが存在する」とは、生きているwatchdogノードの数(<productname>Pgpool-II</productname>の数)を全部足して、すべてのwatchdogノードの数に対して多数派を形成できる場合のことを指します。
+      たとえば、watchdogノード数が5のとき、生きているノード数が3以上なら多数派を形成できるのでクォーラムは存在しますが、生きているノード数が2以下なら多数派を形成できないのでクォーラムは存在しません。
+     </para>
+     <para>
+      クォーラムが存在すると、一つのwatchdogノードがバックエンドの障害を誤検知しても他の多数派のノードに否決されるので、障害誤検知に対して堅牢になります。
+      これは<xref linkend="guc-failover-require-consensus">がオン(デフォルト)の動作ですが、設定によって多数派を形成しなくても直ちにフェイルオーバするようにすることもできます。
+       バックエンドの障害を誤って検出した<productname>Pgpool-II</productname>ノードは、障害の発生したバックエンドノードを隔離します。
+     </para>
+     <para>
+      クォーラムの存在の有無は、<xref linkend="pcp-watchdog-info">コマンドを<literal>--verbose</literal>オプション付きで起動することで確認できます。
+       <literal>Quorum state</literal>が<literal>QUORUM EXIST</literal>または<literal>QUORUM IS ON THE EDGE</literal>ならクォーラムは存在します。
+       <literal>Quorum state</literal>が<literal>QUORUM ABSENT</literal>ならクォーラムは存在しません。
+     </para>
+     <para>
+      なお、watchdogノード数が偶数の場合は、生きているノード数がすべてのwatchdogノード数の半数以上ならクォーラムが存在するとみなします。
+      たとえば全watchdogノード数が4で、生きているノード数が2以上ならクォーラムが存在するとみなします。
+     </para>
+
+     <para>
+      クォーラムが存在しない場合、クォーラムが再び存在するまで、バックエンドの障害を検出した<productname>Pgpool-II</productname>ノードは、障害の発生したバックエンドノードを隔離します。
+     </para>
+
+     <para>
+      隔離されたノードを<command>pcp_detach_node</command>コマンドで強制的にフェイルオーバさせることは可能ですが、<command>pcp_attach_node</command>コマンドで再びアタッチ状態にすることはできません。
      </para>
      <para>
       <!--
@@ -620,7 +678,7 @@
       <productname>Pgpool-II</productname> node, other <productname>Pgpool-II</productname> nodes may
       still continue to use that backend.
       -->
-      隔離されたノードの動作は切り離されたバックエンドノードと似ていますが、フェイルオーバ/縮退と異なり、隔離ステータスはwatchdogクラスタ内の他の<productname>Pgpool-II</productname>ノードに伝播されません。
+      <indexterm><primary>quarantine</primary></indexterm><indexterm><primary>隔離</primary></indexterm>隔離されたノードの動作は切り離されたバックエンドノードと似ていますが、フェイルオーバ/縮退と異なり、隔離ステータスはwatchdogクラスタ内の他の<productname>Pgpool-II</productname>ノードに伝播されません。
       したがって、他の<productname>Pgpool-II</productname>ノードは引き続きそのバックエンドを使用し続ける可能性があります。
      </para>
      <para>
@@ -636,6 +694,24 @@
       隔離操作は<xref linkend="guc-failover-command">を実行せず、障害の発生したノードを隔離します。
        この隔離されたノードがマスタの場合、<productname>Pgpool-II</productname>はスタンバイをマスタに昇格させないので、マスタノードが隔離されている間は、使用可能なマスタバックエンドノードはありません。
      </para>
+     <para>
+      更に、障害ノードとは違い、<productname>Pgpool-II</productname>は隔離されたノードに対してはヘルスチェックを実行し続けます。
+      隔離されたノードが到達可能になり次第、そのノードは自動的に再度アタッチされます。
+     </para>
+
+     <para>
+      <productname>Pgpool-II </productname><emphasis>V4.1</emphasis>以後では、プライマリノードのフェイルオーバに関してwatchdogのマスタノードが合意形成に失敗し、その結果プライマリバックエンドが隔離状態になった場合、そのマスタノードはマスタ/コーディネータの枠割を辞退し、次のリーダの選挙の際にwd_priorityを引き下げることにより、クラスタが新しいリーダを選ぶように仕向けます。
+      <note>
+       <para>
+	スタンバイバックエンドの障害時にマスタノードが合意形成に失敗した場合は、特にアクションは起こしません。
+	watchdogマスタが管理する隔離されたスタンバイバックエンドは新しいリーダの選挙を引き起こしません。
+       </para>
+      </note>
+     </para>
+     <para>
+      このパラメータがoffなら、クォーラムが存在しなくても障害が発生するとフェイルオーバします。
+     </para>
+
      <para>
       <!--
       Default is on.
@@ -655,14 +731,6 @@
       -->
       このパラメータは、サーバーの起動時にのみ設定できます。
      </para>
-     <note>
-      <para>
-       <!--
-       enabling <varname>failover_when_quorum_exists</varname> is not allowed in native replication mode.
-       -->
-       ネイティブレプリケーションモードでは<varname>failover_when_quorum_exists</varname>機能は利用できません。
-      </para>
-     </note>
     </listitem>
    </varlistentry>
 
@@ -691,6 +759,11 @@
       -->
       たとえば、3ノードの<application>watchdog</application>のクラスタでは、フェイルオーバは、少なくとも2つのノードが特定のバックエンドノードに対してフェイルオーバの実行要求をするときのみ実行されます。
      </para>
+
+     <para>
+      このパラメータがoffなら、投票で合意が取れなくてもフェイルオーバします。
+     </para>
+
      <para>
       <!--
       Default is on.
@@ -722,16 +795,6 @@
 	ヘルスチェックに関する詳細については、<xref linkend="runtime-config-health-check">をご覧ください。
        </para>
       </caution>
-
-      <note>
-       <para>
-        <!--
-        enabling <varname>failover_require_consensus</varname> is not allowed in native replication mode.
-        -->
-        ネイティブレプリケーションモードでは<varname>failover_require_consensus</varname>機能は利用できません。
-       </para>
-      </note>
-
       <!--
       <varname>failover_require_consensus</varname> is not available prior to
       <productname>Pgpool-II </productname><emphasis>V3.7</emphasis>. and it is only
@@ -777,6 +840,11 @@
       -->
       たとえば、3ノードの<application>watchdog</application>クラスタでは、1つの<productname>Pgpool-II</productname>ノードが特定のバックエンドノードのフェイルオーバに対して2つのフェイルオーバ要求を送信すると、両方の要求が別の投票としてカウントされ、たとえ他の<productname>Pgpool-II</productname>ノードからの投票を得なくても、<productname>Pgpool-II</productname>がフェイルオーバを実行します。 
      </para>
+
+     <para>
+      たとえば、ヘルスチェックでエラーが検出されても有効投票数に達しない場合、障害が引き続き発生していて次のヘルスチェックで再度エラーが検出されれば、都合2票が投票されることになります。ほかのwatchdogが検出しない恒久的な障害が発生した際にフェイルオーバを引き起こしたい時に有用です。
+     </para>
+
      <para>
       <!--
       Default is off.
@@ -797,6 +865,50 @@
       <!--
       This parameter can only be set at server start.
       -->
+      このパラメータは、サーバの起動時にのみ設定できます。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-enable-consensus-with-half-votes" xreflabel="enable_consensus_with_half_votes">
+    <term><varname>enable_consensus_with_half_votes</varname> (<type>boolean</type>)
+     <indexterm>
+      <primary><varname>cenable_consensus_with_half_votes</varname>設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      このパラメータは<productname>Pgpool-II</productname>が、クォーラムとフェイルオーバにおける合意を解決する際に、どのように多数決ルールにおける計算を行うかを設定します。
+     </para>
+     <para>
+      このパラメータがオンなら、クォーラムとフェイルオーバの合意のために、全体のうち半数の投票だけでよくなります。
+      そうでなければ、全体のうち少なくとも半数に加えて1票の投票が必要になります。
+      フェイルオーバにおいては、これは<xref linkend="guc-failover-require-consensus">と同期して動作します。
+      クォーラムの存在決定、フェイルオーバにおける合意形成の両方において、watchdogクラスタが偶数の<productname>Pgpool-II</productname>ノードから構成されている場合にのみこのパラメータは効果があります。
+      参加者が奇数のwatchdogクラスタにおける多数決決定の際には、このパラメータの設定値は影響しません。
+     </para>
+     <para>
+      たとえば、このパラメータがオンのときは、2ノードのwatchdogクラスタではクォーラムが存在するためには一つの<productname>Pgpool-II</productname>ノードが生きている必要があります。
+      このパラメータがオフのときは、2ノードのwatchdogクラスタではクォーラムが存在するためには2つの<productname>Pgpool-II</productname>ノードが生きている必要があります。
+     </para>
+     <para>
+      このパラメータがオンのときは、4ノードのwatchdogクラスタではクォーラムが存在するためには2つの<productname>Pgpool-II</productname>ノードが生きている必要があります。
+      このパラメータがオフのときは、3ノードのwatchdogクラスタではクォーラムが存在するためには2つの<productname>Pgpool-II</productname>ノードが生きている必要があります。
+     </para>
+     <para>
+      このパラメータがオンのときは、split-brainが発生するリスクがあることに注意してください。
+      たとえば、ノードA, B, C, Dからなる4ノードのクラスタでは、(A, B)と(C, D)の分断された2つのネットワークになる可能性があります。
+      (A, B)と(C, D)にとっては、それぞれ生きた2つのノードが存在するので、クォーラムは依然として存在します。
+      各々のグループはそれぞれのマスタwatchdogを選び、これはすなわちsplit-brainです。
+     </para>
+     <para>
+      デフォルト値はオフです。
+     </para>
+     <para>
+      <varname>enable_consensus_with_half_votes</varname>は<productname>Pgpool-II</productname><emphasis>V4.1</emphasis>よりも前には存在しません。
+      以前のバージョンは、あたかもこのパラメータがオンであるかのように動作します。
+     </para>
+     <para>
       このパラメータは、サーバの起動時にのみ設定できます。
      </para>
     </listitem>
@@ -855,9 +967,12 @@
      <para>
       <!--
       <literal>query</literal>: In this mode, watchdog sends the monitoring queries
-      to other <productname>Pgpool-II</productname> and checks the response
+      to other <productname>Pgpool-II</productname> and checks the response.
+      When installation location between <productname>Pgpool-II</productname>
+      servers is far, <literal>query</literal> may be useful.
       -->
       <literal>query</literal>: このモードではwatchdogは監視用のクエリを<productname>Pgpool-II</productname>に発行し、それが成功するかどうかで pgpool-II が生きているかどうかを判断します。
+      <productname>Pgpool-II</productname>サーバ間の設置場所が離れている場合、<literal>query</literal>モードが有効かもしれません。
       <caution>
        <para>
 	<!--
@@ -986,18 +1101,10 @@
       to select master watchdog node.
       The node with the higher <varname>wd_priority</varname> value will get selected
       as master watchdog node when cluster will be electing its new master node
-      in the event of old master watchdog node failure.
-      <varname>wd_priority</varname> is also valid at the time of cluster startup.
-      When some watchdog nodes start up at same time,a node with the higher <varname>wd_priority</varname>
-      value is selected as a master node.
-      So we should start watchdog nodes in order of <varname>wd_priority</varname> priority to prevent 
-      unintended nodes from being selected as masters.
+      at the time of cluster startup or in the event of old master watchdog node failure
       -->
       このパラメータによってローカルのwatchdogノードがマスターに選ばれる優先度を上げることができます。
-      古いマスターノードが故障した状況でクラスタがマスターノードの選択を行う際に、<varname>wd_priority</varname>が高いノードがマスターwatchdogノードに選ばれます。
-      <varname>wd_priority</varname>はクラスタの初期起動時にも有効なので、
-      複数のwatchdogノードを同時に起動した場合、<varname>wd_priority</varname>が高いノードがマスターwatchdogノードに選ばれます。
-      このため、watchdogノードは意図しないノードがマスターに選ばれることが無いように<varname>wd_priority</varname>の優先順位が高い順に起動するべきです。
+      クラスタの初期起動時や古いマスターノードが故障した状況でクラスタがマスターノードの選択を行う際に、<varname>wd_priority</varname>が高いノードがマスターwatchdogノードに選ばれます。
      </para>
      <para>
       <!--

@@ -96,7 +96,7 @@ Pgpool-II documentation
    ここでは例を示します。
    <programlisting>
     $ pcp_node_info -h localhost -U postgres 1
-    /tmp 11003 2 0.500000 up standby 208 2018-07-03 08:26:39
+    /tmp 11003 2 0.500000 up standby 0 streaming async 2019-04-23 13:58:40
    </programlisting>
   </para>
   <para>
@@ -113,7 +113,9 @@ Pgpool-II documentation
     5. status name
     6. backend role
     7. replication delay
-    8. last status change time
+    8. replication state (PostgreSQL 9.1以降。pg_stat_replicationから取得)
+    9. sync replication state (PostgreSQL 9.2以降。pg_stat_replicationから取得)
+    10. last status change time
     -->
     1. ノードのホスト名
     2. ノードのポート番号
@@ -122,14 +124,29 @@ Pgpool-II documentation
     5. バックエンド状態名
     6. バックエンドの役割
     7. レプリケーションの遅延
-    8. 最終ステータス変更時刻
+    8. レプリケーション状態 (PostgreSQL 9.1以降。pg_stat_replicationから取得)
+    9. 同期レプリケーション状態 (PostgreSQL 9.2以降。pg_stat_replicationから取得)
+    10. 最終ステータス変更時刻
    </literallayout>
   </para>
   <para>
    <!--
    Status is represented by a digit from [0 to 3].
    -->
-   ステータスは [0..3] までの数字で表わされます。各数字の意味は以下のとおりです。
+   7, 8, 9は、<xref linkend="guc-sr-check-period">が0以外でなければ正しく表示されません。
+    また、8, 9は、<xref linkend="guc-sr-check-user">が<productname>PostgreSQL</productname>のスーパーユーザーであるか、"pg_monitor"グループに所属していなけれ正しく表示されません。
+     <note>
+      <para>
+       <xref linkend="guc-sr-check-user">をpg_monitorグループに所属させるには、以下のSQLコマンドを<productname>PostgreSQL</productname>スーパーユーザーで実行してください（"sr_check_user"を<xref linkend="guc-sr-check-user">の設定値で置き換えてください）
+	 <programlisting>
+	  GRANT pg_monitor TO sr_check_user;
+	 </programlisting>
+	 <productname>PostgreSQL</productname> 9.6にはpg_monitorグループがないので、<xref linkend="guc-sr-check-user">は<productname>PostgreSQL</productname>のスーパーユーザーでなければなりません。
+      </para>
+     </note>
+     ステータスは [0..3] までの数字で表わされます。各数字の意味は以下のとおりです。
+  </para>
+  <para>
    <itemizedlist>
     <!--
     <listitem><para>0 - This state is only used during the initialization. PCP will never display it. </para></listitem>
@@ -157,14 +174,16 @@ Pgpool-II documentation
   </para>
   <programlisting>
    $ pcp_node_info --verbose -h localhost -U postgres 1
-   Hostname          : /tmp
-   Port              : 11003
-   Status            : 2
-   Weight            : 0.500000
-   Status Name       : up
-   Role              : standby
-   Replication Delay : 208
-   Last Status Change: 2018-07-03 08:26:39
+   Hostname               : /tmp
+   Port                   : 11003
+   Status                 : 2
+   Weight                 : 0.500000
+   Status Name            : up
+   Role                   : standby
+   Replication Delay      : 0
+   Replication State      : streaming
+   Replication Sync State : async
+   Last Status Change     : 2019-04-23 13:58:40
   </programlisting>
  </refsect1>
 

@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2018	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -106,31 +106,39 @@ send_row_description(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 }
 
 /*
- * Send the command complete and ready for query message
+ * send the command complete and ready for query message
  * to frontend.
- * If the num_row is lower than 0, it is not included
- * to the command complete message.
+ * if the num_row is passed with a -ve value it is not included
+ * to the command complete message
  */
 void
 send_complete_and_ready(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, const char *message, const int num_rows)
 {
 	int			len;
 	int			msg_len;
-	char		msg[64];
+	char		msg[16];
 
 	if (num_rows >= 0)
-		msg_len = snprintf(msg, sizeof(msg), "%s %d", message, num_rows);
+		msg_len = snprintf(msg, 16, "%s %d", message, num_rows);
 	else
-		msg_len = snprintf(msg, sizeof(msg), "%s", message);
+		msg_len = snprintf(msg, 16, "%s", message);
+
+	/*
+	 * if we had more than 16 bytes, including '\0', the string was
+	 * truncatured shouldn't happen though, as it would means more than
+	 * "SELECT 99999999"
+	 */
+	if (msg_len > 15)
+		msg_len = 15;
 
 	/* complete command response */
 	pool_write(frontend, "C", 1);
 	if (MAJOR(backend) == PROTO_MAJOR_V3)
 	{
-		len = htonl(4 + msg_len + 1);
+		len = htonl(4 + strlen(msg) + 1);
 		pool_write(frontend, &len, sizeof(len));
 	}
-	pool_write(frontend, msg, msg_len + 1);
+	pool_write(frontend, msg, strlen(msg) + 1);
 
 	/* ready for query */
 	pool_write(frontend, "Z", 1);
@@ -259,6 +267,16 @@ get_config(int *nrows)
 	StrNCpy(status[i].desc, "Use server's SSL cipher preferences", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	StrNCpy(status[i].name, "ssl_ecdh_curve", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->ssl_ecdh_curve);
+	StrNCpy(status[i].desc, "the curve to use in ECDH key exchange", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "ssl_dh_params_file", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_config->ssl_dh_params_file);
+	StrNCpy(status[i].desc, "path to the Diffie-Hellman parameters contained file", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	/* POOLS */
 
 	/* - Pool size -  */
@@ -275,6 +293,11 @@ get_config(int *nrows)
 	StrNCpy(status[i].name, "serialize_accept", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->serialize_accept);
 	StrNCpy(status[i].desc, "whether to serialize accept() call", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "reserved_connections", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->reserved_connections);
+	StrNCpy(status[i].desc, "number of reserved connections", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	StrNCpy(status[i].name, "max_pool", POOLCONFIG_MAXNAMELEN);
@@ -494,6 +517,11 @@ get_config(int *nrows)
 	StrNCpy(status[i].desc, "Load balance behavior when write query is received", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	StrNCpy(status[i].name, "statement_level_load_balance", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->statement_level_load_balance);
+	StrNCpy(status[i].desc, "statement level load balancing", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	/* MASTER/SLAVE MODE */
 
 	StrNCpy(status[i].name, "master_slave_mode", POOLCONFIG_MAXNAMELEN);
@@ -617,6 +645,16 @@ get_config(int *nrows)
 	StrNCpy(status[i].desc, "detach false primary", POOLCONFIG_MAXDESCLEN);
 	i++;
 
+	StrNCpy(status[i].name, "auto_failback", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->auto_failback);
+	StrNCpy(status[i].desc, "auto_failback", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "auto_failback_interval", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->auto_failback_interval);
+	StrNCpy(status[i].desc, "auto_failback_interval", POOLCONFIG_MAXDESCLEN);
+	i++;
+
 	/* ONLINE RECOVERY */
 
 	StrNCpy(status[i].name, "recovery_user", POOLCONFIG_MAXNAMELEN);
@@ -669,6 +707,16 @@ get_config(int *nrows)
 	StrNCpy(status[i].name, "check_unlogged_table", POOLCONFIG_MAXNAMELEN);
 	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->check_unlogged_table);
 	StrNCpy(status[i].desc, "enable unlogged table check", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "enable_shared_relcache", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->enable_shared_relcache);
+	StrNCpy(status[i].desc, "If true, relation cache stored in memory cache", POOLCONFIG_MAXDESCLEN);
+	i++;
+
+	StrNCpy(status[i].name, "relcache_query_target", POOLCONFIG_MAXNAMELEN);
+	snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%d", pool_config->relcache_query_target);
+	StrNCpy(status[i].desc, "Target node to send relcache queries", POOLCONFIG_MAXDESCLEN);
 	i++;
 
 	/*
@@ -958,6 +1006,11 @@ get_config(int *nrows)
 		snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", pool_flag_to_str(BACKEND_INFO(j).flag));
 		snprintf(status[i].desc, POOLCONFIG_MAXDESCLEN, "backend #%d flag", j);
 		i++;
+
+		snprintf(status[i].name, POOLCONFIG_MAXNAMELEN, "backend_application_name%d", j);
+		snprintf(status[i].value, POOLCONFIG_MAXVALLEN, "%s", BACKEND_INFO(j).backend_application_name);
+		snprintf(status[i].desc, POOLCONFIG_MAXDESCLEN, "application_name for backend #%d", j);
+		i++;
 	}
 
 	for (j = 0; j < MAX_WATCHDOG_NUM; j++)
@@ -1185,6 +1238,9 @@ config_reporting(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 	pfree(status);
 }
 
+/*
+ * for SHOW pool_nodes
+ */
 POOL_REPORT_NODES *
 get_nodes(int *nrows)
 {
@@ -1232,6 +1288,10 @@ get_nodes(int *nrows)
 		/* status last changed */
 		localtime_r(&bi->status_changed_time, &tm);
 		strftime(nodes[i].last_status_change, POOLCONFIG_MAXDATELEN, "%F %T", &tm);
+
+		/* from pg_stat_replication */
+		snprintf(nodes[i].rep_state, POOLCONFIG_MAXWEIGHTLEN, "%s", bi->replication_state);
+		snprintf(nodes[i].rep_sync_state, POOLCONFIG_MAXWEIGHTLEN, "%s", bi->replication_sync_state);
 	}
 
 	*nrows = i;
@@ -1239,10 +1299,13 @@ get_nodes(int *nrows)
 	return nodes;
 }
 
+/*
+ * SHOW pool_nodes;
+ */
 void
 nodes_reporting(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 {
-	static char *field_names[] = {"node_id", "hostname", "port", "status", "lb_weight", "role", "select_cnt", "load_balance_node", "replication_delay", "last_status_change"};
+	static char *field_names[] = {"node_id", "hostname", "port", "status", "lb_weight", "role", "select_cnt", "load_balance_node", "replication_delay", "replication_state", "replication_sync_state", "last_status_change"};
 	short		num_fields = sizeof(field_names) / sizeof(char *);
 	int			i;
 	short		s;
@@ -1310,6 +1373,16 @@ nodes_reporting(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 			pool_write(frontend, &hsize, sizeof(hsize));
 			pool_write(frontend, nodes[i].delay, size);
 
+			size = strlen(nodes[i].rep_state);
+			hsize = htonl(size + 4);
+			pool_write(frontend, &hsize, sizeof(hsize));
+			pool_write(frontend, nodes[i].rep_state, size);
+
+			size = strlen(nodes[i].rep_sync_state);
+			hsize = htonl(size + 4);
+			pool_write(frontend, &hsize, sizeof(hsize));
+			pool_write(frontend, nodes[i].rep_sync_state, size);
+
 			size = strlen(nodes[i].last_status_change);
 			hsize = htonl(size + 4);
 			pool_write(frontend, &hsize, sizeof(hsize));
@@ -1332,6 +1405,8 @@ nodes_reporting(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 			len += 4 + strlen(nodes[i].select); /* int32 + data; */
 			len += 4 + strlen(nodes[i].load_balance_node);	/* int32 + data; */
 			len += 4 + strlen(nodes[i].delay);	/* int32 + data; */
+			len += 4 + strlen(nodes[i].rep_state);	/* int32 + data; */
+			len += 4 + strlen(nodes[i].rep_sync_state);	/* int32 + data; */
 			len += 4 + strlen(nodes[i].last_status_change); /* int32 + data; */
 			len = htonl(len);
 			pool_write(frontend, &len, sizeof(len));
@@ -1373,6 +1448,14 @@ nodes_reporting(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 			len = htonl(strlen(nodes[i].delay));
 			pool_write(frontend, &len, sizeof(len));
 			pool_write(frontend, nodes[i].delay, strlen(nodes[i].delay));
+
+			len = htonl(strlen(nodes[i].rep_state));
+			pool_write(frontend, &len, sizeof(len));
+			pool_write(frontend, nodes[i].rep_state, strlen(nodes[i].rep_state));
+
+			len = htonl(strlen(nodes[i].rep_sync_state));
+			pool_write(frontend, &len, sizeof(len));
+			pool_write(frontend, nodes[i].rep_sync_state, strlen(nodes[i].rep_sync_state));
 
 			len = htonl(strlen(nodes[i].last_status_change));
 			pool_write(frontend, &len, sizeof(len));

@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2018	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -93,6 +93,21 @@ typedef enum DLBOW_OPTION
 	DLBOW_ALWAYS
 }			DLBOW_OPTION;
 
+typedef enum RELQTARGET_OPTION
+{
+	RELQTARGET_MASTER = 1,
+	RELQTARGET_LOAD_BALANCE_NODE
+}			RELQTARGET_OPTION;
+
+typedef enum CHECK_TEMP_TABLE_OPTION
+{
+	CHECK_TEMP_CATALOG = 1,
+	CHECK_TEMP_TRACE,
+	CHECK_TEMP_NONE,
+	CHECK_TEMP_ON,
+	CHECK_TEMP_OFF,
+}			CHECK_TEMP_TABLE_OPTION;
+
 /*
  * Flags for backendN_flag
  */
@@ -161,6 +176,7 @@ typedef struct
 	int			num_init_children;	/* # of children initially pre-forked */
 	int			listen_backlog_multiplier;	/* determines the size of the
 											 * connection queue */
+	int			reserved_connections;	/* # of reserved connections */
 	bool		serialize_accept;	/* if non 0, serialize call to accept() to
 									 * avoid thundering herd problem */
 	int			child_life_time;	/* if idle for this seconds, child exits */
@@ -213,6 +229,10 @@ typedef struct
 														 * false, just abort the
 														 * transaction to keep
 														 * the consistency. */
+	bool		auto_failback;	/* If true, backend node reattach,
+								 * when backend node detached and
+								 * replication_status is 'stream' */
+	int			auto_failback_interval;	/* min interval of executing auto_failback */
 	bool		replicate_select;	/* replicate SELECT statement when load
 									 * balancing is disabled. */
 	char	  **reset_query_list;	/* comma separated list of queries to be
@@ -334,10 +354,14 @@ typedef struct
 									 * certificates */
 	char	   *ssl_ciphers;	/* allowed ssl ciphers */
 	bool		ssl_prefer_server_ciphers; /*Use SSL cipher preferences, rather than the client's*/
+	char	   *ssl_ecdh_curve; /* the curve to use in ECDH key exchange */
+	char	   *ssl_dh_params_file; /* path to the Diffie-Hellman parameters contained file */
 	int64		relcache_expire;	/* relation cache life time in seconds */
 	int			relcache_size;	/* number of relation cache life entry */
-	bool		check_temp_table;	/* enable temporary table check */
+	CHECK_TEMP_TABLE_OPTION		check_temp_table;	/* how to check temporary table */
 	bool		check_unlogged_table;	/* enable unlogged table check */
+	bool		enable_shared_relcache;	/* If true, relation cache stored in memory cache */
+	RELQTARGET_OPTION	relcache_query_target;	/* target node to send relcache queries */
 
 	/*
 	 * followings are for regex support and do not exist in the configuration
@@ -440,6 +464,8 @@ typedef struct
 												 * will not be load balanced
 												 * until the session ends. */
 
+	bool		statement_level_load_balance; /* if on, select load balancing node per statement */
+
 	/*
 	 * add for watchdog
 	 */
@@ -452,6 +478,13 @@ typedef struct
 															 * can send multiple
 															 * failover requests to
 															 * build consensus */
+	bool		enable_consensus_with_half_votes;
+											/* apply majority rule for consensus
+											 * and quorum computation at 50% of
+											 * votes in a cluster with an even
+											 * number of nodes.
+											 */
+
 	WdLifeCheckMethod wd_lifecheck_method;	/* method of lifecheck.
 											 * 'heartbeat' or 'query' */
 	bool		clear_memqcache_on_escalation;	/* Clear query cache on shmem

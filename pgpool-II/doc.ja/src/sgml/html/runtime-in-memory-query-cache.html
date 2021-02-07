@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.12 文書"
+TITLE="Pgpool-II 4.1.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:29"></HEAD
+CONTENT="2019-10-31T07:39:29"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.12 文書</A
+>Pgpool-II 4.1.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -194,6 +194,29 @@ CLASS="TYPE"
 >      
       このパラメータはサーバ起動時にのみ設定可能です。
      </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>       
+       <A
+HREF="runtime-misc.html#GUC-ENABLE-SHARED-RELCACHE"
+>enable_shared_relcache</A
+>が有効の場合、クエリキャッシュはリレーションキャッシュでも使用されます。
+	リレーションキャッシュで使用される場合、<A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMORY-CACHE-ENABLED"
+>memory_cache_enabled</A
+>パラメータのオン、オフに関わらずクエリキャッシュが使用されることに注意してください。
+	 リレーションキャッシュの詳細は<A
+HREF="runtime-misc.html"
+>項5.15</A
+>を参照してください。
+      </P
+></BLOCKQUOTE
+></DIV
 ></DD
 ></DL
 ></DIV
@@ -589,7 +612,7 @@ CLASS="PROGRAMLISTING"
 	#to refer the table1 then the black_memqcache_table_list
 	#would be configured as follows.
 
-	black_memqcache_table_list = "table1,public.table1"
+	black_function_list = "table1,public.table1"
 
        </PRE
 ><P>

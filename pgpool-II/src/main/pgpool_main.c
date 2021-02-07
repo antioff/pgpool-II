@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -959,9 +959,6 @@ create_unix_domain_socket(struct sockaddr_un un_addr_tmp)
 	int			fd;
 	int			status;
 	int			len;
-
-	/* Delete any pre-existing socket file to avoid failure at bind() time */
-	unlink(un_addr_tmp.sun_path);
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (fd == -1)
@@ -2362,14 +2359,16 @@ failover(void)
 			sts = waitpid(pcp_pid, &status, 0);
 			if (sts != -1)
 				break;
-
-			if (errno == EINTR)
-				continue;
-			else
+			if (sts == -1)
 			{
-				ereport(WARNING,
-						(errmsg("failover: waitpid failed. reason: %s", strerror(errno))));
-				continue;
+				if (errno == EINTR)
+					continue;
+				else
+				{
+					ereport(WARNING,
+							(errmsg("failover: waitpid failed. reason: %s", strerror(errno))));
+					continue;
+				}
 			}
 		}
 		if (WIFSIGNALED(status))
@@ -2983,6 +2982,7 @@ trigger_failover_command(int node, const char *command_line,
 	char		buf[2];
 	BackendInfo *info;
 	BackendInfo *newmaster;
+	BackendInfo *oldprimary;
 
 	if (command_line == NULL || (strlen(command_line) == 0))
 		return 0;
@@ -3068,6 +3068,17 @@ trigger_failover_command(int node, const char *command_line,
 
 					case 'P':	/* old primary node id */
 						snprintf(port_buf, sizeof(port_buf), "%d", old_primary);
+						string_append_char(exec_cmd, port_buf);
+						break;
+
+					case 'N':	/* old primary host name */
+						oldprimary = pool_get_node_info(old_primary);
+						string_append_char(exec_cmd, oldprimary->backend_hostname);
+						break;
+
+					case 'S':	/* old primary port */
+						oldprimary = pool_get_node_info(old_primary);
+						snprintf(port_buf, sizeof(port_buf), "%d", oldprimary->backend_port);
 						string_append_char(exec_cmd, port_buf);
 						break;
 
@@ -3646,7 +3657,7 @@ initialize_shared_mem_objects(bool clear_memcache_oidmaps)
 	/*
 	 * Initialize shared memory cache
 	 */
-	if (pool_config->memory_cache_enabled)
+	if (pool_config->memory_cache_enabled || pool_config->enable_shared_relcache)
 	{
 		if (pool_is_shmem_cache())
 		{
@@ -3714,15 +3725,6 @@ read_status_file(bool discard_status)
 	int			i;
 	bool		someone_wakeup = false;
 	bool		is_old_format;
-
-	/*
-	 * Set backend status changed timestamp so that it is set even if there's
-	 * no status file or discard status option is specified.
-	 */
-	for (i = 0; i < MAX_NUM_BACKENDS; i++)
-	{
-		pool_set_backend_status_changed_time(i);
-	}
 
 	snprintf(fnamebuf, sizeof(fnamebuf), "%s/%s", pool_config->logdir, STATUS_FILE_NAME);
 	fd = fopen(fnamebuf, "r");
@@ -4194,12 +4196,7 @@ sync_backend_from_watchdog(void)
 		}
 	}
 
-	/*
-	 * Update primary node id info on the shared memory area if it's different
-	 * from the one on master watchdog node. This should be done only in streaming
-	 * or logical replication mode.
-	 */
-	if (SL_MODE && Req_info->primary_node_id != backendStatus->primary_node_id)
+	if (Req_info->primary_node_id != backendStatus->primary_node_id)
 	{
 		/* Do not produce this log message if we are starting up the Pgpool-II */
 		if (processState != INITIALIZING)
@@ -4207,18 +4204,12 @@ sync_backend_from_watchdog(void)
 					(errmsg("primary node:%d on master watchdog node \"%s\" is different from local primary node:%d",
 							backendStatus->primary_node_id, backendStatus->nodeName, Req_info->primary_node_id)));
 		/*
-		 * master node returns primary_node_id = -1 when the primary node is
-		 * in quarantine state on the master.  So we will not update our
-		 * primary node id when the status of current primary node is not
-		 * CON_DOWN while primary_node_id sent by master watchdong node is -1
-		 *
-		 * Note that Req_info->primary_node_id could be -2, which is the
-		 * initial value. So we need to avoid crash by checking the value is
-		 * not lower than 0. Otherwise we will get crash while looking up
-		 * BACKEND_INFO array. See Mantis bug id 614 for more details.
+		 * master node returns primary_node_id = -1 when the node primary
+		 * node is in  quarantine state on the master.
+		 * So we will not update our primary node id when the status of current primary node
+		 * is not CON_DOWN while primary_node_id sent by master watchdong node is -1
 		 */
-		if (Req_info->primary_node_id >= 0 &&
-			backendStatus->primary_node_id == -1 && BACKEND_INFO(Req_info->primary_node_id).backend_status != CON_DOWN)
+		if (backendStatus->primary_node_id == -1 && BACKEND_INFO(Req_info->primary_node_id).backend_status != CON_DOWN)
 		{
 			ereport(LOG,
                 (errmsg("primary node:%d on master watchdog node \"%s\" seems to be quarantined",

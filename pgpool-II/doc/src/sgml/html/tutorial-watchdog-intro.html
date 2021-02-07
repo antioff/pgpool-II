@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.12 Documentation"
+TITLE="pgpool-II 4.1.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Watchdog"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:11"></HEAD
+CONTENT="2019-10-31T07:38:45"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.12 Documentation</A
+>pgpool-II 4.1.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -71,7 +71,7 @@ ACCESSKEY="U"
 WIDTH="60%"
 ALIGN="center"
 VALIGN="bottom"
->Chapter 2. Watchdog</TD
+>Chapter 4. Watchdog</TD
 ><TD
 WIDTH="20%"
 ALIGN="right"
@@ -93,24 +93,26 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="TUTORIAL-WATCHDOG-INTRO"
->2.1. Introduction</A
+>4.1. Introduction</A
 ></H1
 ><P
 >   <I
 CLASS="FIRSTTERM"
 >Watchdog</I
-> is a sub process of <SPAN
+> is a sub process of
+   <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->
-   to add high availability. Watchdog is used to resolve the single
-   point of failure by coordinating multiple <SPAN
+> to add high
+   availability. Watchdog is used to resolve the single point of
+   failure by coordinating multiple
+   <SPAN
 CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->
-   nodes. The watchdog was first introduced in <SPAN
+>pgpool-II</SPAN
+> nodes. The watchdog was first
+   introduced in <SPAN
 CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
+>pgpool-II</SPAN
 >
    <SPAN
 CLASS="emphasis"
@@ -121,19 +123,38 @@ CLASS="EMPHASIS"
 > and is significantly enhanced in
    <SPAN
 CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
+>pgpool-II</SPAN
 > <SPAN
 CLASS="emphasis"
 ><I
 CLASS="EMPHASIS"
 >V3.5</I
 ></SPAN
->, to ensure the presence of a
-   quorum at all time. This new addition to watchdog makes it more fault tolerant
-   and robust in handling and guarding against the split-brain syndrome
-   and network partitioning. However to ensure the quorum mechanism properly
-   works, the number of Pgpool-II nodes must be odd in number and greater than or
-   equal to 3.
+>, to
+   ensure the presence of a quorum at all time. This new addition to
+   watchdog makes it more fault tolerant and robust in handling and
+   guarding against the split-brain syndrome and network
+   partitioning. In addition, <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V3.7</I
+></SPAN
+> introduced
+   quorum failover (see <A
+HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-FAILOVER-BEHAVIOR"
+>Section 5.14.6</A
+>) to reduce the false
+    positives of <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> server
+    failures. To ensure the quorum mechanism properly works, the number
+    of <SPAN
+CLASS="PRODUCTNAME"
+>pgpool-II</SPAN
+> nodes must be odd in number
+    and greater than or equal to 3.
   </P
 ><DIV
 CLASS="SECT2"
@@ -141,7 +162,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="TUTORIAL-WATCHDOG-COORDINATING-NODES"
->2.1.1. Coordinating multiple <SPAN
+>4.1.1. Coordinating multiple <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > nodes</A
@@ -189,7 +210,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="TUTORIAL-WATCHDOG-LIFECHECKING"
->2.1.2. Life checking of other <SPAN
+>4.1.2. Life checking of other <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > nodes</A
@@ -335,7 +356,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="TUTORIAL-WATCHDOG-CONSISTENCY-OF-CONFIG"
->2.1.3. Consistency of configuration parameters on all <SPAN
+>4.1.3. Consistency of configuration parameters on all <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > nodes</A
@@ -360,7 +381,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="TUTORIAL-WATCHDOG-CHANGING-ACTIVE"
->2.1.4. Changing active/standby state when certain fault is detected</A
+>4.1.4. Changing active/standby state when certain fault is detected</A
 ></H2
 ><P
 >    When a fault of <SPAN
@@ -385,7 +406,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="TUTORIAL-WATCHDOG-AUTOMATIC-VIP"
->2.1.5. Automatic virtual IP switching</A
+>4.1.5. Automatic virtual IP switching</A
 ></H2
 ><P
 >    When a standby <SPAN
@@ -407,7 +428,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="TUTORIAL-WATCHDOG-CHANGING-AUTOMATIC-REGISTER-IN-RECOVERY"
->2.1.6. Automatic registration of a server as a standby in recovery</A
+>4.1.6. Automatic registration of a server as a standby in recovery</A
 ></H2
 ><P
 >    When the broken server recovers or new server is attached, the watchdog process
@@ -422,7 +443,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="TUTORIAL-WATCHDOG-START-STOP"
->2.1.7. Starting/stopping watchdog</A
+>4.1.7. Starting/stopping watchdog</A
 ></H2
 ><P
 >    The watchdog process starts and stops automatically as sub-processes
@@ -443,7 +464,7 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > to have root
-    privileges when the watchdog is enabled along with delegate IP.
+    privileges when the watchdog is enabled along with virtual IP.
     This is however not good security practice to run the
     <SPAN
 CLASS="PRODUCTNAME"

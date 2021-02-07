@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -470,6 +470,7 @@ static unsigned int get_next_commandID(void);
 static WatchdogNode * parse_node_info_message(WDPacketData * pkt, char **authkey);
 static void update_quorum_status(void);
 static int	get_minimum_remote_nodes_required_for_quorum(void);
+static int	get_minimum_votes_to_resolve_consensus(void);
 
 static bool write_packet_to_socket(int sock, WDPacketData * pkt, bool ipcPacket);
 static int	read_sockets(fd_set *rmask, int pending_fds_count);
@@ -2246,6 +2247,7 @@ service_expired_failovers(void)
 {
 	ListCell   *lc;
 	List	   *failovers_to_del = NULL;
+	bool		need_to_resign = false;
 	struct timeval currTime;
 
 	if (get_local_node_state() != WD_COORDINATOR)
@@ -2263,8 +2265,40 @@ service_expired_failovers(void)
 			{
 				failovers_to_del = lappend(failovers_to_del, failoverObj);
 				ereport(DEBUG1,
-						(errmsg("failover request from %d nodes with ID:%d is expired", failoverObj->request_count, failoverObj->failoverID),
+					(errmsg("failover request from %d nodes with ID:%d is expired", failoverObj->request_count, failoverObj->failoverID),
 						 errdetail("marking the failover object for removal")));
+				if (!need_to_resign && failoverObj->reqKind == NODE_DOWN_REQUEST)
+				{
+					ListCell   *lc;
+					/* search the in the requesting node list if we are also the ones
+					 * who think the failover must have been done
+					 */
+					foreach(lc, failoverObj->requestingNodes)
+					{
+						WatchdogNode *reqWdNode = lfirst(lc);
+						if (g_cluster.localNode == reqWdNode)
+						{
+							/* verify if that node requested by us is now quarantined */
+							int	 i;
+							for (i = 0; i < failoverObj->nodesCount; i++)
+							{
+								int node_id = failoverObj->nodeList[i];
+								if (node_id != -1)
+								{
+									if (Req_info->primary_node_id == -1 &&
+										BACKEND_INFO(node_id).quarantine == true &&
+										BACKEND_INFO(node_id).role == ROLE_PRIMARY)
+									{
+										ereport(LOG,
+												(errmsg("We are not able to build consensus for our primary node failover request, got %d votes only for failover request ID:%d", failoverObj->request_count, failoverObj->failoverID),
+												 errdetail("resigning from the coordinator")));
+										need_to_resign = true;
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -2277,6 +2311,13 @@ service_expired_failovers(void)
 		remove_failover_object(failoverObj);
 	}
 	list_free(failovers_to_del);
+	if (need_to_resign)
+	{
+		/* lower my wd_priority for moment */
+		g_cluster.localNode->wd_priority = -1;
+		send_cluster_service_message(NULL, NULL, CLUSTER_IAM_RESIGNING_FROM_MASTER);
+		set_state(WD_JOINING);
+	}
 }
 
 static bool
@@ -2458,7 +2499,7 @@ static WDFailoverCMDResults compute_failover_consensus(POOL_REQUEST_KIND reqKind
 		bool		duplicate = false;
 		WDFailoverObject *failoverObj = add_failover(reqKind, node_id_list, node_count, wdNode, *flags, &duplicate);
 
-		if (failoverObj->request_count <= get_minimum_remote_nodes_required_for_quorum())
+		if (failoverObj->request_count < get_minimum_votes_to_resolve_consensus())
 		{
 			ereport(LOG, (
 						  errmsg("failover requires the majority vote, waiting for consensus"),
@@ -5682,6 +5723,8 @@ watchdog_state_machine_coordinator(WD_EVENTS event, WatchdogNode * wdNode, WDPac
 							(errmsg("printing all remote node information")));
 					print_watchdog_node_info(wdNode);
 				}
+				/* Also reset my priority as per the original configuration */
+				g_cluster.localNode->wd_priority = pool_config->wd_priority;
 			}
 			break;
 
@@ -6737,7 +6780,12 @@ update_quorum_status(void)
 	else if (g_cluster.clusterMasterInfo.standby_nodes_count == get_minimum_remote_nodes_required_for_quorum())
 	{
 		if (g_cluster.remoteNodeCount % 2 != 0)
-			g_cluster.quorum_status = 0;	/* on the edge */
+		{
+			if (pool_config->enable_consensus_with_half_votes)
+				g_cluster.quorum_status = 0;	/* on the edge */
+			else
+				g_cluster.quorum_status = -1;
+		}
 		else
 			g_cluster.quorum_status = 1;
 	}
@@ -6752,7 +6800,9 @@ update_quorum_status(void)
 	}
 }
 
-/* returns the minimum number of remote nodes required for quorum */
+/*
+ * returns the minimum number of remote nodes required for quorum
+ */
 static int
 get_minimum_remote_nodes_required_for_quorum(void)
 {
@@ -6761,13 +6811,64 @@ get_minimum_remote_nodes_required_for_quorum(void)
 	 * so minimum quorum is just remote/2.
 	 */
 	if (g_cluster.remoteNodeCount % 2 == 0)
-		return (g_cluster.remoteNodeCount / 2);
+			return (g_cluster.remoteNodeCount / 2);
 
 	/*
-	 * Total nodes including self are even, So we consider 50% nodes as
-	 * quorum, should we?
+	 * Total nodes including self are even, So we return 50% nodes as quorum
+	 * requirements
 	 */
 	return ((g_cluster.remoteNodeCount - 1) / 2);
+}
+
+/*
+ * returns the minimum number of votes required for consensus
+ */
+static int
+get_minimum_votes_to_resolve_consensus(void)
+{
+	/*
+	 * Since get_minimum_remote_nodes_required_for_quorum() returns
+	 * the number of remote nodes required to complete the quorum
+	 * that is always one less than the total number of nodes required
+	 * for the cluster to build quorum or consensus, reason being
+	 * in get_minimum_remote_nodes_required_for_quorum()
+	 * we always consider the local node as a valid pre-casted vote.
+	 * But when it comes to count the number of votes required to build
+	 * consensus for any type of decision, for example for building the
+	 * consensus on backend failover, the local node can vote on either
+	 * side. So it's vote is not explicitly counted and for the consensus
+	 * we actually need one more vote than the total number of remote nodes
+	 * required for the quorum
+	 *
+	 * For example
+	 * If Total nodes in cluster = 4
+	 * 		remote node will be = 3
+	 * 		get_minimum_remote_nodes_required_for_quorum() return = 1
+	 *		Minimum number of votes required for consensus will be
+	 *
+	 *		if(pool_config->enable_consensus_with_half_votes = true)
+	 *			(exact 50% n/2) ==> 4/2 = 2
+	 *
+	 *		if(pool_config->enable_consensus_with_half_votes = false)
+	 *			(exact 50% +1 ==> (n/2)+1) ==> (4/2)+1 = 3
+	 *
+	 */
+
+	int required_node_count = get_minimum_remote_nodes_required_for_quorum()  + 1;
+	/*
+	 * When the total number of nodes in the watchdog cluster including the
+	 * local node are even, The number of votes required for the consensus
+	 * depends on the enable_consensus_with_half_votes.
+	 * So for even number of nodes when enable_consensus_with_half_votes is
+	 * not allowed than we would add one more vote than exact 50%
+	 */
+	if (g_cluster.remoteNodeCount % 2 != 0)
+	{
+		if (pool_config->enable_consensus_with_half_votes == false)
+			required_node_count += 1;
+	}
+
+	return required_node_count;
 }
 
 /*

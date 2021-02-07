@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.12 文書"
+TITLE="Pgpool-II 4.1.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:29"></HEAD
+CONTENT="2019-10-31T07:39:29"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.12 文書</A
+>Pgpool-II 4.1.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -381,13 +381,10 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >はこのVIPを引き継ぎます。
-      <SPAN
-CLASS="emphasis"
-><I
-CLASS="EMPHASIS"
->クォーラムが存在しなければVIPは立ち上がりません</I
-></SPAN
->。
+      <A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+>がオンの場合（デフォルトです）、クォーラムが存在しなければVIPは立ち上がりません。
       デフォルトは<TT
 CLASS="LITERAL"
 >''</TT
@@ -419,8 +416,19 @@ CLASS="PRODUCTNAME"
 >が仮想IPを切り替えるために使用するコマンドへのパスを指定します。
       <TT
 CLASS="LITERAL"
->"/bin"</TT
+>"/sbin"</TT
 >のようにパスだけを指定します。
+      <TT
+CLASS="VARNAME"
+>if_up_cmd</TT
+>や<TT
+CLASS="VARNAME"
+>if_down_cmd</TT
+>に指定したコマンドが"/"で始まる場合、
+      フルパスとみなし<TT
+CLASS="VARNAME"
+>if_cmd_path</TT
+>の設定を無視します。
      </P
 ><P
 >      
@@ -447,6 +455,34 @@ CLASS="TYPE"
 CLASS="COMMAND"
 >"ip addr add $_IP_$/24 dev eth0 label eth0:0"</TT
 >のようにコマンドとパラメータを指定します。
+      こをコマンドを実行するには<TT
+CLASS="LITERAL"
+>root</TT
+>権限が必要となりますので、一般ユーザが実行できるように
+      <TT
+CLASS="COMMAND"
+>ip</TT
+>コマンドに<TT
+CLASS="COMMAND"
+>setuid</TT
+>を設定するか、
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動ユーザ(デフォルトでは<TT
+CLASS="LITERAL"
+>postgres</TT
+>)がパスワードなしに<TT
+CLASS="COMMAND"
+>sudo</TT
+>を実行できるように設定し、
+      <TT
+CLASS="COMMAND"
+>sudo</TT
+>を介したコマンドを<TT
+CLASS="LITERAL"
+>"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0"</TT
+>のように指定します。
       <TT
 CLASS="LITERAL"
 >$_IP_$</TT
@@ -479,6 +515,38 @@ CLASS="TYPE"
 CLASS="LITERAL"
 >"ip addr del $_IP_$/24 dev eth0"</TT
 >のようにコマンドとパラメータを指定します。
+      こをコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
+      <TT
+CLASS="COMMAND"
+>ip</TT
+>コマンドに<TT
+CLASS="COMMAND"
+>setuid</TT
+>を設定するか、
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動ユーザ(デフォルトでは<TT
+CLASS="LITERAL"
+>postgres</TT
+>)がパスワードなしに<TT
+CLASS="COMMAND"
+>sudo</TT
+>を実行できるように設定し、
+      <TT
+CLASS="COMMAND"
+>sudo</TT
+>を介したコマンドを<TT
+CLASS="LITERAL"
+>"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0"</TT
+>のように指定します。
+      <TT
+CLASS="LITERAL"
+>$_IP_$</TT
+>は<A
+HREF="runtime-watchdog-config.html#GUC-DELEGATE-IP"
+>delegate_IP</A
+>で指定されたIPアドレスに置換されます。
      </P
 ><P
 >      
@@ -507,7 +575,15 @@ CLASS="PRODUCTNAME"
       <TT
 CLASS="LITERAL"
 >"/usr/sbin"</TT
->のようにパスだけを指定します。 
+>のようにパスだけを指定します。
+      <TT
+CLASS="VARNAME"
+>arping_cmd</TT
+>に指定したコマンドが"/"で始まる場合、
+      フルパスとみなし<TT
+CLASS="VARNAME"
+>arping_path</TT
+>の設定を無視します。
      </P
 ><P
 >      
@@ -532,14 +608,39 @@ CLASS="TYPE"
       IPアドレス切り替え後にARPリクエストを送信するコマンドです。
       <TT
 CLASS="LITERAL"
->"arping -U $_IP_$ -w 1"</TT
+>"arping -U $_IP_$ -w 1 -I eth0"</TT
 >のようにコマンドとパラメータを指定します。
+      こをコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
+      <TT
+CLASS="COMMAND"
+>arping</TT
+>コマンドに<TT
+CLASS="LITERAL"
+>setuid</TT
+>を設定するか、
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動ユーザ(デフォルトでは<TT
+CLASS="LITERAL"
+>postgres</TT
+>ユーザ)がパスワードなしに<TT
+CLASS="COMMAND"
+>sudo</TT
+>を実行できるように設定し、
+      <TT
+CLASS="COMMAND"
+>sudo</TT
+>を介したコマンドを<TT
+CLASS="LITERAL"
+>"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0"</TT
+>のように設定します。
       <TT
 CLASS="LITERAL"
 >$_IP_$</TT
->は<TT
-CLASS="VARNAME"
->delegate_IP</TT
+>は<A
+HREF="runtime-watchdog-config.html#GUC-DELEGATE-IP"
+>delegate_IP</A
 >で指定されたIPアドレスに置換されます。
      </P
 ><P
@@ -655,7 +756,10 @@ CLASS="PRODUCTNAME"
       マスターwatchdogノードは、そのマスターノードの<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->が停止したとき、ネットワーク切断やクォーラムが失われたことを検出した時に、マスターから辞任します。
+>が停止したとき、ネットワーク切断や<I
+CLASS="FIRSTTERM"
+>クォーラム(quorum)</I
+>が失われたことを検出した時に、マスターから辞任します。
      </P
 ><P
 >      
@@ -724,15 +828,73 @@ CLASS="TYPE"
      </DT
 ><DD
 ><P
->      
-      このパラメータを有効にすると、クォーラムが存在する場合、<SPAN
+>      このパラメータを有効にすると、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->はバックエンドノードで縮退/フェイルオーバを実行します。
-      クォーラムが存在しない場合、クォーラムが再び存在するまで、バックエンドの障害を検出する<SPAN
+>がバックエンドノードの縮退/フェイルオーバを実行する際にクォーラムが存在するかどうかを考慮するようになります。
+     </P
+><P
+>      「クォーラムが存在する」とは、生きているwatchdogノードの数(<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の数)を全部足して、すべてのwatchdogノードの数に対して多数派を形成できる場合のことを指します。
+      たとえば、watchdogノード数が5のとき、生きているノード数が3以上なら多数派を形成できるのでクォーラムは存在しますが、生きているノード数が2以下なら多数派を形成できないのでクォーラムは存在しません。
+     </P
+><P
+>      クォーラムが存在すると、一つのwatchdogノードがバックエンドの障害を誤検知しても他の多数派のノードに否決されるので、障害誤検知に対して堅牢になります。
+      これは<A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+>がオン(デフォルト)の動作ですが、設定によって多数派を形成しなくても直ちにフェイルオーバするようにすることもできます。
+       バックエンドの障害を誤って検出した<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >ノードは、障害の発生したバックエンドノードを隔離します。
+     </P
+><P
+>      クォーラムの存在の有無は、<A
+HREF="pcp-watchdog-info.html"
+>pcp_watchdog_info</A
+>コマンドを<TT
+CLASS="LITERAL"
+>--verbose</TT
+>オプション付きで起動することで確認できます。
+       <TT
+CLASS="LITERAL"
+>Quorum state</TT
+>が<TT
+CLASS="LITERAL"
+>QUORUM EXIST</TT
+>または<TT
+CLASS="LITERAL"
+>QUORUM IS ON THE EDGE</TT
+>ならクォーラムは存在します。
+       <TT
+CLASS="LITERAL"
+>Quorum state</TT
+>が<TT
+CLASS="LITERAL"
+>QUORUM ABSENT</TT
+>ならクォーラムは存在しません。
+     </P
+><P
+>      なお、watchdogノード数が偶数の場合は、生きているノード数がすべてのwatchdogノード数の半数以上ならクォーラムが存在するとみなします。
+      たとえば全watchdogノード数が4で、生きているノード数が2以上ならクォーラムが存在するとみなします。
+     </P
+><P
+>      クォーラムが存在しない場合、クォーラムが再び存在するまで、バックエンドの障害を検出した<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードは、障害の発生したバックエンドノードを隔離します。
+     </P
+><P
+>      隔離されたノードを<TT
+CLASS="COMMAND"
+>pcp_detach_node</TT
+>コマンドで強制的にフェイルオーバさせることは可能ですが、<TT
+CLASS="COMMAND"
+>pcp_attach_node</TT
+>コマンドで再びアタッチ状態にすることはできません。
      </P
 ><P
 >      
@@ -758,6 +920,41 @@ CLASS="PRODUCTNAME"
 >はスタンバイをマスタに昇格させないので、マスタノードが隔離されている間は、使用可能なマスタバックエンドノードはありません。
      </P
 ><P
+>      更に、障害ノードとは違い、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は隔離されたノードに対してはヘルスチェックを実行し続けます。
+      隔離されたノードが到達可能になり次第、そのノードは自動的に再度アタッチされます。
+     </P
+><P
+>      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II </SPAN
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.1</I
+></SPAN
+>以後では、プライマリノードのフェイルオーバに関してwatchdogのマスタノードが合意形成に失敗し、その結果プライマリバックエンドが隔離状態になった場合、そのマスタノードはマスタ/コーディネータの枠割を辞退し、次のリーダの選挙の際にwd_priorityを引き下げることにより、クラスタが新しいリーダを選ぶように仕向けます。
+      </P><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>	スタンバイバックエンドの障害時にマスタノードが合意形成に失敗した場合は、特にアクションは起こしません。
+	watchdogマスタが管理する隔離されたスタンバイバックエンドは新しいリーダの選挙を引き起こしません。
+       </P
+></BLOCKQUOTE
+></DIV
+><P>
+     </P
+><P
+>      このパラメータがoffなら、クォーラムが存在しなくても障害が発生するとフェイルオーバします。
+     </P
+><P
 >      
       デフォルト値はonです。
      </P
@@ -778,21 +975,6 @@ CLASS="EMPHASIS"
 >      
       このパラメータは、サーバーの起動時にのみ設定できます。
      </P
-><DIV
-CLASS="NOTE"
-><BLOCKQUOTE
-CLASS="NOTE"
-><P
-><B
->注意: </B
->       
-       ネイティブレプリケーションモードでは<TT
-CLASS="VARNAME"
->failover_when_quorum_exists</TT
->機能は利用できません。
-      </P
-></BLOCKQUOTE
-></DIV
 ></DD
 ><DT
 ><A
@@ -823,6 +1005,9 @@ CLASS="APPLICATION"
 CLASS="APPLICATION"
 >watchdog</SPAN
 >のクラスタでは、フェイルオーバは、少なくとも2つのノードが特定のバックエンドノードに対してフェイルオーバの実行要求をするときのみ実行されます。
+     </P
+><P
+>      このパラメータがoffなら、投票で合意が取れなくてもフェイルオーバします。
      </P
 ><P
 >      
@@ -873,24 +1058,6 @@ HREF="runtime-config-health-check.html"
 ></TABLE
 ></DIV
 >
-
-      </P><DIV
-CLASS="NOTE"
-><BLOCKQUOTE
-CLASS="NOTE"
-><P
-><B
->注意: </B
->        
-        ネイティブレプリケーションモードでは<TT
-CLASS="VARNAME"
->failover_require_consensus</TT
->機能は利用できません。
-       </P
-></BLOCKQUOTE
-></DIV
-><P>
-
       
       <SPAN
 CLASS="PRODUCTNAME"
@@ -956,6 +1123,9 @@ CLASS="PRODUCTNAME"
 >がフェイルオーバを実行します。 
      </P
 ><P
+>      たとえば、ヘルスチェックでエラーが検出されても有効投票数に達しない場合、障害が引き続き発生していて次のヘルスチェックで再度エラーが検出されれば、都合2票が投票されることになります。ほかのwatchdogが検出しない恒久的な障害が発生した際にフェイルオーバを引き起こしたい時に有用です。
+     </P
+><P
 >      
       デフォルト値はoffです。
      </P
@@ -985,6 +1155,87 @@ HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
 ><P
 >      
       このパラメータは、サーバの起動時にのみ設定できます。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-ENABLE-CONSENSUS-WITH-HALF-VOTES"
+></A
+><TT
+CLASS="VARNAME"
+>enable_consensus_with_half_votes</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+     </DT
+><DD
+><P
+>      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が、クォーラムとフェイルオーバにおける合意を解決する際に、どのように多数決ルールにおける計算を行うかを設定します。
+     </P
+><P
+>      このパラメータがオンなら、クォーラムとフェイルオーバの合意のために、全体のうち半数の投票だけでよくなります。
+      そうでなければ、全体のうち少なくとも半数に加えて1票の投票が必要になります。
+      フェイルオーバにおいては、これは<A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+>と同期して動作します。
+      クォーラムの存在決定、フェイルオーバにおける合意形成の両方において、watchdogクラスタが偶数の<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードから構成されている場合にのみこのパラメータは効果があります。
+      参加者が奇数のwatchdogクラスタにおける多数決決定の際には、このパラメータの設定値は影響しません。
+     </P
+><P
+>      たとえば、このパラメータがオンのときは、2ノードのwatchdogクラスタではクォーラムが存在するためには一つの<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードが生きている必要があります。
+      このパラメータがオフのときは、2ノードのwatchdogクラスタではクォーラムが存在するためには2つの<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードが生きている必要があります。
+     </P
+><P
+>      このパラメータがオンのときは、4ノードのwatchdogクラスタではクォーラムが存在するためには2つの<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードが生きている必要があります。
+      このパラメータがオフのときは、3ノードのwatchdogクラスタではクォーラムが存在するためには2つの<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードが生きている必要があります。
+     </P
+><P
+>      このパラメータがオンのときは、split-brainが発生するリスクがあることに注意してください。
+      たとえば、ノードA, B, C, Dからなる4ノードのクラスタでは、(A, B)と(C, D)の分断された2つのネットワークになる可能性があります。
+      (A, B)と(C, D)にとっては、それぞれ生きた2つのノードが存在するので、クォーラムは依然として存在します。
+      各々のグループはそれぞれのマスタwatchdogを選び、これはすなわちsplit-brainです。
+     </P
+><P
+>      デフォルト値はオフです。
+     </P
+><P
+>      <TT
+CLASS="VARNAME"
+>enable_consensus_with_half_votes</TT
+>は<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.1</I
+></SPAN
+>よりも前には存在しません。
+      以前のバージョンは、あたかもこのパラメータがオンであるかのように動作します。
+     </P
+><P
+>      このパラメータは、サーバの起動時にのみ設定できます。
      </P
 ></DD
 ></DL
@@ -1066,6 +1317,13 @@ CLASS="LITERAL"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >に発行し、それが成功するかどうかで pgpool-II が生きているかどうかを判断します。
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>サーバ間の設置場所が離れている場合、<TT
+CLASS="LITERAL"
+>query</TT
+>モードが有効かもしれません。
       <DIV
 CLASS="CAUTION"
 ><P
@@ -1225,22 +1483,10 @@ CLASS="TYPE"
 ><P
 >      
       このパラメータによってローカルのwatchdogノードがマスターに選ばれる優先度を上げることができます。
-      古いマスターノードが故障した状況でクラスタがマスターノードの選択を行う際に、<TT
+      クラスタの初期起動時や古いマスターノードが故障した状況でクラスタがマスターノードの選択を行う際に、<TT
 CLASS="VARNAME"
 >wd_priority</TT
 >が高いノードがマスターwatchdogノードに選ばれます。
-      <TT
-CLASS="VARNAME"
->wd_priority</TT
->はクラスタの初期起動時にも有効なので、
-      複数のwatchdogノードを同時に起動した場合、<TT
-CLASS="VARNAME"
->wd_priority</TT
->が高いノードがマスターwatchdogノードに選ばれます。
-      このため、watchdogノードは意図しないノードがマスターに選ばれることが無いように<TT
-CLASS="VARNAME"
->wd_priority</TT
->の優先順位が高い順に起動するべきです。
      </P
 ><P
 >      

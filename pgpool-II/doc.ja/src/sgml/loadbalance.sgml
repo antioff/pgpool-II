@@ -41,11 +41,12 @@
    <!--
    If you don't want a query that qualifies for the load balancing to be
    load balanced by <productname>Pgpool-II</productname>, you can put
-   <emphasis>/*NO LOAD BALANCE*/</emphasis> comment before the <acronym>SELECT
-  </acronym> statement. This will disable the load balance of the particular query
-   and <productname>Pgpool-II</productname> will send it to the master node (the primary node in Master Slave mode).
+   arbitrary comment(<emphasis>/*NO LOAD BALANCE*/</emphasis> is usually used)
+   before the <acronym>SELECT</acronym> statement. This will disable the
+   load balance of the particular query and <productname>Pgpool-II</productname>
+   will send it to the master node (the primary node in Master Slave mode).
    -->
-   もし負荷分散対象のクエリを<productname>Pgpool-II</productname>に負荷分散してほしくない場合には、<acronym>SELECT</acronym>文の前の<emphasis>/*NO LOAD BALANCE*/</emphasis>コメントを付与することができます。
+   もし負荷分散対象のクエリを<productname>Pgpool-II</productname>に負荷分散してほしくない場合には、<acronym>SELECT</acronym>文の前の任意のコメント（<emphasis>/*NO LOAD BALANCE*/</emphasis>がよく使われます）を付与することができます。
    これにより、そのクエリの負荷分散は無効となり、<productname>Pgpool-II</productname>はこれをマスターノード（マスタースレーブモードではプライマリノード）に送信します。
   </para>
  </note>
@@ -119,15 +120,15 @@
 	   <!--
 	   transaction has not issued a write query yet (until a write
 	   query is issued, load balance is possible. Here "write query"
-	   means non SELECT DML or DDL. SELECTs having write functions as
-	   specified in black or white function list is not regarded as
-	   a write query. This may be changed in the future.)
+	   means non SELECT DML or DDL. <EMPHASIS>Before <productname>Pgpool-II</> 4.1</>,
+	   SELECTs having write functions as specified in black or
+	   white function list is not regarded as a write query.)
 	   -->
 	   トランザクション内で更新を伴うクエリが実行されていない
 	   (更新を伴うクエリが実行されるまでは負荷分散されます。
 	   ここで「更新を伴うクエリ」とは、SELECT以外のDDLやDMLを指します。
-	   black/white function listで指定される更新関数を含むSELECTは更新を伴うクエリとは見なされません。
-	   この仕様は将来変更される可能性があります)
+	   <EMPHASIS><productname>Pgpool-II</>4.1以前</>のバージョンでは、black/white function list
+	   で指定される更新関数を含むSELECTは更新を伴うクエリとは見なされません。)
 	  </para>
 	 </listitem>
 	 <listitem>
@@ -1369,6 +1370,43 @@
     </listitem>
    </varlistentry>
 
+   <varlistentry id="guc-statement-level-load-balance" xreflabel="statement_level_load_balance">
+    <term><varname>statement_level_load_balance</varname> (<type>boolean</type>)
+     <indexterm>
+      <!--
+      <primary><varname>statement_level_load_balance</varname> configuration parameter</primary>
+      -->
+      <primary><varname>statement_level_load_balance</varname> 設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      When set to on, the load balancing node is decided for each read query.
+      When set to off, load balancing node is decided at the session start time
+      and will not be changed until the session ends.
+      For example, in applications that use connection pooling remain connections
+      open to the backend server, because the session may be held for a long time,
+      the load balancing node does not change until the session ends.
+      In such applications, When <varname>statement_level_load_balance</varname> is enabled,
+      it is possible to decide load balancing node per query, not per session.
+      The default is off.
+      -->
+      onに設定すると、参照クエリごとに負荷分散先を決めます。
+      offに設定すると、セッションが始まるときに決められた負荷分散先がセッションが終了するまで変更されません。
+      例えば、コネクションプールを利用し、バックエンドサーバに接続したままのようなアプリケーションの場合、
+      セッションが長い間保持される可能性があるので、セッションが終了するまで負荷分散先のノードが変わりません。
+      このようなアプリケーションでは、<varname>statement_level_load_balance</varname>を有効にすると、
+      セッションごとではなく、クエリごとに負荷分散先を決めることが可能です。デフォルトはoffです。
+     </para>
+     <para>
+      <!--
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+      -->
+      このパラメータはPgpool-IIの設定を再読み込みすることで変更可能です。
+     </para>
+    </listitem>
+   </varlistentry>
   </variablelist>
  </sect2>
 </sect1>

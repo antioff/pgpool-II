@@ -9,13 +9,13 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.12 Documentation"
+TITLE="pgpool-II 4.1.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
 HREF="runtime-config.html"><LINK
 REL="PREVIOUS"
-TITLE="Secure Socket Layer (SSL)"
+TITLE="Secure Sockect Layer (SSL)"
 HREF="runtime-ssl.html"><LINK
 REL="NEXT"
 TITLE="Misc Configuration Parameters"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:11"></HEAD
+CONTENT="2019-10-31T07:38:45"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.12 Documentation</A
+>pgpool-II 4.1.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -53,7 +53,7 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="Secure Socket Layer (SSL)"
+TITLE="Secure Sockect Layer (SSL)"
 HREF="runtime-ssl.html"
 ACCESSKEY="P"
 >Prev</A
@@ -382,14 +382,12 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > takes over this
-      VIP. <SPAN
-CLASS="emphasis"
-><I
-CLASS="EMPHASIS"
->VIP will not be brought up in case the quorum
-      does not exist</I
-></SPAN
->. Default is <TT
+      VIP.  If <A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+> is on
+      (the default), VIP will not be brought up in case the quorum
+      does not exist.  Default is <TT
 CLASS="LITERAL"
 >''</TT
 >(empty): which
@@ -423,6 +421,14 @@ CLASS="PRODUCTNAME"
 CLASS="LITERAL"
 >"/sbin"</TT
 > or such directory.
+      If <A
+HREF="runtime-watchdog-config.html#GUC-IF-UP-CMD"
+>if_up_cmd</A
+> or <A
+HREF="runtime-watchdog-config.html#GUC-IF-DOWN-CMD"
+>if_down_cmd</A
+> starts with "/",
+      this parameter will be ignored.
      </P
 ><P
 >      This parameter can only be set at server start.
@@ -445,9 +451,32 @@ CLASS="TYPE"
 >      Specifies the command to bring up the virtual IP.
       Set the command and parameters such as
       <TT
-CLASS="COMMAND"
+CLASS="LITERAL"
 >"ip addr add $_IP_$/24 dev eth0 label eth0:0"</TT
->
+>.
+      Since root privilege is required to execute this command,
+      use <TT
+CLASS="COMMAND"
+>setuid</TT
+> on <TT
+CLASS="COMMAND"
+>ip</TT
+> command or
+      allow <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> startup user (<TT
+CLASS="LITERAL"
+>postgres</TT
+> user by default)
+      to run <TT
+CLASS="COMMAND"
+>sudo</TT
+> command without a password, and specify it such as
+      <TT
+CLASS="LITERAL"
+>"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0"</TT
+>.
       <TT
 CLASS="LITERAL"
 >$_IP_$</TT
@@ -481,6 +510,37 @@ CLASS="TYPE"
 CLASS="LITERAL"
 >"ip addr del $_IP_$/24 dev eth0"</TT
 >.
+      Since root privilege is required to execute this command,
+      use <TT
+CLASS="COMMAND"
+>setuid</TT
+> on <TT
+CLASS="COMMAND"
+>ip</TT
+> command or
+      allow <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> startup user (<TT
+CLASS="LITERAL"
+>postgres</TT
+> user by default)
+      to run <TT
+CLASS="COMMAND"
+>sudo</TT
+> command without a password, and specify it such as
+      <TT
+CLASS="LITERAL"
+>"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0"</TT
+>.
+      <TT
+CLASS="LITERAL"
+>$_IP_$</TT
+> will get replaced by the IP address
+      specified in the <A
+HREF="runtime-watchdog-config.html#GUC-DELEGATE-IP"
+>delegate_IP</A
+>.
      </P
 ><P
 >      This parameter can only be set at server start.
@@ -510,6 +570,11 @@ CLASS="PRODUCTNAME"
 CLASS="LITERAL"
 >"/usr/sbin"</TT
 > or such directory.
+      If <A
+HREF="runtime-watchdog-config.html#GUC-ARPING-CMD"
+>arping_cmd</A
+> starts with "/",
+      this parameter will be ignored.
      </P
 ><P
 >      This parameter can only be set at server start.
@@ -534,7 +599,30 @@ CLASS="TYPE"
       Set the command and parameters such as
       <TT
 CLASS="LITERAL"
->"arping -U $_IP_$ -w 1"</TT
+>"arping -U $_IP_$ -w 1 -I eth0"</TT
+>.
+      Since root privilege is required to execute this command,
+      use <TT
+CLASS="COMMAND"
+>setuid</TT
+> on <TT
+CLASS="COMMAND"
+>ip</TT
+> command or
+      allow <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> startup user (<TT
+CLASS="LITERAL"
+>postgres</TT
+> user by default)
+      to run <TT
+CLASS="COMMAND"
+>sudo</TT
+> command without a password, and specify it such as
+      <TT
+CLASS="LITERAL"
+>"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0"</TT
 >.
       <TT
 CLASS="LITERAL"
@@ -558,7 +646,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION"
->5.14.5. Behaviour on escalation and de-escalation</A
+>5.14.5. Behaivor on escalation and de-escalation</A
 ></H2
 ><P
 >   Configuration about behavior when <SPAN
@@ -587,11 +675,11 @@ CLASS="TYPE"
 ><DD
 ><P
 >      When set to on, watchdog clears all the query cache in the shared memory
-      when pgpool-II escalates to active. This prevents the new active <SPAN
+      when pgpool-II escaltes to active. This prevents the new active <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
-      from using old query caches inconsistent to the old active.
+      from using old query caches inconsistence to the old active.
      </P
 ><P
 >      Default is on.
@@ -659,7 +747,10 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > shuts down, detects a network
-      blackout or detects the lost of quorum.
+      blackout or detects the lost of <I
+CLASS="FIRSTTERM"
+>quorum</I
+>.
      </P
 ><P
 >      This command is executed before bringing down the virtual/floating IP address
@@ -727,28 +818,117 @@ CLASS="TYPE"
 >      When enabled, <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> will perform the degenerate/failover on
-      backend node if the quorum exists. In the absence of the quorum, <SPAN
+> will consider quorum when it performs the degenerate/failover on backend node.
+     </P
+><P
+>      We can say that "quorum exists" if the number of live
+      watchdog nodes (that is number
+      of <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> nodes) can be a
+      majority against the total number of watchdog nodes. For
+      example, suppose number of watchdog nodes is 5. If number of
+      live nodes is greater than or equal to 3, then quorum
+      exists. On the other hand if number of live nodes is 2 or
+      lower, quorum does not exist since it never be
+      majority.
+     </P
+><P
+>      If the quorum exists, <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
-      node that detects the backend failure will quarantine the failed backend node until the quorum exists again.
-     </P
-><P
->      The quarantine nodes behaves similar to the detached backend nodes but unlike failed/degenerated backends
-      the quarantine status is not propagated to the other <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
-> nodes in the
-      watchdog cluster, So even if the backend node is in the quarantine state on one
+      could work better on failure detection because even if a
+      watchdog node mistakenly detects a failure of backend node,
+      it would be denied by other major watchdog nodes.
       <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> node, other <SPAN
+> works that way
+      when <A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+> is on
+       (the default), but you can change it so that immediate
+       failover happens when a failure is detected.
+       A <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> nodes may
-      still continue to use that backend.
+> node which mistakenly
+       detects failure of backend node will quarantine the backend
+       node.
+     </P
+><P
+>      The existence of quorum can be shown by invoking <A
+HREF="pcp-watchdog-info.html"
+>pcp_watchdog_info</A
+> command with <TT
+CLASS="LITERAL"
+>--verbose</TT
+> option.
+       If <TT
+CLASS="LITERAL"
+>Quorum state</TT
+> is <TT
+CLASS="LITERAL"
+>QUORUM EXIST</TT
+> or <TT
+CLASS="LITERAL"
+>QUORUM IS ON THE EDGE</TT
+>, then the quorum exists.
+       If <TT
+CLASS="LITERAL"
+>Quorum state</TT
+> is <TT
+CLASS="LITERAL"
+>QUORUM ABSENT</TT
+>, then the quorum does not exist.
+     </P
+><P
+>      Please note that if the number of watchdog nodes is even, we
+      regard that quorum exists when the number of live nodes is
+      greater than or equal to half of total watchdog nodes.
+     </P
+><P
+>      In the absence of the
+      quorum, <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> node that
+      detects the backend failure will quarantine the failed
+      backend node until the quorum exists again.
+     </P
+><P
+>      Although it is possible to force detaching the quarantine
+      node by using <TT
+CLASS="COMMAND"
+>pcp_detach_node</TT
+> command, it
+      is not possible to attach the node again by
+      using <TT
+CLASS="COMMAND"
+>pcp_attach_node</TT
+> command.
+     </P
+><P
+>      The 
+      quarantine nodes behaves similar to the detached backend nodes
+      but unlike failed/degenerated backends the quarantine status is
+      not propagated to the other <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>
+      nodes in the watchdog cluster, So even if the backend node is in
+      the quarantine state on one <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>
+      node, other <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> nodes may still
+      continue to use that backend.
      </P
 ><P
 >      Although there are many similarities in quarantine and failover operations, but they both differ in a very
@@ -766,6 +946,48 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > will not have
        any usable master backend node.
+     </P
+><P
+>      Moreover, unlike for the failed
+      nodes, <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> keeps the
+      health-check running on the quarantined nodes and as soon as
+      the quarantined node becomes reachable again it gets
+      automatically re-attached.
+     </P
+><P
+>      From <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II </SPAN
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.1</I
+></SPAN
+> onwards, if the watchdog-master node
+      fails to build the consensus for primary backend node failover and the primary backend node gets into a
+      quarantine state, then it resigns from its master/coordinator responsibilities and lowers its wd_priority
+      for next leader election and let the cluster elect some different new leader.
+      </P><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>	When the master node fails to build the consensus for standby backend node failure, it takes no action
+	and similarly quarantined standby backend nodes on watchdog-master do not trigger a new leader election.
+       </P
+></BLOCKQUOTE
+></DIV
+><P>
+     </P
+><P
+>      If this parameter is off, failover will be triggered even if
+      quorum does not exist.
      </P
 ><P
 >      Default is on.
@@ -789,20 +1011,6 @@ CLASS="EMPHASIS"
 ><P
 >      This parameter can only be set at server start.
      </P
-><DIV
-CLASS="NOTE"
-><BLOCKQUOTE
-CLASS="NOTE"
-><P
-><B
->Note: </B
->       enabling <TT
-CLASS="VARNAME"
->failover_when_quorum_exists</TT
-> is not allowed in native replication mode.
-      </P
-></BLOCKQUOTE
-></DIV
 ></DD
 ><DT
 ><A
@@ -828,6 +1036,10 @@ CLASS="PRODUCTNAME"
 ><P
 >      For example, in a three node watchdog cluster, the failover will only be performed until at
       least two nodes ask for performing the failover on the particular backend node.
+     </P
+><P
+>      If this parameter is off, failover will be triggered even if
+      there's no consensus.
      </P
 ><P
 >      Default is on.
@@ -880,20 +1092,6 @@ HREF="runtime-config-health-check.html"
 ></TD
 ></TR
 ></TABLE
-></DIV
-><DIV
-CLASS="NOTE"
-><BLOCKQUOTE
-CLASS="NOTE"
-><P
-><B
->Note: </B
->       enabling <TT
-CLASS="VARNAME"
->failover_require_consensus</TT
-> is not allowed in native replication mode.
-      </P
-></BLOCKQUOTE
 ></DIV
 ><P
 >      <TT
@@ -959,6 +1157,13 @@ CLASS="PRODUCTNAME"
 > node.
      </P
 ><P
+>      For example, if an error found in a health check round does
+      not get enough vote and the error still persists, next round
+      of health check will give one more vote.  This parameter is
+      useful if you want to detect a persistent error which might
+      not be found by other watchdog nodes.
+     </P
+><P
 >      Default is off.
      </P
 ><P
@@ -984,6 +1189,97 @@ HREF="runtime-watchdog-config.html#GUC-FAILOVER-WHEN-QUORUM-EXISTS"
 HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
 >failover_require_consensus</A
 > are enabled
+     </P
+><P
+>      This parameter can only be set at server start.
+     </P
+></DD
+><DT
+><A
+NAME="GUC-ENABLE-CONSENSUS-WITH-HALF-VOTES"
+></A
+><TT
+CLASS="VARNAME"
+>enable_consensus_with_half_votes</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+     </DT
+><DD
+><P
+>      This parameter configures how the majority rule computation
+      is made by <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> for calculating
+      the quorum and resolving the consensus for failover.
+     </P
+><P
+>      when enabled the existence of quorum and consensus on failover requires only half of
+      the total number of votes configured in the cluster. Otherwise, both of these
+      decisions require at least one more vote than half of the total number of votes.
+      For failover, this parameter works in conjunction with the
+      <A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+>. In both cases, whether making a
+      decision of quorum existence or building the consensus on failover this
+      parameter only comes into play when the watchdog cluster is configured for even
+      number of <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> nodes.
+      The majority rule decision in the watchdog cluster having an odd number of participants.
+      It is not affected by the value of this configuration parameter.
+     </P
+><P
+>      For example, when this parameter is enabled in a two node watchdog
+      cluster, one <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> node needs to
+      be alive to make the quorum exist. If the parameter is off, two
+      nodes need to be alive to make quorum exist.
+     </P
+><P
+>      When this parameter is enabled in a four node watchdog cluster,
+      two <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> node needs to be alive
+      to make the quorum exist. If the parameter is off, three nodes
+      need to be alive to make quorum exist.
+     </P
+><P
+>      By enabling this parameter, you should aware that you take a
+      risk to make split-brain happen. For example, in four node
+      cluster consisted of node A, B, C and D, it is possible that the
+      cluster goes into two separated networks (A, B) and (C, D). For
+      (A, B) and (C, D) the quorum still exist since for both groups
+      there are two live nodes out of 4. The two groups choose their
+      own master watchdog, which is a split-brain.
+     </P
+><P
+>      Default is off.
+     </P
+><P
+>      <TT
+CLASS="VARNAME"
+>enable_consensus_with_half_votes</TT
+> is not available
+      prior to <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II
+      </SPAN
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.1</I
+></SPAN
+>. The prior versions work
+      as if the parameter is on.
      </P
 ><P
 >      This parameter can only be set at server start.
@@ -1067,7 +1363,15 @@ CLASS="LITERAL"
       to other <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> and checks the response
+> and checks the response.
+      When installation location between <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>
+      servers is far, <TT
+CLASS="LITERAL"
+>query</TT
+> may be useful.
       <DIV
 CLASS="CAUTION"
 ><P
@@ -1235,21 +1539,7 @@ CLASS="VARNAME"
 >wd_priority</TT
 > value will get selected
       as master watchdog node when cluster will be electing its new master node
-      in the event of old master watchdog node failure.
-      <TT
-CLASS="VARNAME"
->wd_priority</TT
-> is also valid at the time of cluster startup.
-      When some watchdog nodes start up at same time,a node with the higher <TT
-CLASS="VARNAME"
->wd_priority</TT
->
-      value is selected as a master node.
-      So we should start watchdog nodes in order of <TT
-CLASS="VARNAME"
->wd_priority</TT
-> priority to prevent
-      unintended nodes from being selected as masters.
+      at the time of cluster startup or in the event of old master watchdog node failure
      </P
 ><P
 >      <TT
@@ -2015,7 +2305,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->Secure Socket Layer (SSL)</TD
+>Secure Sockect Layer (SSL)</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

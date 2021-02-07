@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [4.0.12], [pgpool-hackers@pgpool.net], [pgpool-II])
+AC_INIT([pgpool-II], [4.1.0], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -29,6 +29,7 @@ AC_CHECK_PROGS(XMLLINT, xmllint)
 AC_CHECK_PROGS(OSX, [osx sgml2xml sx])
 AC_CHECK_PROGS(PERL, perl)
 AC_CHECK_PROGS(LYNX, lynx)
+AC_CHECK_PROGS(SUNIFDEF, sunifdef)
 
 AC_SUBST([XSLTPROC_HTML_FLAGS])
 AC_SUBST([STYLE])
@@ -267,6 +268,8 @@ AC_FUNC_WAIT3
 AC_FUNC_ACCEPT_ARGTYPES
 AC_CHECK_FUNCS(setsid select socket sigprocmask strdup strerror strftime strtok asprintf vasprintf gai_strerror hstrerror pstat setproctitle syslog)
 
+PGAC_C_TYPES_COMPATIBLE
+
 dnl Checks for pg_config command.
 AC_CHECK_PROGS(PGCONFIG, pg_config)
 
@@ -274,11 +277,9 @@ if test -z $PGCONFIG
 then
   PGSQL_INCLUDE_DIR=/usr/local/pgsql/include
   PGSQL_LIB_DIR=/usr/local/pgsql/lib
-  PGSQL_BIN_DIR=/usr/local/pgsql/bin
 else
   PGSQL_INCLUDE_DIR=`pg_config --includedir`
   PGSQL_LIB_DIR=`pg_config --libdir`
-  PGSQL_BIN_DIR=`pg_config --bindir`
 fi
 
 AC_ARG_WITH(pgsql,
@@ -291,7 +292,6 @@ AC_ARG_WITH(pgsql,
 	esac
 	PGSQL_INCLUDE_DIR="$withval"/include
 	PGSQL_LIB_DIR="$withval"/lib
-	PGSQL_BIN_DIR="$withval"/bin
     ])
 
 AC_ARG_WITH(pgsql-includedir,
@@ -316,15 +316,15 @@ AC_ARG_WITH(pgsql-libdir,
 	PGSQL_LIB_DIR="$withval"
     ])
 
-AC_ARG_WITH(pgsql-bindir,
-    [  --with-pgsql-bindir=DIR     site executable files for PostgreSQL in DIR],
+AC_ARG_WITH(sunifdef,
+    [  --with-sunifdef=DIR     install path for sunifdef utility ],
     [
 	case "$withval" in
 	"" | y | ye | yes | n | no)
-	    AC_MSG_ERROR([*** You must supply an argument to the --with-pgsql-bindir option.])
+	    AC_MSG_ERROR([*** You must supply an argument to the --with-sunifdef option.])
 	  ;;
 	esac
-	PGSQL_BIN_DIR="$withval"
+	SUNIFDEF="$withval"/sunifdef
     ])
 
 AC_ARG_WITH(openssl,
@@ -357,6 +357,7 @@ if test "$with_pam" = yes ; then
                     [AC_CHECK_HEADERS(pam/pam_appl.h, [],
                                       [AC_MSG_ERROR([header file <security/pam_appl.h> or <pam/pam_appl.h> is required for PAM.])])])
 fi
+
 
 AC_ARG_WITH(memcached,
     [  --with-memcached=DIR     site header files for libmemcached in DIR],
@@ -391,7 +392,7 @@ AC_SUBST(MEMCACHED_LINK_OPT)
 AC_SUBST(MEMCACHED_RPATH_OPT)
 
 OLD_LDFLAGS="$LDFLAGS"
-LDFLAGS="-L$PGSQL_LIB_DIR $LDFLAGS"
+LDFLAGS="-L$PGSQL_LIB_DIR"
 OLD_LIBS="$LIBS"
 AC_CHECK_LIB(pq, PQexecPrepared, [], [AC_MSG_ERROR(libpq is not installed or libpq is old)])
 AC_CHECK_FUNCS(PQprepare)
@@ -400,7 +401,6 @@ LIBS="$OLD_LIBS"
 
 AC_SUBST(PGSQL_INCLUDE_DIR)
 AC_SUBST(PGSQL_LIB_DIR)
-AC_SUBST(PGSQL_BIN_DIR)
 AC_SUBST(MEMCACHED_DIR)
 
 # --enable(disable)-rpath option

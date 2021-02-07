@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.12 Documentation"
+TITLE="pgpool-II 4.1.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T05:47:11"></HEAD
+CONTENT="2019-10-31T07:38:45"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.12 Documentation</A
+>pgpool-II 4.1.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -143,7 +143,11 @@ HREF="runtime-config-backend-settings.html#GUC-BACKEND-HOSTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > as a detached backend
-   node.
+   node, after that you execute <A
+HREF="pcp-recovery-node.html"
+>pcp_recovery_node</A
+> command,
+    the server is add.
  </P
 ><DIV
 CLASS="NOTE"
@@ -180,10 +184,14 @@ HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
 HREF="runtime-online-recovery.html#GUC-RECOVERY-2ND-STAGE-COMMAND"
 >recovery_2nd_stage_command</A
 >. i.e. you can
-    safely leave it as an empty string.
+    safely leave it as an empty string. Those scripts example can be found in
+    <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-PGPOOL-CONFIG-ONLINE-RECOVERY"
+>Section 8.3.5.3</A
+>.
  </P
 ><P
->  Connections from clients are not allowed only in the second stage
+>  Connections from cliens are not allowed only in the second stage
   while the data can be updated or retrieved during the first stage.
  </P
 ><P
@@ -238,6 +246,53 @@ HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
 CLASS="LITERAL"
 >pgpool_remote_start</TT
 >)
+   </P
+><P
+>    The <TT
+CLASS="LITERAL"
+>pgpool_remote_start</TT
+> is script to start up the <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> node of recovery target.
+    <TT
+CLASS="LITERAL"
+>pgpool_remote_start</TT
+> receives following 2 parameters:
+    <P
+></P
+></P><UL
+><LI
+><P
+>       Hostname of the backend node to be recovered.
+      </P
+></LI
+><LI
+><P
+>       Path to the database cluster of the master(primary) node.
+      </P
+></LI
+></UL
+><P>
+    The script example can be found in <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-PGPOOL-CONFIG-ONLINE-RECOVERY"
+>Section 8.3.5.3</A
+>.
+     </P><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>       The script path and filename are hard coded, <TT
+CLASS="COMMAND"
+>$PGDATA/pgpool_remote_start</TT
+> is executed on master(primary) node.
+      </P
+></BLOCKQUOTE
+></DIV
+><P>
    </P
 ></LI
 ><LI
@@ -505,6 +560,14 @@ CLASS="PRODUCTNAME"
 > 4.0 or after)
       </P
 ></LI
+><LI
+><P
+>       Port number to be recovered (<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.1 or after)
+      </P
+></LI
 ></UL
 ><DIV
 CLASS="NOTE"
@@ -600,29 +663,28 @@ CLASS="TYPE"
 ><DD
 ><P
 >     Specifies a command to be run by master node at the second
-     stage of online recovery. This parameter only necessary for
+     stage of online recovery. This command is required only
      <A
 HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
 >replication_mode</A
->. The command file must
-      be placed in the database cluster directory for security
-      reasons.  For example,
-      if <TT
+>, so for other modes don't need
+      to provide a command file. The command file must be placed in the
+      database cluster directory for security reasons.
+      For example, if <TT
 CLASS="VARNAME"
 >recovery_2nd_stage_command</TT
 > = <TT
 CLASS="LITERAL"
 >       'sync-command'</TT
->,
-      then <SPAN
+>, then <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> will look for the
-      command script in <TT
+> will
+      look for the command scrit in <TT
 CLASS="LITERAL"
 >$PGDATA</TT
-> directory and
-      will try to execute <TT
+> directory and will
+      try to execute <TT
 CLASS="COMMAND"
 >$PGDATA/sync-command</TT
 >.

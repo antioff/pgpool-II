@@ -2,12 +2,12 @@
 .\"     Title: pcp_node_info
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2020
-.\"    Manual: pgpool-II 4.0.12 Documentation
-.\"    Source: pgpool-II 4.0.12
+.\"      Date: 2019
+.\"    Manual: pgpool-II 4.1.0 Documentation
+.\"    Source: pgpool-II 4.1.0
 .\"  Language: English
 .\"
-.TH "PCP_NODE_INFO" "1" "2020" "pgpool-II 4.0.12" "pgpool-II 4.0.12 Documentation"
+.TH "PCP_NODE_INFO" "1" "2019" "pgpool-II 4.1.0" "pgpool-II 4.1.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -60,7 +60,7 @@ Here is an example output:
 .\}
 .nf
     $ pcp_node_info \-h localhost \-U postgres 1
-    /tmp 11003 2 0\&.500000 up standby 208 2018\-07\-03 08:26:39
+    /tmp 11003 2 0\&.500000 up standby 0 streaming async 2019\-04\-23 13:58:40
    
 .fi
 .if n \{\
@@ -80,14 +80,62 @@ The result is in the following order:
     5\&. status name
     6\&. backend role
     7\&. replication delay
-    8\&. last status change time
+    8\&. replication state (taken from pg_stat_replication, if PostgreSQL is 9\&.1 or later)
+    9\&. sync replication state (taken from pg_stat_replication, if PostgreSQL is 9\&.2 or later)
+    10\&. last status change time
    
 .fi
 .if n \{\
 .RE
 .\}
 .PP
-Status is represented by a digit from [0 to 3]\&.
+Status is represented by a digit from [0 to 3]\&. To correctly 7, 8, 9 are displayed,
+sr_check_period
+must not be 0\&. 8, 9 will not be displayed if
+sr_check_user
+is not
+PostgreSQL
+super user nor it\*(Aqs not in "pg_monitor" group\&.
+.if n \{\
+.sp
+.\}
+.RS 4
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBNote\fR
+.ps -1
+.br
+.PP
+To make
+sr_check_user
+in pg_monitor group, execute following SQL command by
+PostgreSQL
+super user (replace "sr_check_user" with the setting of
+sr_check_user):
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	  GRANT pg_monitor TO sr_check_user;
+	 
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+For
+PostgreSQL
+9\&.6, there\*(Aqs no pg_monitor group and
+sr_check_user
+must be
+PostgreSQL
+super user\&.
+.sp .5v
+.RE
 .sp
 .RS 4
 .ie n \{\
@@ -144,14 +192,16 @@ option can help understand the output\&. For example:
 .\}
 .nf
    $ pcp_node_info \-\-verbose \-h localhost \-U postgres 1
-   Hostname          : /tmp
-   Port              : 11003
-   Status            : 2
-   Weight            : 0\&.500000
-   Status Name       : up
-   Role              : standby
-   Replication Delay : 208
-   Last Status Change: 2018\-07\-03 08:26:39
+   Hostname               : /tmp
+   Port                   : 11003
+   Status                 : 2
+   Weight                 : 0\&.500000
+   Status Name            : up
+   Role                   : standby
+   Replication Delay      : 0
+   Replication State      : streaming
+   Replication Sync State : async
+   Last Status Change     : 2019\-04\-23 13:58:40
   
 .fi
 .if n \{\

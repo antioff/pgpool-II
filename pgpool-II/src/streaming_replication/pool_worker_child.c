@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -61,6 +61,7 @@
 #include "auth/pool_hba.h"
 #include "utils/pool_stream.h"
 
+char		remote_ps_data[NI_MAXHOST]; /* used for set_ps_display */
 static POOL_CONNECTION_POOL_SLOT * slots[MAX_NUM_BACKENDS];
 static volatile sig_atomic_t reload_config_request = 0;
 static volatile sig_atomic_t restart_request = 0;
@@ -89,6 +90,7 @@ static void reload_config(void);
 
 
 #define PG10_SERVER_VERSION	100000	/* PostgreSQL 10 server version num */
+#define PG91_SERVER_VERSION	90100	/* PostgreSQL 9.1 server version num */
 
 /*
 * worker child main loop
@@ -268,13 +270,23 @@ check_replication_time_lag(void)
 	static int	server_version[MAX_NUM_BACKENDS];
 
 	int			i;
-	int			active_nodes = 0;
 	POOL_SELECT_RESULT *res;
+	POOL_SELECT_RESULT *res_rep;	/* query results of pg_stat_replication */
 	unsigned long long int lsn[MAX_NUM_BACKENDS];
 	char	   *query;
+	char	   *stat_rep_query;
 	BackendInfo *bkinfo;
 	unsigned long long int lag;
 	ErrorContextCallback callback;
+
+	/* clear replication state */
+	for (i = 0; i < NUM_BACKENDS; i++)
+	{
+		bkinfo = pool_get_node_info(i);
+
+		*bkinfo->replication_state = '\0';
+		*bkinfo->replication_sync_state = '\0';
+	}
 
 	if (NUM_BACKENDS <= 1)
 	{
@@ -288,22 +300,6 @@ check_replication_time_lag(void)
 		return;
 	}
 
-	/* Count healthy nodes */
-	for (i = 0; i < NUM_BACKENDS; i++)
-	{
-		if (VALID_BACKEND(i))
-			active_nodes++;
-	}
-
-	if (active_nodes <= 1)
-	{
-		/*
-		 * If there's only one or less active node, there's no point to do
-		 * checking
-		 */
-		return;
-	}
-
 	/*
 	 * Register a error context callback to throw proper context message
 	 */
@@ -311,6 +307,7 @@ check_replication_time_lag(void)
 	callback.arg = NULL;
 	callback.previous = error_context_stack;
 	error_context_stack = &callback;
+	stat_rep_query = NULL;
 
 	for (i = 0; i < NUM_BACKENDS; i++)
 	{
@@ -351,6 +348,11 @@ check_replication_time_lag(void)
 				query = "SELECT pg_current_wal_lsn()";
 			else
 				query = "SELECT pg_current_xlog_location()";
+
+			if (server_version[i] == PG91_SERVER_VERSION)
+				stat_rep_query = "SELECT application_name, state, '' AS sync_state FROM pg_stat_replication";
+			else if (server_version[i] > PG91_SERVER_VERSION)
+				stat_rep_query = "SELECT application_name, state, sync_state FROM pg_stat_replication";
 		}
 		else
 		{
@@ -365,6 +367,58 @@ check_replication_time_lag(void)
 			lsn[i] = text_to_lsn(res->data[0]);
 			free_select_result(res);
 		}
+	}
+
+	/*
+	 * Call pg_stat_replication and fill the replication status.
+	 */
+	if (slots[PRIMARY_NODE_ID] && stat_rep_query != NULL)
+	{
+		int		status;
+
+		status = get_query_result(slots, PRIMARY_NODE_ID, stat_rep_query, &res_rep);
+
+		if (status != 0)
+		{
+			ereport(LOG,
+					(errmsg("get_query_result falied: status: %d", status)));
+		}
+
+		for (i = 0; i < NUM_BACKENDS; i++)
+		{
+			bkinfo = pool_get_node_info(i);
+
+			*bkinfo->replication_state = '\0';
+			*bkinfo->replication_sync_state = '\0';
+
+			if (i == PRIMARY_NODE_ID)
+				continue;
+
+			if (status == 0)
+			{
+				int		j;
+				char	*s;
+
+				for (j = 0; j < res_rep->numrows; j++)
+				{
+					if (strcmp(res_rep->data[j*3], bkinfo->backend_application_name) == 0)
+					{
+						/*
+						 * If sr_check_user has enough privilege, it should return
+						 * some string. If not, NULL pointer will be returned for
+						 * res_rep->data[1] and [2]. So we need to prepare for the
+						 * latter case.
+						 */
+						s = res_rep->data[j*3+1]? res_rep->data[j*3+1] : "";
+						strlcpy(bkinfo->replication_state, s, NAMEDATALEN);
+						s = res_rep->data[j*3+2]? res_rep->data[j*3+2] : "";
+						strlcpy(bkinfo->replication_sync_state, s, NAMEDATALEN);
+					}
+				}
+			}
+		}
+		if (status == 0)
+			free_select_result(res_rep);
 	}
 
 	for (i = 0; i < NUM_BACKENDS; i++)
@@ -534,26 +588,6 @@ get_query_result(POOL_CONNECTION_POOL_SLOT * *slots, int backend_id, char *query
 		return sts;
 	}
 
-/*
-	if ((*res)->data[0] == NULL)
-	{
-		free_select_result(*res);
-		ereport(LOG,
-				(errmsg("get_query_result: no rows returned"),
-				 errdetail("node id (%d)", backend_id)));
-		return sts;
-	}
-
-
-	if ((*res)->nullflags[0] == -1)
-	{
-		free_select_result(*res);
-		ereport(LOG,
-				(errmsg("get_query_result: NULL data returned"),
-				 errdetail("node id (%d)", backend_id)));
-		return sts;
-	}
-*/
 	sts = 0;
 	return sts;
 }

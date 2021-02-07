@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -187,9 +187,18 @@ connection_do_auth(POOL_CONNECTION_POOL_SLOT * cp, char *password)
 
 		buf = palloc0(2 * (MD5_PASSWD_LEN + 4));	/* hash + "md5" + '\0' */
 
-		/* build md5 password */
+		/* set buffer address for building md5 password */
 		buf1 = buf + MD5_PASSWD_LEN + 4;
-		pool_md5_encrypt(password, cp->sp->user, strlen(cp->sp->user), buf1);
+
+		/*
+		 * If the supplied password is already in md5 hash format, we just
+		 * copy it. Otherwise calculate the md5 hash value.
+		 */
+		if (!strncmp("md5", password, 3) && (strlen(password) - 3) == MD5_PASSWD_LEN)
+			memcpy(buf1, password + 3, MD5_PASSWD_LEN + 1);
+		else
+			pool_md5_encrypt(password, cp->sp->user, strlen(cp->sp->user), buf1);
+
 		pool_md5_encrypt(buf1, salt, 4, buf + 3);
 		memcpy(buf, "md5", 3);
 
@@ -985,7 +994,7 @@ authenticate_frontend_clear_text(POOL_CONNECTION * frontend)
 				(errmsg("clear text authentication failed"),
 				 errdetail("password does not match")));
 	}
-	ereport(DEBUG1,
+	ereport(LOG,
 			(errmsg("clear text authentication successful with frontend")));
 
 	if (frontend->passwordMapping->pgpoolUser.passwordType == PASSWORD_TYPE_AES)
@@ -1086,7 +1095,7 @@ do_clear_text_password(POOL_CONNECTION * backend, POOL_CONNECTION * frontend, in
 	kind = send_password_packet(backend, protoMajor, pwd);
 
 	/* if authenticated, save info */
-	if (kind == AUTH_REQ_OK)
+	if (!reauth && kind == AUTH_REQ_OK)
 	{
 		if (IS_MASTER_NODE_ID(backend->db_node_id))
 		{
@@ -1229,7 +1238,7 @@ do_crypt(POOL_CONNECTION * backend, POOL_CONNECTION * frontend, int reauth, int 
 	pool_read(backend, &kind, sizeof(kind));
 
 	/* if authenticated, save info */
-	if (kind == 0)
+	if (!reauth && kind == 0)
 	{
 		int			msglen;
 
@@ -1589,7 +1598,7 @@ authenticate_frontend_md5(POOL_CONNECTION * backend, POOL_CONNECTION * frontend,
 				(errmsg("md5 authentication failed"),
 				 errdetail("password does not match")));
 	}
-	ereport(DEBUG1,
+	ereport(LOG,
 			(errmsg("md5 authentication successful with frontend")));
 
 	frontend->frontend_authenticated = true;
@@ -2030,12 +2039,9 @@ pool_read_message_length(POOL_CONNECTION_POOL * cp)
 				 errdetail("slot: %d length: %d", i, length)));
 
 		if (length != length0)
-		{
-			ereport(LOG,
+			ereport(ERROR,
 					(errmsg("unable to read message length"),
 					 errdetail("message length (%d) in slot %d does not match with slot 0(%d)", length, i, length0)));
-			return -1;
-		}
 
 	}
 
@@ -2372,7 +2378,7 @@ do_SCRAM(POOL_CONNECTION * frontend, POOL_CONNECTION * backend, int protoMajor, 
 				ereport(ERROR,
 						(errmsg("invalid authentication request from server: unknown auth kind %d", auth_kind)));
 		}
-		/* Read next backend */
+		/* Read next packend */
 		pool_read(backend, &kind, sizeof(kind));
 		pool_read(backend, &len, sizeof(len));
 		if (kind != 'R')
@@ -2380,7 +2386,7 @@ do_SCRAM(POOL_CONNECTION * frontend, POOL_CONNECTION * backend, int protoMajor, 
 					(errmsg("backend authentication failed"),
 					 errdetail("backend response with kind \'%c\' when expecting \'R\'", kind)));
 		message_length = ntohl(len);
-		if (message_length < 8)
+		if (len <= 8)
 			ereport(ERROR,
 					(errmsg("backend authentication failed"),
 					 errdetail("backend response with no data ")));

@@ -198,9 +198,6 @@
 /* Define to 1 if `__ss_len' is a member of `struct sockaddr_storage'. */
 /* #undef HAVE_STRUCT_SOCKADDR_STORAGE___SS_LEN */
 
-/* Define to 1 if you have the `syslog' function. */
-#define HAVE_SYSLOG 1
-
 /* Define to 1 if you have the <sys/param.h> header file. */
 #define HAVE_SYS_PARAM_H 1
 
@@ -252,9 +249,15 @@
 /* Define to 1 if you have the `vsnprintf' function. */
 #define HAVE_VSNPRINTF 1
 
+/* Define to 1 if you have the `vsyslog' function. */
+#define HAVE_VSYSLOG 1
+
 /* Define to 1 if you have the `wait3' system call. Deprecated, you should no
    longer depend upon `wait3'. */
 #define HAVE_WAIT3 1
+
+/* Define to 1 if your compiler understands __builtin_types_compatible_p. */
+#define HAVE__BUILTIN_TYPES_COMPATIBLE_P 1
 
 /* Define to the appropriate snprintf format for 64-bit ints, if any. */
 #define INT64_FORMAT "%ld"
@@ -276,7 +279,7 @@
 #define PACKAGE_NAME "pgpool-II"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "pgpool-II 4.0.12"
+#define PACKAGE_STRING "pgpool-II 4.1.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "pgpool-II"
@@ -285,7 +288,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.0.12"
+#define PACKAGE_VERSION "4.1.0"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
@@ -341,7 +344,7 @@
 /* #undef USE_TABLE_LOCK */
 
 /* Version number of package */
-#define VERSION "4.0.12"
+#define VERSION "4.1.0"
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */

@@ -7,17 +7,24 @@
   <title>Introduction</title>
 
   <para>
-   <firstterm>Watchdog</firstterm> is a sub process of <productname>Pgpool-II</productname>
-   to add high availability. Watchdog is used to resolve the single
-   point of failure by coordinating multiple <productname>Pgpool-II</productname>
-   nodes. The watchdog was first introduced in <productname>Pgpool-II</productname>
+   <firstterm>Watchdog</firstterm> is a sub process of
+   <productname>Pgpool-II</productname> to add high
+   availability. Watchdog is used to resolve the single point of
+   failure by coordinating multiple
+   <productname>pgpool-II</productname> nodes. The watchdog was first
+   introduced in <productname>pgpool-II</productname>
    <emphasis>V3.2</emphasis> and is significantly enhanced in
-   <productname>Pgpool-II</productname> <emphasis>V3.5</emphasis>, to ensure the presence of a
-   quorum at all time. This new addition to watchdog makes it more fault tolerant
-   and robust in handling and guarding against the split-brain syndrome
-   and network partitioning. However to ensure the quorum mechanism properly
-   works, the number of Pgpool-II nodes must be odd in number and greater than or
-   equal to 3.
+   <productname>pgpool-II</productname> <emphasis>V3.5</emphasis>, to
+   ensure the presence of a quorum at all time. This new addition to
+   watchdog makes it more fault tolerant and robust in handling and
+   guarding against the split-brain syndrome and network
+   partitioning. In addition, <emphasis>V3.7</emphasis> introduced
+   quorum failover (see <xref
+    linkend="config-watchdog-failover-behavior">) to reduce the false
+    positives of <productname>PostgreSQL</productname> server
+    failures. To ensure the quorum mechanism properly works, the number
+    of <productname>pgpool-II</productname> nodes must be odd in number
+    and greater than or equal to 3.
   </para>
 
   <sect2 id="tutorial-watchdog-coordinating-nodes">
@@ -181,7 +188,7 @@
     the watchdog for bringing up and bringing down the VIP require the
     root privileges. <productname>Pgpool-II</productname> requires the
     user running <productname>Pgpool-II</productname> to have root
-    privileges when the watchdog is enabled along with delegate IP.
+    privileges when the watchdog is enabled along with virtual IP.
     This is however not good security practice to run the
     <productname>Pgpool-II</productname> as root user, the alternative
     and preferred way is to run the <productname>Pgpool-II</productname>
@@ -344,7 +351,7 @@
        <entry>NODE STATUS CHANGE</entry>
        <entry>'2'</entry>
        <entry>Command packet</entry>
-       <entry>Command to inform watchdog about node status change of watchdog node</entry>
+       <entry>Command to inform watchdog about node status change of watchddog node</entry>
       </row>
       <row>
        <entry>GET NODES LIST</entry>
@@ -410,7 +417,7 @@
        the "NODES LIST DATA" result packet.
     </para>
     <para>
-     The result packet returned by watchdog for the "GET NODES LIST"
+     The result packet returnd by watchdog for the "GET NODES LIST"
      will contains the list of all configured watchdog nodes to do
      health check on in the <acronym>JSON</acronym> format.
      The <acronym>JSON</acronym> of the watchdog nodes contains the
@@ -516,7 +523,7 @@
     status and brings the virtual IP assigned to watchdog down.
     Thus clients of <productname>Pgpool-II</productname> cannot
     connect to <productname>Pgpool-II</productname> using the
-    virtual IP any more. This is necessary to avoid split-brain,
+    virtual IP any more. This is neccessary to avoid split-brain,
     that is, situations where there are multiple active
     <productname>Pgpool-II</productname>.
    </para>
@@ -705,8 +712,8 @@
    <para>
     Watchdog lifecheck is the sub-component of watchdog that monitors the health
     of <productname>Pgpool-II</productname> nodes participating in the watchdog
-    cluster. <productname>Pgpool-II</productname> watchdog provides two built-in
-    methods of remote node health checking, "heartbeat" and "query" mode.
+    cluster. <productname>Pgpool-II</productname> watchdog provides three built-in
+    methods of remote node health checking, "heartbeat", "query" and "external" mode.
    </para>
    <para>
     In "heartbeat" mode, The lifecheck process sends and receives the data over
@@ -717,6 +724,9 @@
     interface for querying the remote <productname>Pgpool-II</productname>.
     And in this mode the lifecheck process creates a new thread for each health
     check query which gets destroyed as soon as the query finishes.
+    While in "external" mode, this mode disables the built in lifecheck of
+    <productname>Pgpool-II</productname>, and expects that the external system
+    will monitor local and remote node instead.
    </para>
    <para>
     Apart from remote node health checking watchdog lifecheck can also check the

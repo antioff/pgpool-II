@@ -18,10 +18,6 @@ do
 	$PGPOOL_SETUP -m $mode -n 2 --no-stop|| exit 1
 	echo "done."
 
-	# disable replication delay check so that comparison between
-	# expected and actual result is not confused.
-	echo "sr_check_period = 0" >> etc/pgpool.conf
-
 	source ./bashrc.ports
 
 	export PGPORT=$PGPOOL_PORT
@@ -31,8 +27,7 @@ do
 	# trigger failover on node 1
 	$PG_CTL -D data1 -m f stop
 	wait_for_pgpool_startup
-	$PSQL -c "show pool_nodes" test |sed -e 's/true /false/' -e 's/....-..-.. ..:..:../XXXX-XX-XX XX:XX:XX/g'|
-	    sed -e 's/streaming/         /' | sed -e 's/async/     /'> result
+	$PSQL -c "show pool_nodes" test |sed -e 's/true /false/' -e 's/....-..-.. ..:..:../XXXX-XX-XX XX:XX:XX/g'> result
 
 	# check the output of "show pool_nodes".
 	LANG=C $PSQL -f ../create_expected.sql -v mode="'$mode'" -v dir="'$PGSOCKET_DIR'" test | tail -n 6 > expected
