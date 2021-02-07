@@ -36,10 +36,11 @@ Source2:        pgpool_rhel6.sysconfig
 %if %{systemd_enabled}
 Source3:        pgpool.service
 %endif
-Source4:        pgpool_rhel7.sysconfig
+Source4:        pgpool_rhel.sysconfig
 Patch1:         pgpool-II-head.patch
 %if %{pgsql_ver} >=94 && %{rhel} >= 7
 Patch2:         pgpool_socket_dir.patch
+Patch3:         pcp_unix_domain_path.patch
 %endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel jade libxslt docbook-dtds docbook-style-xsl docbook-style-dsssl
@@ -96,6 +97,7 @@ Postgresql extensions libraries and sql files for pgpool-II.
 %patch1 -p1
 %if %{pgsql_ver} >=94 && %{rhel} >= 7
 %patch2 -p0
+%patch3 -p0
 %endif
 
 %build
@@ -128,9 +130,9 @@ make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool_adm
 
 install -d %{buildroot}%{_datadir}/%{short_name}
 install -d %{buildroot}%{_sysconfdir}/%{short_name}
-mv %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf
-mv %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf
-mv %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf
+cp %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf
+cp %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf
+cp %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf
 
 %if %{systemd_enabled}
 install -d %{buildroot}%{_unitdir}
@@ -234,10 +236,13 @@ fi
 %{_mandir}/man1/*.1.gz
 %{_datadir}/%{short_name}/insert_lock.sql
 %{_datadir}/%{short_name}/pgpool.pam
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-master-slave
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-logical
+%{_sysconfdir}/%{short_name}/pcp.conf.sample
+%{_sysconfdir}/%{short_name}/pool_hba.conf.sample
 %{_libdir}/libpcp.so.*
 %if %{systemd_enabled}
 %ghost %{_varrundir}
@@ -288,6 +293,9 @@ fi
 %endif
 
 %changelog
+* Mon Jul 27 2020 Bo Peng <pengbo@sraoss.co.jp> 4.0.10
+- Rename src/redhat/pgpool_rhel7.sysconfig to src/redhat/pgpool_rhel.sysconfig.
+
 * Thu Oct 10 2019 Bo Peng <pengbo@sraoss.co.jp> 4.0.7
 - Update to support PostgreSQL 12
 

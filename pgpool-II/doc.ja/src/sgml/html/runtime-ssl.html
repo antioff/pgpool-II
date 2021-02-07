@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.9 文書"
+TITLE="Pgpool-II 4.0.10 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-05-19T10:03:40"></HEAD
+CONTENT="2020-08-20T00:46:12"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.9 文書</A
+>Pgpool-II 4.0.10 文書</A
 ></TH
 ></TR
 ><TR
@@ -325,8 +325,7 @@ CLASS="TYPE"
      </DT
 ><DD
 ><P
->      
-      セキュアな接続で使用できる<ACRONYM
+>      SSL接続で使用できる<ACRONYM
 CLASS="ACRONYM"
 >SSL</ACRONYM
 >暗号スイートのリストを指定します。
@@ -341,6 +340,8 @@ CLASS="REFENTRYTITLE"
 >ciphers</SPAN
 ></SPAN
 >マニュアルをご覧ください。
+      TLSバージョン1.2あるいはそれ以下のバージョンのみが影響を受けます。
+      今の所、TLSバージョン1.3接続で使用される暗号の選択を制御する設定はありません。
       デフォルト値は<TT
 CLASS="LITERAL"
 >HIGH:MEDIUM:+3DES:!aNULL</TT

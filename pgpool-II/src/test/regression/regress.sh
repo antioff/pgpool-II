@@ -96,9 +96,9 @@ function export_env_vars
 
 	PGPOOLLIB=${PGPOOL_INSTALL_DIR}/lib
 	if [ -z "$LD_LIBRARY_PATH" ];then
-	    export LD_LIBRARY_PATH=$PGPOOLLIB
+	    export LD_LIBRARY_PATH=${PGPOOLLIB}:${PGLIB}
 	else
-	    export LD_LIBRARY_PATH=${PGPOOLLIB}:${LD_LIBRARY_PATH}
+	    export LD_LIBRARY_PATH=${PGPOOLLIB}:${PGLIB}:${LD_LIBRARY_PATH}
 	fi
 
 	export TESTLIBS=$dir/libs.sh
@@ -176,6 +176,7 @@ fi
 verify_pginstallation
 export_env_vars
 print_info
+source $TESTLIBS
 
 #Start executing tests
 rm -fr $log
@@ -193,6 +194,7 @@ for i in $dirs
 do
 	cd $i
 	echo -n "testing $i..."
+	clean_all
 	timeout $TIMEOUT ./test.sh > $log/$i 2>&1
 	rtn=$?
 	if [ $rtn = 0 ];then
