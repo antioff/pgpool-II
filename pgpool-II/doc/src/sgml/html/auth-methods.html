@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.11 Documentation"
+TITLE="pgpool-II 4.0.12 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Client Authentication"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-09-16T08:58:36"></HEAD
+CONTENT="2020-11-18T05:47:11"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.11 Documentation</A
+>pgpool-II 4.0.12 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -566,6 +566,40 @@ CLASS="COMMAND"
     </P
 ></BLOCKQUOTE
 ></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AUTH-GSSAPI"
+>6.2.6. GSSAPI Authentication</A
+></H2
+><P
+>    GSSAPI is an industry-standard protocol for secure authentication
+    defined in RFC 2743.  Currently
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> does not support GSSAPI.
+    Clients should not use GSSAPI authentication, or should use
+    "prefer GSSAPI authentication if possible" option (this is the
+    default setting of <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> clients).
+    If latter is chosen, <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> requests
+    non-GSSAPI authentication to client, and the clients will fall
+    back to non-GSSAPI authentication method. Thus, usually users do
+    not need to worry about that <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>
+    does not accept GSSAPI authentication.
+   </P
 ></DIV
 ></DIV
 ><DIV
