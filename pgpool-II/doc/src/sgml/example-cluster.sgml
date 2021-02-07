@@ -254,7 +254,7 @@
       <thead>
        <row>
 	<entry>User Name</entry>
-	<entry>Passowrd</entry>
+	<entry>Password</entry>
 	<entry>Detail</entry>
        </row>
       </thead>
@@ -351,7 +351,7 @@
      To allow <literal>repl</literal> user without specifying password for streaming 
      replication and online recovery, and execute <application>pg_rewind</application>
      using <literal>postgres</literal>, we create the <filename>.pgpass</filename> file 
-     in <literal>postgres</literal> user's home directory and change the permisson to 
+     in <literal>postgres</literal> user's home directory and change the permission to
      <literal>600</literal> on each <productname>PostgreSQL</productname> server.
     </para>
     <programlisting>
@@ -390,7 +390,7 @@
    <para>
     When installing <productname>Pgpool-II</productname> from RPM,  all the 
     <productname>Pgpool-II</productname> configuration files are in <filename>/etc/pgpool-II</filename>. 
-    In this example, we copy the sample configuration file for streaming replicaton mode.
+    In this example, we copy the sample configuration file for streaming replication mode.
    </para>
    <programlisting>
     # cp -p /etc/pgpool-II/pgpool.conf.sample-stream /etc/pgpool-II/pgpool.conf
@@ -433,7 +433,7 @@
     health_check_max_retries = 3
    </programlisting>
    <para>
-    Specify the <productname>PostgreSQL</productname> backend informations.
+    Specify the <productname>PostgreSQL</productname> backend information.
     Multiple backends can be specified by adding a number at the end of the parameter name.
    </para>
    <programlisting>
@@ -992,22 +992,27 @@ exit 0
    <para>
     The default password file name for authentication is <xref linkend="GUC-POOL-PASSWD">.
      To use <literal>scram-sha-256</literal> authentication, the decryption key to decrypt the passwords
-     is required. We create the .pgpoolkey file in root user's home directory.
+     is required. We create the <literal>.pgpoolkey</literal> file in <productname>Pgpool-II</productname>
+     start user <literal>postgres</literal>'s (<productname>Pgpool-II</productname> 4.1 or later) home directory.
+     (<productname>Pgpool-II</productname> 4.0 or before, by default <productname>Pgpool-II</productname>
+     is started as <literal>root</literal>)
      <programlisting>
-      [all servers]# echo 'some string' > ~/.pgpoolkey 
-      [all servers]# chmod 600 ~/.pgpoolkey
+      [all servers]# su - postgres
+      [all servers]$ echo 'some string' > ~/.pgpoolkey
+      [all servers]$ chmod 600 ~/.pgpoolkey
      </programlisting>
    </para>
    <para>
-    Execute command <command>pg_enc -m -k /path/to/.pgpoolkey -u username -p</command> to regist user 
-    name and <literal>AES</literal> encrypted password in file <filename>pool_passwd</filename>. 
+    Execute command <command>pg_enc -m -k /path/to/.pgpoolkey -u username -p</command> to register user
+    name and <literal>AES</literal> encrypted password in file <filename>pool_passwd</filename>.
     If <filename>pool_passwd</filename> doesn't exist yet, it will be created in the same directory as
     <filename>pgpool.conf</filename>.
    </para>
    <programlisting>
-    [all servers]# pg_enc -m -k /root/.pgpoolkey -u pgpool -p
+    [all servers]# su - postgres
+    [all servers]$ pg_enc -m -k ~/.pgpoolkey -u pgpool -p
     db password: [pgpool user's password]
-    [all servers]# pg_enc -m -k /root/.pgpoolkey -u postgres -p
+    [all servers]$ pg_enc -m -k ~/.pgpoolkey -u postgres -p
     db password: [postgres user's passowrd]
 
     # cat /etc/pgpool-II/pool_passwd 
@@ -1047,6 +1052,12 @@ if_up_cmd = '/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev enp0s8 label enp0s8:0
 if_down_cmd = '/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev enp0s8'
 arping_cmd = '/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I enp0s8'
    </programlisting>
+   <note>
+    <para>
+     If "Defaults requiretty" is set in the <filename>/etc/sudoers</filename>,
+     please ensure that the <productname>pgpool</productname> startup user can execute the <command>if_up_cmd</command>, <command>if_down_cmd</command> and <command>arping_cmd</command> command without a tty.
+    </para>
+   </note>
    <para>
     Set <xref linkend="GUC-IF-CMD-PATH"> and <xref linkend="GUC-ARPING-PATH"> according to the
     command path.
@@ -1406,7 +1417,7 @@ arping_path = '/usr/sbin'
    </programlisting>
    <para>
     After executing <command>pcp_recovery_node</command> command, 
-    vertify that <literal>server2</literal> and <literal>server3</literal> 
+    verify that <literal>server2</literal> and <literal>server3</literal>
     are started as <productname>PostgreSQL</productname> standby server.
    </para>
    <programlisting>
@@ -1454,7 +1465,7 @@ arping_path = '/usr/sbin'
    </programlisting>
    <para>
     Start <productname>Pgpool-II</productname> (<literal>server1</literal>) which we have stopped again,
-    and vertify that <literal>server1</literal> runs as a standby.
+    and verify that <literal>server1</literal> runs as a standby.
    </para>
    <programlisting>
     [server1]# systemctl start pgpool.service
@@ -1473,7 +1484,7 @@ arping_path = '/usr/sbin'
    <title>Failover</title>
    <para>
     First, use <command>psql</command> to connect to <productname>PostgreSQL</productname> via virtual IP,
-    and verify the backend informations.
+    and verify the backend information.
    </para>
    <programlisting>
     # psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"

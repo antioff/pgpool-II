@@ -388,13 +388,15 @@ pool_get_user_credentials(char *username)
 			char	   *pwd;
 
 			t = getNextToken(t, &pwd);
-			if (tok)
+			if (pwd)
 			{
 				pwdMapping->backendUser.password = pwd;
 				pwdMapping->backendUser.userName = tok;
 				pwdMapping->backendUser.passwordType = get_password_type(pwdMapping->backendUser.password);
 				pwdMapping->mappedUser = true;
 			}
+			else
+				pfree(tok);
 		}
 		break;
 	}

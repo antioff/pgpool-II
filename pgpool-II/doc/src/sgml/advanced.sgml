@@ -11,10 +11,10 @@
    <productname>Pgpool-II</productname> to add high
    availability. Watchdog is used to resolve the single point of
    failure by coordinating multiple
-   <productname>pgpool-II</productname> nodes. The watchdog was first
-   introduced in <productname>pgpool-II</productname>
+   <productname>Pgpool-II</productname> nodes. The watchdog was first
+   introduced in <productname>Pgpool-II</productname>
    <emphasis>V3.2</emphasis> and is significantly enhanced in
-   <productname>pgpool-II</productname> <emphasis>V3.5</emphasis>, to
+   <productname>Pgpool-II</productname> <emphasis>V3.5</emphasis>, to
    ensure the presence of a quorum at all time. This new addition to
    watchdog makes it more fault tolerant and robust in handling and
    guarding against the split-brain syndrome and network
@@ -22,9 +22,9 @@
    quorum failover (see <xref
     linkend="config-watchdog-failover-behavior">) to reduce the false
     positives of <productname>PostgreSQL</productname> server
-    failures. To ensure the quorum mechanism properly works, the number
-    of <productname>pgpool-II</productname> nodes must be odd in number
-    and greater than or equal to 3.
+    failures. <emphasis>To ensure the quorum mechanism properly works, the number
+    of <productname>Pgpool-II</productname> nodes must be odd in number
+    and greater than or equal to 3.</emphasis>
   </para>
 
   <sect2 id="tutorial-watchdog-coordinating-nodes">
@@ -351,7 +351,7 @@
        <entry>NODE STATUS CHANGE</entry>
        <entry>'2'</entry>
        <entry>Command packet</entry>
-       <entry>Command to inform watchdog about node status change of watchddog node</entry>
+       <entry>Command to inform watchdog about node status change of watchdog node</entry>
       </row>
       <row>
        <entry>GET NODES LIST</entry>
@@ -417,7 +417,7 @@
        the "NODES LIST DATA" result packet.
     </para>
     <para>
-     The result packet returnd by watchdog for the "GET NODES LIST"
+     The result packet returned by watchdog for the "GET NODES LIST"
      will contains the list of all configured watchdog nodes to do
      health check on in the <acronym>JSON</acronym> format.
      The <acronym>JSON</acronym> of the watchdog nodes contains the
@@ -523,7 +523,7 @@
     status and brings the virtual IP assigned to watchdog down.
     Thus clients of <productname>Pgpool-II</productname> cannot
     connect to <productname>Pgpool-II</productname> using the
-    virtual IP any more. This is neccessary to avoid split-brain,
+    virtual IP any more. This is necessary to avoid split-brain,
     that is, situations where there are multiple active
     <productname>Pgpool-II</productname>.
    </para>

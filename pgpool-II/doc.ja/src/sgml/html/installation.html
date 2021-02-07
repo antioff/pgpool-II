@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.1 文書"
+TITLE="Pgpool-II 4.1.2 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバ管理"
@@ -18,15 +18,15 @@ REL="PREVIOUS"
 TITLE="サーバ管理"
 HREF="admin.html"><LINK
 REL="NEXT"
-TITLE="Pgpool-IIのインストール"
-HREF="install-source.html"><LINK
+TITLE="プランニング"
+HREF="planning.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-02-19T07:52:09"></HEAD
+CONTENT="2020-05-19T10:05:13"></HEAD
 ><BODY
 CLASS="CHAPTER"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.1 文書</A
+>Pgpool-II 4.1.2 文書</A
 ></TH
 ></TR
 ><TR
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="Pgpool-IIのインストール"
-HREF="install-source.html"
+TITLE="プランニング"
+HREF="planning.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -106,84 +106,103 @@ CLASS="TOC"
 ></DT
 ><DT
 >2.1. <A
+HREF="planning.html"
+>プランニング</A
+></DT
+><DD
+><DL
+><DT
+>2.1.1. <A
+HREF="planning.html#PLANNING-POSTGRESQL"
+>PostgreSQLの動作モード</A
+></DT
+><DT
+>2.1.2. <A
+HREF="planning.html#PLANNING-PGPOOL"
+>Pgpool-IIの導入形態</A
+></DT
+></DL
+></DD
+><DT
+>2.2. <A
 HREF="install-source.html"
 >Pgpool-IIのインストール</A
 ></DT
 ><DT
->2.2. <A
+>2.3. <A
 HREF="install-requirements.html"
 >必要条件</A
 ></DT
 ><DT
->2.3. <A
+>2.4. <A
 HREF="install-getsource.html"
 >ソースの入手</A
 ></DT
 ><DT
->2.4. <A
+>2.5. <A
 HREF="install-pgpool.html"
 >Pgpool-IIのインストール</A
 ></DT
 ><DT
->2.5. <A
+>2.6. <A
 HREF="install-pgpool-recovery.html"
 >pgpool_recoveryのインストール</A
 ></DT
 ><DT
->2.6. <A
+>2.7. <A
 HREF="install-pgpool-regclass.html"
 >pgpool-regclassのインストール</A
 ></DT
 ><DT
->2.7. <A
+>2.8. <A
 HREF="create-installlock-table.html"
 >insert_lockテーブルの作成</A
 ></DT
 ><DT
->2.8. <A
+>2.9. <A
 HREF="install-docs.html"
 >ドキュメントのコンパイルとインストール</A
 ></DT
 ><DD
 ><DL
 ><DT
->2.8.1. <A
+>2.9.1. <A
 HREF="install-docs.html#INSTALL-DOCS-TOOL-SETS"
 >ツールセット</A
 ></DT
 ><DT
->2.8.2. <A
+>2.9.2. <A
 HREF="install-docs.html#INSTALL-DOCS-MAKE"
 >ドキュメントのコンパイル</A
 ></DT
 ></DL
 ></DD
 ><DT
->2.9. <A
+>2.10. <A
 HREF="install-rpm.html"
 >RPMからのインストール</A
 ></DT
 ><DD
 ><DL
 ><DT
->2.9.1. <A
+>2.10.1. <A
 HREF="install-rpm.html#INSTALLING-RPM"
 >RPMのインストール</A
 ></DT
 ><DT
->2.9.2. <A
+>2.10.2. <A
 HREF="install-rpm.html#CONFIGURE-RPM"
 >RPMの設定</A
 ></DT
 ><DT
->2.9.3. <A
+>2.10.3. <A
 HREF="install-rpm.html#START-RPM"
 >Pgpool-IIの起動と停止</A
 ></DT
 ></DL
 ></DD
 ><DT
->2.10. <A
+>2.11. <A
 HREF="installation-tips.html"
 >インストールのヒント</A
 ></DT
@@ -224,7 +243,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="install-source.html"
+HREF="planning.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -248,7 +267,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->Pgpool-IIのインストール</TD
+>プランニング</TD
 ></TR
 ></TABLE
 ></DIV

@@ -1,6 +1,119 @@
 <!-- doc/src/sgml/release-3.7.sgml -->
 <!-- See header comment in release.sgml about typical markup -->
 
+<sect1 id=release-3-7-14> 
+ <title>Release 3.7.14</title>
+ <note>
+  <title>Release Date</title>
+  <simpara>2020-05-21</simpara>
+ </note>
+
+ <sect2>
+  <title>Bug fixes</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2020-05-16 [2fd983b]
+    2020-04-26 [1304dcc]
+    -->
+    <para>
+     Fix build error on some system (Fedora 32). (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-04-23 [1221a65]
+    -->
+    <para>
+     Fix unnecessary checks. (Tatsuo Ishii)
+    </para>
+    <para>
+     Patch contributed by sherlockcpp. Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2020-April/007062.html">[pgpool-general: 7004]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-04-23 [8ea84b9]
+    -->
+    <para>
+     Doc: Fix typo. (Tatsuo Ishii)
+    </para>
+    <para>
+     Patch contributed by Umar Hayat. Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2020-April/003587.html">[pgpool-hackers: 3587]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-04-16 [75432c0]
+    -->
+    <para>
+     Fix for segmentation fault in PCP process. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=598">bug 598</ulink>) (Muhammad Usama)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-04-12 [237793e]
+    2020-04-06 [225290a]
+    -->
+    <para>
+     Doc: Fix typo. (Tatsuo Ishii, Bo Peng)
+    </para>
+    <para>
+     Patch provided by sherlockcpp.
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-03-31 [9151b53]
+    -->
+    <para>
+     Fix <productname>Pgpool-II</productname> hangs when an Execute message is issued right after Sync message and query cache hits. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-03-13 [a558287]
+    -->
+    <para>
+     Fix problems in watchdog source code processing json data. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=596">bug 596</ulink>) (Tatsuo Ishii)
+    </para>
+    <para>
+     Patch is provided by Greg Nancarrow (Fujitsu Australia).
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-03-11 [a639141]
+    -->
+    <para>
+     Fix possible data inconsistency in native replication mode. (Tatsuo Ishii)
+    </para>
+    <para>
+     Discussions:
+     <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2020-March/006954.html">[pgpool-general: 6896]</ulink>
+     <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2020-March/003540.html">[pgpool-hackers: 3540]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2020-03-06 [5ce6273]
+    -->
+    <para>
+     Fix watchdog ping probes fail with long hostnames due to small buffer. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=516">bug 516</ulink>) (Bo Peng)
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+</sect1>
+
 <sect1 id=release-3-7-13> 
  <title>Release 3.7.13</title>
  <note>
@@ -35,7 +148,7 @@
     2020-01-28 [abbba81]
     -->
     <para>
-     Check if socket file exists at startup and remove them if PID file doesn't exist to avoid bind() failire. (Bo Peng)
+     Check if socket file exists at startup and remove them if PID file doesn't exist to avoid bind() failure. (Bo Peng)
     </para>
    </listitem>
   </itemizedlist>
@@ -262,7 +375,7 @@
     2019-09-04 [3ba4e73]
     -->
     <para>
-     Doc: mention that VIP will not be brougt up if quorum does not exist. (Tatsuo Ishii)
+     Doc: mention that VIP will not be brought up if quorum does not exist. (Tatsuo Ishii)
     </para>
     <para>
      
@@ -467,7 +580,7 @@
     2019-07-03 [380d8a5]
     -->
     <para>
-     Fix sefault when query cache is enabled. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=525">bug 525</ulink>) (Tatsuo Ishii)
+     Fix segfault when query cache is enabled. (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=525">bug 525</ulink>) (Tatsuo Ishii)
     </para>
    </listitem>
 
@@ -631,7 +744,7 @@
      (<ulink url="http://www.pgpool.net/mantisbt/view.php?id=487">bug 487</>) (Bo Peng)
     </para>
     <para>
-     When all backend nodes are down, <productname>Pgpool-II</> throws an uncorrect
+     When all backend nodes are down, <productname>Pgpool-II</> throws an incorrect
      error message "ERROR: connection cache is full". Change the error
      message to "all backend nodes are down, pgpool requires at least one valid node".
     </para>
@@ -996,7 +1109,7 @@
     </para>
     <para>
      If order of startup packet's  parameters differ between cached connection
-     pools and connection request, did't use connection pool ,and created new
+     pools and connection request, didn't use connection pool ,and created new
      connection pool.
     </para>
    </listitem>
@@ -1237,7 +1350,7 @@
     </para>
     <para>
      In a explicit transaction, the <literal>SELECT</literal> results are cached in temporary buffer.
-     If a write <acronym>SQL</acronym> is sent which modifies the table, the temporary buffe should be reset.
+     If a write <acronym>SQL</acronym> is sent which modifies the table, the temporary buffer should be reset.
     </para>
    </listitem>
 
@@ -2085,7 +2198,7 @@
      Change the <filename>pgpool.service</filename> and sysconfig files to output <productname>Pgpool-II</productname> log. (Bo Peng)
     </para>
     <para>
-     Removeing "Type=forking" and add OPTS=" -n" to
+     Removing "Type=forking" and add OPTS=" -n" to
      run <productname>Pgpool-II</productname> with non-daemon mode, because we need to redirect logs.
      Using <command>"journalctl"</command> command to see <productname>Pgpool-II</productname> systemd log.
     </para>
@@ -2225,7 +2338,7 @@
      frontend. In most cases this is good. However if other than primary
      node or master node returns an error state (this could happen if load
      balance node is other than primary or master node and the query is an
-     errornous SELECT), this should be returned to frontend, because the
+     erroneous SELECT), this should be returned to frontend, because the
      frontend already received an error.
     </para>
    </listitem>
@@ -2587,7 +2700,7 @@
     2017-09-19 [34922b5]
     -->
     <para>
-     Test: Add new test 011.watchdoc_quorum_failover. (Tatsuo Ishii)
+     Test: Add new test 011.watchdog_quorum_failover. (Tatsuo Ishii)
     </para>
    </listitem>
 

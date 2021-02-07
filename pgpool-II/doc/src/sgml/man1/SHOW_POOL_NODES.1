@@ -2,12 +2,12 @@
 .\"     Title: SHOW POOL NODES
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2019
-.\"    Manual: pgpool-II 4.1.1 Documentation
-.\"    Source: pgpool-II 4.1.1
+.\"      Date: 2020
+.\"    Manual: pgpool-II 4.1.2 Documentation
+.\"    Source: pgpool-II 4.1.2
 .\"  Language: English
 .\"
-.TH "SHOW POOL NODES" "1" "2019" "pgpool-II 4.1.1" "pgpool-II 4.1.1 Documentation"
+.TH "SHOW POOL NODES" "1" "2020" "pgpool-II 4.1.2" "pgpool-II 4.1.2 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,7 +38,7 @@ SHOW_POOL_NODES \- sends back a list of all configured nodes
 .SH "DESCRIPTION"
 .PP
 \fBSHOW POOL_NODES\fR
-displays the node id, the hostname, the port, the status, the weight (only meaningful if you use the load balancing mode), the role, the SELECT query counts issued to each backend, whether each node is the load bakance node or not, the replication delay (only if in streaming replication mode) and last status change time\&. In addition to this replicatin state and sync state are shown for standby nodes in
+displays the node id, the hostname, the port, the status, the weight (only meaningful if you use the load balancing mode), the role, the SELECT query counts issued to each backend, whether each node is the load balance node or not, the replication delay (only if in streaming replication mode) and last status change time\&. In addition to this replication state and sync state are shown for standby nodes in
 Pgpool\-II
 4\&.1 or after\&. The possible values in the status column are explained in the
 \fBpcp_node_info\fR(1)
