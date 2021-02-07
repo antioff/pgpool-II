@@ -2302,6 +2302,7 @@ retry_startup:
 	{
 		cancel_request((CancelPacket *) sp->startup_packet);
 		pool_free_startup_packet(sp);
+		connection_count_down();
 		return NULL;
 	}
 
@@ -2313,6 +2314,20 @@ retry_startup:
 				 errdetail("SSLRequest from client")));
 
 		pool_ssl_negotiate_serverclient(frontend);
+		pool_free_startup_packet(sp);
+		goto retry_startup;
+	}
+
+	/* GSSAPI? */
+	if (sp->major == 1234 && sp->minor == 5680)
+	{
+		ereport(DEBUG1,
+				(errmsg("selecting backend connection"),
+				 errdetail("GSSAPI request from client")));
+
+		/* sorry, Pgpool-II does not support GSSAPI yet */
+		pool_write_and_flush(frontend, "N", 1);
+
 		pool_free_startup_packet(sp);
 		goto retry_startup;
 	}
