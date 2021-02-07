@@ -104,12 +104,6 @@ rm -f %buildroot%_sysconfdir/pgpool.conf.sample-*
 cp doc/src/sgml/man1/* %buildroot%_man1dir/
 cp doc/src/sgml/man8/* %buildroot%_man8dir/
 
-mkdir %buildroot%_sysconfdir/cron.d
-/bin/cat << __EOF__ > %buildroot%_sysconfdir/cron.d/pgpool
-20	10	*	*	*	root	find /var/log/pgpool/ -type f -mtime +90 -delete
-__EOF__
-
-
 %post
 %post_service pgpool
 
@@ -126,7 +120,6 @@ __EOF__
 %config(noreplace) %_sysconfdir/pgpool.conf
 %config(noreplace) %_sysconfdir/pcp.conf
 %config(noreplace) %_sysconfdir/pool_hba.conf
-%config %_sysconfdir/cron.d/pgpool
 %_man1dir/*
 %_man8dir/*
 
