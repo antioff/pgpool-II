@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: pgpool-II 4.0.6 Documentation
-.\"    Source: pgpool-II 4.0.6
+.\"    Manual: pgpool-II 4.0.7 Documentation
+.\"    Source: pgpool-II 4.0.7
 .\"  Language: English
 .\"
-.TH "PCP_PROC_INFO" "1" "2018" "pgpool-II 4.0.6" "pgpool-II 4.0.6 Documentation"
+.TH "PCP_PROC_INFO" "1" "2018" "pgpool-II 4.0.7" "pgpool-II 4.0.7 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -73,10 +73,10 @@ Here is an example output:
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-p 11001 1406
-test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1435 1 1406 0
-test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1436 1 1406 1
-    
+    $ pcp_proc_info \-p 11001 1406
+    test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1435 1 1406 0
+    test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1436 1 1406 1
+   
 .fi
 .if n \{\
 .RE
@@ -88,17 +88,18 @@ The result is in the following order:
 .RS 4
 .\}
 .nf
-1\&. connected database name
-2\&. connected user name
-3\&. process start\-up timestamp
-4\&. connection created timestamp
-5\&. protocol major version
-6\&. protocol minor version
-7\&. connection\-reuse counter
-8\&. PostgreSQL backend process id
-9\&. 1 if frontend conncted 0 if not
-10\&. pgpool child process id
-11\&. PostgreSQL backend id 
+    1\&. connected database name
+    2\&. connected user name
+    3\&. process start\-up timestamp
+    4\&. connection created timestamp
+    5\&. protocol major version
+    6\&. protocol minor version
+    7\&. connection\-reuse counter
+    8\&. PostgreSQL backend process id
+    9\&. 1 if frontend conncted 0 if not
+    10\&. pgpool child process id
+    11\&. PostgreSQL backend id 
+   
 .fi
 .if n \{\
 .RE
@@ -114,30 +115,30 @@ option can help understand the output\&. For example:
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-p 11001 \-\-verbose 1406
-Database     : test
-Username     : t\-ishii
-Start time   : 2018\-07\-09 16:43:53
-Creation time: 2018\-07\-09 16:44:08
-Major        : 3
-Minor        : 0
-Counter      : 1
-Backend PID  : 1435
-Connected    : 1
-PID          : 1406
-Backend ID   : 0
-Database     : test
-Username     : t\-ishii
-Start time   : 2018\-07\-09 16:43:53
-Creation time: 2018\-07\-09 16:44:08
-Major        : 3
-Minor        : 0
-Counter      : 1
-Backend PID  : 1436
-Connected    : 1
-PID          : 1406
-Backend ID   : 1
-    
+   $ pcp_proc_info \-p 11001 \-\-verbose 1406
+   Database     : test
+   Username     : t\-ishii
+   Start time   : 2018\-07\-09 16:43:53
+   Creation time: 2018\-07\-09 16:44:08
+   Major        : 3
+   Minor        : 0
+   Counter      : 1
+   Backend PID  : 1435
+   Connected    : 1
+   PID          : 1406
+   Backend ID   : 0
+   Database     : test
+   Username     : t\-ishii
+   Start time   : 2018\-07\-09 16:43:53
+   Creation time: 2018\-07\-09 16:44:08
+   Major        : 3
+   Minor        : 0
+   Counter      : 1
+   Backend PID  : 1436
+   Connected    : 1
+   PID          : 1406
+   Backend ID   : 1
+  
 .fi
 .if n \{\
 .RE

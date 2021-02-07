@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.6 文書"
+TITLE="Pgpool-II 4.0.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:19"></HEAD
+CONTENT="2019-10-31T01:06:23"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.6 文書</A
+>Pgpool-II 4.0.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-4-12"
->A.70. リリース 3.4.12</A
+>A.75. リリース 3.4.12</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,15 +110,15 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN12820"
->A.70.1. 不具合修正</A
+NAME="AEN13027"
+>A.75.1. 不具合修正</A
 ></H2
 ><P
 ></P
 ><UL
 ><LI
 ><P
->    <SPAN
+>     <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >の<SPAN
@@ -129,7 +129,7 @@ CLASS="PRODUCTNAME"
 ></LI
 ><LI
 ><P
->    <A
+>     <A
 HREF="http://www.sraoss.jp/pipermail/pgpool-hackers/2017-June/002390.html"
 TARGET="_top"
 >[pgpool-hackers: 2390]</A
@@ -138,26 +138,26 @@ TARGET="_top"
 ></LI
 ><LI
 ><P
->    <SPAN
+>     <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > 10の変更に合わせて以下の関数名を修正しました。(Tatsuo Ishii)
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    pg_current_wal_location     -&#62; pg_current_wal_lsn
-    pg_last_wal_replay_location -&#62; pg_last_wal_replay_lsn
+>     pg_current_wal_location     -&#62; pg_current_wal_lsn
+     pg_last_wal_replay_location -&#62; pg_last_wal_replay_lsn
     </PRE
 ></LI
 ><LI
 ><P
->    <SPAN
+>     <SPAN
 CLASS="PRODUCTNAME"
 >node.js</SPAN
 >を使用する場合に発生するクエリキャッシュのハングアップの問題を修正しました。(Tatsuo Ishii)
     </P
 ><P
->    詳細は<A
+>     詳細は<A
 HREF="http://www.pgpool.net/pipermail/pgpool-general/2017-May/005569.html"
 TARGET="_top"
 >[pgpool-general: 5511]</A
@@ -166,7 +166,7 @@ TARGET="_top"
 ></LI
 ><LI
 ><P
->    <SPAN
+>     <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > 10のストリーミングレプリケーションの遅延チェックに関する変更に合わせて修正しました。(Tatsuo Ishii)
@@ -174,10 +174,10 @@ CLASS="PRODUCTNAME"
 ></LI
 ><LI
 ><P
->    クエリキャッシュのメモリリークを修正しました。(Tatsuo Ishii)
+>     クエリキャッシュのメモリリークを修正しました。(Tatsuo Ishii)
     </P
 ><P
->    oidがないクエリ（<TT
+>     oidがないクエリ（<TT
 CLASS="COMMAND"
 >BEGIN</TT
 >、<TT
@@ -191,21 +191,21 @@ CLASS="COMMAND"
 ></LI
 ><LI
 ><P
->    滅多に発生しない<SPAN
+>     滅多に発生しない<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >起動時のバグを修正しました。(Tatsuo Ishii)
     </P
 ><P
->    プライマリノードが見つかる前にフェールオーバーの要求が受け入れられる可能性がありました。
-    これにより、<SPAN
+>     プライマリノードが見つかる前にフェールオーバーの要求が受け入れられる可能性がありました。
+     これにより、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >は奇妙な状態に陥ります。障害が発生したノードはプライマリノードの場合、
-    プライマリノードは存在しないと判断していました。（既存のスタンバイが昇格し新しいプライマリノードになった場合でも）
+     プライマリノードは存在しないと判断していました。（既存のスタンバイが昇格し新しいプライマリノードになった場合でも）
     </P
 ><P
->    詳細は<A
+>     詳細は<A
 HREF="http://www.pgpool.net/pipermail/pgpool-hackers/2017-May/002321.html"
 TARGET="_top"
 >[pgpool-hackers: 2321]</A

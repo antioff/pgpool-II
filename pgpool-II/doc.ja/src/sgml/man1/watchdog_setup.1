@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: Pgpool-II 4.0.6 文書
-.\"    Source: Pgpool-II 4.0.6
+.\"    Manual: Pgpool-II 4.0.7 文書
+.\"    Source: Pgpool-II 4.0.7
 .\"  Language: Japanese
 .\"
-.TH "WATCHDOG_SETUP" "1" "2018" "Pgpool-II 4.0.6" "Pgpool-II 4.0.6 文書"
+.TH "WATCHDOG_SETUP" "1" "2018" "Pgpool-II 4.0.7" "Pgpool-II 4.0.7 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -162,205 +162,208 @@ initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\
 .RS 4
 .\}
 .nf
-$ watchdog_setup
-Starting set up
-============= setting up pgpool 0 =============
-Starting set up in streaming replication mode
-creating startall and shutdownall
-creating failover script
-creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/data0\&.\&.\&.done\&.
-update postgresql\&.conf
-creating pgpool_remote_start
-creating basebackup\&.sh
-creating recovery\&.conf
-creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/data1\&.\&.\&.done\&.
-update postgresql\&.conf
-creating pgpool_remote_start
-creating basebackup\&.sh
-creating recovery\&.conf
-temporarily start data0 cluster to create extensions
-temporarily start pgpool\-II to create standby nodes
-INFO:  unrecognized configuration parameter "debug_level"
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
- 0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
- 1       | /tmp     | 51001 | down   | 0\&.500000  | standby | 0          | false             | 0
-(2 rows)
+    $ watchdog_setup
+    Starting set up
+    ============= setting up pgpool 0 =============
+    Starting set up in streaming replication mode
+    creating startall and shutdownall
+    creating failover script
+    creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/data0\&.\&.\&.done\&.
+    update postgresql\&.conf
+    creating pgpool_remote_start
+    creating basebackup\&.sh
+    creating recovery\&.conf
+    creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/data1\&.\&.\&.done\&.
+    update postgresql\&.conf
+    creating pgpool_remote_start
+    creating basebackup\&.sh
+    creating recovery\&.conf
+    temporarily start data0 cluster to create extensions
+    temporarily start pgpool\-II to create standby nodes
+    INFO:  unrecognized configuration parameter "debug_level"
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
+    \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+    0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
+    1       | /tmp     | 51001 | down   | 0\&.500000  | standby | 0          | false             | 0
+    (2 rows)
 
-recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
-done\&.
-creating follow master script
-Pager usage is off\&.
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
- 0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | false             | 0
- 1       | /tmp     | 51001 | up     | 0\&.500000  | standby | 0          | true              | 0
-(2 rows)
+    recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
+    done\&.
+    creating follow master script
+    Pager usage is off\&.
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
+    \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+    0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | false             | 0
+    1       | /tmp     | 51001 | up     | 0\&.500000  | standby | 0          | true              | 0
+    (2 rows)
 
-shutdown all
+    shutdown all
 
-pgpool\-II setting for streaming replication mode is done\&.
-To start the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/startall\&.
-To shutdown the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/shutdownall\&.
-pcp command user name is "t\-ishii", password is "t\-ishii"\&.
-Each PostgreSQL, pgpool\-II and pcp port is as follows:
-#1 port is 51000
-#2 port is 51001
-pgpool port is 50000
-pcp port is 50001
-The info above is in README\&.port\&.
-============= setting up pgpool 1 =============
-Starting set up in streaming replication mode
-creating startall and shutdownall
-creating failover script
-creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/data0\&.\&.\&.done\&.
-update postgresql\&.conf
-creating pgpool_remote_start
-creating basebackup\&.sh
-creating recovery\&.conf
-creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/data1\&.\&.\&.done\&.
-update postgresql\&.conf
-creating pgpool_remote_start
-creating basebackup\&.sh
-creating recovery\&.conf
-temporarily start data0 cluster to create extensions
-temporarily start pgpool\-II to create standby nodes
-INFO:  unrecognized configuration parameter "debug_level"
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
- 0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
- 1       | /tmp     | 51001 | down   | 0\&.500000  | standby | 0          | false             | 0
-(2 rows)
+    pgpool\-II setting for streaming replication mode is done\&.
+    To start the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/startall\&.
+    To shutdown the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool0/shutdownall\&.
+    pcp command user name is "t\-ishii", password is "t\-ishii"\&.
+    Each PostgreSQL, pgpool\-II and pcp port is as follows:
+    #1 port is 51000
+    #2 port is 51001
+    pgpool port is 50000
+    pcp port is 50001
+    The info above is in README\&.port\&.
+    ============= setting up pgpool 1 =============
+    Starting set up in streaming replication mode
+    creating startall and shutdownall
+    creating failover script
+    creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/data0\&.\&.\&.done\&.
+    update postgresql\&.conf
+    creating pgpool_remote_start
+    creating basebackup\&.sh
+    creating recovery\&.conf
+    creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/data1\&.\&.\&.done\&.
+    update postgresql\&.conf
+    creating pgpool_remote_start
+    creating basebackup\&.sh
+    creating recovery\&.conf
+    temporarily start data0 cluster to create extensions
+    temporarily start pgpool\-II to create standby nodes
+    INFO:  unrecognized configuration parameter "debug_level"
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
+    \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+    0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
+    1       | /tmp     | 51001 | down   | 0\&.500000  | standby | 0          | false             | 0
+    (2 rows)
 
-recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
-done\&.
-creating follow master script
-Pager usage is off\&.
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
- 0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
- 1       | /tmp     | 51001 | up     | 0\&.500000  | standby | 0          | false             | 0
-(2 rows)
+    recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
+    done\&.
+    creating follow master script
+    Pager usage is off\&.
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
+    \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+    0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
+    1       | /tmp     | 51001 | up     | 0\&.500000  | standby | 0          | false             | 0
+    (2 rows)
 
-shutdown all
+    shutdown all
 
-pgpool\-II setting for streaming replication mode is done\&.
-To start the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/startall\&.
-To shutdown the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/shutdownall\&.
-pcp command user name is "t\-ishii", password is "t\-ishii"\&.
-Each PostgreSQL, pgpool\-II and pcp port is as follows:
-#1 port is 51000
-#2 port is 51001
-pgpool port is 50004
-pcp port is 50005
-The info above is in README\&.port\&.
-============= setting up pgpool 2 =============
-Starting set up in streaming replication mode
-creating startall and shutdownall
-creating failover script
-creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/data0\&.\&.\&.done\&.
-update postgresql\&.conf
-creating pgpool_remote_start
-creating basebackup\&.sh
-creating recovery\&.conf
-creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/data1\&.\&.\&.done\&.
-update postgresql\&.conf
-creating pgpool_remote_start
-creating basebackup\&.sh
-creating recovery\&.conf
-temporarily start data0 cluster to create extensions
-temporarily start pgpool\-II to create standby nodes
-INFO:  unrecognized configuration parameter "debug_level"
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
- 0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
- 1       | /tmp     | 51001 | down   | 0\&.500000  | standby | 0          | false             | 0
-(2 rows)
+    pgpool\-II setting for streaming replication mode is done\&.
+    To start the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/startall\&.
+    To shutdown the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool1/shutdownall\&.
+    pcp command user name is "t\-ishii", password is "t\-ishii"\&.
+    Each PostgreSQL, pgpool\-II and pcp port is as follows:
+    #1 port is 51000
+    #2 port is 51001
+    pgpool port is 50004
+    pcp port is 50005
+    The info above is in README\&.port\&.
+    ============= setting up pgpool 2 =============
+    Starting set up in streaming replication mode
+    creating startall and shutdownall
+    creating failover script
+    creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/data0\&.\&.\&.done\&.
+    update postgresql\&.conf
+    creating pgpool_remote_start
+    creating basebackup\&.sh
+    creating recovery\&.conf
+    creating database cluster /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/data1\&.\&.\&.done\&.
+    update postgresql\&.conf
+    creating pgpool_remote_start
+    creating basebackup\&.sh
+    creating recovery\&.conf
+    temporarily start data0 cluster to create extensions
+    temporarily start pgpool\-II to create standby nodes
+    INFO:  unrecognized configuration parameter "debug_level"
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
+    \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+    0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
+    1       | /tmp     | 51001 | down   | 0\&.500000  | standby | 0          | false             | 0
+    (2 rows)
 
-recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
-done\&.
-creating follow master script
-Pager usage is off\&.
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
- 0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
- 1       | /tmp     | 51001 | up     | 0\&.500000  | standby | 0          | false             | 0
-(2 rows)
+    recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
+    done\&.
+    creating follow master script
+    Pager usage is off\&.
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
+    \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+    0       | /tmp     | 51000 | up     | 0\&.500000  | primary | 0          | true              | 0
+    1       | /tmp     | 51001 | up     | 0\&.500000  | standby | 0          | false             | 0
+    (2 rows)
 
-shutdown all
+    shutdown all
 
-pgpool\-II setting for streaming replication mode is done\&.
-To start the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/startall\&.
-To shutdown the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/shutdownall\&.
-pcp command user name is "t\-ishii", password is "t\-ishii"\&.
-Each PostgreSQL, pgpool\-II and pcp port is as follows:
-#1 port is 51000
-#2 port is 51001
-pgpool port is 50008
-pcp port is 50009
-The info above is in README\&.port\&.
+    pgpool\-II setting for streaming replication mode is done\&.
+    To start the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/startall\&.
+    To shutdown the whole system, use /home/t\-ishii/work/pgpool\-II/current/pgpool2/src/test/a/pgpool2/shutdownall\&.
+    pcp command user name is "t\-ishii", password is "t\-ishii"\&.
+    Each PostgreSQL, pgpool\-II and pcp port is as follows:
+    #1 port is 51000
+    #2 port is 51001
+    pgpool port is 50008
+    pcp port is 50009
+    The info above is in README\&.port\&.
 
-$ ls
-pgpool0  pgpool1  pgpool2  shutdownall	startall
+    $ ls
+    pgpool0  pgpool1  pgpool2  shutdownall	startall
 
-$ sh startall
-waiting for server to start\&.\&.\&.\&.16123 2016\-08\-18 16:26:53 JST LOG:  redirecting log output to logging collector process
-16123 2016\-08\-18 16:26:53 JST HINT:  Future log output will appear in directory "pg_log"\&.
- done
-server started
-waiting for server to start\&.\&.\&.\&.16136 2016\-08\-18 16:26:54 JST LOG:  redirecting log output to logging collector process
-16136 2016\-08\-18 16:26:54 JST HINT:  Future log output will appear in directory "pg_log"\&.
- done
-server started
+    $ sh startall
+    waiting for server to start\&.\&.\&.\&.16123 2016\-08\-18 16:26:53 JST LOG:  redirecting log output to logging collector process
+    16123 2016\-08\-18 16:26:53 JST HINT:  Future log output will appear in directory "pg_log"\&.
+    done
+    server started
+    waiting for server to start\&.\&.\&.\&.16136 2016\-08\-18 16:26:54 JST LOG:  redirecting log output to logging collector process
+    16136 2016\-08\-18 16:26:54 JST HINT:  Future log output will appear in directory "pg_log"\&.
+    done
+    server started
 
-t\-ishii@localhost: psql \-p 50000 test
+    t\-ishii@localhost: psql \-p 50000 test
 
-Pager usage is off\&.
-psql (9\&.5\&.4)
-Type "help" for help\&.
+    Pager usage is off\&.
+    psql (9\&.5\&.4)
+    Type "help" for help\&.
 
-test=# \eq
+    test=# \eq
 
-$ pcp_watchdog_info \-p 50001 \-v
-Password:
-Watchdog Cluster Information
-Total Nodes          : 3
-Remote Nodes         : 2
-Quorum state         : QUORUM EXIST
-Alive Remote Nodes   : 2
-VIP up on local node : NO
-Master Node Name     : Linux_tishii\-CF\-SX3HE4BP_50004
-Master Host Name     : localhost
+    $ pcp_watchdog_info \-p 50001 \-v
+    Password:
+    Watchdog Cluster Information
+    Total Nodes          : 3
+    Remote Nodes         : 2
+    Quorum state         : QUORUM EXIST
+    Alive Remote Nodes   : 2
+    VIP up on local node : NO
+    Master Node Name     : Linux_tishii\-CF\-SX3HE4BP_50004
+    Master Host Name     : localhost
 
-Watchdog Node Information
-Node Name      : Linux_tishii\-CF\-SX3HE4BP_50000
-Host Name      : localhost
-Delegate IP    : Not_Set
-Pgpool port    : 50000
-Watchdog port  : 50002
-Node priority  : 1
-Status         : 7
-Status Name    : STANDBY
+    Watchdog Node Information
+    Node Name      : Linux_tishii\-CF\-SX3HE4BP_50000
+    Host Name      : localhost
+    Delegate IP    : Not_Set
+    Pgpool port    : 50000
+    Watchdog port  : 50002
+    Node priority  : 1
+    Status         : 7
+    Status Name    : STANDBY
 
-Node Name      : Linux_tishii\-CF\-SX3HE4BP_50004
-Host Name      : localhost
-Delegate IP    : Not_Set
-Pgpool port    : 50004
-Watchdog port  : 50006
-Node priority  : 1
-Status         : 4
-Status Name    : MASTER
+    Node Name      : Linux_tishii\-CF\-SX3HE4BP_50004
+    Host Name      : localhost
+    Delegate IP    : Not_Set
+    Pgpool port    : 50004
+    Watchdog port  : 50006
+    Node priority  : 1
+    Status         : 4
+    Status Name    : MASTER
 
-Node Name      : Linux_tishii\-CF\-SX3HE4BP_50008
-Host Name      : localhost
-Delegate IP    : Not_Set
-Pgpool port    : 50008
-Watchdog port  : 50010
-Node priority  : 1
-Status         : 7
-Status Name    : STANDBY
+    Node Name      : Linux_tishii\-CF\-SX3HE4BP_50008
+    Host Name      : localhost
+    Delegate IP    : Not_Set
+    Pgpool port    : 50008
+    Watchdog port  : 50010
+    Node priority  : 1
+    Status         : 7
+    Status Name    : STANDBY
+
+   
 .fi
 .if n \{\
 .RE
 .\}
+.sp
 

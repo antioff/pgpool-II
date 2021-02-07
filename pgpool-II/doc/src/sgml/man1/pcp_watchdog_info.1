@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: pgpool-II 4.0.6 Documentation
-.\"    Source: pgpool-II 4.0.6
+.\"    Manual: pgpool-II 4.0.7 Documentation
+.\"    Source: pgpool-II 4.0.7
 .\"  Language: English
 .\"
-.TH "PCP_WATCHDOG_INFO" "1" "2018" "pgpool-II 4.0.6" "pgpool-II 4.0.6 Documentation"
+.TH "PCP_WATCHDOG_INFO" "1" "2018" "pgpool-II 4.0.7" "pgpool-II 4.0.7 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -63,14 +63,14 @@ Here is an example output:
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-U postgres
+    $ pcp_watchdog_info \-h localhost \-U postgres
 
-3 NO Linux_host1\&.localdomain_9991 host1
+    3 NO Linux_host1\&.localdomain_9991 host1
 
-Linux_host1\&.localdomain_9991 host1 9991 9001 7 STANDBY
-Linux_host2\&.localdomain_9992 host2 9992 9002 4 MASTER
-Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
-    
+    Linux_host1\&.localdomain_9991 host1 9991 9001 7 STANDBY
+    Linux_host2\&.localdomain_9992 host2 9992 9002 4 MASTER
+    Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
+   
 .fi
 .if n \{\
 .RE
@@ -82,12 +82,13 @@ The result is in the following order:
 .RS 4
 .\}
 .nf
-The first output line describes the watchdog cluster information:
+    The first output line describes the watchdog cluster information:
 
-1\&. Total watchdog nodes in the cluster
-2\&. Is VIP is up on current node?
-3\&. Master node name
-4\&. Master node host
+    1\&. Total watchdog nodes in the cluster
+    2\&. Is VIP is up on current node?
+    3\&. Master node name
+    4\&. Master node host
+   
 .fi
 .if n \{\
 .RE
@@ -97,14 +98,15 @@ The first output line describes the watchdog cluster information:
 .RS 4
 .\}
 .nf
-Next is the list of watchdog nodes:
+    Next is the list of watchdog nodes:
 
-1\&. node name
-2\&. hostname
-3\&. pgpool port
-4\&. watchdog port
-5\&. current node state
-6\&. current node state name
+    1\&. node name
+    2\&. hostname
+    3\&. pgpool port
+    4\&. watchdog port
+    5\&. current node state
+    6\&. current node state name
+   
 .fi
 .if n \{\
 .RE
@@ -118,45 +120,45 @@ option can help understand the output\&. For example:
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-v \-U postgres
+   $ pcp_watchdog_info \-h localhost \-v \-U postgres
 
-Watchdog Cluster Information
-Total Nodes          : 3
-Remote Nodes         : 2
-Quorum state         : QUORUM EXIST
-Alive Remote Nodes   : 2
-VIP up on local node : NO
-Master Node Name     : Linux_host2\&.localdomain_9992
-Master Host Name     : localhost
+   Watchdog Cluster Information
+   Total Nodes          : 3
+   Remote Nodes         : 2
+   Quorum state         : QUORUM EXIST
+   Alive Remote Nodes   : 2
+   VIP up on local node : NO
+   Master Node Name     : Linux_host2\&.localdomain_9992
+   Master Host Name     : localhost
 
-Watchdog Node Information
-Node Name      : Linux_host1\&.localdomain_9991
-Host Name      : host1
-Delegate IP    : 192\&.168\&.1\&.10
-Pgpool port    : 9991
-Watchdog port  : 9001
-Node priority  : 1
-Status         : 7
-Status Name    : STANDBY
+   Watchdog Node Information
+   Node Name      : Linux_host1\&.localdomain_9991
+   Host Name      : host1
+   Delegate IP    : 192\&.168\&.1\&.10
+   Pgpool port    : 9991
+   Watchdog port  : 9001
+   Node priority  : 1
+   Status         : 7
+   Status Name    : STANDBY
 
-Node Name      : Linux_host2\&.localdomain_9992
-Host Name      : host2
-Delegate IP    : 192\&.168\&.1\&.10
-Pgpool port    : 9992
-Watchdog port  : 9002
-Node priority  : 1
-Status         : 4
-Status Name    : MASTER
+   Node Name      : Linux_host2\&.localdomain_9992
+   Host Name      : host2
+   Delegate IP    : 192\&.168\&.1\&.10
+   Pgpool port    : 9992
+   Watchdog port  : 9002
+   Node priority  : 1
+   Status         : 4
+   Status Name    : MASTER
 
-Node Name      : Linux_host3\&.localdomain_9993
-Host Name      : host3
-Delegate IP    : 192\&.168\&.1\&.10
-Pgpool port    : 9993
-Watchdog port  : 9003
-Node priority  : 1
-Status         : 7
-Status Name    : STANDBY
-    
+   Node Name      : Linux_host3\&.localdomain_9993
+   Host Name      : host3
+   Delegate IP    : 192\&.168\&.1\&.10
+   Pgpool port    : 9993
+   Watchdog port  : 9003
+   Node priority  : 1
+   Status         : 7
+   Status Name    : STANDBY
+  
 .fi
 .if n \{\
 .RE

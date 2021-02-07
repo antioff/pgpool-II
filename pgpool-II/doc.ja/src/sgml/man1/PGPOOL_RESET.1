@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: Pgpool-II 4.0.6 文書
-.\"    Source: Pgpool-II 4.0.6
+.\"    Manual: Pgpool-II 4.0.7 文書
+.\"    Source: Pgpool-II 4.0.7
 .\"  Language: Japanese
 .\"
-.TH "PGPOOL RESET" "1" "2018" "Pgpool-II 4.0.6" "Pgpool-II 4.0.6 文書"
+.TH "PGPOOL RESET" "1" "2018" "Pgpool-II 4.0.7" "Pgpool-II 4.0.7 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,8 +32,9 @@ PGPOOL_RESET \- 設定パラメータの値をデフォルト値に戻す
 .SH "概要"
 .sp
 .nf
-PGPOOL RESET \fIconfiguration_parameter\fR
-PGPOOL RESET ALL
+   PGPOOL RESET \fIconfiguration_parameter\fR
+   PGPOOL RESET ALL
+  
 .fi
 .SH "説明"
 .PP
@@ -78,7 +79,8 @@ client_idle_limit
 .RS 4
 .\}
 .nf
-PGPOOL RESET client_idle_limit;
+     PGPOOL RESET client_idle_limit;
+    
 .fi
 .if n \{\
 .RE
@@ -90,7 +92,8 @@ PGPOOL RESET client_idle_limit;
 .RS 4
 .\}
 .nf
-PGPOOL RESET ALL;
+    PGPOOL RESET ALL;
+   
 .fi
 .if n \{\
 .RE

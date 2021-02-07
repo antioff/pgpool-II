@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: pgpool-II 4.0.6 Documentation
-.\"    Source: pgpool-II 4.0.6
+.\"    Manual: pgpool-II 4.0.7 Documentation
+.\"    Source: pgpool-II 4.0.7
 .\"  Language: English
 .\"
-.TH "PG_MD5" "1" "2018" "pgpool-II 4.0.6" "pgpool-II 4.0.6 Documentation"
+.TH "PG_MD5" "1" "2018" "pgpool-II 4.0.7" "pgpool-II 4.0.7 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -81,9 +81,9 @@ pcp\&.conf\&.
 .RS 4
 .\}
 .nf
-$ pg_md5 \-p
-password: [your password]
-    
+    $ pg_md5 \-p
+    password: [your password]
+   
 .fi
 .if n \{\
 .RE
@@ -95,9 +95,9 @@ or
 .RS 4
 .\}
 .nf
-$ pg_md5 [your password]
-acbd18db4cc2f85cedef654fccc4a4d8
-    
+   $ pg_md5 [your password]
+   acbd18db4cc2f85cedef654fccc4a4d8
+  
 .fi
 .if n \{\
 .RE
@@ -114,12 +114,12 @@ authentication file\&.
 .RS 4
 .\}
 .nf
-$ pg_md5 \-m \-f /path/to/pgpool\&.conf \-u username \-p
-password: [your password]
+     $ pg_md5 \-m \-f /path/to/pgpool\&.conf \-u username \-p
+     password: [your password]
 
-$ cat /path/to/pool_passwd 
-username:md55a231fcdb710d73268c4f44283487ba2
-      
+     $ cat /path/to/pool_passwd 
+     username:md55a231fcdb710d73268c4f44283487ba2
+    
 .fi
 .if n \{\
 .RE
@@ -132,9 +132,9 @@ pool_passwd, pass a string concatenating password and user name\&. For example, 
 .RS 4
 .\}
 .nf
-$ pg_md5 passworduser
-4d45974e13472b5a0be3533de4666414
-      
+      $ pg_md5 passworduser
+      4d45974e13472b5a0be3533de4666414
+     
 .fi
 .if n \{\
 .RE

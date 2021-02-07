@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.6 Documentation"
+TITLE="pgpool-II 4.0.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Release Notes"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:01"></HEAD
+CONTENT="2019-10-31T01:06:06"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.6 Documentation</A
+>pgpool-II 4.0.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-3-22"
->A.74. Release 3.3.22</A
+>A.79. Release 3.3.22</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,38 +110,38 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN12769"
->A.74.1. Bug fixes</A
+NAME="AEN12966"
+>A.79.1. Bug fixes</A
 ></H2
 ><P
 ></P
 ><UL
 ><LI
 ><P
->		Fix "write on backend 0 failed with error :"Success"" error.
-		(<A
+>     Fix "write on backend 0 failed with error :"Success"" error.
+     (<A
 HREF="http://www.pgpool.net/mantisbt/view.php?id=403"
 TARGET="_top"
 >bug 403</A
 >) (Tatsuo Ishii)
-		</P
+    </P
 ><P
->		Don't treated it as an error if <CODE
+>     Don't treated it as an error if <CODE
 CLASS="FUNCTION"
 >write()</CODE
 > returns 0.
-		</P
+    </P
 ></LI
 ><LI
 ><P
->		Fix segfault in <CODE
+>     Fix segfault in <CODE
 CLASS="FUNCTION"
 >per_node_error_log()</CODE
 > on armhf architecture. (Tatsuo Ishii)
-		</P
+    </P
 ><P
->		Patch provided by Christian Ehrhardt.
-		</P
+>     Patch provided by Christian Ehrhardt.
+    </P
 ></LI
 ></UL
 ></DIV

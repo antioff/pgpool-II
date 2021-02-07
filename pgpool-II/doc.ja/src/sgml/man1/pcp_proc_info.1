@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: Pgpool-II 4.0.6 文書
-.\"    Source: Pgpool-II 4.0.6
+.\"    Manual: Pgpool-II 4.0.7 文書
+.\"    Source: Pgpool-II 4.0.7
 .\"  Language: Japanese
 .\"
-.TH "PCP_PROC_INFO" "1" "2018" "Pgpool-II 4.0.6" "Pgpool-II 4.0.6 文書"
+.TH "PCP_PROC_INFO" "1" "2018" "Pgpool-II 4.0.7" "Pgpool-II 4.0.7 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -69,10 +69,10 @@ Pgpool\-II 子プロセスの PID を指定します。
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-p 11001 1406
-test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1435 1 1406 0
-test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1436 1 1406 1
-    
+    $ pcp_proc_info \-p 11001 1406
+    test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1435 1 1406 0
+    test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1436 1 1406 1
+   
 .fi
 .if n \{\
 .RE
@@ -84,17 +84,19 @@ test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1436 1 1406 1
 .RS 4
 .\}
 .nf
-1\&. 接続先のデータベース名
-2\&. 接続先のユーザ名
-3\&. Pgpool\-IIプロセスの起動時刻
-4\&. バックエンドへの接続時刻
-5\&. プロトコルのメジャーバージョン
-6\&. プロトコルのマイナーバージョン
-7\&. 接続の再利用カウンタ値
-8\&. PostgreSQLバックエンドプロセスのプロセスID
-9\&. フロントエンドが接続中なら1、そうでなければ0
-10\&. pgpool子プロセスID
-11\&. PostgreSQLバックエンドID
+    
+    1\&. 接続先のデータベース名
+    2\&. 接続先のユーザ名
+    3\&. Pgpool\-IIプロセスの起動時刻
+    4\&. バックエンドへの接続時刻
+    5\&. プロトコルのメジャーバージョン
+    6\&. プロトコルのマイナーバージョン
+    7\&. 接続の再利用カウンタ値
+    8\&. PostgreSQLバックエンドプロセスのプロセスID
+    9\&. フロントエンドが接続中なら1、そうでなければ0
+    10\&. pgpool子プロセスID
+    11\&. PostgreSQLバックエンドID
+   
 .fi
 .if n \{\
 .RE
@@ -109,30 +111,30 @@ test t\-ishii 2018\-07\-09 16:43:53 2018\-07\-09 16:44:08 3 0 1 1436 1 1406 1
 .RS 4
 .\}
 .nf
-$ pcp_proc_info \-p 11001 \-\-verbose 1406
-Database     : test
-Username     : t\-ishii
-Start time   : 2018\-07\-09 16:43:53
-Creation time: 2018\-07\-09 16:44:08
-Major        : 3
-Minor        : 0
-Counter      : 1
-Backend PID  : 1435
-Connected    : 1
-PID          : 1406
-Backend ID   : 0
-Database     : test
-Username     : t\-ishii
-Start time   : 2018\-07\-09 16:43:53
-Creation time: 2018\-07\-09 16:44:08
-Major        : 3
-Minor        : 0
-Counter      : 1
-Backend PID  : 1436
-Connected    : 1
-PID          : 1406
-Backend ID   : 1
-    
+   $ pcp_proc_info \-p 11001 \-\-verbose 1406
+   Database     : test
+   Username     : t\-ishii
+   Start time   : 2018\-07\-09 16:43:53
+   Creation time: 2018\-07\-09 16:44:08
+   Major        : 3
+   Minor        : 0
+   Counter      : 1
+   Backend PID  : 1435
+   Connected    : 1
+   PID          : 1406
+   Backend ID   : 0
+   Database     : test
+   Username     : t\-ishii
+   Start time   : 2018\-07\-09 16:43:53
+   Creation time: 2018\-07\-09 16:44:08
+   Major        : 3
+   Minor        : 0
+   Counter      : 1
+   Backend PID  : 1436
+   Connected    : 1
+   PID          : 1406
+   Backend ID   : 1
+  
 .fi
 .if n \{\
 .RE

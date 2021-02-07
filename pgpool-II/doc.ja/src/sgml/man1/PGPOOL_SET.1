@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: Pgpool-II 4.0.6 文書
-.\"    Source: Pgpool-II 4.0.6
+.\"    Manual: Pgpool-II 4.0.7 文書
+.\"    Source: Pgpool-II 4.0.7
 .\"  Language: Japanese
 .\"
-.TH "PGPOOL SET" "1" "2018" "Pgpool-II 4.0.6" "Pgpool-II 4.0.6 文書"
+.TH "PGPOOL SET" "1" "2018" "Pgpool-II 4.0.7" "Pgpool-II 4.0.7 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,7 +32,8 @@ PGPOOL_SET \- 実行時パラメータの設定を変更する
 .SH "概要"
 .sp
 .nf
-PGPOOL SET  \fIconfiguration_parameter\fR { TO | = } { \fIvalue\fR | \*(Aq\fIvalue\fR\*(Aq | DEFAULT }
+   PGPOOL SET  \fIconfiguration_parameter\fR { TO | = } { \fIvalue\fR | \*(Aq\fIvalue\fR\*(Aq | DEFAULT }
+  
 .fi
 .SH "説明"
 .PP
@@ -60,7 +61,7 @@ client_idle_limit
 .RS 4
 .\}
 .nf
-PGPOOL SET client_idle_limit = 350;
+     PGPOOL SET client_idle_limit = 350;
     
 .fi
 .if n \{\
@@ -75,7 +76,7 @@ client_idle_limit
 .RS 4
 .\}
 .nf
-PGPOOL SET client_idle_limit TO DEFAULT;
+     PGPOOL SET client_idle_limit TO DEFAULT;
     
 .fi
 .if n \{\
@@ -90,7 +91,7 @@ log_min_messages
 .RS 4
 .\}
 .nf
-PGPOOL SET log_min_messages TO INFO;
+     PGPOOL SET log_min_messages TO INFO;
     
 .fi
 .if n \{\

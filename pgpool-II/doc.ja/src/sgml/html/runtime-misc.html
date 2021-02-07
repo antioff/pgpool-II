@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.6 文書"
+TITLE="Pgpool-II 4.0.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:19"></HEAD
+CONTENT="2019-10-31T01:06:23"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.6 文書</A
+>Pgpool-II 4.0.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -111,31 +111,33 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->リレーションキャッシュの寿命を秒単位で指定します。
-リレーションキャッシュは、<SPAN
+>     
+     リレーションキャッシュの寿命を秒単位で指定します。
+     リレーションキャッシュは、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >がテーブルの構造を含む様々な情報を取得したり、テーブルのタイプ（たとえば、参照されているテーブルが一時テーブルかどうかなど）をチェックするために使う<SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >のシステムカタログの問い合わせ結果を保存しておくものです。
-キャッシュはpgpoolの子プロセスのローカルメモリ空間に保管されています。
-もし<TT
+     キャッシュはpgpoolの子プロセスのローカルメモリ空間に保管されています。
+     もし<TT
 CLASS="COMMAND"
 >ALTER TABLE</TT
 >でテーブルが変更された場合などは、リレーションキャッシュと一致しなくなります。
-そのため、<TT
+     そのため、<TT
 CLASS="VARNAME"
 >relcache_expire</TT
 >がキャッシュの寿命をコントロールしています。
-デフォルトは0で、キャッシュの期限が切れることはありません。
-        </P
+     デフォルトは0で、キャッシュの期限が切れることはありません。
+    </P
 ><P
->このパラメータは、サーバ起動時にのみ設定できます。
-        </P
+>     
+     このパラメータは、サーバ起動時にのみ設定できます。
+    </P
 ></DD
 ><DT
 ><A
@@ -148,12 +150,13 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->リレーションキャッシュのエントリ数を指定します。
-デフォルトは256です。
-        </P
+>     
+     リレーションキャッシュのエントリ数を指定します。
+     デフォルトは256です。
+    </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -161,24 +164,26 @@ CLASS="NOTE"
 ><P
 ><B
 >注意: </B
->もし以下のようなメッセージが<SPAN
+>      
+      もし以下のようなメッセージが<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >ログに頻繁に出る場合は、パフォーマンス向上のため<TT
 CLASS="VARNAME"
 >relcache_size</TT
 >を大きくしてください。
-            </P><PRE
+      </P><PRE
 CLASS="PROGRAMLISTING"
->"pool_search_relcache: cache replacement happened"
-            </PRE
+>       "pool_search_relcache: cache replacement happened"
+      </PRE
 ><P>
-          </P
+     </P
 ></BLOCKQUOTE
 ></DIV
 ><P
->このパラメータは、サーバ起動時にのみ設定できます。
-        </P
+>     
+     このパラメータは、サーバ起動時にのみ設定できます。
+    </P
 ></DD
 ><DT
 ><A
@@ -191,36 +196,38 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >boolean</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->onに設定されたとき、<ACRONYM
+>     
+     onに設定されたとき、<ACRONYM
 CLASS="ACRONYM"
 >SELECT</ACRONYM
 >に含まれるテーブルが一時テーブルかどうかのチェックを行います。
-一時テーブルをチェックするため<SPAN
+     一時テーブルをチェックするため<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >はプライマリ/マスター<SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >バックエンドのシステムカタログに問い合わせ、プライマリ/マスタサーバの負荷を上げます。
-もしシステムが決して一時テーブルを使用しないことが確かならば、安全に<TT
+     もしシステムが決して一時テーブルを使用しないことが確かならば、安全に<TT
 CLASS="VARNAME"
 >check_tmp_table</TT
 >をoffにすることができます。
-デフォルトはonです。
-        </P
+     デフォルトはonです。
+    </P
 ><P
->このパラメータは<SPAN
+>     
+     このパラメータは<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >の設定を再読み込みすることで変更可能です。
-現在のセッションでのパラメータ値は、<A
+     現在のセッションでのパラメータ値は、<A
 HREF="sql-pgpool-set.html"
 >PGPOOL SET</A
 >コマンドで変更することもできます。
-        </P
+    </P
 ></DD
 ><DT
 ><A
@@ -233,39 +240,41 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >boolean</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->onに設定されたとき、<ACRONYM
+>     
+     onに設定されたとき、<ACRONYM
 CLASS="ACRONYM"
 >SELECT</ACRONYM
 >に含まれるテーブルがunloggedテーブルかどうかのチェックを行います。
-unloggedテーブルをチェックするため<SPAN
+     unloggedテーブルをチェックするため<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >はプライマリ/マスター<SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >バックエンドのシステムカタログに問い合わせ、プライマリ/マスタサーバの負荷を上げます。
-もしシステムが決してunloggedテーブルを使用しないことが確かならば（たとえば、9.0 以前のバージョンの<SPAN
+     もしシステムが決してunloggedテーブルを使用しないことが確かならば（たとえば、9.0 以前のバージョンの<SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >を使っている）、安全に<TT
 CLASS="VARNAME"
 >check_unlogged_table</TT
 >をoffにすることができます。
-デフォルトはonです。
-        </P
+     デフォルトはonです。
+    </P
 ><P
->このパラメータは<SPAN
+>     
+     このパラメータは<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >の設定を再読み込みすることで変更可能です。
-現在のセッションでのパラメータ値は、<A
+     現在のセッションでのパラメータ値は、<A
 HREF="sql-pgpool-set.html"
 >PGPOOL SET</A
 >コマンドで変更することもできます。
-        </P
+    </P
 ></DD
 ><DT
 ><A
@@ -278,21 +287,23 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
-><SPAN
+>     
+     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >のプロセスIDを格納するファイルのフルパスを指定します。
-デフォルトは<TT
+     デフォルトは<TT
 CLASS="LITERAL"
 >'/var/run/pgpool/pgpool.pid'</TT
 >です。
-        </P
+    </P
 ><P
->このパラメータは、サーバ起動時にのみ設定できます。
-        </P
+>     
+     このパラメータは、サーバ起動時にのみ設定できます。
+    </P
 ></DD
 ><DT
 ><A
@@ -305,21 +316,23 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
-><TT
+>     
+     <TT
 CLASS="LITERAL"
 >pgpool_status</TT
 >ファイルを格納するディレクトリのフルパスを指定します。
-デフォルトは<TT
+     デフォルトは<TT
 CLASS="LITERAL"
 >"/tmp"</TT
 >です。
-        </P
+    </P
 ><P
->このパラメータは、サーバ起動時にのみ設定できます。
-        </P
+>     
+     このパラメータは、サーバ起動時にのみ設定できます。
+    </P
 ></DD
 ></DL
 ></DIV

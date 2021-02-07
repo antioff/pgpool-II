@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.6 文書"
+TITLE="Pgpool-II 4.0.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Pgpool-IIのインストール"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:19"></HEAD
+CONTENT="2019-10-31T01:06:23"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.6 文書</A
+>Pgpool-II 4.0.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -99,68 +99,73 @@ NAME="INSTALL-PGPOOL-RECOVERY"
 >3.5. pgpool_recoveryのインストール</A
 ></H1
 ><P
->これは全ての<SPAN
+>   
+   これは全ての<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >のインストールで必要です。
-      </P><PRE
+   </P><PRE
 CLASS="PROGRAMLISTING"
->$ cd pgpool-II-x.x.x/src/sql/pgpool-recovery
-$ make
-$ make install
-      </PRE
+>    $ cd pgpool-II-x.x.x/src/sql/pgpool-recovery
+    $ make
+    $ make install
+   </PRE
 ><P>
-この後に以下か、
-      </P><PRE
+   
+   この後に以下か、
+   </P><PRE
 CLASS="PROGRAMLISTING"
->$ psql template1
-=# CREATE EXTENSION pgpool_recovery;
-      </PRE
+>    $ psql template1
+    =# CREATE EXTENSION pgpool_recovery;
+   </PRE
 ><P>
 
-または
-      </P><PRE
+   
+   または
+   </P><PRE
 CLASS="PROGRAMLISTING"
->$ psql -f pgpool-recovery.sql template1
-      </PRE
+>    $ psql -f pgpool-recovery.sql template1
+   </PRE
 ><P>
-を実行します。
+   を実行します。
 
-    </P
+  </P
 ><P
-><SPAN
+>   
+   <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > 3.3 以降では、<TT
 CLASS="FILENAME"
 >postgresql.conf</TT
 >を変更する必要があります。
-<TT
+   <TT
 CLASS="COMMAND"
 >pg_ctl</TT
 >へのパスが<TT
 CLASS="FILENAME"
 >/usr/local/pgsql/bin/pg_ctl</TT
 >であるとします。
-その場合、<TT
+   その場合、<TT
 CLASS="FILENAME"
 >postgresql.conf</TT
 >に以下を追加してください。
 
-      </P><PRE
+   </P><PRE
 CLASS="PROGRAMLISTING"
->pgpool.pg_ctl = '/usr/local/pgsql/bin/pg_ctl'
-      </PRE
+>    pgpool.pg_ctl = '/usr/local/pgsql/bin/pg_ctl'
+   </PRE
 ><P>
 
-もしかするとその後に以下を実行する必要があるかもしれません。
-      </P><PRE
+   
+   もしかするとその後に以下を実行する必要があるかもしれません。
+   </P><PRE
 CLASS="PROGRAMLISTING"
->$ pg_ctl reload -D /usr/local/pgsql/data
-      </PRE
+>    $ pg_ctl reload -D /usr/local/pgsql/data
+   </PRE
 ><P>
 
-    </P
+  </P
 ></DIV
 ><DIV
 CLASS="NAVFOOTER"

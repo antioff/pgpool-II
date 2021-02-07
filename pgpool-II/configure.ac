@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [4.0.6], [pgpool-hackers@pgpool.net], [pgpool-II])
+AC_INIT([pgpool-II], [4.0.7], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -265,7 +265,7 @@ AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
 AC_FUNC_WAIT3
 AC_FUNC_ACCEPT_ARGTYPES
-AC_CHECK_FUNCS(setsid select socket sigprocmask strdup strerror strftime strtok asprintf vasprintf gai_strerror hstrerror pstat setproctitle vsyslog)
+AC_CHECK_FUNCS(setsid select socket sigprocmask strdup strerror strftime strtok asprintf vasprintf gai_strerror hstrerror pstat setproctitle syslog)
 
 dnl Checks for pg_config command.
 AC_CHECK_PROGS(PGCONFIG, pg_config)

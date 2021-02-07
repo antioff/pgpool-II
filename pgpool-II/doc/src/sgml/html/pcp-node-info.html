@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.6 Documentation"
+TITLE="pgpool-II 4.0.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:01"></HEAD
+CONTENT="2019-10-31T01:06:06"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.6 Documentation</A
+>pgpool-II 4.0.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,15 +95,15 @@ NAME="PCP-NODE-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN6524"
+NAME="AEN6528"
 ></A
 ><H2
 >Name</H2
->pcp_node_info&nbsp;--&nbsp;	displays the information on the given node ID</DIV
+>pcp_node_info&nbsp;--&nbsp;   displays the information on the given node ID</DIV
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN6527"
+NAME="AEN6531"
 ></A
 ><H2
 >Synopsis</H2
@@ -131,22 +131,22 @@ NAME="R1-PCP-NODE-INFO-1"
 ><H2
 >Description</H2
 ><P
->  <TT
+>   <TT
 CLASS="COMMAND"
 >pcp_node_info</TT
 >
-	displays the information on the given node ID.
+   displays the information on the given node ID.
   </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6538"
+NAME="AEN6542"
 ></A
 ><H2
 >Options</H2
 ><P
->    <P
+>   <P
 ></P
 ></P><DIV
 CLASS="VARIABLELIST"
@@ -171,8 +171,8 @@ CLASS="REPLACEABLE"
 ></DT
 ><DD
 ><P
->	 The index of backend node to get information of.
-       </P
+>       The index of backend node to get information of.
+      </P
 ></DD
 ><DT
 ><TT
@@ -181,50 +181,51 @@ CLASS="OPTION"
 ></DT
 ><DD
 ><P
->	 See <A
+>       See <A
 HREF="pcp-common-options.html"
 >pcp_common_options</A
 >.
-       </P
+      </P
 ></DD
 ></DL
 ></DIV
 ><P>
-   </P
+  </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6557"
+NAME="AEN6561"
 ></A
 ><H2
 >Example</H2
 ><P
->	Here is an example output:
-    </P><PRE
+>   Here is an example output:
+   </P><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_node_info -h localhost -U postgres 1
-/tmp 11003 2 0.500000 up standby 208 2018-07-03 08:26:39
-    </PRE
+>    $ pcp_node_info -h localhost -U postgres 1
+    /tmp 11003 2 0.500000 up standby 208 2018-07-03 08:26:39
+   </PRE
 ><P>
   </P
 ><P
->	The result is in the following order:
-</P><PRE
+>   The result is in the following order:
+   </P><PRE
 CLASS="LITERALLAYOUT"
->1. hostname
-2. port number
-3. status
-4. load balance weight
-5. status name
-6. backend role
-7. replication delay
-8. last status change time</PRE
+>    1. hostname
+    2. port number
+    3. status
+    4. load balance weight
+    5. status name
+    6. backend role
+    7. replication delay
+    8. last status change time
+   </PRE
 ><P>
   </P
 ><P
->	Status is represented by a digit from [0 to 3].
-	<P
+>   Status is represented by a digit from [0 to 3].
+   <P
 ></P
 ></P><UL
 ><LI
@@ -247,26 +248,26 @@ CLASS="LITERALLAYOUT"
 ><P>
   </P
 ><P
->	The load balance weight is displayed in normalized format.
+>   The load balance weight is displayed in normalized format.
   </P
 ><P
->	The <TT
+>   The <TT
 CLASS="OPTION"
 >--verbose</TT
 > option can help understand the output. For example:
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->$ pcp_node_info --verbose -h localhost -U postgres 1
-Hostname          : /tmp
-Port              : 11003
-Status            : 2
-Weight            : 0.500000
-Status Name       : up
-Role              : standby
-Replication Delay : 208
-Last Status Change: 2018-07-03 08:26:39
-    </PRE
+>   $ pcp_node_info --verbose -h localhost -U postgres 1
+   Hostname          : /tmp
+   Port              : 11003
+   Status            : 2
+   Weight            : 0.500000
+   Status Name       : up
+   Role              : standby
+   Replication Delay : 208
+   Last Status Change: 2018-07-03 08:26:39
+  </PRE
 ></DIV
 ><DIV
 CLASS="NAVFOOTER"

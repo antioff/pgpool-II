@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.6 Documentation"
+TITLE="pgpool-II 4.0.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Release Notes"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:01"></HEAD
+CONTENT="2019-10-31T01:06:06"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.6 Documentation</A
+>pgpool-II 4.0.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-6-11"
->A.27. Release 3.6.11</A
+>A.30. Release 3.6.11</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,86 +110,86 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN10190"
->A.27.1. Bug fixes</A
+NAME="AEN10342"
+>A.30.1. Bug fixes</A
 ></H2
 ><P
 ></P
 ><UL
 ><LI
 ><P
->		Fix <SPAN
+>     Fix <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > hung if replication delay is too much, when query cache enabled in extended query mode. (Tatsuo Ishii)
-		</P
+    </P
 ><P
->		See <A
+>     See <A
 HREF="https://www.pgpool.net/pipermail/pgpool-general-jp/2018-May/001533.html"
 TARGET="_top"
 >[pgpool-general-jp: 1534]</A
 > 
-		for more details.
-		</P
+     for more details.
+    </P
 ></LI
 ><LI
 ><P
->		Doc: Fix document typo of PCP commands option "-U". (Bo Peng)
-		</P
+>     Doc: Fix document typo of PCP commands option "-U". (Bo Peng)
+    </P
 ></LI
 ><LI
 ><P
->		Delete some debug code. (Bo Peng)
-		</P
+>     Delete some debug code. (Bo Peng)
+    </P
 ></LI
 ><LI
 ><P
->		In extended query mode, do not set writing tx flag with SET TRANSACTION READ ONLY. (Tatsuo Ishii) 
-		</P
+>     In extended query mode, do not set writing tx flag with SET TRANSACTION READ ONLY. (Tatsuo Ishii) 
+    </P
 ></LI
 ><LI
 ><P
->		Doc: Update outdated <A
+>     Doc: Update outdated <A
 HREF="pcp-proc-info.html"
 >pcp_proc_info</A
 > manual. (Tatsuo Ishii)
-		</P
+    </P
 ></LI
 ><LI
 ><P
->		Doc: Enhance online recovery document to Clarify 
-		that <A
+>     Doc: Enhance online recovery document to Clarify 
+     that <A
 HREF="runtime-online-recovery.html#GUC-RECOVERY-2ND-STAGE-COMMAND"
 >recovery_2nd_stage_command</A
 > is only required in native replication mode. (Tatsuo Ishii)
-		</P
+    </P
 ></LI
 ><LI
 ><P
->		Prevent <A
+>     Prevent <A
 HREF="pcp-recovery-node.html"
 >pcp_recovery_node</A
 > from recovering "unused" status node. (Tatsuo Ishii)
-		</P
+    </P
 ><P
->		This allowed to try to recovery a node without configuration data,
-		which leads to variety of problems. 
-		</P
+>     This allowed to try to recovery a node without configuration data,
+     which leads to variety of problems. 
+    </P
 ><P
->		See <A
+>     See <A
 HREF="https://www.pgpool.net/pipermail/pgpool-general/2018-March/006021.html"
 TARGET="_top"
 >[pgpool-general: 5963]</A
 > 
-		for more details.
-		</P
+     for more details.
+    </P
 ><P
->		Also I fixed <CODE
+>     Also I fixed <CODE
 CLASS="FUNCTION"
 >pgpool_recovery</CODE
 > function so that it quotes an 
-		empty string argument with double quotes. 
-		</P
+     empty string argument with double quotes. 
+    </P
 ></LI
 ></UL
 ></DIV

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.6 Documentation"
+TITLE="pgpool-II 4.0.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:01"></HEAD
+CONTENT="2019-10-31T01:06:06"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.6 Documentation</A
+>pgpool-II 4.0.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -111,41 +111,41 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->          Specifies the relation cache expiration time in seconds.
-          The relation cache is used for caching the query result of
-          <SPAN
+>     Specifies the relation cache expiration time in seconds.
+     The relation cache is used for caching the query result of
+     <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > system catalogs that is used by <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II
-          </SPAN
+     </SPAN
 > to get various informations including the table
-          structures and to check table types(e.g. To check if the referred
-          table is a temporary table or not). The cache is maintained in
-          the local memory space of <SPAN
+     structures and to check table types(e.g. To check if the referred
+     table is a temporary table or not). The cache is maintained in
+     the local memory space of <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
-          child process and its lifetime is same as of the child process.
-          So If the table is modified using <TT
+     child process and its lifetime is same as of the child process.
+     So If the table is modified using <TT
 CLASS="COMMAND"
 >ALTER TABLE</TT
 >
-          or some other means, the relcache becomes inconsistent.
-          For this purpose, <TT
+     or some other means, the relcache becomes inconsistent.
+     For this purpose, <TT
 CLASS="VARNAME"
 >relcache_expire</TT
 > controls
-          the life time of the cache.
-          Default is 0, which means the cache never expires.
-        </P
+     the life time of the cache.
+     Default is 0, which means the cache never expires.
+    </P
 ><P
->          This parameter can only be set at server start.
-        </P
+>     This parameter can only be set at server start.
+    </P
 ></DD
 ><DT
 ><A
@@ -158,12 +158,12 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >integer</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->          Specifies the number of relcache entries.
-          Default is 256.
-        </P
+>     Specifies the number of relcache entries.
+     Default is 256.
+    </P
 ><DIV
 CLASS="NOTE"
 ><BLOCKQUOTE
@@ -171,26 +171,26 @@ CLASS="NOTE"
 ><P
 ><B
 >Note: </B
->            If the below message frequently appears in the
-            <SPAN
+>      If the below message frequently appears in the
+      <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > log, you may need to
-            increase the <TT
+      increase the <TT
 CLASS="VARNAME"
 >relcache_size</TT
 > for better performance.
-            </P><PRE
+      </P><PRE
 CLASS="PROGRAMLISTING"
->"pool_search_relcache: cache replacement happened"
-            </PRE
+>       "pool_search_relcache: cache replacement happened"
+      </PRE
 ><P>
-          </P
+     </P
 ></BLOCKQUOTE
 ></DIV
 ><P
->          This parameter can only be set at server start.
-        </P
+>     This parameter can only be set at server start.
+    </P
 ></DD
 ><DT
 ><A
@@ -203,40 +203,40 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >boolean</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->          Setting to on, enables the temporary table check in the <ACRONYM
+>     Setting to on, enables the temporary table check in the <ACRONYM
 CLASS="ACRONYM"
 >SELECT</ACRONYM
 >
-          statements. To check the temporary table <SPAN
+     statements. To check the temporary table <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
-          queries the system catalog of primary/master <SPAN
+     queries the system catalog of primary/master <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > backend, which increases
-          the load on the primary/master server.
-          If you are absolutely sure that your system never uses temporary tables, then
-          you can safely turn off the <TT
+     the load on the primary/master server.
+     If you are absolutely sure that your system never uses temporary tables, then
+     you can safely turn off the <TT
 CLASS="VARNAME"
 >check_temp_table</TT
 >.
-          Default is on.
-        </P
+     Default is on.
+    </P
 ><P
->          This parameter can be changed by reloading the <SPAN
+>     This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					You can also use <A
+     You can also use <A
 HREF="sql-pgpool-set.html"
 >PGPOOL SET</A
 > command to alter the value of
-					this parameter for a current session.
-        </P
+      this parameter for a current session.
+    </P
 ></DD
 ><DT
 ><A
@@ -249,44 +249,44 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >boolean</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->          Setting to on, enables the unlogged table check in the <ACRONYM
+>     Setting to on, enables the unlogged table check in the <ACRONYM
 CLASS="ACRONYM"
 >SELECT</ACRONYM
 >
-          statements. To check the unlogged table <SPAN
+     statements. To check the unlogged table <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >
-          queries the system catalog of primary/master <SPAN
+     queries the system catalog of primary/master <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > backend which increases
-          the load on the primary/master server.
-          If you are absolutely sure that your system never uses the unlogged tables
-          (for example, you are using 9.0 or earlier version of <SPAN
+     the load on the primary/master server.
+     If you are absolutely sure that your system never uses the unlogged tables
+     (for example, you are using 9.0 or earlier version of <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >) then you
-          can safely turn off the <TT
+     can safely turn off the <TT
 CLASS="VARNAME"
 >check_unlogged_table</TT
 >.
-          Default is on.
-        </P
+     Default is on.
+    </P
 ><P
->          This parameter can be changed by reloading the <SPAN
+>     This parameter can be changed by reloading the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations.
-					You can also use <A
+     You can also use <A
 HREF="sql-pgpool-set.html"
 >PGPOOL SET</A
 > command to alter the value of
-					this parameter for a current session.
-        </P
+      this parameter for a current session.
+    </P
 ></DD
 ><DT
 ><A
@@ -299,24 +299,24 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->          Specifies the full path to a file to store the <SPAN
+>     Specifies the full path to a file to store the <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II
-          </SPAN
+     </SPAN
 > process id.
-          The pid_file_name path can be specified as relative to the
-          location of pgpool.conf file or as an absolute path
-          Default is <TT
+     The pid_file_name path can be specified as relative to the
+     location of pgpool.conf file or as an absolute path
+     Default is <TT
 CLASS="LITERAL"
 >"/var/run/pgpool/pgpool.pid"</TT
 >.
-        </P
+    </P
 ><P
->          This parameter can only be set at server start.
-        </P
+>     This parameter can only be set at server start.
+    </P
 ></DD
 ><DT
 ><A
@@ -329,21 +329,21 @@ CLASS="VARNAME"
 CLASS="TYPE"
 >string</TT
 >)
-        </DT
+    </DT
 ><DD
 ><P
->          Specifies the full path to a directory to store the <TT
+>     Specifies the full path to a directory to store the <TT
 CLASS="LITERAL"
 >pgpool_status</TT
 >.
-          Default is <TT
+     Default is <TT
 CLASS="LITERAL"
 >"/tmp"</TT
 >.
-        </P
+    </P
 ><P
->          This parameter can only be set at server start.
-        </P
+>     This parameter can only be set at server start.
+    </P
 ></DD
 ></DL
 ></DIV

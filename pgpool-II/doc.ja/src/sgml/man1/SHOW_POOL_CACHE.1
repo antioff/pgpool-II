@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: Pgpool-II 4.0.6 文書
-.\"    Source: Pgpool-II 4.0.6
+.\"    Manual: Pgpool-II 4.0.7 文書
+.\"    Source: Pgpool-II 4.0.7
 .\"  Language: Japanese
 .\"
-.TH "SHOW POOL_CACHE" "1" "2018" "Pgpool-II 4.0.6" "Pgpool-II 4.0.6 文書"
+.TH "SHOW POOL_CACHE" "1" "2018" "Pgpool-II 4.0.7" "Pgpool-II 4.0.7 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,8 +32,8 @@ SHOW_POOL_CACHE \- クエリキャッシュのヒット率や、キャッシュ�
 .SH "概要"
 .sp
 .nf
-SHOW POOL_CACHE
-    
+   SHOW POOL_CACHE
+  
 .fi
 .SH "説明"
 .PP
@@ -46,21 +46,22 @@ SHOW POOL_CACHE
 .RS 4
 .\}
 .nf
-test=# \ex
-\ex
-Expanded display is on\&.
-test=# show pool_cache;
-show pool_cache;
-\-[ RECORD 1 ]\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-
-num_cache_hits              | 891703
-num_selects                 | 99995
-cache_hit_ratio             | 0\&.90
-num_hash_entries            | 131072
-used_hash_entries           | 99992
-num_cache_entries           | 99992
-used_cache_enrties_size     | 12482600
-free_cache_entries_size     | 54626264
-fragment_cache_entries_size | 0
+    test=# \ex
+    \ex
+    Expanded display is on\&.
+    test=# show pool_cache;
+    show pool_cache;
+    \-[ RECORD 1 ]\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-
+    num_cache_hits              | 891703
+    num_selects                 | 99995
+    cache_hit_ratio             | 0\&.90
+    num_hash_entries            | 131072
+    used_hash_entries           | 99992
+    num_cache_entries           | 99992
+    used_cache_enrties_size     | 12482600
+    free_cache_entries_size     | 54626264
+    fragment_cache_entries_size | 0
+   
 .fi
 .if n \{\
 .RE

@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: pgpool-II 4.0.6 Documentation
-.\"    Source: pgpool-II 4.0.6
+.\"    Manual: pgpool-II 4.0.7 Documentation
+.\"    Source: pgpool-II 4.0.7
 .\"  Language: English
 .\"
-.TH "PGPOOL RESET" "1" "2018" "pgpool-II 4.0.6" "pgpool-II 4.0.6 Documentation"
+.TH "PGPOOL RESET" "1" "2018" "pgpool-II 4.0.7" "pgpool-II 4.0.7 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,8 +32,9 @@ PGPOOL_RESET \- restore the value of a configuration parameter to the default va
 .SH "SYNOPSIS"
 .sp
 .nf
-PGPOOL RESET \fIconfiguration_parameter\fR
-PGPOOL RESET ALL
+   PGPOOL RESET \fIconfiguration_parameter\fR
+   PGPOOL RESET ALL
+  
 .fi
 .SH "DESCRIPTION"
 .PP
@@ -73,7 +74,8 @@ parameter:
 .RS 4
 .\}
 .nf
-PGPOOL RESET client_idle_limit;
+     PGPOOL RESET client_idle_limit;
+    
 .fi
 .if n \{\
 .RE
@@ -85,7 +87,8 @@ Reset the value of all parameter to default:
 .RS 4
 .\}
 .nf
-PGPOOL RESET ALL;
+    PGPOOL RESET ALL;
+   
 .fi
 .if n \{\
 .RE

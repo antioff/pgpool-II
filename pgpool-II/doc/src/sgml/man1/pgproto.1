@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: pgpool-II 4.0.6 Documentation
-.\"    Source: pgpool-II 4.0.6
+.\"    Manual: pgpool-II 4.0.7 Documentation
+.\"    Source: pgpool-II 4.0.7
 .\"  Language: English
 .\"
-.TH "PGPROTO" "1" "2018" "pgpool-II 4.0.6" "pgpool-II 4.0.6 Documentation"
+.TH "PGPROTO" "1" "2018" "pgpool-II 4.0.7" "pgpool-II 4.0.7 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -117,8 +117,9 @@ If you want to include a " (double quotation) in a string data type, for example
 .RS 4
 .\}
 .nf
-\*(AqQ\*(Aq "SELECT * FROM aaa \e
-WHERE a = 1"
+    \*(AqQ\*(Aq "SELECT * FROM aaa \e
+    WHERE a = 1"
+   
 .fi
 .if n \{\
 .RE
@@ -130,25 +131,26 @@ Here is an example input file:
 .RS 4
 .\}
 .nf
-#
-# Test data example
-#
-\*(AqQ\*(Aq	"SELECT * FROM aaa"
-\*(AqY\*(Aq
-\*(AqP\*(Aq	"S1"	"BEGIN"	0
-\*(AqB\*(Aq	""	"S1"	0	0	0
-\*(AqE\*(Aq	""	0
-\*(AqC\*(Aq	\*(AqS\*(Aq	"S1"
-\*(AqP\*(Aq	"foo"	"SELECT 1"	0
-\*(AqB\*(Aq	"myportal"	"foo"	0	0	0
-\*(AqE\*(Aq	"myportal"	0
-\*(AqP\*(Aq	"S2"	"COMMIT"	0
-\*(AqB\*(Aq	""	"S2"	0	0	0
-\*(AqE\*(Aq	""	0
-\*(AqC\*(Aq	\*(AqS\*(Aq	"S2"
-\*(AqS\*(Aq
-\*(AqY\*(Aq
-\*(AqX\*(Aq
+    #
+    # Test data example
+    #
+    \*(AqQ\*(Aq	"SELECT * FROM aaa"
+    \*(AqY\*(Aq
+    \*(AqP\*(Aq	"S1"	"BEGIN"	0
+    \*(AqB\*(Aq	""	"S1"	0	0	0
+    \*(AqE\*(Aq	""	0
+    \*(AqC\*(Aq	\*(AqS\*(Aq	"S1"
+    \*(AqP\*(Aq	"foo"	"SELECT 1"	0
+    \*(AqB\*(Aq	"myportal"	"foo"	0	0	0
+    \*(AqE\*(Aq	"myportal"	0
+    \*(AqP\*(Aq	"S2"	"COMMIT"	0
+    \*(AqB\*(Aq	""	"S2"	0	0	0
+    \*(AqE\*(Aq	""	0
+    \*(AqC\*(Aq	\*(AqS\*(Aq	"S2"
+    \*(AqS\*(Aq
+    \*(AqY\*(Aq
+    \*(AqX\*(Aq
+   
 .fi
 .if n \{\
 .RE
@@ -160,37 +162,38 @@ Here is an example output:
 .RS 4
 .\}
 .nf
-$ pgproto \-p 11000 \-d test \-f sample\&.data
-FE=> Query (query="SELECT * FROM aaa")
-<= BE RowDescription
-<= BE CommandComplete(SELECT 0)
-<= BE ReadyForQuery(I)
-FE=> Parse(stmt="S1", query="BEGIN")
-FE=> Bind(stmt="S1", portal="")
-FE=> Execute(portal="")
-FE=> Close(stmt="S1")
-FE=> Parse(stmt="foo", query="SELECT 1")
-FE=> Bind(stmt="foo", portal="myportal")
-FE=> Execute(portal="myportal")
-FE=> Parse(stmt="S2", query="COMMIT")
-FE=> Bind(stmt="S2", portal="")
-FE=> Execute(portal="")
-FE=> Close(stmt="S2")
-FE=> Sync
-<= BE ParseComplete
-<= BE BindComplete
-<= BE CommandComplete(BEGIN)
-<= BE CloseComplete
-<= BE ParseComplete
-<= BE BindComplete
-<= BE DataRow
-<= BE CommandComplete(SELECT 1)
-<= BE ParseComplete
-<= BE BindComplete
-<= BE CommandComplete(COMMIT)
-<= BE CloseComplete
-<= BE ReadyForQuery(I)
-FE=> Terminate
+    $ pgproto \-p 11000 \-d test \-f sample\&.data
+    FE=> Query (query="SELECT * FROM aaa")
+    <= BE RowDescription
+    <= BE CommandComplete(SELECT 0)
+    <= BE ReadyForQuery(I)
+    FE=> Parse(stmt="S1", query="BEGIN")
+    FE=> Bind(stmt="S1", portal="")
+    FE=> Execute(portal="")
+    FE=> Close(stmt="S1")
+    FE=> Parse(stmt="foo", query="SELECT 1")
+    FE=> Bind(stmt="foo", portal="myportal")
+    FE=> Execute(portal="myportal")
+    FE=> Parse(stmt="S2", query="COMMIT")
+    FE=> Bind(stmt="S2", portal="")
+    FE=> Execute(portal="")
+    FE=> Close(stmt="S2")
+    FE=> Sync
+    <= BE ParseComplete
+    <= BE BindComplete
+    <= BE CommandComplete(BEGIN)
+    <= BE CloseComplete
+    <= BE ParseComplete
+    <= BE BindComplete
+    <= BE DataRow
+    <= BE CommandComplete(SELECT 1)
+    <= BE ParseComplete
+    <= BE BindComplete
+    <= BE CommandComplete(COMMIT)
+    <= BE CloseComplete
+    <= BE ReadyForQuery(I)
+    FE=> Terminate
+   
 .fi
 .if n \{\
 .RE
@@ -204,34 +207,35 @@ Copy
 .RS 4
 .\}
 .nf
-#
-# Test data example
-#
+    #
+    # Test data example
+    #
 
-# CopyIn
-#
-\*(AqQ\*(Aq	"COPY t1 FROM STDIN"
-# CopyData
-\*(Aqd\*(Aq	"abc"
-# CopyDone
-\*(Aqc\*(Aq
-\*(AqY\*(Aq
+    # CopyIn
+    #
+    \*(AqQ\*(Aq	"COPY t1 FROM STDIN"
+    # CopyData
+    \*(Aqd\*(Aq	"abc"
+    # CopyDone
+    \*(Aqc\*(Aq
+    \*(AqY\*(Aq
 
-# CopyOut
-#
-\*(AqQ\*(Aq	"COPY t1 TO STDOUT"
-\*(AqY\*(Aq
+    # CopyOut
+    #
+    \*(AqQ\*(Aq	"COPY t1 TO STDOUT"
+    \*(AqY\*(Aq
 
-#
-# Copy fail case
-#
-\*(AqQ\*(Aq	"COPY t1 FROM STDIN"
-# CopyData
-\*(Aqd\*(Aq	"abc"
-# CopyFail
-\*(Aqf\*(Aq	"pgproto copy fail test"
-\*(AqY\*(Aq
-\*(AqX\*(Aq
+    #
+    # Copy fail case
+    #
+    \*(AqQ\*(Aq	"COPY t1 FROM STDIN"
+    # CopyData
+    \*(Aqd\*(Aq	"abc"
+    # CopyFail
+    \*(Aqf\*(Aq	"pgproto copy fail test"
+    \*(AqY\*(Aq
+    \*(AqX\*(Aq
+   
 .fi
 .if n \{\
 .RE
@@ -243,19 +247,20 @@ Function Call
 .RS 4
 .\}
 .nf
-#
-# Test data example
-#
+    #
+    # Test data example
+    #
 
-# Function call (lo_creat)
-# from PostgreSQL\*(Aqs src/include/catalog/pg_proc\&.data
-# { oid => \*(Aq957\*(Aq, descr => \*(Aqlarge object create\*(Aq,
-#  proname => \*(Aqlo_creat\*(Aq, provolatile => \*(Aqv\*(Aq, proparallel => \*(Aqu\*(Aq,
-#  prorettype => \*(Aqoid\*(Aq, proargtypes => \*(Aqint4\*(Aq, prosrc => \*(Aqbe_lo_creat\*(Aq },
+    # Function call (lo_creat)
+    # from PostgreSQL\*(Aqs src/include/catalog/pg_proc\&.data
+    # { oid => \*(Aq957\*(Aq, descr => \*(Aqlarge object create\*(Aq,
+    #  proname => \*(Aqlo_creat\*(Aq, provolatile => \*(Aqv\*(Aq, proparallel => \*(Aqu\*(Aq,
+    #  prorettype => \*(Aqoid\*(Aq, proargtypes => \*(Aqint4\*(Aq, prosrc => \*(Aqbe_lo_creat\*(Aq },
 
-\*(AqF\*(Aq	957	1	0	1	1	"0"	0
-\*(AqY\*(Aq
-\*(AqX\*(Aq
+    \*(AqF\*(Aq	957	1	0	1	1	"0"	0
+    \*(AqY\*(Aq
+    \*(AqX\*(Aq
+   
 .fi
 .if n \{\
 .RE

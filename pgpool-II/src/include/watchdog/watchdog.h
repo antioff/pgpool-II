@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2017	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -38,6 +38,30 @@
                                     ((a).tv_usec - (b).tv_usec) / 1000000.0)
 
 /*
+ * Data version number of watchdog messages
+ * The version number is in major.minor format
+ * The major versions are always kept compatible.
+ *
+ * Increment the minor version whenever a minor change is
+ * made to message data, where the older versions can still
+ * work even when that change is not present in it.
+ *
+ * while incrementing the major version would mean that
+ * the watchdog node with older major version will not be
+ * allowed to join the cluster
+ *
+ * Since the message data version was not present from the
+ * beginning, so the default version is considered to be 1.0
+ * meaning if the data version number is not present in the
+ * watchdog node info then it will be considered as version 1.0
+ */
+
+#define WD_MESSAGE_DATA_VERSION_MAJOR	"1"
+#define WD_MESSAGE_DATA_VERSION_MINOR	"1"
+#define WD_MESSAGE_DATA_VERSION	WD_MESSAGE_DATA_VERSION_MAJOR "." WD_MESSAGE_DATA_VERSION_MINOR
+#define MAX_VERSION_STR_LEN		10
+
+/*
  * watchdog state
  */
 typedef enum
@@ -55,7 +79,8 @@ typedef enum
 	WD_IN_NW_TROUBLE,
 	/* the following states are only valid on remote nodes */
 	WD_SHUTDOWN,
-	WD_ADD_MESSAGE_SENT
+	WD_ADD_MESSAGE_SENT,
+	WD_NETWORK_ISOLATION
 }			WD_STATES;
 
 typedef enum
@@ -89,9 +114,21 @@ typedef enum
 
 	WD_EVENT_NODE_CON_LOST,
 	WD_EVENT_NODE_CON_FOUND,
-	WD_EVENT_CLUSTER_QUORUM_CHANGED
-
+	WD_EVENT_CLUSTER_QUORUM_CHANGED,
+	WD_EVENT_WD_STATE_REQUIRE_RELOAD,
+	WD_EVENT_I_AM_APPEARING_LOST,
+	WD_EVENT_I_AM_APPEARING_FOUND
 }			WD_EVENTS;
+
+typedef enum {
+	NODE_LOST_UNKNOWN_REASON,
+	NODE_LOST_BY_LIFECHECK,
+	NODE_LOST_BY_SEND_FAILURE,
+	NODE_LOST_BY_MISSING_BEACON,
+	NODE_LOST_BY_RECEIVE_TIMEOUT,
+	NODE_LOST_BY_NOT_REACHABLE,
+	NODE_LOST_SHUTDOWN
+} WD_NODE_LOST_REASONS;
 
 typedef struct SocketConnection
 {
@@ -111,6 +148,24 @@ typedef struct WatchdogNode
 									 * from the node */
 	struct timeval last_sent_time;	/* timestamp when last packet was sent on
 									 * the node */
+	bool   has_lost_us;             /*
+									 * True when this remote node thinks
+									 * we are lost
+									 */
+	int    sending_failures_count;  /* number of times we have failed
+									 * to send message to the node.
+									 * Gets reset after successfull sent
+									 */
+	int    missed_beacon_count;     /* number of times the node has
+									 * failed to reply for beacon.
+									 * message
+									 */
+	WD_NODE_LOST_REASONS node_lost_reason;
+
+	char		pgp_version[MAX_VERSION_STR_LEN];		/* Pgpool-II version */
+	int			wd_data_major_version;	/* watchdog messaging version major*/
+	int			wd_data_minor_version;  /* watchdog messaging version minor*/
+
 	char		nodeName[WD_MAX_NODE_NAMELEN];	/* name of this node */
 	char		hostname[WD_MAX_HOST_NAMELEN];	/* host name */
 	int			wd_port;		/* watchdog port */

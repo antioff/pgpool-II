@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.6 文書"
+TITLE="Pgpool-II 4.0.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:19"></HEAD
+CONTENT="2019-10-31T01:06:23"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.6 文書</A
+>Pgpool-II 4.0.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-4-0-1"
->A.6. リリース 4.0.1</A
+>A.7. リリース 4.0.1</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,27 +110,29 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8760"
->A.6.1. 変更点</A
+NAME="AEN8833"
+>A.7.1. 変更点</A
 ></H2
 ><P
 ></P
 ><UL
 ><LI
 ><P
-><SPAN
+>     
+     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >の実行ユーザとrootユーザ以外のユーザがsslキーファイルを所有することができるようになりました。(Muhammad Usama)
-     </P
+    </P
 ></LI
 ><LI
 ><P
->フェイルオーバ時に<TT
+>     
+     フェイルオーバ時に<TT
 CLASS="COMMAND"
 >PCP[attach/detach/promote]</TT
 >コマンドを許可するようになりました。(Muhammad Usama)
-     </P
+    </P
 ></LI
 ></UL
 ></DIV
@@ -139,15 +141,16 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8769"
->A.6.2. 不具合修正</A
+NAME="AEN8842"
+>A.7.2. 不具合修正</A
 ></H2
 ><P
 ></P
 ><UL
 ><LI
 ><P
-><TT
+>     
+     <TT
 CLASS="LITERAL"
 >MD5</TT
 >、<TT
@@ -157,37 +160,41 @@ CLASS="LITERAL"
 HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
 >pool_passwd</A
 >ファイルの破損を修正しました。(Muhammad Usama)
-     </P
+    </P
 ><P
->パッチはTakuma Hoshiaiによって提供され、Muhammad Usamaによって修正されました。
-     </P
+>     パッチはTakuma Hoshiaiによって提供され、Muhammad Usamaによって修正されました。
+    </P
 ></LI
 ><LI
 ><P
-><TT
+>     
+     <TT
 CLASS="COMMAND"
 >SHOW POOL_STATUS</TT
 >コマンドの出力の<TT
 CLASS="VARNAME"
 >child_max_connections</TT
 >の説明のタイポを修正しました。(Tatsuo Ishii)
-     </P
+    </P
 ><P
->パッチはPhil Ramirezにより提供されました。
-     </P
+>     
+     パッチはPhil Ramirezにより提供されました。
+    </P
 ></LI
 ><LI
 ><P
->ネイティブレプリケーションモードでエラークエリと同期メッセージが送信されたときのセグメンテーション違反を修正しました。
-(<A
+>     
+     ネイティブレプリケーションモードでエラークエリと同期メッセージが送信されたときのセグメンテーション違反を修正しました。
+     (<A
 HREF="http://www.pgpool.net/mantisbt/view.php?id=434"
 TARGET="_top"
 >bug 434</A
 >) (Takuma Hoshiai)
-     </P
+    </P
 ><P
->ネイティブレプリケーションモードで、クエリエラーの後に同期メッセージが送信されるとセグメンテーション違反が発生していました。
-     </P
+>     
+     ネイティブレプリケーションモードで、クエリエラーの後に同期メッセージが送信されるとセグメンテーション違反が発生していました。
+    </P
 ></LI
 ></UL
 ></DIV

@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2018
-.\"    Manual: Pgpool-II 4.0.6 文書
-.\"    Source: Pgpool-II 4.0.6
+.\"    Manual: Pgpool-II 4.0.7 文書
+.\"    Source: Pgpool-II 4.0.7
 .\"  Language: Japanese
 .\"
-.TH "PCP_WATCHDOG_INFO" "1" "2018" "Pgpool-II 4.0.6" "Pgpool-II 4.0.6 文書"
+.TH "PCP_WATCHDOG_INFO" "1" "2018" "Pgpool-II 4.0.7" "Pgpool-II 4.0.7 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -87,14 +87,14 @@ Pgpool\-II
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-U postgres
+    $ pcp_watchdog_info \-h localhost \-U postgres
 
-3 NO Linux_host1\&.localdomain_9991 host1
+    3 NO Linux_host1\&.localdomain_9991 host1
 
-Linux_host1\&.localdomain_9991 host1 9991 9001 7 STANDBY
-Linux_host2\&.localdomain_9992 host2 9992 9002 4 MASTER
-Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
-    
+    Linux_host1\&.localdomain_9991 host1 9991 9001 7 STANDBY
+    Linux_host2\&.localdomain_9992 host2 9992 9002 4 MASTER
+    Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
+   
 .fi
 .if n \{\
 .RE
@@ -106,12 +106,15 @@ Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
 .RS 4
 .\}
 .nf
-最初に出力される行は、watchdog クラスタの情報を示しています:
+    
+    最初に出力される行は、watchdog クラスタの情報を示しています:
+    
 
-1\&. クラスタ内の全 watchdog ノード数
-2\&. 仮想 IP がこのノードで起動しているか？
-3\&. マスターノード名
-4\&. マスターノードホスト
+    1\&. クラスタ内の全 watchdog ノード数
+    2\&. 仮想 IP がこのノードで起動しているか？
+    3\&. マスターノード名
+    4\&. マスターノードホスト
+   
 .fi
 .if n \{\
 .RE
@@ -121,14 +124,16 @@ Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
 .RS 4
 .\}
 .nf
-それ以降は watchdog ノードのリストが出力されます:
+    
+    それ以降は watchdog ノードのリストが出力されます:
 
-1\&. ノード名
-2\&. ホスト名
-3\&. pgpool ポート番号
-4\&. watchdog ポート番号
-5\&. 現在のノードステータス
-6\&. 現在のノードステータス名
+    1\&. ノード名
+    2\&. ホスト名
+    3\&. pgpool ポート番号
+    4\&. watchdog ポート番号
+    5\&. 現在のノードステータス
+    6\&. 現在のノードステータス名
+   
 .fi
 .if n \{\
 .RE
@@ -141,45 +146,45 @@ Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
 .RS 4
 .\}
 .nf
-$ pcp_watchdog_info \-h localhost \-v \-U postgres
+   $ pcp_watchdog_info \-h localhost \-v \-U postgres
 
-Watchdog Cluster Information
-Total Nodes          : 3
-Remote Nodes         : 2
-Quorum state         : QUORUM EXIST
-Alive Remote Nodes   : 2
-VIP up on local node : NO
-Master Node Name     : Linux_host2\&.localdomain_9992
-Master Host Name     : localhost
+   Watchdog Cluster Information
+   Total Nodes          : 3
+   Remote Nodes         : 2
+   Quorum state         : QUORUM EXIST
+   Alive Remote Nodes   : 2
+   VIP up on local node : NO
+   Master Node Name     : Linux_host2\&.localdomain_9992
+   Master Host Name     : localhost
 
-Watchdog Node Information
-Node Name      : Linux_host1\&.localdomain_9991
-Host Name      : host1
-Delegate IP    : 192\&.168\&.1\&.10
-Pgpool port    : 9991
-Watchdog port  : 9001
-Node priority  : 1
-Status         : 7
-Status Name    : STANDBY
+   Watchdog Node Information
+   Node Name      : Linux_host1\&.localdomain_9991
+   Host Name      : host1
+   Delegate IP    : 192\&.168\&.1\&.10
+   Pgpool port    : 9991
+   Watchdog port  : 9001
+   Node priority  : 1
+   Status         : 7
+   Status Name    : STANDBY
 
-Node Name      : Linux_host2\&.localdomain_9992
-Host Name      : host2
-Delegate IP    : 192\&.168\&.1\&.10
-Pgpool port    : 9992
-Watchdog port  : 9002
-Node priority  : 1
-Status         : 4
-Status Name    : MASTER
+   Node Name      : Linux_host2\&.localdomain_9992
+   Host Name      : host2
+   Delegate IP    : 192\&.168\&.1\&.10
+   Pgpool port    : 9992
+   Watchdog port  : 9002
+   Node priority  : 1
+   Status         : 4
+   Status Name    : MASTER
 
-Node Name      : Linux_host3\&.localdomain_9993
-Host Name      : host3
-Delegate IP    : 192\&.168\&.1\&.10
-Pgpool port    : 9993
-Watchdog port  : 9003
-Node priority  : 1
-Status         : 7
-Status Name    : STANDBY
-    
+   Node Name      : Linux_host3\&.localdomain_9993
+   Host Name      : host3
+   Delegate IP    : 192\&.168\&.1\&.10
+   Pgpool port    : 9993
+   Watchdog port  : 9003
+   Node priority  : 1
+   Status         : 7
+   Status Name    : STANDBY
+  
 .fi
 .if n \{\
 .RE

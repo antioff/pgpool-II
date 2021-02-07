@@ -882,6 +882,39 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 			}
 		}
 	}
+	else if (IsA(stmt, CreateTableAsStmt))
+	{
+		CreateTableAsStmt *c_stmt = (CreateTableAsStmt *) stmt;
+
+		/*
+		 * CREATE TABLE t1 AS SELECT now();
+		 */
+		if (IsA(c_stmt->query, SelectStmt) && c_stmt->relkind == OBJECT_TABLE)
+		{
+			/* rewrite params */
+			raw_expression_tree_walker(
+									   (Node *) c_stmt->query,
+									   rewrite_timestamp_walker, (void *) &ctx);
+
+			rewrite = ctx.rewrite;
+		}
+	}
+	else if (IsA(stmt, SelectStmt))
+	{
+		SelectStmt *s_stmt = (SelectStmt *) stmt;
+
+		/*
+		 * SELECT now() INTO t1;
+		 */
+		if (s_stmt->intoClause)
+		{
+			raw_expression_tree_walker(
+									   (Node *) s_stmt,
+									   rewrite_timestamp_walker, (void *) &ctx);
+		}
+
+		rewrite = ctx.rewrite;
+	}
 	else
 		;
 
@@ -1203,7 +1236,7 @@ makeTypeCastFromSvfOp(SQLValueFunctionOp op)
 			location = 0;
 			break;
 		case SVFOP_LOCALTIMESTAMP_N:
-			typename = SystemTypeName("timestamp");;
+			typename = SystemTypeName("timestamp");
 			typename->typmods = lcons(makeIntConst(0, 0), NIL);
 			location = -3;
 			break;
@@ -1213,6 +1246,8 @@ makeTypeCastFromSvfOp(SQLValueFunctionOp op)
 		case SVFOP_SESSION_USER:
 		case SVFOP_CURRENT_CATALOG:
 		case SVFOP_CURRENT_SCHEMA:
+			typename = SystemTypeName("name");
+			location = 0;
 			break;
 	}
 

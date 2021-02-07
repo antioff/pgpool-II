@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.6 Documentation"
+TITLE="pgpool-II 4.0.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="pgpool_adm extension"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:01"></HEAD
+CONTENT="2019-10-31T01:06:06"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.6 Documentation</A
+>pgpool-II 4.0.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,15 +95,15 @@ NAME="PGPOOL-ADM-PCP-ATTACH-NODE"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN8169"
+NAME="AEN8173"
 ></A
 ><H2
 >Name</H2
->pgpool_adm_pcp_attach_node&nbsp;--&nbsp;	a function to attach given node	ID</DIV
+>pgpool_adm_pcp_attach_node&nbsp;--&nbsp;   a function to attach given node	ID</DIV
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN8172"
+NAME="AEN8176"
 ></A
 ><H2
 >Synopsis</H2
@@ -112,7 +112,7 @@ CLASS="FUNCSYNOPSIS"
 ><P
 ></P
 ><A
-NAME="AEN8173"
+NAME="AEN8177"
 ></A
 ><P
 ><CODE
@@ -167,11 +167,11 @@ NAME="R3-PCP-ATTACH-NODE-3"
 ><H2
 >Description</H2
 ><P
->    <CODE
+>   <CODE
 CLASS="FUNCTION"
 >pcp_attach_node</CODE
 > attaches a node
-    to <SPAN
+   to <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >.
@@ -180,12 +180,12 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8203"
+NAME="AEN8207"
 ></A
 ><H2
 >Arguments</H2
 ><P
->    <P
+>   <P
 ></P
 ></P><DIV
 CLASS="VARIABLELIST"
@@ -199,8 +199,8 @@ CLASS="REPLACEABLE"
 ></DT
 ><DD
 ><P
->	 The index of backend node to attach.
-       </P
+>       The index of backend node to attach.
+      </P
 ></DD
 ><DT
 ><TT
@@ -211,8 +211,8 @@ CLASS="REPLACEABLE"
 ></DT
 ><DD
 ><P
->	  The foreign server name for pcp server.
-	</P
+>       The foreign server name for pcp server.
+      </P
 ></DD
 ><DT
 ><TT
@@ -221,34 +221,34 @@ CLASS="OPTION"
 ></DT
 ><DD
 ><P
->	 See <A
+>       See <A
 HREF="pcp-common-options.html"
 >pcp_common_options</A
 >.
-       </P
+      </P
 ></DD
 ></DL
 ></DIV
 ><P>
-   </P
+  </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8223"
+NAME="AEN8227"
 ></A
 ><H2
 >Example</H2
 ><P
->	Here is an example output:
-	</P><PRE
+>   Here is an example output:
+   </P><PRE
 CLASS="PROGRAMLISTING"
->test=# SELECT * FROM pcp_attach_node(1,'localhost',11001,'t-ishii','t-ishii');
- node_attached
----------------
- t
-(1 row)
-    </PRE
+>    test=# SELECT * FROM pcp_attach_node(1,'localhost',11001,'t-ishii','t-ishii');
+    node_attached
+    ---------------
+    t
+    (1 row)
+   </PRE
 ><P>
   </P
 ></DIV

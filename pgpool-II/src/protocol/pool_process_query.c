@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2018	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -698,7 +698,7 @@ pool_check_fd(POOL_CONNECTION * cp)
 		save_errno = errno;
 		if (fds == -1)
 		{
-			if (processType == PT_MAIN && processState == PERFORMING_HEALTH_CHECK && errno == EINTR && health_check_timer_expired)
+			if (processType == PT_HEALTH_CHECK && errno == EINTR && health_check_timer_expired)
 			{
 				ereport(WARNING,
 						(errmsg("health check timed out while waiting for reading data")));
@@ -2054,7 +2054,7 @@ do_query(POOL_CONNECTION * backend, char *query, POOL_SELECT_RESULT * *result, i
 		/*
 		 * Send descrive message if the query is SELECT.
 		 */
-		if (!strcasecmp(query, "SELECT"))
+		if (!strncasecmp(query, "SELECT", strlen("SELECT")))
 		{
 			/*
 			 * Send descrive message
@@ -2849,10 +2849,10 @@ insert_lock(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, char *qu
 				}
 				else if (lock_kind == 2)
 				{
-					POOL_SELECT_RESULT *result;
-
 					per_node_statement_log(backend, i, qbuf);
 					do_query(CONNECTION(backend, i), qbuf, &result, MAJOR(backend));
+					if (result)
+						free_select_result(result);
 				}
 			}
 
@@ -3366,7 +3366,8 @@ read_kind_from_backend(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backen
 					(errmsg("reading backend data packet kind"),
 					 errdetail("received notification message for master node %d",
 							   MASTER_NODE_ID)));
-
+			if (msg)
+				pool_pending_message_free_pending_message(msg);
 			return;
 		}
 		pool_unread(CONNECTION(backend, MASTER_NODE_ID), &kind, sizeof(kind));
@@ -3585,6 +3586,7 @@ read_kind_from_backend(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backen
 						if (pending_message)
 							pool_pending_message_free_pending_message(pending_message);
 					}
+					pool_pending_message_free_pending_message(msg);
 					return;
 				}
 
@@ -4385,7 +4387,7 @@ detect_error(POOL_CONNECTION * backend, char *error_code, int major, char class,
 		pool_unread(backend, &kind, sizeof(kind));
 	}
 
-	if (str)
+	if (major == PROTO_MAJOR_V3 && str)
 		pfree(str);
 
 	return is_error;
@@ -4466,7 +4468,7 @@ pool_process_notice_message_from_one_backend(POOL_CONNECTION * frontend, POOL_CO
 
 		/* produce a pgpool log entry */
 		ereport(LOG,
-				(errmsg("backend [%d]: NOTICE: %s", backend_idx, str)));
+				(errmsg("backend [%d]: %s", backend_idx, str)));
 		/* forward it to the frontend */
 		pool_write(frontend, &kind, 1);
 		pool_write_and_flush(frontend, str, len);
@@ -4566,7 +4568,8 @@ pool_extract_error_message(bool read_kind, POOL_CONNECTION * backend, int major,
 		{
 			str = pool_read_string(backend, &len, 0);
 			readlen += len;
-			appendStringInfoString(str_message_buf, str);
+			appendBinaryStringInfo(str_message_buf, str, len);
+			appendBinaryStringInfo(str_buf, str, len);
 		}
 
 		if (unread)

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.6 文書"
+TITLE="Pgpool-II 4.0.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="さあ始めましょう"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:19"></HEAD
+CONTENT="2019-10-31T01:06:23"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.6 文書</A
+>Pgpool-II 4.0.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -96,37 +96,42 @@ NAME="TUTORIAL-REPLICATION"
 >1.2. はじめてのレプリケーション</A
 ></H1
 ><P
->この節では、<SPAN
+>   
+   この節では、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >を使って、もっとも一般的な設定の一つである、<SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >クラスターをストリーミングレプリケーション構成で管理する方法を説明します。
-    </P
+  </P
 ><P
->先に進む前に、ストリーミングレプリケーションモードで<TT
+>   
+   先に進む前に、ストリーミングレプリケーションモードで<TT
 CLASS="FILENAME"
 >pgpool.conf</TT
 >を設定しましょう。
-このためには、少なくとも次の2つの項目を設定しなければなりません。
-      </P><PRE
+   このためには、少なくとも次の2つの項目を設定しなければなりません。
+   </P><PRE
 CLASS="PROGRAMLISTING"
->master_slave_mode = on
-master_slave_sub_mode = 'stream'
-      </PRE
+>    master_slave_mode = on
+    master_slave_sub_mode = 'stream'
+   </PRE
 ><P>
-    </P
+  </P
 ><P
-><TT
+>   
+   <TT
 CLASS="COMMAND"
 >pgpool_setup</TT
 >を使うということであれば、次のようにタイプして下さい。
-      </P><PRE
+   </P><PRE
 CLASS="PROGRAMLISTING"
->pgpool_setup</PRE
+>    pgpool_setup
+   </PRE
 ><P>
-これにより、ストリーミングレプリケーション設定の<SPAN
+   
+   これにより、ストリーミングレプリケーション設定の<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >、<SPAN
@@ -136,50 +141,55 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >の非同期スタンバイのインストールが行われます。
-    </P
+  </P
 ><P
->ここからは、<TT
+>   
+   ここからは、<TT
 CLASS="COMMAND"
 >pgpool_setup</TT
 >を使ってカレントディレクトリ以下にインストールを行うことを前提とします。
-    </P
+  </P
 ><P
->システム全体を起動するには、次のようにタイプして下さい。
-</P><PRE
+>   
+   システム全体を起動するには、次のようにタイプして下さい。
+   </P><PRE
 CLASS="PROGRAMLISTING"
->./startall</PRE
+>    ./startall
+   </PRE
 ><P>
-    </P
+  </P
 ><P
->システムが起動すれば、任意のデータベースに擬似SQLコマンドの"show pool_node"を発行して、クラスタの状態を確認することができます。
-<TT
+>   
+   システムが起動すれば、任意のデータベースに擬似SQLコマンドの"show pool_node"を発行して、クラスタの状態を確認することができます。
+   <TT
 CLASS="COMMAND"
 >pgpool_setup</TT
 >は、自動的に"test"データベースを作ります。
-このデータベースを使います。
-<TT
+   このデータベースを使います。
+   <TT
 CLASS="COMMAND"
 >pgpool_setup</TT
 >により、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >にデフォルトポート番号として11000がアサインされていることに注意してください。
-      </P><PRE
+   </P><PRE
 CLASS="PROGRAMLISTING"
->$ psql -p 11000 -c "show pool_nodes" test
- node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay 
----------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
- 0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | false             | 0
- 1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | true              | 0
-(2 rows)
-      </PRE
+>    $ psql -p 11000 -c "show pool_nodes" test
+    node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay 
+    ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
+    0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | false             | 0
+    1       | /tmp     | 11003 | up     | 0.500000  | standby | 0          | true              | 0
+    (2 rows)
+   </PRE
 ><P>
-この結果は、"status"カラムが"up"であることを示しています。
-これは、<SPAN
+   
+   この結果は、"status"カラムが"up"であることを示しています。
+   これは、<SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >が稼働中で、問題ないということです。
-    </P
+  </P
 ></DIV
 ><DIV
 CLASS="NAVFOOTER"

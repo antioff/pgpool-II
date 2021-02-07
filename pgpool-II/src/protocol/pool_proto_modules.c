@@ -601,6 +601,8 @@ SimpleQuery(POOL_CONNECTION * frontend,
 										   query_context);
 			session_context->uncompleted_message = msg;
 		}
+		else
+			session_context->uncompleted_message = NULL;
 	}
 
 
@@ -1095,7 +1097,7 @@ Parse(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 		/*
 		 * Start query context
 		 */
-		pool_start_query(query_context, pstrdup(stmt), strlen(stmt) + 1, node);
+		pool_start_query(query_context, stmt, strlen(stmt) + 1, node);
 
 		msg = pool_create_sent_message('P', len, contents, 0, name, query_context);
 
@@ -3364,7 +3366,6 @@ static POOL_STATUS parse_before_bind(POOL_CONNECTION * frontend,
 	bool		parse_was_sent = false;
 	bool		backup[MAX_NUM_BACKENDS];
 	POOL_QUERY_CONTEXT *qc = message->query_context;
-	POOL_SENT_MESSAGE *msg;
 
 	memcpy(backup, qc->where_to_send, sizeof(qc->where_to_send));
 

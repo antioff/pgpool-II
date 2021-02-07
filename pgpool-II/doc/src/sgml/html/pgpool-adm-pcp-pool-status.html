@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.6 Documentation"
+TITLE="pgpool-II 4.0.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="pgpool_adm extension"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:01"></HEAD
+CONTENT="2019-10-31T01:06:06"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.6 Documentation</A
+>pgpool-II 4.0.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,15 +95,15 @@ NAME="PGPOOL-ADM-PCP-POOL-STATUS"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN8055"
+NAME="AEN8059"
 ></A
 ><H2
 >Name</H2
->pgpool_adm_pcp_pool_status&nbsp;--&nbsp;	a function to retrieves parameters in pgpool.conf.</DIV
+>pgpool_adm_pcp_pool_status&nbsp;--&nbsp;   a function to retrieves parameters in pgpool.conf.</DIV
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN8058"
+NAME="AEN8062"
 ></A
 ><H2
 >Synopsis</H2
@@ -112,7 +112,7 @@ CLASS="FUNCSYNOPSIS"
 ><P
 ></P
 ><A
-NAME="AEN8059"
+NAME="AEN8063"
 ></A
 ><P
 ><CODE
@@ -173,22 +173,22 @@ NAME="R3-PCP-POOL-STATUS-3"
 ><H2
 >Description</H2
 ><P
->    <CODE
+>   <CODE
 CLASS="FUNCTION"
 >pcp_pool_status</CODE
 > retrieves parameters in
-      pgpool.conf.
+   pgpool.conf.
   </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8092"
+NAME="AEN8096"
 ></A
 ><H2
 >Arguments</H2
 ><P
->    <P
+>   <P
 ></P
 ></P><DIV
 CLASS="VARIABLELIST"
@@ -202,8 +202,8 @@ CLASS="REPLACEABLE"
 ></DT
 ><DD
 ><P
->	  The foreign server name for pcp server.
-	</P
+>       The foreign server name for pcp server.
+      </P
 ></DD
 ><DT
 ><TT
@@ -212,39 +212,39 @@ CLASS="OPTION"
 ></DT
 ><DD
 ><P
->	 See <A
+>       See <A
 HREF="pcp-common-options.html"
 >pcp_common_options</A
 >.
-       </P
+      </P
 ></DD
 ></DL
 ></DIV
 ><P>
-   </P
+  </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8107"
+NAME="AEN8111"
 ></A
 ><H2
 >Example</H2
 ><P
->	Here is an example output:
-	</P><PRE
+>   Here is an example output:
+   </P><PRE
 CLASS="PROGRAMLISTING"
-> test=# SELECT * FROM pcp_pool_status('localhost',11001,'t-ishii','t-ishii') WHERE item ~ 'backend.*0';
-          item           |                     value                      |          description
--------------------------+------------------------------------------------+-------------------------------
- backend_hostname0       | /tmp                                           | backend #0 hostname
- backend_port0           | 11002                                          | backend #0 port number
- backend_weight0         | 0.500000                                       | weight of backend #0
- backend_data_directory0 | /home/t-ishii/work/pgpool-II/current/aaa/data0 | data directory for backend #0
- backend_status0         | 2                                              | status of backend #0
- backend_flag0           | ALLOW_TO_FAILOVER                              | backend #0 flag
-(6 rows)
-    </PRE
+>    test=# SELECT * FROM pcp_pool_status('localhost',11001,'t-ishii','t-ishii') WHERE item ~ 'backend.*0';
+    item           |                     value                      |          description
+    -------------------------+------------------------------------------------+-------------------------------
+    backend_hostname0       | /tmp                                           | backend #0 hostname
+    backend_port0           | 11002                                          | backend #0 port number
+    backend_weight0         | 0.500000                                       | weight of backend #0
+    backend_data_directory0 | /home/t-ishii/work/pgpool-II/current/aaa/data0 | data directory for backend #0
+    backend_status0         | 2                                              | status of backend #0
+    backend_flag0           | ALLOW_TO_FAILOVER                              | backend #0 flag
+    (6 rows)
+   </PRE
 ><P>
   </P
 ></DIV

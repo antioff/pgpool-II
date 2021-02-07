@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.6 文書"
+TITLE="Pgpool-II 4.0.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-08-15T08:02:19"></HEAD
+CONTENT="2019-10-31T01:06:23"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.6 文書</A
+>Pgpool-II 4.0.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-3-19"
->A.77. リリース 3.3.19</A
+>A.82. リリース 3.3.19</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,23 +110,23 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN13018"
->A.77.1. 不具合修正</A
+NAME="AEN13225"
+>A.82.1. 不具合修正</A
 ></H2
 ><P
 ></P
 ><UL
 ><LI
 ><P
->      
-ログを取得するために <TT
+>     
+     ログを取得するために <TT
 CLASS="FILENAME"
 >pgpool.service</TT
 > とsysconfig ファイルを変更しました。(Bo Peng)
-      </P
+    </P
 ><P
->      
-ログを取得するために、非デーモンモードで <SPAN
+>     
+     ログを取得するために、非デーモンモードで <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > を起動するように Type=forking を削除し、OPTS=" -n" を追加しました。<TT
@@ -136,35 +136,35 @@ CLASS="COMMAND"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > の systemd のログを確認することができます。
-      </P
+    </P
 ></LI
 ><LI
 ><P
->      
-ネイティブレプリケーションモードで発生するタイムスタンプデータの不整合を修正しました。 (Bo Peng)
-      </P
+>     
+     ネイティブレプリケーションモードで発生するタイムスタンプデータの不整合を修正しました。 (Bo Peng)
+    </P
 ><P
->      
-<SPAN
+>     
+     <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > 10から「CURRENT_DATE」のようなカラムのデフォルト値が変わったので、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > はこれらのタイムスタンプをリライトしませんでした。これによって、データの不整合が発生していました。
-      </P
+    </P
 ></LI
 ><LI
 ><P
->      
-"ready for query" メッセージを受信したときにトランザクション状態を返すように修正しました。(Tatsuo Ishii)
-      </P
+>     
+     "ready for query" メッセージを受信したときにトランザクション状態を返すように修正しました。(Tatsuo Ishii)
+    </P
 ><P
->      
-今まではプライマリノードまたはマスターノードの状態をフロントエンドに返していました。
-ほとんどの場合、問題がありませんでした。
-ただし、プライマリノードまたはマスターノード以外のノードがエラー状態を返した場合(ロードバランスノードがプライマリまたはマスターノード以外で、誤った SELECT クエリの場合に発生する可能性がある)、このエラー状態をフロントエンドに返す必要がありました。
-      </P
+>     
+     今まではプライマリノードまたはマスターノードの状態をフロントエンドに返していました。
+     ほとんどの場合、問題がありませんでした。
+     ただし、プライマリノードまたはマスターノード以外のノードがエラー状態を返した場合(ロードバランスノードがプライマリまたはマスターノード以外で、誤った SELECT クエリの場合に発生する可能性がある)、このエラー状態をフロントエンドに返す必要がありました。
+    </P
 ></LI
 ></UL
 ></DIV
