@@ -277,7 +277,7 @@
       -->
       （アプリケーションサーバなど）クライアントサーバから接続される<productname>Pgpool-II</productname>の仮想IP（VIP） アドレスを指定します。
       <productname>Pgpool-II</productname>がスタンバイからアクティブに切り替わった時、<productname>Pgpool-II</productname>はこのVIPを引き継ぎます。
-      <xref linkend="guc-failover-require-consensus">がオンの場合（デフォルトです）、クォーラムが存在しなければVIPは立ち上がりません。
+      <emphasis>クォーラムが存在しなければVIPは立ち上がりません</emphasis>。
       デフォルトは<literal>''</literal>（空文字）で、この場合仮想IPは決して立ち上がりません。
      </para>
      <para>
@@ -731,6 +731,14 @@
       -->
       このパラメータは、サーバーの起動時にのみ設定できます。
      </para>
+     <note>
+      <para>
+       <!--
+       enabling <varname>failover_when_quorum_exists</varname> is not allowed in native replication mode.
+       -->
+       ネイティブレプリケーションモードでは<varname>failover_when_quorum_exists</varname>機能は利用できません。
+      </para>
+     </note>
     </listitem>
    </varlistentry>
 
@@ -795,6 +803,16 @@
 	ヘルスチェックに関する詳細については、<xref linkend="runtime-config-health-check">をご覧ください。
        </para>
       </caution>
+
+      <note>
+       <para>
+        <!--
+        enabling <varname>failover_require_consensus</varname> is not allowed in native replication mode.
+        -->
+        ネイティブレプリケーションモードでは<varname>failover_require_consensus</varname>機能は利用できません。
+       </para>
+      </note>
+
       <!--
       <varname>failover_require_consensus</varname> is not available prior to
       <productname>Pgpool-II </productname><emphasis>V3.7</emphasis>. and it is only
@@ -873,7 +891,7 @@
    <varlistentry id="guc-enable-consensus-with-half-votes" xreflabel="enable_consensus_with_half_votes">
     <term><varname>enable_consensus_with_half_votes</varname> (<type>boolean</type>)
      <indexterm>
-      <primary><varname>cenable_consensus_with_half_votes</varname>設定パラメータ</primary>
+      <primary><varname>enable_consensus_with_half_votes</varname>設定パラメータ</primary>
      </indexterm>
     </term>
     <listitem>

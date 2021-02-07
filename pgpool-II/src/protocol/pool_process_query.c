@@ -761,17 +761,18 @@ SimpleForwardToFrontend(char kind, POOL_CONNECTION * frontend,
 
 	/*
 	 * Optimization for other than "Command Complete", "Ready For query",
-	 * "Error response" and "Notice message" messages.  Especially, since it
-	 * is too often to receive and forward "Data Row" message, we do not flush
-	 * the message to frontend now. We expect that "Command Complete" message
-	 * (or "Error response" or "Notice response" message) follows the stream
-	 * of data row message anyway, so flushing will be done at that time.
+	 * "Error response" ,"Notice message" and "Notification response"
+	 * messages.  Especially, since it is too often to receive and forward
+	 * "Data Row" message, we do not flush the message to frontend now. We
+	 * expect that "Command Complete" message (or "Error response" or "Notice
+	 * response" message) follows the stream of data row message anyway, so
+	 * flushing will be done at that time.
 	 *
 	 * Same thing can be said to CopyData message. Tremendous number of
 	 * CopyData messages are sent to frontend (typical use case is pg_dump).
 	 * So eliminating per CopyData flush significantly enhances performance.
 	 */
-	if (kind == 'C' || kind == 'Z' || kind == 'E' || kind == 'N')
+	if (kind == 'C' || kind == 'Z' || kind == 'E' || kind == 'N' || kind == 'A')
 	{
 		pool_write_and_flush(frontend, p1, len1);
 	}
@@ -850,7 +851,7 @@ SimpleForwardToBackend(char kind, POOL_CONNECTION * frontend,
 	}
 	else if (len < 0)
 		ereport(ERROR,
-				(errmsg("unable to forward message to frontend"),
+				(errmsg("unable to forward message to backend"),
 				 errdetail("invalid message length:%d for message:%c", len, kind)));
 
 
@@ -2309,7 +2310,7 @@ do_query(POOL_CONNECTION * backend, char *query, POOL_SELECT_RESULT * *result, i
 
 							res->nullflags[num_data] = len;
 
-							if (len > 0)	/* NOT NULL? */
+							if (len >= 0)	/* NOT NULL? */
 							{
 								res->data[num_data] = palloc(len + 1);
 								memcpy(res->data[num_data], p, len);
@@ -2332,7 +2333,7 @@ do_query(POOL_CONNECTION * backend, char *query, POOL_SELECT_RESULT * *result, i
 
 								res->nullflags[num_data] = len;
 
-								if (len > 0)
+								if (len >= 0)
 								{
 									p = pool_read2(backend, len);
 									res->data[num_data] = palloc(len + 1);
