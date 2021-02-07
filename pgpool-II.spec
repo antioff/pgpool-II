@@ -1,14 +1,9 @@
-%define pg_ver 11
-%def_with devel
-%def_with lib
-%define pgpool_configdir %_sysconfdir/pgpool.d
-%define pgpool_piddir %_var/run/pgpool
-%define pgpool_logdir %_logdir/pgpool
-%define PGSQL pgsql
+%define full_ver %(pkg-config --modversion libpq)
+%define pg_ver %(c=%{full_ver}; echo ${c%%.*})
 %define sname pgpool
 
 Name: pgpool-II
-Version: 4.0.2
+Version: 4.2.1
 Release: alt1
 Summary: Pgpool is a connection pooling/replication server for PostgreSQL
 License: BSD
@@ -19,17 +14,20 @@ Source: %name-%version.tar
 Source1: pgpool.service
 Source2: pgpool.tmpfiles
 Source3: pgpool.init
+Source4: pgpool.sysconfig
 
-Patch: 0001-Update-path-fo~ocket-and-log.patch
+Patch: 0001-Update-path-for-socket-and-log.patch
 
 BuildRequires: flex
 BuildRequires: postgresql-devel
 BuildRequires: pam-devel
 BuildRequires: libmemcached-devel
 BuildRequires: libssl-devel
+BuildRequires: setproctitle-devel
 
 Requires: libpcp = %EVR
 Requires: postgresql%pg_ver-%name = %EVR
+Provides: pgpool2 = %EVR
 
 %description
 pgpool-II is a inherited project of pgpool (to classify from
@@ -70,7 +68,7 @@ Postgresql extensions libraries and sql files for pgpool-II.
 
 %prep
 %setup -q
-%patch -p2
+%patch -p1
 
 %build
 %autoreconf
@@ -91,40 +89,53 @@ Postgresql extensions libraries and sql files for pgpool-II.
 %make DESTDIR=%buildroot install -C src/sql/pgpool-recovery
 %make DESTDIR=%buildroot install -C src/sql/pgpool-regclass
 
-mkdir -p %buildroot{%pgpool_piddir,%pgpool_logdir,%_unitdir,%_initdir,%_tmpfilesdir,%_man1dir,%_man8dir}
+mkdir -p %buildroot{{%_logdir,%_datadir}/%sname,%_unitdir,%_initdir,%_tmpfilesdir,%_man1dir,%_man8dir}
 
-install -p -m644 %SOURCE1 %buildroot%_unitdir/pgpool.service
-install -p -m644 %SOURCE2 %buildroot%_tmpfilesdir/pgpool.conf
-install -p -m755 %SOURCE3 %buildroot%_initdir/pgpool
+install -p -m644 %SOURCE1 %buildroot%_unitdir/%sname.service
+install -p -m644 %SOURCE2 %buildroot%_tmpfilesdir/%sname.conf
+install -p -m755 %SOURCE3 %buildroot%_initdir/%sname
+install -p -m644 -D %SOURCE4 %buildroot%_sysconfdir/sysconfig/%sname
 
 mv %buildroot%_sysconfdir/%sname/pcp.conf.sample %buildroot%_sysconfdir/%sname/pcp.conf
 mv %buildroot%_sysconfdir/%sname/pgpool.conf.sample %buildroot%_sysconfdir/%sname/pgpool.conf
 mv %buildroot%_sysconfdir/%sname/pool_hba.conf.sample  %buildroot%_sysconfdir/%sname/pool_hba.conf
-rm -f %buildroot%_sysconfdir/%sname/pgpool.conf.sample-*
+mv %buildroot%_sysconfdir/%sname/failover.sh.sample %buildroot%_sysconfdir/%sname/failover.sh
+mv %buildroot%_sysconfdir/%sname/follow_primary.sh.sample %buildroot%_sysconfdir/%sname/follow_primary.sh
+mv %buildroot%_sysconfdir/%sname/pgpool_remote_start.sample %buildroot%_sysconfdir/%sname/pgpool_remote_start
+mv %buildroot%_sysconfdir/%sname/recovery_1st_stage.sample %buildroot%_sysconfdir/%sname/recovery_1st_stage
+mv %buildroot%_sysconfdir/%sname/pgpool.conf.sample-* %buildroot%_datadir/%sname/
 
 # Copy man pages
 cp doc/src/sgml/man1/* %buildroot%_man1dir/
 cp doc/src/sgml/man8/* %buildroot%_man8dir/
 
+rm -f %buildroot%_libdir/*.{a,la}
+
+%pre
+groupadd -r -f %sname 2>/dev/null ||:
+useradd  -r -g %sname -s /sbin/nologin -c "Pgpool Daemon" -M -d /var/run/%sname %sname 2>/dev/null ||:
+
 %post
-%post_service pgpool
+%post_service %sname
 
 %preun
-%preun_service pgpool
+%preun_service %sname
 
 %files
 %doc NEWS COPYING src/sample
 %_bindir/*
 %_datadir/%name
-%_initdir/pgpool
-%_unitdir/pgpool.service
-%_tmpfilesdir/pgpool.conf
-%config(noreplace) %_sysconfdir/%sname/*
+%_datadir/%sname
+%_initdir/*
+%_unitdir/*
+%_tmpfilesdir/*
+%dir %attr(750,root,%sname) %_sysconfdir/%sname
+%config(noreplace) %attr(640,root,%sname) %_sysconfdir/%sname/*
+%config(noreplace) %_sysconfdir/sysconfig/%sname
 %_man1dir/*
 %_man8dir/*
 
-%attr(775,root,postgres) %dir %pgpool_piddir
-%attr(775,root,postgres) %dir %pgpool_logdir
+%attr(1775,root,%sname) %dir %_logdir/%sname
 
 %files -n libpcp-devel
 %_includedir/*
@@ -134,11 +145,15 @@ cp doc/src/sgml/man8/* %buildroot%_man8dir/
 %_libdir/libpcp.so.*
 
 %files -n postgresql%pg_ver-%name
-%_libdir/pgsql/pgpool-recovery.so
-%_libdir/pgsql/pgpool-regclass.so
+%_libdir/pgsql/*
 %_datadir/pgsql/extension/*
 
 %changelog
+* Sun Feb 07 2021 Alexey Shabalin <shaba@altlinux.org> 4.2.1-alt1
+- 4.2.1
+- Execute service as pgpool system user.
+- Move configs to /etc/pgpool dir.
+
 * Tue Jan 22 2019 Alexey Shabalin <shaba@altlinux.org> 4.0.2-alt1
 - 4.0.2
 - build for postgresql11
