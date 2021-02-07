@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.3 Documentation"
+TITLE="pgpool-II 4.0.4 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-02-21T01:19:27"></HEAD
+CONTENT="2019-03-28T12:08:41"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.3 Documentation</A
+>pgpool-II 4.0.4 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -304,6 +304,81 @@ CLASS="COMMAND"
 HREF="runtime-ssl.html#GUC-SSL-CA-CERT"
 >ssl_ca_cert</A
 >.
+      </P
+><P
+>        This parameter can only be set at server start.
+      </P
+></DD
+><DT
+><A
+NAME="GUC-SSL-CIPHERS"
+></A
+><TT
+CLASS="VARNAME"
+>ssl_ciphers</TT
+> (<TT
+CLASS="TYPE"
+>string</TT
+>)
+        </DT
+><DD
+><P
+>        Specifies a list of <ACRONYM
+CLASS="ACRONYM"
+>SSL</ACRONYM
+> cipher suites that
+        are allowed to be used on secure connections.  See
+        the <SPAN
+CLASS="CITEREFENTRY"
+><SPAN
+CLASS="REFENTRYTITLE"
+>ciphers</SPAN
+></SPAN
+>
+        manual page in the <SPAN
+CLASS="APPLICATION"
+>OpenSSL</SPAN
+> package
+        for the syntax of this setting and a list of supported values.
+        The default value
+        is <TT
+CLASS="LITERAL"
+>HIGH:MEDIUM:+3DES:!aNULL</TT
+>, which is same
+        as <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>.
+        See <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> manual to know why
+        the value is chosen.
+      </P
+><P
+>        This parameter can only be set at server start.
+      </P
+></DD
+><DT
+><A
+NAME="GUC-SSL-PREFER-SERVER-CIPHERS"
+></A
+><TT
+CLASS="VARNAME"
+>ssl_prefer_server_ciphers</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+        </DT
+><DD
+><P
+>        Specifies whether to use the server's <ACRONYM
+CLASS="ACRONYM"
+>SSL</ACRONYM
+>
+        cipher preferences, rather than the client's.
+        The default value is false.
       </P
 ><P
 >        This parameter can only be set at server start.

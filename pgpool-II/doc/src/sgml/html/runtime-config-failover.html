@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.3 Documentation"
+TITLE="pgpool-II 4.0.4 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-02-21T01:19:27"></HEAD
+CONTENT="2019-03-28T12:08:41"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.3 Documentation</A
+>pgpool-II 4.0.4 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -512,9 +512,49 @@ CLASS="TYPE"
         </DT
 ><DD
 ><P
->          Specifies a user command to run after failover on the primary node failover.
-		  This works only in Master Replication mode with streaming replication.
-          <SPAN
+>          Specifies a user command to run after failover on the
+	  primary node failover. In case of standby node failover, the
+	  command will not be executed. This command also runs if a
+	  node promote request is issued by
+	  <A
+HREF="pcp-promote-node.html"
+>pcp_promote_node</A
+> command. This works only
+	  in Master Replication mode with streaming replication.
+	</P
+><P
+>	  Since the command is executed within a child process forked
+	  off by <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> after failover
+	  is completed, execution of follow master command does not
+	  block the service
+	  of <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>. Here is a pseud
+	  code to illustrate how the command is executed:
+	  </P><PRE
+CLASS="PROGRAMLISTING"
+>for each backend node
+{
+    if (the node is not the new primary)
+        set down node status to shared memory status
+        memorize that folllow master command is needed to execute
+}
+if (we need to executed follow master command)
+    fork a child process
+    (within the child process)
+
+    for each backend node
+        if (the node status in shared memory is down)
+            execute follow master command
+	  </PRE
+><P>
+	</P
+><P
+>          <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > replaces the following special characters
@@ -864,6 +904,57 @@ HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-PERIOD"
 	  than 0, the false primaries checking will be performed at
 	  the same timing of streaming replication delay checking.
 	</P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>	    <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+> must
+	      be <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> super user or
+	      in "pg_monitor" group to use this feature. To
+	      make <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+> in pg_monitor
+	      group, execute following SQL command
+	      by <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> super user
+	      (replace "sr_check_user" with the setting
+	      of <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+>):
+	      </P><PRE
+CLASS="PROGRAMLISTING"
+>GRANT pg_monitor TO sr_check_user;
+	      </PRE
+><P>
+	      For <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.6, there's
+	      no pg_monitor group
+	      and <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+> must
+	      be <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> super user.
+	  </P
+></BLOCKQUOTE
+></DIV
 ><P
 >          This parameter is only applicable in the streaming replication mode.
         </P
@@ -878,7 +969,7 @@ CLASS="PRODUCTNAME"
 >	  <DIV
 CLASS="FIGURE"
 ><A
-NAME="AEN3173"
+NAME="AEN3190"
 ></A
 ><P
 ><B

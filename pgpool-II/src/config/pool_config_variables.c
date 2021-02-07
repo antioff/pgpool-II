@@ -479,6 +479,16 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"ssl_prefer_server_ciphers", CFGCXT_INIT, SSL_CONFIG,
+			"Use server's SSL cipher preferences, rather than the client's",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.ssl_prefer_server_ciphers,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"check_temp_table", CFGCXT_SESSION, GENERAL_CONFIG,
 			"Enables temporary table check.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
@@ -979,6 +989,16 @@ static struct config_string ConfigureNamesString[] =
 		},
 		&g_pool_config.ssl_ca_cert_dir,
 		"",
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"ssl_ciphers", CFGCXT_INIT, SSL_CONFIG,
+			"Allowed SSL ciphers.",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.ssl_ciphers,
+		"HIGH:MEDIUM:+3DES:!aNULL",
 		NULL, NULL, NULL, NULL
 	},
 
