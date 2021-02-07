@@ -213,6 +213,12 @@ BACKEND_STATUS *my_backend_status[MAX_NUM_BACKENDS];	/* Backend status buffer */
 int			my_master_node_id;	/* Master node id buffer */
 
 /*
+ * Dummy varibale to suppress compiler warnings by discarding return values
+ * from write(2) in signal handlers
+ */
+static int dummy_status;
+
+/*
 * pgpool main program
 */
 
@@ -1509,7 +1515,7 @@ static RETSIGTYPE sigusr1_handler(int sig)
 	POOL_SETMASK(&BlockSig);
 	sigusr1_request = 1;
 
-	write(pipe_fds[1], "\0", 1);
+	dummy_status = write(pipe_fds[1], "\0", 1);
 
 #ifdef NOT_USED
 	if (write(pipe_fds[1], "\0", 1) < 0)
@@ -2475,7 +2481,7 @@ static RETSIGTYPE reap_handler(int sig)
 
 	if (pipe_fds[1])
 	{
-		write(pipe_fds[1], "\0", 1);
+		dummy_status = write(pipe_fds[1], "\0", 1);
 	}
 
 #ifdef NOT_USED
@@ -2812,7 +2818,7 @@ static RETSIGTYPE wakeup_handler(int sig)
 	if (processState != INITIALIZING)
 	{
 		POOL_SETMASK(&BlockSig);
-		write(pipe_fds[1], "\0", 1);
+		dummy_status = write(pipe_fds[1], "\0", 1);
 #ifdef NOT_USED
 		if (write(pipe_fds[1], "\0", 1) < 0)
 			ereport(WARNING,
@@ -2833,7 +2839,7 @@ static RETSIGTYPE reload_config_handler(int sig)
 
 	POOL_SETMASK(&BlockSig);
 	reload_config_request = 1;
-	write(pipe_fds[1], "\0", 1);
+	dummy_status = write(pipe_fds[1], "\0", 1);
 #ifdef NOT_USED
 	if (write(pipe_fds[1], "\0", 1) < 0)
 		ereport(WARNING,
@@ -3459,6 +3465,7 @@ find_primary_node_repeatedly(void)
 {
 	int			sec;
 	int			node_id = -1;
+	int			i;
 
 	/* Streaming replication mode? */
 	if (!SL_MODE)
@@ -3468,7 +3475,23 @@ find_primary_node_repeatedly(void)
 		 * mode.
 		 */
 		ereport(DEBUG1,
-				(errmsg("find_primary_node: not in streaming replication mode")));
+				(errmsg("find_primary_node_repeatedly: not in streaming replication mode")));
+		return -1;
+	}
+
+	/*
+	 * If all of the backends are down, there's no point to keep on searching
+	 * primary node.
+	 */
+	for (i = 0; i < NUM_BACKENDS; i++)
+	{
+		if (VALID_BACKEND(i))
+			break;
+	}
+	if (i == NUM_BACKENDS)
+	{
+		ereport(LOG,
+				(errmsg("find_primary_node_repeatedly: all of the backends are down. Giving up finding primary node")));
 		return -1;
 	}
 
@@ -3710,8 +3733,8 @@ read_status_file(bool discard_status)
 				ereport(LOG,
 						(errmsg("read_status_file: %d th backend is set to down status", i)));
 			}
-			else if (BACKEND_INFO(i).backend_status == CON_CONNECT_WAIT ||
-					 BACKEND_INFO(i).backend_status == CON_UP)
+			else if (backend_rec.status[i] == CON_CONNECT_WAIT ||
+					 backend_rec.status[i] == CON_UP)
 			{
 				BACKEND_INFO(i).backend_status = CON_CONNECT_WAIT;
 				pool_set_backend_status_changed_time(i);

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.4 Documentation"
+TITLE="pgpool-II 4.0.5 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Preface"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-03-28T12:08:41"></HEAD
+CONTENT="2019-05-15T07:08:51"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.4 Documentation</A
+>pgpool-II 4.0.5 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -128,11 +128,25 @@ CLASS="PRODUCTNAME"
      </P
 ></DD
 ><DT
+>Load Balancing</DT
+><DD
+><P
+>       Multi-statement queries (multiple SQL commands on single line)
+       are always sent to primary node (in streaming replication mode)
+       or master node (in other
+       modes). Usually <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> dispatch
+       query to appropriate node, but it's not applied to
+       multi-statement queries.
+     </P
+></DD
+><DT
 >Authentication/Access Controls</DT
 ><DD
 ><P
->	In the replication mode or master/slave mode, trust, clear
-        text password, and pam methods are supported. md5 in also
+>	In the replication mode or master/slave mode, trust and pam methods are supported. md5 is also
         supported since <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -141,6 +155,11 @@ CLASS="PRODUCTNAME"
 CLASS="FILENAME"
 >pool_passwd</TT
 >.
+        scram-sha-256, cert, and clear text password is also supported since
+        <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.0.
         <TT
 CLASS="FILENAME"
 >pool_passwd</TT
@@ -424,6 +443,56 @@ HREF="sql-commands.html"
 >SQL type commands</A
 > cannot
 	be used in extended query mode.
+      </P
+></DD
+><DT
+>Multi-byte Characters</DT
+><DD
+><P
+>	<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> does not perform encoding converion between client and
+	<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> for multi-byte characters.
+	The encoding for the client and backends must be the same.
+      </P
+></DD
+><DT
+>Multi-statement Query</DT
+><DD
+><P
+>	<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> cannot process multi-statement queries.
+	However, when <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> is connected by <TT
+CLASS="COMMAND"
+>psql</TT
+>, It is no problem.
+	<TT
+CLASS="COMMAND"
+>psql</TT
+> parse multi-statement, send a statement one by one.
+      </P
+></DD
+><DT
+>libpq</DT
+><DD
+><P
+>	libpq is linked while building <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>.
+	libpq version must be 3.0 or later. Building <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> with libpq version 2.0 will fail.
       </P
 ></DD
 ></DL

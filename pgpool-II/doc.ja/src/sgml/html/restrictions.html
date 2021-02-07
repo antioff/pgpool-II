@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.4 文書"
+TITLE="Pgpool-II 4.0.5 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="はじめに"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-03-28T12:08:56"></HEAD
+CONTENT="2019-05-15T07:09:17"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.4 文書</A
+>Pgpool-II 4.0.5 文書</A
 ></TH
 ></TR
 ><TR
@@ -125,11 +125,21 @@ CLASS="PRODUCTNAME"
      </P
 ></DD
 ><DT
+>Load Balancing</DT
+><DD
+><P
+>マルチステートメントSQL(1行の中に複数のSQLが含まれている)は、常にプライマリノード(ストリーミングレプリケーションモードの場合)かマスターノード(それ以外のモード)に送られます。
+通常<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はクエリの種類を見て適切なノードにクエリを送りますが、マルチステートメントSQLではこれが適用されません。
+     </P
+></DD
+><DT
 >認証/アクセス制御</DT
 ><DD
 ><P
->レプリケーションモードまたマスタ/スレーブモード時にはtrust、reject、clear text password、pam認証方式が利用できます。
-crypt認証は利用できません。
+>レプリケーションモードまたマスタ/スレーブモード時にはtrust、reject、pam認証方式が利用できます。
 <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -137,6 +147,10 @@ CLASS="PRODUCTNAME"
 CLASS="FILENAME"
 >pool_passwd</TT
 >というファイルを使ってmd5認証も使えます。
+<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.0以降では、scram-sha-256、cert、clear text password認証も使えます。
 <TT
 CLASS="FILENAME"
 >pool_passwd</TT
@@ -383,6 +397,58 @@ CLASS="PROGRAMLISTING"
 HREF="sql-commands.html"
 >SQL型コマンド</A
 >は、拡張クエリモードでは使用できません。
+      </P
+></DD
+><DT
+>マルチバイト文字</DT
+><DD
+><P
+>現在の実装では、クライアントと<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>の間でマルチバイト文字の変換処理を行いません。
+クライアントエンコーディング、バックエンドノードのサーバエンコーディングを一致させるようにしてください。
+      </P
+></DD
+><DT
+>マルチステートメント</DT
+><DD
+><P
+>マルチステートメント（';'で区切って複数の文をまとめたSQL）を<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が正しく処理することができません。
+必ず文を分けて送信してください。
+なお、<TT
+CLASS="COMMAND"
+>psql</TT
+>を使って<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>に接続した場合は、<TT
+CLASS="COMMAND"
+>psql</TT
+>内部でマルチステートメントを分解し、1つずつ送信するので、実際には問題になりません。
+      </P
+></DD
+><DT
+>libpq</DT
+><DD
+><P
+><SPAN
+CLASS="PRODUCTNAME"
+>pgpool-II</SPAN
+> では libpq をリンクします。
+libpq のバージョンは 2.0 の場合、configureに失敗します。
+必ず libpq 3.0 以降(<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 7.4以降)をリンクするようにしてください。
+マルチステートメント（';'で区切って複数の文をまとめたSQL）を<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が正しく処理することができません。
+必ず文を分けて送信してください。
       </P
 ></DD
 ></DL

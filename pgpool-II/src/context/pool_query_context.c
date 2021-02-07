@@ -90,7 +90,8 @@ pool_query_context_destroy(POOL_QUERY_CONTEXT * query_context)
 		MemoryContext memory_context = query_context->memory_context;
 
 		ereport(DEBUG5,
-				(errmsg("pool_query_context_destroy: query context:%p", query_context)));
+				(errmsg("pool_query_context_destroy: query context:%p query: \"%s\"",
+						query_context, query_context->original_query)));
 
 		session_context = pool_get_session_context(false);
 		pool_unset_query_in_progress();
@@ -314,6 +315,20 @@ pool_virtual_master_db_node_id(void)
 	if (!sc)
 	{
 		return REAL_MASTER_NODE_ID;
+	}
+
+	/*
+	 * Check whether failover is in progress. If so, just abort this session.
+	 */
+	if (Req_info->switching)
+	{
+		POOL_SETMASK(&BlockSig);
+		ereport(WARNING,
+				(errmsg("failover/failback is in progress"),
+						errdetail("executing failover or failback on backend"),
+				 errhint("In a moment you should be able to reconnect to the database")));
+		POOL_SETMASK(&UnBlockSig);
+		child_exit(POOL_EXIT_AND_RESTART);
 	}
 
 	if (sc->in_progress && sc->query_context)

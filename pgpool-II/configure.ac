@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [4.0.4], [pgpool-hackers@pgpool.net], [pgpool-II])
+AC_INIT([pgpool-II], [4.0.5], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -164,6 +164,13 @@ else
   # Here if we are not using 'long long int' at all
   INT64_FORMAT='"%ld"'
   UINT64_FORMAT='"%lu"'
+fi
+
+# disable useless truncation warnings from gcc 8+
+NOT_THE_CFLAGS=""
+PGAC_PROG_CC_VAR_OPT(NOT_THE_CFLAGS, [-Wformat-truncation])
+if test -n "$NOT_THE_CFLAGS"; then
+  CFLAGS="$CFLAGS -Wno-format-truncation"
 fi
 
 AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE",
