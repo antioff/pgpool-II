@@ -3896,14 +3896,24 @@ BackendDataDirShowFunc(int index)
 static const char *
 BackendFlagsShowFunc(int index)
 {
-	static char buffer[21];
+	static char buffer[1024];
 
 	unsigned short flag = g_pool_config.backend_desc->backend_info[index].flag;
+
+	*buffer = '\0';
 
 	if (POOL_ALLOW_TO_FAILOVER(flag))
 		snprintf(buffer, sizeof(buffer), "ALLOW_TO_FAILOVER");
 	else if (POOL_DISALLOW_TO_FAILOVER(flag))
 		snprintf(buffer, sizeof(buffer), "DISALLOW_TO_FAILOVER");
+
+	if (POOL_ALWAYS_MASTER & flag)
+	{
+		if (*buffer == '\0')
+			snprintf(buffer, sizeof(buffer), "ALWAYS_MASTER");
+		else
+			snprintf(buffer+strlen(buffer), sizeof(buffer), "|ALWAYS_MASTER");
+	}
 	return buffer;
 }
 
@@ -4308,6 +4318,20 @@ config_post_processor(ConfigContext context, int elevel)
 		}
 	}
 
+	/*
+	 * Quarantine state in native replication mode is dangerous and it can
+	 * potentially cause data inconsistency.
+	 * So as per the discussions, we agreed on disallowing setting
+	 * failover_when_quorum_exists in native replication mode
+	 */
+
+	if (pool_config->failover_when_quorum_exists && pool_config->replication_mode)
+	{
+		pool_config->failover_when_quorum_exists = false;
+		ereport(elevel,
+				(errmsg("invalid configuration, failover_when_quorum_exists is not allowed in native replication mode")));
+		return false;
+	}
 	return true;
 }
 

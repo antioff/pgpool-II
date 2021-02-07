@@ -177,9 +177,8 @@
       client servers (application servers etc.).  When a
       <productname>Pgpool-II</productname> is switched from standby to
       active, the <productname>Pgpool-II</productname> takes over this
-      VIP.  If <xref linkend="guc-failover-require-consensus"> is on
-      (the default), VIP will not be brought up in case the quorum
-      does not exist.  Default is <literal>''</literal>(empty): which
+      VIP. <emphasis>VIP will not be brought up in case the quorum
+      does not exist</emphasis>. Default is <literal>''</literal>(empty): which
       means virtual IP will never be brought up.
      </para>
      <para>
@@ -423,7 +422,12 @@
      <para>
       This parameter can only be set at server start.
      </para>
-    </listitem>
+     <note>
+      <para>
+       enabling <varname>failover_when_quorum_exists</varname> is not allowed in native replication mode.
+      </para>
+     </note>
+   </listitem>
    </varlistentry>
 
    <varlistentry id="guc-failover-require-consensus" xreflabel="failover_require_consensus">
@@ -460,6 +464,12 @@
        see <xref linkend="runtime-config-health-check">.
       </para>
      </caution>
+
+     <note>
+      <para>
+       enabling <varname>failover_require_consensus</varname> is not allowed in native replication mode.
+      </para>
+     </note>
 
      <para>
       <varname>failover_require_consensus</varname> is not available prior to

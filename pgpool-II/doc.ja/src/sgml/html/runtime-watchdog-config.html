@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.0.7 文書"
+TITLE="Pgpool-II 4.0.8 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2019-10-31T01:06:23"></HEAD
+CONTENT="2020-02-19T07:50:48"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.0.7 文書</A
+>Pgpool-II 4.0.8 文書</A
 ></TH
 ></TR
 ><TR
@@ -381,10 +381,13 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >はこのVIPを引き継ぎます。
-      <A
-HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
->failover_require_consensus</A
->がオンの場合（デフォルトです）、クォーラムが存在しなければVIPは立ち上がりません。
+      <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>クォーラムが存在しなければVIPは立ち上がりません</I
+></SPAN
+>。
       デフォルトは<TT
 CLASS="LITERAL"
 >''</TT
@@ -775,6 +778,21 @@ CLASS="EMPHASIS"
 >      
       このパラメータは、サーバーの起動時にのみ設定できます。
      </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>       
+       ネイティブレプリケーションモードでは<TT
+CLASS="VARNAME"
+>failover_when_quorum_exists</TT
+>機能は利用できません。
+      </P
+></BLOCKQUOTE
+></DIV
 ></DD
 ><DT
 ><A
@@ -855,6 +873,24 @@ HREF="runtime-config-health-check.html"
 ></TABLE
 ></DIV
 >
+
+      </P><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>        
+        ネイティブレプリケーションモードでは<TT
+CLASS="VARNAME"
+>failover_require_consensus</TT
+>機能は利用できません。
+       </P
+></BLOCKQUOTE
+></DIV
+><P>
+
       
       <SPAN
 CLASS="PRODUCTNAME"

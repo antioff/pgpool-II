@@ -27,6 +27,9 @@ source ./bashrc.ports
 
 echo "database_redirect_preference_list = 'postgres:primary,test:1,mydb[5-9]:2,test2:standby,test3:primary(0.0),test4:standby(0.0),test5:primary(1.0)'" >> etc/pgpool.conf
 
+# disable replication delay check to not prevent db/app redirecting
+echo "delay_threshold = 0" >> etc/pgpool.conf
+
 ./startall
 
 export PGPORT=$PGPOOL_PORT
@@ -37,6 +40,34 @@ $CREATEDB test2
 $CREATEDB test3
 $CREATEDB test4
 $CREATEDB test5
+
+# check to see if all databases have been replicated
+
+for p in 3 4
+do
+    # set standby port
+    myport=`expr $PGPOOL_PORT + $p`
+
+    for r in 1 2 3 4 5
+    do
+	ok=true
+	for i in mydb6 test2 test3 test4 test5
+	do
+	    echo "try to connect to $i:$myport"
+	    $PSQL -p $myport -c "select 1" $i
+	    if [ $? != 0 ];then
+		ok=false
+		break
+	    fi
+	done
+	if [ $ok = "false" ];then
+	    sleep 1
+	else
+	    break
+	fi
+    done
+done
+
 $PGBENCH -i postgres
 
 ok=yes
@@ -87,7 +118,7 @@ echo $ok
 echo "app_name_redirect_preference_list = 'psql:primary,pgbench:standby'" >> etc/pgpool.conf
 
 ./pgpool_reload
-sleep 1
+sleep 10
 
 wait_for_pgpool_startup
 
@@ -107,7 +138,7 @@ echo $ok
 echo "app_name_redirect_preference_list = 'psql:primary(0.0),pgbench:standby(1.0)'" >> etc/pgpool.conf
 
 ./pgpool_reload
-sleep 1
+sleep 10
 
 wait_for_pgpool_startup
 
