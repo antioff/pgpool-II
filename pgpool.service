@@ -1,10 +1,11 @@
 [Unit]
 Description=PGPool-II
 Documentation=man:pgpool(8)
-Wants=postgresql.service
+After=network.target
 
 [Service]
-User=postgres
+User=pgpool
+Group=pgpoll
 EnvironmentFile=-/etc/sysconfig/pgpool
 ExecStart=/usr/bin/pgpool -n
 ExecReload=/bin/kill -HUP $MAINPID

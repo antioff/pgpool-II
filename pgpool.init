@@ -8,7 +8,7 @@ WITHOUT_RC_COMPAT=1
 # Source function library.
 . /etc/init.d/functions
 
-PGUSER=postgres
+PGUSER=pgpool
 BINARY="/usr/bin/pgpool"
 #OPTIONS="-f /etc/pgpool.conf"
 STOP_OPTIONS="-m fast stop"
@@ -41,7 +41,7 @@ noargs_start()
 				failure "$PIDFILE exists. Probably another instance of pgpool is running ?..."
 			else
 			    if start_daemon --user "$PGUSER"  --expect-user root --displayname pgpool -- "$BINARY" "-f $CONFIG 2>&1|logger -t pgpool -p local0.info "
-#				action "Starting pgpool:" "su -s /bin/sh -c '/usr/bin/pgpool -n -f $CONFIG  2>&1|logger -t pgpool -p local0.info &' postgres"
+#				action "Starting pgpool:" "su -s /bin/sh -c '/usr/bin/pgpool -n -f $CONFIG  2>&1|logger -t pgpool -p local0.info &' $PGUSER"
 				then
 					echo_success
 			    else
@@ -71,7 +71,7 @@ noargs_reload()
         for CONFIG in $CFGS ; do
                 buildenv $CONFIG
             if [ -f "$PIDFILE" ]; then
-                    		if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" postgres 2> /dev/null > /dev/null; then
+                    		if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" $PGUSER 2> /dev/null > /dev/null; then
                     	        echo_success
                         	        else
                             	echo_failure
@@ -136,7 +136,7 @@ reload()
 		
 					else
 					buildenv $1
-						if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" postgres 2> /dev/null > /dev/null; then
+						if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" $PGUSER 2> /dev/null > /dev/null; then
 							echo_success
 								else
 							echo_failure
