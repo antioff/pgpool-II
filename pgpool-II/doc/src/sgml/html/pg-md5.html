@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.5 Documentation"
+TITLE="pgpool-II 4.0.6 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Other commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-05-15T07:08:51"></HEAD
+CONTENT="2019-08-15T08:02:01"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.5 Documentation</A
+>pgpool-II 4.0.6 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PG-MD5"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN6926"
+NAME="AEN6979"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN6926"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN6929"
+NAME="AEN6982"
 ></A
 ><H2
 >Synopsis</H2
@@ -156,7 +156,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6946"
+NAME="AEN6999"
 ></A
 ><H2
 >Options</H2
@@ -255,7 +255,7 @@ CLASS="LITERAL"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN6985"
+NAME="AEN7038"
 ></A
 ><H2
 >Example</H2
@@ -294,13 +294,30 @@ HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
 > authentication file.
       </P><PRE
 CLASS="PROGRAMLISTING"
->$pg_md5 -m -f /path/to/pgpool.conf -u username -p
+>$ pg_md5 -m -f /path/to/pgpool.conf -u username -p
 password: [your password]
 
 $ cat /path/to/pool_passwd 
 username:md55a231fcdb710d73268c4f44283487ba2
       </PRE
 ><P>
+      To just display the md5 hashed string, not adding an entry to <A
+HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
+>pool_passwd</A
+>, pass a string concatenating password and user name.
+	For example, if password is "password" and user name is "user", the output would be:
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>$ pg_md5 passworduser
+4d45974e13472b5a0be3533de4666414
+      </PRE
+><P>
+      Please note that the actual entry to be inserted into
+      <A
+HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
+>pool_passwd</A
+> should have "md5" on top of the
+      result string. That is: "md54d45974e13472b5a0be3533de4666414".
     </P
 ></DIV
 ><DIV

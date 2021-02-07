@@ -872,7 +872,7 @@ Execute(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 #endif
 			pool_ps_idle_display(backend);
 			pool_stats_count_up_num_cache_hits();
-			session_context->query_context->skip_cache_commit = true;
+			query_context->skip_cache_commit = true;
 #ifdef DEBUG
 			stop_now = true;
 #endif
@@ -886,7 +886,7 @@ Execute(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 			}
 		}
 		else
-			session_context->query_context->skip_cache_commit = false;
+			query_context->skip_cache_commit = false;
 	}
 
 	session_context->query_context = query_context;
@@ -1435,7 +1435,8 @@ Bind(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 	 * primary node.
 	 */
 	if (pool_config->load_balance_mode && pool_is_writing_transaction() &&
-		TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID) == 'T')
+		TSTATE(backend, MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID) == 'T' &&
+		pool_config->disable_load_balance_on_write != DLBOW_OFF)
 	{
 		if (!SL_MODE)
 		{
@@ -3436,11 +3437,19 @@ static POOL_STATUS parse_before_bind(POOL_CONNECTION * frontend,
 			/* Replace the query context of bind message */
 			bind_message->query_context = new_qc;
 
+#ifdef NOT_USED
+			/*
+			 * XXX 	pool_remove_sent_message() will pfree memory allocated by "contents".
+			 */
+
 			/* Remove old sent message */
 			pool_remove_sent_message('P', contents);
 			/* Create and add sent message of this parse message */
 			msg = pool_create_sent_message('P', len, contents, 0, contents, new_qc);
 			pool_add_sent_message(msg);
+#endif
+			/* Replace the query context of parse message */
+			message->query_context = new_qc;
 
 			return POOL_CONTINUE;
 		}

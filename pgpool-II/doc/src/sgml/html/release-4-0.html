@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.5 Documentation"
+TITLE="pgpool-II 4.0.6 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Release Notes"
@@ -18,15 +18,15 @@ REL="PREVIOUS"
 TITLE="Release 4.0.1"
 HREF="release-4-0-1.html"><LINK
 REL="NEXT"
-TITLE="Release 3.7.10"
-HREF="release-3-7-10.html"><LINK
+TITLE="Release 3.7.11"
+HREF="release-3-7-11.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-05-15T07:08:51"></HEAD
+CONTENT="2019-08-15T08:02:01"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.5 Documentation</A
+>pgpool-II 4.0.6 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="Release 3.7.10"
-HREF="release-3-7-10.html"
+TITLE="Release 3.7.11"
+HREF="release-3-7-11.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-4-0"
->A.6. Release 4.0</A
+>A.7. Release 4.0</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8514"
->A.6.1. Overview</A
+NAME="AEN8680"
+>A.7.1. Overview</A
 ></H2
 ><P
 >      This version addes support for SCRAM and CERT authentication,
@@ -193,8 +193,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8542"
->A.6.2. Migration to Version 4.0</A
+NAME="AEN8708"
+>A.7.2. Migration to Version 4.0</A
 ></H2
 ><P
 >    Version 4.0 contains a number of changes that may affect compatibility with 
@@ -335,8 +335,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8582"
->A.6.3. Major Enhancements</A
+NAME="AEN8748"
+>A.7.3. Major Enhancements</A
 ></H2
 ><P
 ></P
@@ -602,7 +602,7 @@ HREF="runtime-config-load-balancing.html#GUC-BLACK-QUERY-PATTERN-LIST"
 ><P
 >          Specify a semicolon separated list of SQL patterns that
           should be sent to primary node only. Regular expression can be 
-          used in SQL patterns. Only Maste Slave mode is supported.
+          used in SQL patterns. Only Master Slave mode is supported.
         </P
 ></LI
 ><LI
@@ -679,8 +679,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8686"
->A.6.4. Other Enhancements</A
+NAME="AEN8852"
+>A.7.4. Other Enhancements</A
 ></H2
 ><P
 ></P
@@ -831,8 +831,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8733"
->A.6.5. Changes</A
+NAME="AEN8899"
+>A.7.5. Changes</A
 ></H2
 ><P
 ></P
@@ -864,8 +864,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN8742"
->A.6.6. Bug fixes</A
+NAME="AEN8908"
+>A.7.6. Bug fixes</A
 ></H2
 ><P
 ></P
@@ -885,7 +885,7 @@ CLASS="LITERAL"
 >WHERE</TT
 > clause. 
 		  (<A
-HREF="http://www.pgpool.net/mantisbt/view.php?id=433"
+HREF="https://www.pgpool.net/mantisbt/view.php?id=433"
 TARGET="_top"
 >bug 433</A
 >) (Bo Peng)
@@ -917,7 +917,7 @@ CLASS="PRODUCTNAME"
 ><P
 >          pgpool_setup -n 3 (or greater) triggers the bug. While recovering node
           2, pgpool main process tried to retrieve version info from backend #2
-          even if it's not running. This causes the sefault because connection
+          even if it's not running. This causes the segfault because connection
           was not established yet. The reason why <SPAN
 CLASS="PRODUCTNAME"
 >PostgreSQL 9.6</SPAN
@@ -1011,7 +1011,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="release-3-7-10.html"
+HREF="release-3-7-11.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -1035,7 +1035,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->Release 3.7.10</TD
+>Release 3.7.11</TD
 ></TR
 ></TABLE
 ></DIV

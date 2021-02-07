@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2018	PgPool Global Development Group
+ * Copyright (c) 2003-2019	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -1001,6 +1001,7 @@ static void
 terminate_all_childrens()
 {
 	pid_t		wpid;
+	int			i;
 
 	/*
 	 * This is supposed to be called from main process
@@ -1010,10 +1011,10 @@ terminate_all_childrens()
 	POOL_SETMASK(&BlockSig);
 
 	kill_all_children(SIGINT);
-	if (pcp_pid > 0)
+	if (pcp_pid != 0)
 		kill(pcp_pid, SIGINT);
 	pcp_pid = 0;
-	if (worker_pid > 0)
+	if (worker_pid != 0)
 		kill(worker_pid, SIGINT);
 	worker_pid = 0;
 	if (pool_config->use_watchdog)
@@ -1027,6 +1028,15 @@ terminate_all_childrens()
 			if (wd_lifecheck_pid)
 				kill(wd_lifecheck_pid, SIGINT);
 			wd_lifecheck_pid = 0;
+		}
+	}
+
+	for (i = 0 ; i < MAX_NUM_BACKENDS; i++)
+	{
+		if (health_check_pids[i] != 0)
+		{
+			kill(health_check_pids[i], SIGINT);
+			health_check_pids[i] = 0;
 		}
 	}
 
@@ -1423,7 +1433,7 @@ static RETSIGTYPE exit_handler(int sig)
 	{
 		pid_t		pid = process_info[i].pid;
 
-		if (pid)
+		if (pid != 0)
 		{
 			kill(pid, sig);
 			process_info[i].pid = 0;
@@ -1432,27 +1442,28 @@ static RETSIGTYPE exit_handler(int sig)
 
 	for (i = 0; i < MAX_NUM_BACKENDS; i++)
 	{
-		if (health_check_pids[i] > 0)
+		if (health_check_pids[i] != 0)
 		{
 			kill(health_check_pids[i], sig);
+			health_check_pids[i] = 0;
 		}
 	}
 
-	if (pcp_pid > 0)
+	if (pcp_pid != 0)
 		kill(pcp_pid, sig);
 	pcp_pid = 0;
 
-	if (worker_pid > 0)
+	if (worker_pid != 0)
 		kill(worker_pid, sig);
 	worker_pid = 0;
 
 	if (pool_config->use_watchdog)
 	{
-		if (watchdog_pid)
+		if (watchdog_pid != 0)
 			kill(watchdog_pid, sig);
 		watchdog_pid = 0;
 
-		if (wd_lifecheck_pid)
+		if (wd_lifecheck_pid != 0)
 			kill(wd_lifecheck_pid, sig);
 		wd_lifecheck_pid = 0;
 	}
@@ -2128,8 +2139,9 @@ failover(void)
 			{
 				/* only if the failover is against the current primary */
 				if (((reqkind == NODE_DOWN_REQUEST) &&
+					 Req_info->primary_node_id >= 0 &&
 					 (nodes[Req_info->primary_node_id])) ||
-					((reqkind == PROMOTE_NODE_REQUEST) &&
+					(node_id >= 0 && (reqkind == PROMOTE_NODE_REQUEST) &&
 					 (VALID_BACKEND(node_id))))
 				{
 
@@ -2872,6 +2884,16 @@ kill_all_children(int sig)
 	/* make PCP process reload as well */
 	if (sig == SIGHUP && pcp_pid > 0)
 		kill(pcp_pid, sig);
+
+	/* make health check process reload as well */
+	if (sig == SIGHUP)
+	{
+		for (i = 0; i < NUM_BACKENDS; i++)
+		{
+			if (health_check_pids[i] > 0)
+				kill(health_check_pids[i], sig);
+		}
+	}
 }
 
 /*
@@ -4117,17 +4139,6 @@ sync_backend_from_watchdog(void)
 	ereport(DEBUG1,
 			(errmsg("primary node on master watchdog node \"%s\" is %d", backendStatus->nodeName, backendStatus->primary_node_id)));
 
-	if (Req_info->primary_node_id != backendStatus->primary_node_id)
-	{
-		/* Do not produce this log message if we are starting up the Pgpool-II */
-		if (processState != INITIALIZING)
-			ereport(LOG,
-					(errmsg("primary node:%d on master watchdog node \"%s\" is different from local primary node:%d",
-							backendStatus->primary_node_id, backendStatus->nodeName, Req_info->primary_node_id)));
-
-		Req_info->primary_node_id = backendStatus->primary_node_id;
-		primary_changed = true;
-	}
 
 	/*
 	 * update the local backend status Also remove quarantine flags
@@ -4170,6 +4181,34 @@ sync_backend_from_watchdog(void)
 			}
 		}
 	}
+
+	if (Req_info->primary_node_id != backendStatus->primary_node_id)
+	{
+		/* Do not produce this log message if we are starting up the Pgpool-II */
+		if (processState != INITIALIZING)
+			ereport(LOG,
+					(errmsg("primary node:%d on master watchdog node \"%s\" is different from local primary node:%d",
+							backendStatus->primary_node_id, backendStatus->nodeName, Req_info->primary_node_id)));
+		/*
+		 * master node returns primary_node_id = -1 when the node primary
+		 * node is in  quarantine state on the master.
+		 * So we will not update our primary node id when the status of current primary node
+		 * is not CON_DOWN while primary_node_id sent by master watchdong node is -1
+		 */
+		if (backendStatus->primary_node_id == -1 && BACKEND_INFO(Req_info->primary_node_id).backend_status != CON_DOWN)
+		{
+			ereport(LOG,
+                (errmsg("primary node:%d on master watchdog node \"%s\" seems to be quarantined",
+					Req_info->primary_node_id, backendStatus->nodeName),
+                errdetail("keeping the current primary")));
+		}
+		else
+		{
+			Req_info->primary_node_id = backendStatus->primary_node_id;
+			primary_changed = true;
+		}
+	}
+
 	pfree(backendStatus);
 
 	if (reload_maste_node_id)

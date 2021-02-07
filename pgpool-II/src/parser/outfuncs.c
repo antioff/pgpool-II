@@ -255,7 +255,8 @@ escape_string(char *str)
 		}
 		else if (str[i] == '\\')
 		{
-			es[j++] = '\\';
+			if (!standard_conforming_strings)
+				es[j++] = '\\';
 		}
 		es[j] = str[i];
 	}
@@ -1739,6 +1740,7 @@ static void
 _outValue(String * str, Value *value)
 {
 	char		buf[16];
+	char		*p;
 
 	switch (value->type)
 	{
@@ -1753,7 +1755,9 @@ _outValue(String * str, Value *value)
 
 		case T_String:
 			string_append_char(str, "'");
-			string_append_char(str, escape_string(value->val.str));
+			p = escape_string(value->val.str);
+			string_append_char(str, p);
+			pfree(p);
 			string_append_char(str, "'");
 			break;
 
@@ -1815,6 +1819,7 @@ static void
 _outAConst(String * str, A_Const *node)
 {
 	char		buf[16];
+	char		*p;
 
 	switch (node->val.type)
 	{
@@ -1829,7 +1834,9 @@ _outAConst(String * str, A_Const *node)
 
 		case T_String:
 			string_append_char(str, "'");
-			string_append_char(str, escape_string(node->val.val.str));
+			p = escape_string(node->val.val.str);
+			string_append_char(str, p);
+			pfree(p);
 			string_append_char(str, "'");
 			break;
 
@@ -1969,6 +1976,8 @@ _outWindowDef(String * str, WindowDef *node)
 			string_append_char(str, " RANGE");
 		else if (node->frameOptions & FRAMEOPTION_ROWS)
 			string_append_char(str, " ROWS");
+		else if (node->frameOptions & FRAMEOPTION_GROUPS)
+			string_append_char(str, " GROUPS");
 
 		if (node->frameOptions & FRAMEOPTION_BETWEEN)
 			string_append_char(str, " BETWEEN");
@@ -2013,6 +2022,19 @@ _outWindowDef(String * str, WindowDef *node)
 				_outNode(str, node->endOffset);
 				string_append_char(str, " FOLLOWING");
 			}
+		}
+
+		if (node->frameOptions & FRAMEOPTION_EXCLUDE_CURRENT_ROW)
+		{
+			string_append_char(str, " EXCLUDE CURRENT ROW");
+		}
+		else if (node->frameOptions & FRAMEOPTION_EXCLUDE_GROUP)
+		{
+			string_append_char(str, " EXCLUDE GROUP");
+		}
+		else if (node->frameOptions & FRAMEOPTION_EXCLUDE_TIES)
+		{
+			string_append_char(str, " EXCLUDE TIES");
 		}
 	}
 	string_append_char(str, ")");
@@ -3919,6 +3941,9 @@ static void
 _outDropStmt(String * str, DropStmt *node)
 {
 	List	   *objname;
+	char		*p;
+	char		*p1;
+	List		*l;
 
 	string_append_char(str, "DROP ");
 	switch (node->removeType)
@@ -4015,8 +4040,12 @@ _outDropStmt(String * str, DropStmt *node)
 			objname = lfirst(list_head(node->objects));
 			string_append_char(str, strVal(llast(objname)));
 			string_append_char(str, " ON ");
-			string_append_char(str, NameListToString(list_truncate(list_copy(objname),
-																   list_length(objname) - 1)));
+			l = list_truncate(list_copy(objname),
+							  list_length(objname) - 1);
+			p = NameListToString(l);
+			string_append_char(str, p);
+			pfree(p);
+			list_free(l);
 			break;
 
 		case OBJECT_OPERATOR:
@@ -4032,9 +4061,15 @@ _outDropStmt(String * str, DropStmt *node)
 			string_append_char(str, strVal(llast(objname)));
 			string_append_char(str, " USING ");
 			string_append_char(str, "'");
-			string_append_char(str, escape_string(NameListToString(list_truncate(list_copy(objname), list_length(objname) - 1))));
+			l = list_truncate(list_copy(objname),
+							  list_length(objname) - 1);
+			p = NameListToString(l);
+			p1 = escape_string(p);
+			string_append_char(str, p1);
+			pfree(p1);
+			pfree(p);
+			list_free(l);
 			string_append_char(str, "'");
-
 			break;
 
 		case OBJECT_CAST:

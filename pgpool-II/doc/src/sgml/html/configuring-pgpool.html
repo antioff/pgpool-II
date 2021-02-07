@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.0.5 Documentation"
+TITLE="pgpool-II 4.0.6 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Setup and Operation"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2019-05-15T07:08:51"></HEAD
+CONTENT="2019-08-15T08:02:01"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.0.5 Documentation</A
+>pgpool-II 4.0.6 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -212,7 +212,7 @@ CLASS="PRODUCTNAME"
       could be load balanced. <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> load balaces
+> load balances
       all tables. This means that if a table is not
       replicated, <SPAN
 CLASS="PRODUCTNAME"
@@ -300,7 +300,7 @@ CLASS="PRODUCTNAME"
       session Y commits data on node B. If session X tries to update
       data on node B based on the data seen on node A, then data
       consistency between node A and B might be lost. To avoid the
-      problem, user need to issue an explict lock on the data. This is
+      problem, user need to issue an explicit lock on the data. This is
       another reason why we recommend to use streaming replication
       mode with <TT
 CLASS="LITERAL"
@@ -324,19 +324,14 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > does not care about
       the database synchronization. It's user's responsibility to make
-      the whole system does a meaningfull thing. Load balancing
+      the whole system does a meaningful thing. Load balancing
       is <SPAN
 CLASS="emphasis"
 ><I
 CLASS="EMPHASIS"
 >not</I
 ></SPAN
-> possible in the mode. The sample
-      configuration
-      file <TT
-CLASS="FILENAME"
->$prefix/etc/pgpool.conf.sample</TT
->.
+> possible in the mode.
     </P
 ></DIV
 ></DIV

@@ -61,6 +61,7 @@
 # $BASEPORT + 2, $BASEPORT + 3 and so on.
 # pgpool port and pcp_port will be assigned to $BASEPORT and $BASEPORT +1 .
 BASEPORT=${BASEBOPRT:-"11000"}
+ORIGBASEPORT=$BASEPORT
 # PostgreSQL startig port number.
 PGBASEPORT=`expr $BASEPORT + 2`
 # Default number of PostgreSQL database clusters
@@ -80,7 +81,8 @@ INITDBARG="--no-locale -E UTF_8 --data-checksums"
 USE_REPLICATION_SLOT=${USE_REPLICATION_SLOT:-"false"}
 # Use pg_rewind
 USE_PG_REWIND=${USE_PG_REWIND:-"false"}
-
+# Check TIME_WAIT in shutdownall script
+CHECK_TIME_WAIT=${CHECK_TIME_WAIT:-"false"}
 #-------------------------------------------
 # End of configuration section
 #-------------------------------------------
@@ -215,7 +217,8 @@ date >> $log
 echo "failed_node_id $failed_node_id failed_host_name $failed_host_name failed_port $failed_port failed_db_cluster $failed_db_cluster new_master_id $new_master_id old_master_id $old_master_id new_master_host_name $new_master_host_name old_primary_node_id $old_primary_node_id new_master_port_number $new_master_port_number new_master_db_cluster $new_master_db_cluster" >> $log
 
 # Stop standby node if it's running
-if $pg_ctl -D $failed_db_cluster status|grep "is running" >/dev/null 2>&1
+$pg_ctl -D $failed_db_cluster status >/dev/null 2>&1
+if [ $? = 0 ]
 then
 	$pg_ctl -w -m f -D $failed_db_cluster stop >> $log 2>&1
 	sleep 10
@@ -828,6 +831,10 @@ chmod 755 $STARTALL
 echo 'dir=`pwd`' > $SHUTDOWNALL
 echo "PGPOOL_INSTALL_DIR=$PGPOOL_INSTALL_DIR" >> $SHUTDOWNALL
 echo '$PGPOOL_INSTALL_DIR/bin/pgpool -f $dir/etc/pgpool.conf -m f stop' >> $SHUTDOWNALL
+echo 'while [ -f $dir/run/pgpool.pid ];do sleep 1;done' >> $SHUTDOWNALL
+if [ $CHECK_TIME_WAIT != "false" ];then
+   echo "while  netstat -a|grep $ORIGBASEPORT ;do sleep 1;done" >> $SHUTDOWNALL
+fi
 chmod 755 $SHUTDOWNALL
 echo 'dir=`pwd`' > $PGPOOL_RELOAD
 echo "PGPOOL_INSTALL_DIR=$PGPOOL_INSTALL_DIR" >> $PGPOOL_RELOAD
