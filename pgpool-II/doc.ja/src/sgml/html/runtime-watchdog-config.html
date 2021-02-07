@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -139,6 +139,99 @@ CLASS="TYPE"
 >      
       このパラメータは、サーバ起動時にのみ設定できます。
      </P
+><P
+>      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.2より前では、watchdogは自ノードとそれを基準に他ノードの設定を記述するため、
+      ノードごとに異なる設定を記述する必要がありました。
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.2以降では、watchdogの設定はノード間で共通するようにしました。
+      そのため、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.2以降、<TT
+CLASS="LITERAL"
+>Watchdog</TT
+>機能が有効になっている場合、
+      どの設定がどのホストであるかを区別するには、
+      設定ファイル<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>を格納するディレクトリに<TT
+CLASS="FILENAME"
+>pgpool_node_id</TT
+>ファイルの作成が必要になります。
+      そのファイルにpgpool(watchdog)ホストを識別するためのノード番号(0、1、2など)を指定します。
+     </P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="EXAMPLE-PGPOOL-NODE-ID-1"
+></A
+><P
+><B
+>例 5-9. pgpool_node_idの設定例</B
+></P
+><P
+>       Pgpool ノードが3つあり、それぞれのホスト名が server1、server2、server3 の場合、各ホスト上で<TT
+CLASS="FILENAME"
+>pgpool_node_id</TT
+>ファイル以下のように作成します。
+       RPMからインストールした場合は、<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>が<TT
+CLASS="FILENAME"
+>/etc/pgpool-II/</TT
+>配下にインストールされます。
+      </P
+><P
+></P
+><UL
+><LI
+><P
+>         <TT
+CLASS="LITERAL"
+>server1</TT
+>
+        </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[server1]# cat /etc/pgpool-II/pgpool_node_id
+0
+        </PRE
+></LI
+><LI
+><P
+>         <TT
+CLASS="LITERAL"
+>server2</TT
+>
+        </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[server2]# cat /etc/pgpool-II/pgpool_node_id
+1
+        </PRE
+></LI
+><LI
+><P
+>         <TT
+CLASS="LITERAL"
+>server3</TT
+>
+        </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[server3]# cat /etc/pgpool-II/pgpool_node_id
+2
+        </PRE
+></LI
+></UL
+></DIV
 ></DD
 ></DL
 ></DIV
@@ -158,11 +251,11 @@ CLASS="VARIABLELIST"
 ><DL
 ><DT
 ><A
-NAME="GUC-WD-HOSTNAME"
+NAME="GUC-HOSTNAME"
 ></A
 ><TT
 CLASS="VARNAME"
->wd_hostname</TT
+>hostnameX</TT
 > (<TT
 CLASS="TYPE"
 >string</TT
@@ -176,6 +269,7 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >サーバのホスト名またはIPアドレスを指定します。
       クエリやパケットの送受信の他、watchdogの識別子としても用います。
+      パラメータ名の最後にある数字は「pgpool ノードID」で、0から始まります(たとえばhostname0)。
      </P
 ><P
 >      
@@ -187,7 +281,7 @@ NAME="GUC-WD-PORT"
 ></A
 ><TT
 CLASS="VARNAME"
->wd_port</TT
+>wd_portX</TT
 > (<TT
 CLASS="TYPE"
 >integer</TT
@@ -198,11 +292,79 @@ CLASS="TYPE"
 >      
       watchdogが接続を受け付けるために監視するポート番号です。
       デフォルト値は9000です。
+      パラメータ名の最後にある数字は「pgpool ノードID」で、0から始まります(たとえばwd_port0)。
      </P
 ><P
 >      
       このパラメータは、サーバ起動時にのみ設定できます。
      </P
+></DD
+><DT
+><A
+NAME="GUC-PGPOOL-PORT"
+></A
+><TT
+CLASS="VARNAME"
+>pgpool_portX</TT
+> (<TT
+CLASS="TYPE"
+>integer</TT
+>)
+     </DT
+><DD
+><P
+>      
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>サーバのポート番号を指定します。
+      デフォルト値は9999です。
+      パラメータ名の最後にある数字は「pgpool ノードID」で、0から始まります(たとえばpgpool_port0)。
+     </P
+><P
+>      
+      このパラメータは、サーバ起動時にのみ設定できます。
+     </P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="EXAMPLE-WATCHDOG-1"
+></A
+><P
+><B
+>例 5-10. Watchdogの設定例</B
+></P
+><P
+>       
+       Pgpool ノードが3つあり、それぞれのホスト名が server1、server2、server3 の場合、
+       <A
+HREF="runtime-watchdog-config.html#GUC-HOSTNAME"
+>hostname</A
+>、<A
+HREF="runtime-watchdog-config.html#GUC-WD-PORT"
+>wd_port</A
+>
+       及び<A
+HREF="runtime-watchdog-config.html#GUC-PGPOOL-PORT"
+>pgpool_port</A
+>を以下のように設定します。
+    </P><PRE
+CLASS="PROGRAMLISTING"
+>     hostname0 = 'server1'
+     wd_port0 = 9000
+     pgpool_port0 = 9999
+
+     hostname1 = 'server2'
+     wd_port1 = 9000
+     pgpool_port1 = 9999
+
+     hostname2 = 'server3'
+     wd_port2 = 9000
+     pgpool_port2 = 9999
+    </PRE
+><P>
+      </P
+></DIV
 ></DD
 ><DT
 ><A
@@ -928,6 +1090,20 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >は隔離されたノードに対してはヘルスチェックを実行し続けます。
       隔離されたノードが到達可能になり次第、そのノードは自動的に再度アタッチされます。
+      これは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II </SPAN
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.1</I
+></SPAN
+>以降にのみ適用されることに注意してください。
+      それ以前のバージョンをお使いの場合は、隔離されたノードに対する接続性の問題が解決されたら、<A
+HREF="pcp-attach-node.html"
+>pcp_attach_node</A
+>を使ってそのノードを復帰させさなければなりません。
      </P
 ><P
 >      <SPAN
@@ -1628,25 +1804,35 @@ CLASS="VARIABLELIST"
 ><DL
 ><DT
 ><A
-NAME="GUC-WD-HEARTBEAT-PORT"
+NAME="GUC-HEARTBEAT-HOSTNAME"
 ></A
 ><TT
 CLASS="VARNAME"
->wd_heartbeat_port</TT
+>heartbeat_hostnameX</TT
 > (<TT
 CLASS="TYPE"
->integer</TT
+>string</TT
 >)
      </DT
 ><DD
 ><P
 >      
-      ハートビート信号を受信する<ACRONYM
+      ハートビート信号を送受信するための<ACRONYM
 CLASS="ACRONYM"
->UDP</ACRONYM
->ポート番号を指定します。
-      デフォルトは 9694 です。
-      <A
+>IP</ACRONYM
+>アドレスまたは <ACRONYM
+CLASS="ACRONYM"
+>ホスト名</ACRONYM
+>を指定します。
+      パラメータ名の最後にある数字は「pgpool ノードID」で、0から始まります(たとえばheartbeat_hostname0)。
+      複数のハートビート信号の送り先をセミコロン(;)で区切って指定することができます。
+     </P
+><P
+>      
+      <TT
+CLASS="VARNAME"
+>heartbeat_hostnameX</TT
+>は、<A
 HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
 >wd_lifecheck_method</A
 >が<TT
@@ -1658,6 +1844,120 @@ CLASS="LITERAL"
 >      
       このパラメータは、サーバ起動時にのみ設定できます。
      </P
+></DD
+><DT
+><A
+NAME="GUC-HEARTBEAT-PORT"
+></A
+><TT
+CLASS="VARNAME"
+>heartbeat_portX</TT
+> (<TT
+CLASS="TYPE"
+>integer</TT
+>)
+     </DT
+><DD
+><P
+>      
+      ハートビート信号を受信するためのUDPポート番号を指定します。
+      1つのみを指定してください。デフォルトは9694です。
+      パラメータ名の最後にある数字は「pgpool ノードID」で、0から始まります(たとえばheartbeat_port0)。
+     </P
+><P
+>      
+      <TT
+CLASS="VARNAME"
+>heartbeat_portX</TT
+>は、<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
+>wd_lifecheck_method</A
+> が <TT
+CLASS="LITERAL"
+>'heartbeat'</TT
+>に設定されている場合のみ有効です。
+     </P
+><P
+>      
+      このパラメータは、サーバ起動時にのみ設定できます。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-HEARTBEAT-DEVICE"
+></A
+><TT
+CLASS="VARNAME"
+>heartbeat_deviceX</TT
+> (<TT
+CLASS="TYPE"
+>string</TT
+>)
+     </DT
+><DD
+><P
+>      
+      ハートビートの送受信に用いるネットワークデバイス名を指定します。
+      パラメータ名の最後にある数字は「pgpool ノードID」で、0から始まります(たとえばheartbeat_device0)。
+      複数のネットワークデバイス名をセミコロン(;)で区切って指定することができます。
+     </P
+><P
+>      
+      <TT
+CLASS="VARNAME"
+>heartbeat_deviceX</TT
+>は、<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
+>wd_lifecheck_method</A
+>が<TT
+CLASS="LITERAL"
+>'heartbeat'</TT
+>に設定されている場合のみ有効です。
+     </P
+><P
+>      
+      このパラメータは、サーバ起動時にのみ設定できます。
+     </P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="EXAMPLE-HEARTBEAT-1"
+></A
+><P
+><B
+>例 5-11. Heartbeat 信号を用いた死活監視の設定例</B
+></P
+><P
+>       
+       Pgpool ノードが3つあり、それぞれのホスト名が server1、server2、server3 の場合、
+       <A
+HREF="runtime-watchdog-config.html#GUC-HEARTBEAT-HOSTNAME"
+>heartbeat_hostname</A
+>、<A
+HREF="runtime-watchdog-config.html#GUC-HEARTBEAT-PORT"
+>heartbeat_port</A
+>
+       及び<A
+HREF="runtime-watchdog-config.html#GUC-HEARTBEAT-DEVICE"
+>heartbeat_device</A
+>を以下のように設定します。
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>heartbeat_hostname0 = 'server1'
+heartbeat_port0 = 9694
+heartbeat_device0 = ''
+
+heartbeat_hostname1 = 'server2'
+heartbeat_port1 = 9694
+heartbeat_device1 = ''
+
+heartbeat_hostname2 = 'server3'
+heartbeat_port2 = 9694
+heartbeat_device2 = ''
+      </PRE
+><P>
+      </P
+></DIV
 ></DD
 ><DT
 ><A
@@ -1712,123 +2012,6 @@ CLASS="TYPE"
 CLASS="LITERAL"
 >30</TT
 >です。
-     </P
-><P
->      
-      このパラメータは、サーバ起動時にのみ設定できます。
-     </P
-></DD
-><DT
-><A
-NAME="GUC-HEARTBEAT-DESTINATION"
-></A
-><TT
-CLASS="VARNAME"
->heartbeat_destination0</TT
-> (<TT
-CLASS="TYPE"
->string</TT
->)
-     </DT
-><DD
-><P
->      
-      ハートビート信号の送る先の<ACRONYM
-CLASS="ACRONYM"
->IP</ACRONYM
->アドレスまたは <ACRONYM
-CLASS="ACRONYM"
->ホスト名</ACRONYM
->を指定します。
-      複数のハートビート信号の送り先が指定可能です。
-      0から始まるパラメータの最後の部分は送り先の番号です。
-     </P
-><P
->      
-      <TT
-CLASS="VARNAME"
->heartbeat_destination</TT
->は、<A
-HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
->wd_lifecheck_method</A
->が<TT
-CLASS="LITERAL"
->'heartbeat'</TT
->に設定されている場合のみ有効です。
-     </P
-><P
->      
-      このパラメータは、サーバ起動時にのみ設定できます。
-     </P
-></DD
-><DT
-><A
-NAME="GUC-HEARTBEAT-DESTINATION-PORT"
-></A
-><TT
-CLASS="VARNAME"
->heartbeat_destination_port0</TT
-> (<TT
-CLASS="TYPE"
->integer</TT
->)
-     </DT
-><DD
-><P
->      
-      ハートビート信号の送る先のポート番号を指定します。
-      複数のハートビート信号の送り先が指定可能です。
-      0から始まるパラメータの最後の部分は送り先の番号です。
-     </P
-><P
->      
-      <TT
-CLASS="VARNAME"
->heartbeat_destination_port</TT
->は、<A
-HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
->wd_lifecheck_method</A
-> が <TT
-CLASS="LITERAL"
->'heartbeat'</TT
->に設定されている場合のみ有効です。 
-     </P
-><P
->      
-      このパラメータは、サーバ起動時にのみ設定できます。
-     </P
-></DD
-><DT
-><A
-NAME="GUC-HEARTBEAT-DEVICE"
-></A
-><TT
-CLASS="VARNAME"
->heartbeat_device0</TT
-> (<TT
-CLASS="TYPE"
->string</TT
->)
-     </DT
-><DD
-><P
->      
-      heartbeat_destinationX:heartbeat_destination_portXで指定されるハートビートの送信先に用いるネットワークデバイス名を指定します。
-      パラメータ名の最後にあるXの値（送信先番号）を変えることにより、ハートビートの送信先ごとに異なるハートビートデバイス番号を設定することが可能です。
-      送信先番号は0から始まります。
-     </P
-><P
->      
-      <TT
-CLASS="VARNAME"
->heartbeat_device</TT
->は、<A
-HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
->wd_lifecheck_method</A
->が<TT
-CLASS="LITERAL"
->'heartbeat'</TT
->に設定されている場合のみ有効です。
      </P
 ><P
 >      
@@ -2137,100 +2320,6 @@ CLASS="VARNAME"
 CLASS="LITERAL"
 >''</TT
 >（空文字）です.
-     </P
-></DD
-></DL
-></DIV
-></DIV
-><DIV
-CLASS="SECT2"
-><H2
-CLASS="SECT2"
-><A
-NAME="CONFIG-WATCHDOG-SERVER-CONFIGURATION"
->5.14.10. Watchdogサーバの設定</A
-></H2
-><P
-></P
-><DIV
-CLASS="VARIABLELIST"
-><DL
-><DT
-><A
-NAME="GUC-OTHER-PGPOOL-HOSTNAME"
-></A
-><TT
-CLASS="VARNAME"
->other_pgpool_hostname0</TT
-> (<TT
-CLASS="TYPE"
->string</TT
->)
-     </DT
-><DD
-><P
->      
-      リモートのwatchdogノードに対する<SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->サーバのホスト名を指定します。
-      パラメータ名の最後にある数字は「サーバ番号」で、0から始まります。
-     </P
-><P
->      
-      このパラメータは、サーバ起動時にのみ設定できます。
-     </P
-></DD
-><DT
-><A
-NAME="GUC-OTHER-PGPOOL-PORT"
-></A
-><TT
-CLASS="VARNAME"
->other_pgpool_port0</TT
-> (<TT
-CLASS="TYPE"
->integer</TT
->)
-     </DT
-><DD
-><P
->      
-      リモートのwatchdogノードに対する<SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->サーバのポート番号を指定します。
-      パラメータ名の最後にある数字は「サーバ番号」で、0から始まります。
-     </P
-><P
->      
-      このパラメータは、サーバ起動時にのみ設定できます。
-     </P
-></DD
-><DT
-><A
-NAME="GUC-OTHER-WD-PORT"
-></A
-><TT
-CLASS="VARNAME"
->other_wd_port0</TT
-> (<TT
-CLASS="TYPE"
->integer</TT
->)
-     </DT
-><DD
-><P
->      
-      リモートの<SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->サーバにおけるwatchdogのポート番号を指定します。
-      パラメータ名の最後にある数字は「サーバ番号」で、0から始まります。
-     </P
-><P
->      
-      このパラメータは、サーバ起動時にのみ設定できます。
      </P
 ></DD
 ></DL

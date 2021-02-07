@@ -105,6 +105,7 @@ lib_watchdog_a_AR = $(AR) $(ARFLAGS)
 lib_watchdog_a_LIBADD =
 am_lib_watchdog_a_OBJECTS = watchdog.$(OBJEXT) wd_if.$(OBJEXT) \
 	wd_lifecheck.$(OBJEXT) wd_commands.$(OBJEXT) \
+	wd_internal_commands.$(OBJEXT) wd_ipc_conn.$(OBJEXT) \
 	wd_json_data.$(OBJEXT) wd_ping.$(OBJEXT) \
 	wd_heartbeat.$(OBJEXT) wd_utils.$(OBJEXT) \
 	wd_escalation.$(OBJEXT)
@@ -319,6 +320,8 @@ lib_watchdog_a_SOURCES = \
 	wd_if.c \
 	wd_lifecheck.c \
 	wd_commands.c \
+	wd_internal_commands.c \
+	wd_ipc_conn.c \
 	wd_json_data.c \
 	wd_ping.c \
 	wd_heartbeat.c \

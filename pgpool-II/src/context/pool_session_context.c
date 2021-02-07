@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -27,8 +27,11 @@
 #include "utils/memutils.h"
 #include "utils/elog.h"
 #include "pool_config.h"
-#include "context/pool_session_context.h"
 #include "protocol/pool_proto_modules.h"
+#include "protocol/pool_process_query.h"
+#include "protocol/pool_connection_pool.h"
+#include "protocol/pool_pg_utils.h"
+#include "context/pool_session_context.h"
 
 static POOL_SESSION_CONTEXT session_context_d;
 static POOL_SESSION_CONTEXT * session_context = NULL;
@@ -36,6 +39,8 @@ static void GetTranIsolationErrorCb(void *arg);
 static void init_sent_message_list(void);
 static POOL_PENDING_MESSAGE * copy_pending_message(POOL_PENDING_MESSAGE * messag);
 static void dump_sent_message(char *caller, POOL_SENT_MESSAGE * m);
+static void dml_adaptive_init(void);
+static void dml_adaptive_destroy(void);
 
 #ifdef PENDING_MESSAGE_DEBUG
 static int	Elevel = LOG;
@@ -97,7 +102,7 @@ pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * bac
 	}
 	else
 	{
-		node_id = SL_MODE ? PRIMARY_NODE_ID : MASTER_NODE_ID;
+		node_id = SL_MODE ? PRIMARY_NODE_ID : MAIN_NODE_ID;
 	}
 
 	session_context->load_balance_node_id = node_id;
@@ -164,9 +169,17 @@ pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * bac
 	pool_temp_tables_init();
 	
 #ifdef NOT_USED
-	/* Initialize preferred master node id */
-	pool_reset_preferred_master_node_id();
+	/* Initialize preferred main node id */
+	pool_reset_preferred_main_node_id();
 #endif
+
+	/* Snapshot isolation state */
+	session_context->si_state = SI_NO_SNAPSHOT;
+
+	/* Transaction read only */
+	session_context->transaction_read_only = false;
+
+	dml_adaptive_init();
 }
 
 /*
@@ -188,6 +201,8 @@ pool_session_context_destroy(void)
 		if (session_context->query_context)
 			pool_query_context_destroy(session_context->query_context);
 		MemoryContextDelete(session_context->memory_context);
+
+		dml_adaptive_destroy();
 	}
 	/* XXX For now, just zap memory */
 	memset(&session_context_d, 0, sizeof(session_context_d));
@@ -519,6 +534,26 @@ dump_sent_message(char *caller, POOL_SENT_MESSAGE * m)
 					caller, m, m->kind, m->name, m->state)));
 }
 
+static void
+dml_adaptive_init(void)
+{
+	if (pool_config->disable_load_balance_on_write == DLBOW_DML_ADAPTIVE)
+	{
+		session_context->is_in_transaction = false;
+		session_context->transaction_temp_write_list = NIL;
+	}
+}
+
+static void
+dml_adaptive_destroy(void)
+{
+	if (pool_config->disable_load_balance_on_write == DLBOW_DML_ADAPTIVE && session_context)
+	{
+		if (session_context->transaction_temp_write_list != NIL)
+			list_free_deep(session_context->transaction_temp_write_list);
+	}
+}
+
 /*
  * Create a sent message.
  * kind: one of 'P':Parse, 'B':Bind or 'Q':Query(PREPARE)
@@ -708,10 +743,10 @@ void
 pool_set_writing_transaction(void)
 {
 	/*
-	 * If disable_transaction_on_write is 'off', then never turn on writing
+	 * If disable_transaction_on_write is 'off' or 'dml_adaptive', then never turn on writing
 	 * transaction flag.
 	 */
-	if (pool_config->disable_load_balance_on_write != DLBOW_OFF)
+	if (pool_config->disable_load_balance_on_write != DLBOW_OFF && pool_config->disable_load_balance_on_write != DLBOW_DML_ADAPTIVE)
 	{
 		pool_get_session_context(false)->writing_transaction = true;
 		ereport(DEBUG5,
@@ -814,7 +849,7 @@ pool_get_transaction_isolation(void)
 
 	/* No cached data is available. Ask backend. */
 
-	do_query(MASTER(session_context->backend),
+	do_query(MAIN(session_context->backend),
 			 "SELECT current_setting('transaction_isolation')", &res, MAJOR(session_context->backend));
 
 	error_context_stack = callback.previous;
@@ -1046,7 +1081,7 @@ can_query_context_destroy(POOL_QUERY_CONTEXT * qc)
 		{
 			count++;
 		}
-		next = lnext(cell);
+		next = lnext(session_context->pending_messages, cell);
 	}
 
 	if (count >= 1)
@@ -1351,7 +1386,7 @@ pool_pending_message_pull_out(void)
 
 	pool_pending_message_free_pending_message(m);
 	session_context->pending_messages =
-		list_delete_cell(session_context->pending_messages, cell, NULL);
+		list_delete_cell(session_context->pending_messages, cell);
 
 	MemoryContextSwitchTo(old_context);
 	return message;
@@ -1381,7 +1416,7 @@ pool_pending_message_get(POOL_MESSAGE_TYPE type)
 	{
 		POOL_PENDING_MESSAGE *m = (POOL_PENDING_MESSAGE *) lfirst(cell);
 
-		next = lnext(cell);
+		next = lnext(session_context->pending_messages, cell);
 
 		if (m->type == type)
 		{
@@ -1670,7 +1705,7 @@ pool_pending_message_get_message_num_by_backend_id(int backend_id)
 			}
 		}
 
-		next = lnext(cell);
+		next = lnext(session_context->pending_messages, cell);
 	}
 	return cnt;
 }
@@ -1703,7 +1738,7 @@ dump_pending_message(void)
 						message->type, message->contents_len, message->query, message->statement, message->portal,
 						message->node_ids[0], message->node_ids[1])));
 
-		next = lnext(cell);
+		next = lnext(session_context->pending_messages, cell);
 	}
 
 	ereport(DEBUG5,
@@ -1789,33 +1824,33 @@ pool_unset_suspend_reading_from_frontend(void)
 
 #ifdef NOT_USED
 /*
- * Set preferred "master" node id.
+ * Set preferred "main" node id.
  * Only used for SimpleForwardToFrontend.
  */
 void
-pool_set_preferred_master_node_id(int node_id)
+pool_set_preferred_main_node_id(int node_id)
 {
-	session_context->preferred_master_node_id = node_id;
+	session_context->preferred_main_node_id = node_id;
 }
 
 /*
- * Return preferred "master" node id.
+ * Return preferred "main" node id.
  * Only used for SimpleForwardToFrontend.
  */
 int
-pool_get_preferred_master_node_id(void)
+pool_get_preferred_main_node_id(void)
 {
-	return session_context->preferred_master_node_id;
+	return session_context->preferred_main_node_id;
 }
 
 /*
- * Reset preferred "master" node id.
+ * Reset preferred "main" node id.
  * Only used for SimpleForwardToFrontend.
  */
 void
-pool_reset_preferred_master_node_id(void)
+pool_reset_preferred_main_node_id(void)
 {
-	session_context->preferred_master_node_id = -1;
+	session_context->preferred_main_node_id = -1;
 }
 #endif
 
@@ -1983,7 +2018,7 @@ Retry:
 		{
 			ereport(DEBUG1,
 					(errmsg("pool_temp_tables_commit_pending: remove: %s", table->tablename)));
-			session_context->temp_tables = list_delete_ptr(session_context->temp_tables, table);
+			session_context->temp_tables = list_delete_cell(session_context->temp_tables, cell);
 			pool_temp_tables_dump();
 			goto Retry;
 		}
@@ -2020,7 +2055,7 @@ Retry:
 			ereport(DEBUG1,
 					(errmsg("pool_temp_tables_remove_pending: remove: %s", table->tablename)));
 
-			session_context->temp_tables = list_delete_ptr(session_context->temp_tables, table);
+			session_context->temp_tables = list_delete_cell(session_context->temp_tables, cell);
 			pool_temp_tables_dump();
 			goto Retry;
 		}
@@ -2047,4 +2082,5 @@ pool_temp_tables_dump(void)
 						table->tablename, table->state)));
 	}
 #endif
+
 }

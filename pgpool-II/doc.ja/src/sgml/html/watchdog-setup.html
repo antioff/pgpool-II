@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="他のコマンド"
@@ -18,15 +18,15 @@ REL="PREVIOUS"
 TITLE="pgpool_setup"
 HREF="pgpool-setup.html"><LINK
 REL="NEXT"
-TITLE="SQL 型コマンド"
-HREF="sql-commands.html"><LINK
+TITLE="wd_cli"
+HREF="wd-cli.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="SQL 型コマンド"
-HREF="sql-commands.html"
+TITLE="wd_cli"
+HREF="wd-cli.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -95,7 +95,7 @@ NAME="WATCHDOG-SETUP"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN8221"
+NAME="AEN8927"
 ></A
 ><H2
 >名前</H2
@@ -107,7 +107,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN8225"
+NAME="AEN8931"
 ></A
 ><H2
 >概要</H2
@@ -175,7 +175,7 @@ CLASS="APPLICATION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8243"
+NAME="AEN8949"
 ></A
 ><H2
 >オプション</H2
@@ -334,7 +334,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8295"
+NAME="AEN9001"
 ></A
 ><H2
 >環境変数</H2
@@ -474,7 +474,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8344"
+NAME="AEN9050"
 ></A
 ><H2
 >出力例</H2
@@ -508,7 +508,7 @@ CLASS="SCREEN"
 
     recovery node 1...pcp_recovery_node -- Command Successful
     done.
-    creating follow master script
+    creating follow primary script
     Pager usage is off.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
@@ -553,7 +553,7 @@ CLASS="SCREEN"
 
     recovery node 1...pcp_recovery_node -- Command Successful
     done.
-    creating follow master script
+    creating follow primary script
     Pager usage is off.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
@@ -598,7 +598,7 @@ CLASS="SCREEN"
 
     recovery node 1...pcp_recovery_node -- Command Successful
     done.
-    creating follow master script
+    creating follow primary script
     Pager usage is off.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------
@@ -648,8 +648,8 @@ CLASS="SCREEN"
     Quorum state         : QUORUM EXIST
     Alive Remote Nodes   : 2
     VIP up on local node : NO
-    Master Node Name     : Linux_tishii-CF-SX3HE4BP_50004
-    Master Host Name     : localhost
+    Leader Node Name     : Linux_tishii-CF-SX3HE4BP_50004
+    Leader Host Name     : localhost
 
     Watchdog Node Information
     Node Name      : Linux_tishii-CF-SX3HE4BP_50000
@@ -668,7 +668,7 @@ CLASS="SCREEN"
     Watchdog port  : 50006
     Node priority  : 1
     Status         : 4
-    Status Name    : MASTER
+    Status Name    : LEADER
 
     Node Name      : Linux_tishii-CF-SX3HE4BP_50008
     Host Name      : localhost
@@ -717,7 +717,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="sql-commands.html"
+HREF="wd-cli.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -741,7 +741,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->SQL 型コマンド</TD
+>wd_cli</TD
 ></TR
 ></TABLE
 ></DIV

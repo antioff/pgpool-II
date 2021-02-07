@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Other commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PG-ENC"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN7770"
+NAME="AEN8437"
 ></A
 ><H2
 >Name</H2
@@ -104,7 +104,7 @@ NAME="AEN7770"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN7773"
+NAME="AEN8440"
 ></A
 ><H2
 >Synopsis</H2
@@ -157,7 +157,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN7790"
+NAME="AEN8457"
 ></A
 ><H2
 >Options</H2
@@ -244,6 +244,29 @@ CLASS="REPLACEABLE"
 CLASS="LITERAL"
 >pgpool.conf</TT
 > file.
+      </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-i <TT
+CLASS="REPLACEABLE"
+><I
+>INPUT_FILE</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--input-file=<TT
+CLASS="REPLACEABLE"
+><I
+>INPUT_FILE</I
+></TT
+></TT
+></DT
+><DD
+><P
+>       Specifies file containing username and password pairs.
       </P
 ></DD
 ><DT
@@ -339,7 +362,7 @@ CLASS="LITERAL"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN7864"
+NAME="AEN8540"
 ></A
 ><H2
 >Example</H2
@@ -381,6 +404,33 @@ CLASS="PROGRAMLISTING"
 CLASS="LITERAL"
 >username</TT
 > with the password given.
+  </P
+><P
+>   To avoid password prompt or password in command parameter,
+   <TT
+CLASS="LITERAL"
+>pg_enc</TT
+> can read user name:password pairs from file.
+   It will add all user names and encrypted password to
+   <A
+HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
+>pool_passwd</A
+> authentication file.
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>    $ cat users.txt
+    username1:secretpassword1
+    username2:secretpassword2
+
+    $ pg_enc -m -f /path/to/pgpool.conf -i users.txt
+    trying to read key from file /home/pgpool/.pgpoolkey
+    trying to read user:password pairs from file users.text
+
+    $ cat /path/to/pool_passwd
+    username1:AESrx5QdpGyW/+4CB80KWtwhg==
+    username2:AESUAdohy7nCUhWliRI9WiYQA==
+   </PRE
+><P>
   </P
 ></DIV
 ><DIV

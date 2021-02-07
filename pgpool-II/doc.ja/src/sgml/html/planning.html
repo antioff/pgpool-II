@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Pgpool-IIのインストール"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -134,7 +134,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="PLANNING-POSTGRESQL"
->2.1.1. PostgreSQLの動作モード</A
+>2.1.1. PostgreSQLのクラスタリングモード</A
 ></H2
 ><P
 >    <SPAN
@@ -151,8 +151,8 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 >を用いる場合、何らかの方法でそれらのデータベース内容を同じになるようにしなければなりません。
-    データベースの同期方法の違いをここでは「動作モード」と呼びます。
-    もっとも広く使われている動作モードは、「ストリーミングレプリケーションモード」です。
+    データベースの同期方法の違いをここでは「クラスタリングモード」と呼びます。
+    もっとも広く使われているクラスタリングモードは、「ストリーミングレプリケーションモード」です。
     特に何か特別な考慮が必要でなければ、ストリーミングレプリケーションモードを選択することをお勧めします。
     動作モードの詳細については<A
 HREF="configuring-pgpool.html#RUNNING-MODE"
@@ -271,7 +271,7 @@ CLASS="PRODUCTNAME"
 >2台をストリーミングレプリケーションモードで動作させる本格的な例が
     <A
 HREF="example-cluster.html"
->項8.3</A
+>項8.2</A
 >で詳しく紹介されているので、すぐにプロダクションレベルで<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN

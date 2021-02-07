@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2018	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -22,18 +22,22 @@
  *
  */
 
-#include "config.h"
 
-#include <unistd.h>
-#include <string.h>
-#include "utils/elog.h"
+#include "config.h"
 
 #include "pool.h"
 #include "pool_config.h"
 
+#include <unistd.h>
+#include <string.h>
+#include "pcp/recovery.h"
+#include "utils/elog.h"
+#include "utils/pool_signal.h"
+
 #include "libpq-fe.h"
 
-#include "watchdog/wd_ipc_commands.h"
+#include "main/pool_internal_comms.h"
+#include "watchdog/wd_internal_commands.h"
 
 #define WAIT_RETRY_COUNT (pool_config->recovery_timeout / 3)
 
@@ -41,7 +45,7 @@
 #define SECOND_STAGE 1
 
 static void exec_checkpoint(PGconn *conn);
-static void exec_recovery(PGconn *conn, BackendInfo * master_backend, BackendInfo * recovery_backend, char stage, int recovery_node);
+static void exec_recovery(PGconn *conn, BackendInfo * main_backend, BackendInfo * recovery_backend, char stage, int recovery_node);
 static void exec_remote_start(PGconn *conn, BackendInfo * backend);
 static PGconn *connect_backend_libpq(BackendInfo * backend);
 static void check_postmaster_started(BackendInfo * backend);
@@ -53,7 +57,7 @@ extern volatile sig_atomic_t pcp_worker_wakeup_request;
 /*
  * Start online recovery.
  * "recovery_node" is the node to be recovered.
- * Master or primary node is chosen in this function.
+ * Main or primary node is chosen in this function.
  */
 void
 start_recovery(int recovery_node)
@@ -81,8 +85,8 @@ start_recovery(int recovery_node)
 		ereport(ERROR,
 				(errmsg("node recovery failed, node id: %d is alive", recovery_node)));
 
-	/* select master/primary node */
-	node_id = MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID;
+	/* select main/primary node */
+	node_id = MAIN_REPLICA ? PRIMARY_NODE_ID : REAL_MAIN_NODE_ID;
 	backend = &pool_config->backend_desc->backend_info[node_id];
 
 	/* get node info to be recovered */
@@ -91,7 +95,7 @@ start_recovery(int recovery_node)
 	conn = connect_backend_libpq(backend);
 	if (conn == NULL)
 		ereport(ERROR,
-				(errmsg("node recovery failed, unable to connect to master node: %d ", node_id)));
+				(errmsg("node recovery failed, unable to connect to main node: %d ", node_id)));
 
 	PG_TRY();
 	{
@@ -230,7 +234,7 @@ exec_checkpoint(PGconn *conn)
  * Call pgpool_recovery() function.
  */
 static void
-exec_recovery(PGconn *conn, BackendInfo * master_backend, BackendInfo * recovery_backend, char stage, int recovery_node)
+exec_recovery(PGconn *conn, BackendInfo * main_backend, BackendInfo * recovery_backend, char stage, int recovery_node)
 {
 	PGresult   *result;
 	char	   *hostname;
@@ -259,7 +263,7 @@ exec_recovery(PGconn *conn, BackendInfo * master_backend, BackendInfo * recovery
 			 script,
 			 hostname,
 			 recovery_backend->backend_data_directory,
-			 master_backend->backend_port,
+			 main_backend->backend_port,
 			 recovery_node,
 			 recovery_backend->backend_port
 		);

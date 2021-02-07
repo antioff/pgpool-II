@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの準備と運用"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -128,11 +128,10 @@ CLASS="FILENAME"
 >に配置されます。
    </P
 ><P
->    
-    各<SPAN
+>    各<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->の動作モードについて設定のサンプルがあります。
+>のクラスタリングモードについて設定のサンプルがあります。
 
    </P
 ><DIV
@@ -150,7 +149,7 @@ CLASS="CALSTABLE"
 ><COL><COL><THEAD
 ><TR
 ><TH
->動作モード</TH
+>クラスタリングモード</TH
 ><TH
 >設定ファイル名</TH
 ></TR
@@ -176,11 +175,29 @@ CLASS="LITERAL"
 ></TR
 ><TR
 ><TD
->マスタースレーブモード</TD
+>ロジカルレプリケーションモード</TD
 ><TD
 ><TT
 CLASS="LITERAL"
->pgpool.conf.sample-master-slave</TT
+>pgpool.conf.sample-logical</TT
+></TD
+></TR
+><TR
+><TD
+>slonyモード</TD
+><TD
+><TT
+CLASS="LITERAL"
+>pgpool.conf.sample-slony</TT
+></TD
+></TR
+><TR
+><TD
+>スナップショットアイソレーションモード</TD
+><TD
+><TT
+CLASS="LITERAL"
+>pgpool.conf.sample-snapshot</TT
 ></TD
 ></TR
 ><TR
@@ -189,16 +206,7 @@ CLASS="LITERAL"
 ><TD
 ><TT
 CLASS="LITERAL"
->pgpool.conf.sample</TT
-> </TD
-></TR
-><TR
-><TD
->ロジカルレプリケーションモード</TD
-><TD
-><TT
-CLASS="LITERAL"
->pgpool.conf.sample-logical</TT
+>pgpool.conf.sample-raw</TT
 > </TD
 ></TR
 ></TBODY
@@ -226,14 +234,13 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="RUNNING-MODE"
->3.3.2. Pgpool-IIの動作モード</A
+>3.3.2. Pgpool-IIのクラスタリングモード</A
 ></H2
 ><P
->    
-    <SPAN
+>    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->にはストリーミングレプリケーションモード、ロジカルレプリケーションモード、マスタースレーブモード（slonyモード)、ネイティブレプリケーションモード、rawモードの5つの動作モードがあります。
+>にはストリーミングレプリケーションモード、ロジカルレプリケーションモード、メインレプリカモード(Slonyモード)、ネイティブレプリケーションモード、スナップショットアイソレーションモード、rawモードの6つのクラスタリングモードがあります。
     いずれのモードにおいても、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -263,58 +270,6 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >の使用法です。
-    このモードでは負荷分散が可能です。
-   </P
-><P
->    
-    <I
-CLASS="FIRSTTERM"
->ロジカルレプリケーションモード</I
->はロジカルレプリケーションを使用する<SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
->サーバと一緒に使うことができます。
-    このモードでは、<SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
->がテーブルを同期する責任を持ちます。
-    このモードでは負荷分散が可能です。
-    ロジカルレプリケーションは必ずしもすべてのテーブルをレプリケーションしないので、負荷分散させるテーブルがレプリケーションされるようにするのはユーザの責任です。
-    <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->はすべてのテーブルをロードバランスします。
-    このことは、テーブルがレプリケーションされていない場合には、<SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->がサブスクライバー側の更新されていない古いテーブルを見てしまうかもしれないことを意味します。
-   </P
-><P
->    
-    <I
-CLASS="FIRSTTERM"
->マスタスレーブモード</I
->(slonyモード)は<SPAN
-CLASS="PRODUCTNAME"
->Slony-I</SPAN
->を使用する<SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
->サーバと一緒に使うことができます。
-    このモードでは、<SPAN
-CLASS="PRODUCTNAME"
->Slony</SPAN
->/<SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
->がデータベースを同期する責任を持ちます。
-    <SPAN
-CLASS="PRODUCTNAME"
->Slony</SPAN
->はストリーミングレプリケーションの登場により廃れつつあるため、<SPAN
-CLASS="PRODUCTNAME"
->Slony</SPAN
->を使う特別な理由が無い限りこのモードの使用を推奨しません。
     このモードでは負荷分散が可能です。
    </P
 ><P
@@ -356,6 +311,92 @@ CLASS="LITERAL"
 ><P
 >    このモードでは負荷分散が可能です。
    </P
+><P
+>    
+    <I
+CLASS="FIRSTTERM"
+>ロジカルレプリケーションモード</I
+>はロジカルレプリケーションを使用する<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバと一緒に使うことができます。
+    このモードでは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>がテーブルを同期する責任を持ちます。
+    このモードでは負荷分散が可能です。
+    ロジカルレプリケーションは必ずしもすべてのテーブルをレプリケーションしないので、負荷分散させるテーブルがレプリケーションされるようにするのはユーザの責任です。
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はすべてのテーブルをロードバランスします。
+    このことは、テーブルがレプリケーションされていない場合には、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がサブスクライバー側の更新されていない古いテーブルを見てしまうかもしれないことを意味します。
+   </P
+><P
+>    
+    <I
+CLASS="FIRSTTERM"
+>メインレプリカモード</I
+>(slonyモード)は<SPAN
+CLASS="PRODUCTNAME"
+>Slony-I</SPAN
+>を使用する<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバと一緒に使うことができます。
+    このモードでは、<SPAN
+CLASS="PRODUCTNAME"
+>Slony</SPAN
+>/<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>がデータベースを同期する責任を持ちます。
+    <SPAN
+CLASS="PRODUCTNAME"
+>Slony</SPAN
+>はストリーミングレプリケーションの登場により廃れつつあるため、<SPAN
+CLASS="PRODUCTNAME"
+>Slony</SPAN
+>を使う特別な理由が無い限りこのモードの使用を推奨しません。
+    このモードでは負荷分散が可能です。
+   </P
+><P
+>    <I
+CLASS="FIRSTTERM"
+>スナップショットアイソレーションモード</I
+>は、ネィティブレプリケーションモードと似ていますが、更にノードをまたがる可視性の一貫性を保証します。
+    ただし、制限事項がいくつかあり、今の所(<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.2)では「実験的な実装」という位置づけです。
+    業務で使用する場合には慎重なテストをお勧めします。
+   </P
+><P
+></P
+><UL
+><LI
+><P
+>      PostgreSQLのトランザクション分離レベルをREPEATABLE READにする必要があります。
+      具体的には、<TT
+CLASS="FILENAME"
+>postgresql.conf</TT
+>に以下のように記述します。
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       default_transaction_isolation = 'repeatable read'
+      </PRE
+><P>
+     </P
+></LI
+><LI
+><P
+>      シリアル型やシーケンスに関する一貫した可視性を保証しません。
+     </P
+></LI
+></UL
 ><P
 >    
     <I

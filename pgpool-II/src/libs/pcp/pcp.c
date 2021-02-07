@@ -8,7 +8,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -65,6 +65,7 @@ static int	setNextResultBinaryData(PCPResultInfo * res, void *value, int datalen
 static void setResultIntData(PCPResultInfo * res, unsigned int slotno, int value);
 
 static void process_node_info_response(PCPConnInfo * pcpConn, char *buf, int len);
+static void	process_health_check_stats_response(PCPConnInfo * pcpConn, char *buf, int len);
 static void process_command_complete_response(PCPConnInfo * pcpConn, char *buf, int len);
 static void process_watchdog_info_response(PCPConnInfo * pcpConn, char *buf, int len);
 static void process_process_info_response(PCPConnInfo * pcpConn, char *buf, int len);
@@ -365,6 +366,7 @@ static PCPResultInfo * process_pcp_response(PCPConnInfo * pcpConn, char sentMsg)
 			setResultStatus(pcpConn, PCP_RES_ERROR);
 			return pcpConn->pcpResInfo;
 		}
+
 		if (pcp_read(pcpConn->pcpConn, &rsize, sizeof(int)))
 		{
 			pcp_internal_error(pcpConn,
@@ -433,6 +435,13 @@ static PCPResultInfo * process_pcp_response(PCPConnInfo * pcpConn, char sentMsg)
 					process_node_info_response(pcpConn, buf, rsize);
 				break;
 
+			case 'h':
+				if (sentMsg != 'H')
+					setResultStatus(pcpConn, PCP_RES_BAD_RESPONSE);
+				else
+					process_health_check_stats_response(pcpConn, buf, rsize);
+				break;
+
 			case 'l':
 				if (sentMsg != 'L')
 					setResultStatus(pcpConn, PCP_RES_BAD_RESPONSE);
@@ -456,6 +465,13 @@ static PCPResultInfo * process_pcp_response(PCPConnInfo * pcpConn, char sentMsg)
 
 			case 'a':
 				if (sentMsg != 'A')
+					setResultStatus(pcpConn, PCP_RES_BAD_RESPONSE);
+				else
+					process_command_complete_response(pcpConn, buf, rsize);
+				break;
+
+			case 'z':
+				if (sentMsg != 'Z')
 					setResultStatus(pcpConn, PCP_RES_BAD_RESPONSE);
 				else
 					process_command_complete_response(pcpConn, buf, rsize);
@@ -599,7 +615,7 @@ pcp_disconnect(PCPConnInfo * pcpConn)
  * --------------------------------
  */
 PCPResultInfo *
-pcp_terminate_pgpool(PCPConnInfo * pcpConn, char mode)
+pcp_terminate_pgpool(PCPConnInfo * pcpConn, char mode, char command_scope)
 {
 	int			wsize;
 
@@ -608,7 +624,10 @@ pcp_terminate_pgpool(PCPConnInfo * pcpConn, char mode)
 		pcp_internal_error(pcpConn, "invalid PCP connection");
 		return NULL;
 	}
-	pcp_write(pcpConn->pcpConn, "T", 1);
+	if (command_scope == 'l')	/*local only*/
+		pcp_write(pcpConn->pcpConn, "T", 1);
+	else
+		pcp_write(pcpConn->pcpConn, "t", 1);
 	wsize = htonl(sizeof(int) + sizeof(char));
 	pcp_write(pcpConn->pcpConn, &wsize, sizeof(int));
 	pcp_write(pcpConn->pcpConn, &mode, sizeof(char));
@@ -805,6 +824,125 @@ pcp_node_info(PCPConnInfo * pcpConn, int nid)
 		fprintf(pcpConn->Pfdebug, "DEBUG: send: tos=\"I\", len=%d\n", ntohl(wsize));
 
 	return process_pcp_response(pcpConn, 'I');
+}
+
+
+/* --------------------------------
+ * pcp_health_check_stats - get information of health check stats pointed by given argument
+ *
+ * return structure of node information on success, -1 otherwise
+ * --------------------------------
+ */
+PCPResultInfo *
+pcp_health_check_stats(PCPConnInfo * pcpConn, int nid)
+{
+	int			wsize;
+	char		node_id[16];
+
+	if (PCPConnectionStatus(pcpConn) != PCP_CONNECTION_OK)
+	{
+		pcp_internal_error(pcpConn,
+						   "invalid PCP connection");
+		return NULL;
+	}
+
+	snprintf(node_id, sizeof(node_id), "%d", nid);
+
+	pcp_write(pcpConn->pcpConn, "H", 1);
+	wsize = htonl(strlen(node_id) + 1 + sizeof(int));
+	pcp_write(pcpConn->pcpConn, &wsize, sizeof(int));
+	pcp_write(pcpConn->pcpConn, node_id, strlen(node_id) + 1);
+	if (PCPFlush(pcpConn) < 0)
+		return NULL;
+	if (pcpConn->Pfdebug)
+		fprintf(pcpConn->Pfdebug, "DEBUG: send: tos=\"L\", len=%d\n", ntohl(wsize));
+
+	return process_pcp_response(pcpConn, 'H');
+}
+
+PCPResultInfo *
+pcp_reload_config(PCPConnInfo * pcpConn,char command_scope)
+{
+	int                     wsize;
+/*
+ * pcp packet format for pcp_reload_config
+ * z[size][commmand_scope]
+ */
+	if (PCPConnectionStatus(pcpConn) != PCP_CONNECTION_OK)
+	{
+	   pcp_internal_error(pcpConn, "invalid PCP connection");
+	   return NULL;
+	}
+
+	pcp_write(pcpConn->pcpConn, "Z", 1);
+	wsize = htonl(sizeof(int) + sizeof(char));
+	pcp_write(pcpConn->pcpConn, &wsize, sizeof(int));
+	pcp_write(pcpConn->pcpConn, &command_scope, sizeof(char));
+	if (PCPFlush(pcpConn) < 0)
+	   return NULL;
+	if (pcpConn->Pfdebug)
+	   fprintf(pcpConn->Pfdebug, "DEBUG: send: tos=\"Z\", len=%d\n", ntohl(wsize));
+
+	return process_pcp_response(pcpConn, 'Z');
+}
+
+
+/*
+ * Process health check response from PCP server.
+ * pcpConn: connection to the server
+ * buf:		returned data from server
+ * len:		length of the data
+ */
+static void
+process_health_check_stats_response
+(PCPConnInfo * pcpConn, char *buf, int len)
+{
+	POOL_HEALTH_CHECK_STATS *stats;
+	int		*offsets;
+	int		n;
+	int		i;
+	char	*p;
+	int		maxstr;
+	char	c[] = "CommandComplete";
+
+	if (strcmp(buf, c) != 0)
+	{
+		pcp_internal_error(pcpConn,
+						   "command failed. invalid response");
+		setResultStatus(pcpConn, PCP_RES_BAD_RESPONSE);
+		return;
+	}
+	buf += sizeof(c);
+
+	/* Allocate health stats memory */
+	stats = palloc0(sizeof(POOL_HEALTH_CHECK_STATS));
+	p = (char *)stats;
+
+	/* Calculate total packet length */
+	offsets = pool_health_check_stats_offsets(&n);
+
+	for (i = 0; i < n; i++)
+	{
+		if (i == n -1)
+			maxstr = sizeof(POOL_HEALTH_CHECK_STATS) - offsets[i];
+		else
+			maxstr = offsets[i + 1] - offsets[i];
+
+		StrNCpy(p + offsets[i], buf, maxstr -1);
+		buf += strlen(buf) + 1;
+	}
+
+	if (setNextResultBinaryData(pcpConn->pcpResInfo, (void *) stats, sizeof(POOL_HEALTH_CHECK_STATS), NULL) < 0)
+	{
+		if (stats)
+			pfree(stats);
+		pcp_internal_error(pcpConn,
+						   "command failed. invalid response");
+		setResultStatus(pcpConn, PCP_RES_BAD_RESPONSE);
+	}
+	else
+		setCommandSuccessful(pcpConn);
+
 }
 
 static void
@@ -1286,7 +1424,7 @@ pcp_recovery_node(PCPConnInfo * pcpConn, int nid)
 }
 
 /* --------------------------------
- * pcp_promote_node - promote a node given by the argument as new pgpool's master
+ * pcp_promote_node - promote a node given by the argument as new pgpool's main node
  *
  * return 0 on success, -1 otherwise
  * --------------------------------
@@ -1299,7 +1437,7 @@ pcp_promote_node(PCPConnInfo * pcpConn, int nid)
 
 /* --------------------------------
 
- * and promote a node given by the argument as new pgpool's master
+ * and promote a node given by the argument as new pgpool's main node
  *
  * return 0 on success, -1 otherwise
  * --------------------------------
@@ -1425,21 +1563,21 @@ process_watchdog_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 		}
 		wd_cluster_info->escalated = tempVal == 0 ? false : true;
 
-		ptr = json_get_string_value_for_key(root, "MasterNodeName");
+		ptr = json_get_string_value_for_key(root, "LeaderNodeName");
 		if (ptr == NULL)
 		{
 			json_value_free(root);
 			goto INVALID_RESPONSE;
 		}
-		strncpy(wd_cluster_info->masterNodeName, ptr, sizeof(wd_cluster_info->masterNodeName) - 1);
+		strncpy(wd_cluster_info->leaderNodeName, ptr, sizeof(wd_cluster_info->leaderNodeName) - 1);
 
-		ptr = json_get_string_value_for_key(root, "MasterHostName");
+		ptr = json_get_string_value_for_key(root, "LeaderHostName");
 		if (ptr == NULL)
 		{
 			json_value_free(root);
 			goto INVALID_RESPONSE;
 		}
-		strncpy(wd_cluster_info->masterHostName, ptr, sizeof(wd_cluster_info->masterHostName) - 1);
+		strncpy(wd_cluster_info->leaderHostName, ptr, sizeof(wd_cluster_info->leaderHostName) - 1);
 
 		/* Get watchdog nodes data */
 		for (i = 0; i < nodeCount; i++)

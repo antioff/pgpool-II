@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Configuration Examples"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="EXAMPLE-AWS"
->8.4. AWS Configuration Example</A
+>8.3. AWS Configuration Example</A
 ></H1
 ><P
 >  This tutorial explains the simple way to try "Watchdog"
@@ -118,7 +118,7 @@ CLASS="NOTE"
 CLASS="PRODUCTNAME"
 >     Pgpool-II</SPAN
 > in any mode: replication mode,
-    master/slave mode and raw mode.
+    native replication mode and raw mode.
    </P
 ></BLOCKQUOTE
 ></DIV
@@ -130,7 +130,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-SETUP"
->8.4.1. AWS Setup</A
+>8.3.1. AWS Setup</A
 ></H2
 ><P
 >   For this example, we will use two node <SPAN
@@ -177,7 +177,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-CONFIG"
->8.4.2. <SPAN
+>8.3.2. <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations</A
@@ -188,7 +188,7 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > configurations for this
    example will be same as in the <A
-HREF="example-watchdog.html"
+HREF="example-cluster.html"
 >Section 8.2</A
 >, except the
     <A
@@ -203,65 +203,19 @@ HREF="runtime-watchdog-config.html#GUC-WD-ESCALATION-COMMAND"
 HREF="runtime-watchdog-config.html#GUC-WD-DE-ESCALATION-COMMAND"
 >wd_de_escalation_command</A
 > to switch the
-       Elastic IP address to the master/Active <SPAN
+       Elastic IP address to the leader/Active <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > node.
   </P
-><DIV
-CLASS="SECT3"
-><H3
-CLASS="SECT3"
-><A
-NAME="EXAMPLE-AWS-PGPOOL-CONFIG-INSTANCE-1"
->8.4.2.1. <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
-> configurations on Instance-1</A
-></H3
-><P
->&#13;    </P><PRE
+><PRE
 CLASS="PROGRAMLISTING"
->     use_watchdog = on
-     delegate_IP = ''
-     wd_hostname = 'instance-1-private-ip'
-     other_pgpool_hostname0 = 'instance-2-private-ip'
-     other_pgpool_port0 = 9999
-     other_wd_port0 = 9000
-     wd_escalation_command = '$path_to_script/aws-escalation.sh'
-     wd_de_escalation_command = '$path_to_script/aws-de-escalation.sh'
+>use_watchdog = on
+delegate_IP = ''
+...
+wd_escalation_command = '$path_to_script/aws-escalation.sh'
+wd_de_escalation_command = '$path_to_script/aws-de-escalation.sh'
     </PRE
-><P>
-
-   </P
-></DIV
-><DIV
-CLASS="SECT3"
-><H3
-CLASS="SECT3"
-><A
-NAME="EXAMPLE-AWS-PGPOOL-CONFIG-INSTANCE-2"
->8.4.2.2. <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
-> configurations on Instance-2</A
-></H3
-><P
->&#13;    </P><PRE
-CLASS="PROGRAMLISTING"
->     use_watchdog = on
-     delegate_IP = ''
-     wd_hostname = 'instance-2-private-ip'
-     other_pgpool_hostname0 = 'instance-1-private-ip'
-     other_pgpool_port0 = 9999
-     other_wd_port0 = 9000
-     wd_escalation_command = '$path_to_script/aws-escalation.sh'
-     wd_de_escalation_command = '$path_to_script/aws-de-escalation.sh'
-    </PRE
-><P>
-
-   </P
-></DIV
 ></DIV
 ><DIV
 CLASS="SECT2"
@@ -269,7 +223,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-AWS-ESCALATION-INSTANCE"
->8.4.3. escalation and de-escalation Scripts</A
+>8.3.3. escalation and de-escalation Scripts</A
 ></H2
 ><P
 >   Create the aws-escalation.sh and aws-de-escalation.sh scripts on both
@@ -305,11 +259,11 @@ CLASS="SECT3"
 CLASS="SECT3"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-AWS-ESCALATION-SCRIPT"
->8.4.3.1. escalation script</A
+>8.3.3.1. escalation script</A
 ></H3
 ><P
 >    This script will be executed by the watchdog
-    to assign the Elastic IP on the instance when the watchdog becomes the active/master node.
+    to assign the Elastic IP on the instance when the watchdog becomes the active/leader node.
     Change the INSTANCE_ID and ELASTIC_IP values as per your AWS setup values.
    </P
 ><P
@@ -347,11 +301,11 @@ CLASS="SECT3"
 CLASS="SECT3"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-AWS-DE-ESCALATION-SCRIPT"
->8.4.3.2. de-escalation script</A
+>8.3.3.2. de-escalation script</A
 ></H3
 ><P
 >    This script will be executed by watchdog
-    to remove the Elastic IP from the instance when the watchdog resign from the active/master node.
+    to remove the Elastic IP from the instance when the watchdog resign from the active/leader node.
    </P
 ><P
 >    <SPAN
@@ -379,13 +333,13 @@ CLASS="PROGRAMLISTING"
 ></DIV
 ><H3
 ><A
-NAME="AEN6766"
+NAME="AEN7194"
 >AWS Command References</A
 ></H3
 ><DIV
 CLASS="BIBLIOENTRY"
 ><A
-NAME="AEN6768"
+NAME="AEN7196"
 ></A
 ><P
 >"<A
@@ -403,7 +357,7 @@ STYLE="margin-left: 0.5in"
 ><DIV
 CLASS="BIBLIOENTRY"
 ><A
-NAME="AEN6774"
+NAME="AEN7202"
 ></A
 ><P
 >"<A
@@ -421,7 +375,7 @@ STYLE="margin-left: 0.5in"
 ><DIV
 CLASS="BIBLIOENTRY"
 ><A
-NAME="AEN6780"
+NAME="AEN7208"
 ></A
 ><P
 >"<A
@@ -443,7 +397,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-TRY"
->8.4.4. Try it out</A
+>8.3.4. Try it out</A
 ></H2
 ><P
 >   Start <SPAN
@@ -451,7 +405,7 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > on each server with "-n" switch
    and redirect log messages to the pgpool.log file.
-   The log message of master/active <SPAN
+   The log message of leader/active <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > node
@@ -504,7 +458,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-VIP-SWITCH"
->8.4.5. Switching Elastic IP</A
+>8.3.5. Switching Elastic IP</A
 ></H2
 ><P
 >   To confirm if the Standby server acquires the Elastic IP when the
@@ -530,8 +484,8 @@ CLASS="EMPHASIS"
     LOG:  watchdog node state changed from [JOINING] to [INITIALIZING]
     LOG:  I am the only alive node in the watchdog cluster
     HINT:  skipping stand for coordinator state
-    LOG:  watchdog node state changed from [INITIALIZING] to [MASTER]
-    LOG:  I am announcing my self as master/coordinator watchdog node
+    LOG:  watchdog node state changed from [INITIALIZING] to [LEADER]
+    LOG:  I am announcing my self as leader/coordinator watchdog node
     LOG:  I am the cluster leader node
     DETAIL:  our declare coordinator message is accepted by all nodes
     LOG:  I am the cluster leader node. Starting escalation process

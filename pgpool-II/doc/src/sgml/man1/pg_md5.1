@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.1.5 Documentation
-.\"    Source: pgpool-II 4.1.5
+.\"    Manual: pgpool-II 4.2.0 Documentation
+.\"    Source: pgpool-II 4.2.0
 .\"  Language: English
 .\"
-.TH "PG_MD5" "1" "2020" "pgpool-II 4.1.5" "pgpool-II 4.1.5 Documentation"
+.TH "PG_MD5" "1" "2020" "pgpool-II 4.2.0" "pgpool-II 4.2.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -72,6 +72,13 @@ Specify the path to the
 pgpool\&.conf
 configuration file\&.
 .RE
+.PP
+\fB\-i \fR\fB\fIinput_file\fR\fR
+.br
+\fB\-\-input\-file=\fR\fB\fIinput_file\fR\fR
+.RS 4
+Specifies file containing user name and password pairs\&.
+.RE
 .SH "EXAMPLE"
 .PP
 The following are examples to encrypt your password into md5 hash format for
@@ -119,6 +126,34 @@ authentication file\&.
 
      $ cat /path/to/pool_passwd 
      username:md55a231fcdb710d73268c4f44283487ba2
+    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+To avoid password prompt or password in command parameter,
+pg_md5
+can read user name:password pairs from file\&. It will add all user names and
+md5
+hashed password to
+pool_passwd
+authentication file\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+     $ cat users\&.txt
+     username1:secretpassword1
+     username2:secretpassword1
+
+     $ pg_md5 \-m \-f /path/to/pgpool\&.conf \-i users\&.txt
+     trying to read username:password pairs from file users\&.txt
+
+     $ cat /path/to/pool_passwd
+     username1:md533314126ba0b187df1e37f5ce6a489a8
+     username2:md58ae92c6e1d6a48d80e2583fe715e2b36
     
 .fi
 .if n \{\

@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <limits.h>
+#include <math.h>
 
 #include "pool.h"
 #include "pool_config.h"
@@ -47,7 +49,7 @@
 #endif
 
 #define default_reset_query_list	"ABORT;DISCARD ALL"
-#define default_black_function_list "nextval,setval"
+#define default_write_function_list "nextval,setval"
 
 #define EMPTY_CONFIG_GENERIC {NULL, 0, 0, NULL, 0, false, 0, 0, 0, 0, NULL, NULL}
 #define EMPTY_CONFIG_BOOL {EMPTY_CONFIG_GENERIC, NULL, false, NULL, NULL, NULL, false}
@@ -92,6 +94,9 @@ static bool get_index_in_var_name(struct config_generic *record,
 
 static bool MakeDBRedirectListRegex(char *newval, int elevel);
 static bool MakeAppRedirectListRegex(char *newval, int elevel);
+static bool MakeDMLAdaptiveObjectRelationList(char *newval, int elevel);
+static char* getParsedToken(char *token, DBObjectTypes *object_type);
+
 static bool check_redirect_node_spec(char *node_spec);
 static char **get_list_from_string(const char *str, const char *delimi, int *n);
 static char **get_list_from_string_regex_delim(const char *str, const char *delimi, int *n);
@@ -100,8 +105,8 @@ static char **get_list_from_string_regex_delim(const char *str, const char *deli
 /*show functions */
 static const char *IntValueShowFunc(int value);
 static const char *HBDestinationPortShowFunc(int index);
-static const char *HBDestinationShowFunc(int index);
 static const char *HBDeviceShowFunc(int index);
+static const char *HBHostnameShowFunc(int index);
 static const char *OtherWDPortShowFunc(int index);
 static const char *OtherPPPortShowFunc(int index);
 static const char *OtherPPHostShowFunc(int index);
@@ -135,9 +140,9 @@ static bool BackendDataDirAssignFunc(ConfigContext context, char *newval, int in
 static bool BackendFlagsAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool BackendWeightAssignFunc(ConfigContext context, double newval, int index, int elevel);
 static bool BackendAppNameAssignFunc(ConfigContext context, char *newval, int index, int elevel);
-static bool HBDestinationAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool HBDestinationPortAssignFunc(ConfigContext context, int newval, int index, int elevel);
 static bool HBDeviceAssignFunc(ConfigContext context, char *newval, int index, int elevel);
+static bool HBHostnameAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool OtherWDPortAssignFunc(ConfigContext context, int newval, int index, int elevel);
 static bool OtherPPPortAssignFunc(ConfigContext context, int newval, int index, int elevel);
 static bool OtherPPHostAssignFunc(ConfigContext context, char *newval, int index, int elevel);
@@ -155,11 +160,21 @@ static bool HealthCheckDatabaseAssignFunc(ConfigContext context, char *newval, i
 static bool LogDestinationProcessFunc(char *newval, int elevel);
 static bool SyslogIdentProcessFunc(char *newval, int elevel);
 static bool SyslogFacilityProcessFunc(int newval, int elevel);
+static bool SetHBDestIfFunc(int elevel);
+static bool SetPgpoolNodeId(int elevel);
 
 static struct config_generic *get_index_free_record_if_any(struct config_generic *record);
 
+static bool parse_int(const char *value, int64 *result, int flags, const char **hintmsg, int64 MaxVal);
+static bool convert_to_base_unit(double value, const char *unit,
+								 int base_unit, double *base_value);
 
 #ifndef POOL_PRIVATE
+
+static void convert_int_from_base_unit(int64 base_value, int base_unit,
+						   int64 *value, const char **unit);
+
+
 /* These functions are used to provide Hints for enum type config parameters and
  * to output the values of the parameters.
  * These functuons are not available for tools since they use the stringInfo that is
@@ -204,14 +219,15 @@ static const struct config_enum_entry server_message_level_options[] = {
 	{NULL, 0, false}
 };
 
-
-static const struct config_enum_entry master_slave_sub_mode_options[] = {
-	{"slony", SLONY_MODE, false},
-	{"stream", STREAM_MODE, false},
-	{"logical", LOGICAL_MODE, false},
+static const struct config_enum_entry backend_clustering_mode_options[] = {
+	{"streaming_replication", CM_STREAMING_REPLICATION, false},
+	{"native_replication", CM_NATIVE_REPLICATION, false},
+	{"logical_replication", CM_LOGICAL_REPLICATION, false},
+	{"slony", CM_SLONY, false},
+	{"raw", CM_RAW, false},
+	{"snapshot_isolation", CM_SNAPSHOT_ISOLATION, false},
 	{NULL, 0, false}
 };
-
 
 static const struct config_enum_entry log_standby_delay_options[] = {
 	{"always", LSD_ALWAYS, false},
@@ -250,11 +266,12 @@ static const struct config_enum_entry disable_load_balance_on_write_options[] = 
 	{"transaction", DLBOW_TRANSACTION, false},
 	{"trans_transaction", DLBOW_TRANS_TRANSACTION, false},
 	{"always", DLBOW_ALWAYS, false},
+	{"dml_adaptive", DLBOW_DML_ADAPTIVE, false},
 	{NULL, 0, false}
 };
 
 static const struct config_enum_entry relcache_query_target_options[] = {
-	{"master", RELQTARGET_MASTER, false},
+	{"primary", RELQTARGET_PRIMARY, false},
 	{"load_balance_node", RELQTARGET_LOAD_BALANCE_NODE, false},
 	{NULL, 0, false}
 };
@@ -268,6 +285,84 @@ static const struct config_enum_entry check_temp_table_options[] = {
 	{NULL, 0, false}
 };
 
+/* From PostgreSQL's guc.c */
+/*
+ * Unit conversion tables.
+ *
+ * There are two tables, one for memory units, and another for time units.
+ * For each supported conversion from one unit to another, we have an entry
+ * in the table.
+ *
+ * To keep things simple, and to avoid possible roundoff error,
+ * conversions are never chained.  There needs to be a direct conversion
+ * between all units (of the same type).
+ *
+ * The conversions for each base unit must be kept in order from greatest to
+ * smallest human-friendly unit; convert_xxx_from_base_unit() rely on that.
+ * (The order of the base-unit groups does not matter.)
+ */
+#define MAX_UNIT_LEN		3	/* length of longest recognized unit string */
+
+typedef struct
+{
+	char		unit[MAX_UNIT_LEN + 1]; /* unit, as a string, like "kB" or
+										 * "min" */
+	int			base_unit;		/* GUC_UNIT_XXX */
+	double		multiplier;		/* Factor for converting unit -> base_unit */
+} unit_conversion;
+
+static const char *memory_units_hint = "Valid units for this parameter are \"B\", \"kB\", \"MB\", \"GB\", and \"TB\".";
+
+static const unit_conversion memory_unit_conversion_table[] =
+{
+	{"TB", GUC_UNIT_BYTE, 1024.0 * 1024.0 * 1024.0 * 1024.0},
+	{"GB", GUC_UNIT_BYTE, 1024.0 * 1024.0 * 1024.0},
+	{"MB", GUC_UNIT_BYTE, 1024.0 * 1024.0},
+	{"kB", GUC_UNIT_BYTE, 1024.0},
+	{"B", GUC_UNIT_BYTE, 1.0},
+
+	{"TB", GUC_UNIT_KB, 1024.0 * 1024.0 * 1024.0},
+	{"GB", GUC_UNIT_KB, 1024.0 * 1024.0},
+	{"MB", GUC_UNIT_KB, 1024.0},
+	{"kB", GUC_UNIT_KB, 1.0},
+	{"B", GUC_UNIT_KB, 1.0 / 1024.0},
+
+	{"TB", GUC_UNIT_MB, 1024.0 * 1024.0},
+	{"GB", GUC_UNIT_MB, 1024.0},
+	{"MB", GUC_UNIT_MB, 1.0},
+	{"kB", GUC_UNIT_MB, 1.0 / 1024.0},
+	{"B", GUC_UNIT_MB, 1.0 / (1024.0 * 1024.0)},
+
+	{""}						/* end of table marker */
+};
+
+static const char *time_units_hint = "Valid units for this parameter are \"us\", \"ms\", \"s\", \"min\", \"h\", and \"d\".";
+
+static const unit_conversion time_unit_conversion_table[] =
+{
+	{"d", GUC_UNIT_MS, 1000 * 60 * 60 * 24},
+	{"h", GUC_UNIT_MS, 1000 * 60 * 60},
+	{"min", GUC_UNIT_MS, 1000 * 60},
+	{"s", GUC_UNIT_MS, 1000},
+	{"ms", GUC_UNIT_MS, 1},
+	{"us", GUC_UNIT_MS, 1.0 / 1000},
+
+	{"d", GUC_UNIT_S, 60 * 60 * 24},
+	{"h", GUC_UNIT_S, 60 * 60},
+	{"min", GUC_UNIT_S, 60},
+	{"s", GUC_UNIT_S, 1},
+	{"ms", GUC_UNIT_S, 1.0 / 1000},
+	{"us", GUC_UNIT_S, 1.0 / (1000 * 1000)},
+
+	{"d", GUC_UNIT_MIN, 60 * 24},
+	{"h", GUC_UNIT_MIN, 60},
+	{"min", GUC_UNIT_MIN, 1},
+	{"s", GUC_UNIT_MIN, 1.0 / 60},
+	{"ms", GUC_UNIT_MIN, 1.0 / (1000 * 60)},
+	{"us", GUC_UNIT_MIN, 1.0 / (1000 * 1000 * 60)},
+
+	{""}						/* end of table marker */
+};
 static struct config_bool ConfigureNamesBool[] =
 {
 	{
@@ -328,6 +423,16 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"log_disconnections", CFGCXT_RELOAD, LOGING_CONFIG,
+			"Logs end of a session.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.log_disconnections,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"log_hostname", CFGCXT_RELOAD, LOGING_CONFIG,
 			"Logs the host name in the connection logs.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
@@ -369,7 +474,7 @@ static struct config_bool ConfigureNamesBool[] =
 
 	{
 		{"replication_stop_on_mismatch", CFGCXT_RELOAD, REPLICATION_CONFIG,
-			"Starts degeneration and stops replication, If there's a data mismatch between master and secondary.",
+			"Starts degeneration and stops replication, If there's a data mismatch between primary and secondary.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.replication_stop_on_mismatch,
@@ -379,7 +484,7 @@ static struct config_bool ConfigureNamesBool[] =
 
 	{
 		{"failover_if_affected_tuples_mismatch", CFGCXT_RELOAD, REPLICATION_CONFIG,
-			"Starts degeneration, If there's a data mismatch between master and secondary.",
+			"Starts degeneration, If there's a data mismatch between primary and secondary.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.failover_if_affected_tuples_mismatch,
@@ -393,16 +498,6 @@ static struct config_bool ConfigureNamesBool[] =
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.replicate_select,
-		false,
-		NULL, NULL, NULL
-	},
-
-	{
-		{"master_slave_mode", CFGCXT_INIT, MASTER_SLAVE_CONFIG,
-			"Enables Master/Slave mode.",
-			CONFIG_VAR_TYPE_BOOL, false, 0
-		},
-		&g_pool_config.master_slave_mode,
 		false,
 		NULL, NULL, NULL
 	},
@@ -509,7 +604,7 @@ static struct config_bool ConfigureNamesBool[] =
 
 	{
 		{"clear_memqcache_on_escalation", CFGCXT_RELOAD, WATCHDOG_CONFIG,
-			"Clears the query cache in the shared memory when pgpool-II escaltes to master watchdog node.",
+			"Clears the query cache in the shared memory when pgpool-II escaltes to leader watchdog node.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.clear_memqcache_on_escalation,
@@ -615,6 +710,24 @@ static struct config_bool ConfigureNamesBool[] =
 		false,
 		NULL, NULL, NULL
 	},
+	{
+		{"logging_collector", CFGCXT_INIT, LOGING_CONFIG,
+			"Enable capturing of stderr into log files.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.logging_collector,
+		false,
+		NULL, NULL, NULL
+	},
+	{
+		{"log_truncate_on_rotation", CFGCXT_INIT, LOGING_CONFIG,
+			"If on, an existing log file gets truncated on time based log rotation.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.log_truncate_on_rotation,
+		false,
+		NULL, NULL, NULL
+	},
 
 	/* End-of-list marker */
 	EMPTY_CONFIG_BOOL
@@ -645,6 +758,17 @@ static struct config_string ConfigureNamesString[] =
 		NULL,
 		NULL, NULL,
 		MakeAppRedirectListRegex, NULL
+	},
+
+	{
+		{"dml_adaptive_object_relationship_list", CFGCXT_RELOAD, STREAMING_REPLICATION_CONFIG,
+			"list of relationships between objects.",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.dml_adaptive_object_relationship_list,
+		NULL,
+		NULL, NULL,
+		MakeDMLAdaptiveObjectRelationList, NULL
 	},
 
 	{
@@ -792,11 +916,11 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		{"follow_master_command", CFGCXT_RELOAD, FAILOVER_CONFIG,
-			"Command to execute in master/slave streaming replication mode after a master node failover.",
+		{"follow_primary_command", CFGCXT_RELOAD, FAILOVER_CONFIG,
+			"Command to execute in streaming replication mode after a primary node failover.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
-		&g_pool_config.follow_master_command,
+		&g_pool_config.follow_primary_command,
 		"",
 		NULL, NULL, NULL, NULL
 	},
@@ -863,7 +987,7 @@ static struct config_string ConfigureNamesString[] =
 
 	{
 		{"wd_escalation_command", CFGCXT_RELOAD, WATCHDOG_CONFIG,
-			"Command to execute when watchdog node becomes cluster master/leader node.",
+			"Command to execute when watchdog node becomes cluster leader node.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.wd_escalation_command,
@@ -873,7 +997,7 @@ static struct config_string ConfigureNamesString[] =
 
 	{
 		{"wd_de_escalation_command", CFGCXT_RELOAD, WATCHDOG_CONFIG,
-			"Command to execute when watchdog node resigns from the cluster master/leader node.",
+			"Command to execute when watchdog node resigns from the cluster leader node.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.wd_de_escalation_command,
@@ -893,20 +1017,10 @@ static struct config_string ConfigureNamesString[] =
 
 	{
 		{"delegate_IP", CFGCXT_INIT, WATCHDOG_CONFIG,
-			"Delegate IP address to be used when pgpool node become a watchdog cluster master/leader.",
+			"Delegate IP address to be used when pgpool node become a watchdog cluster leader.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.delegate_IP,
-		"",
-		NULL, NULL, NULL, NULL
-	},
-
-	{
-		{"wd_hostname", CFGCXT_INIT, WATCHDOG_CONFIG,
-			"Host name or IP address of this watchdog.",
-			CONFIG_VAR_TYPE_STRING, false, 0
-		},
-		&g_pool_config.wd_hostname,
 		"",
 		NULL, NULL, NULL, NULL
 	},
@@ -1023,7 +1137,7 @@ static struct config_string ConfigureNamesString[] =
 
 	{
 		{"ssl_cert", CFGCXT_INIT, SSL_CONFIG,
-			"Path to the SSL public certificate file.",
+			"SSL public certificate file.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.ssl_cert,
@@ -1033,7 +1147,7 @@ static struct config_string ConfigureNamesString[] =
 
 	{
 		{"ssl_key", CFGCXT_INIT, SSL_CONFIG,
-			"Path to the SSL private key file.",
+			"SSL private key file.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.ssl_key,
@@ -1043,7 +1157,7 @@ static struct config_string ConfigureNamesString[] =
 
 	{
 		{"ssl_ca_cert", CFGCXT_INIT, SSL_CONFIG,
-			"Path to a single PEM format file.",
+			"Single PEM format file containing CA root certificate(s).",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.ssl_ca_cert,
@@ -1057,6 +1171,16 @@ static struct config_string ConfigureNamesString[] =
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.ssl_ca_cert_dir,
+		"",
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"ssl_crl_file", CFGCXT_INIT, SSL_CONFIG,
+			"SSL certificate revocation list file",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.ssl_crl_file,
 		"",
 		NULL, NULL, NULL, NULL
 	},
@@ -1092,6 +1216,17 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
+		{"ssl_passphrase_command", CFGCXT_INIT, SSL_CONFIG,
+			"Path to the Diffie-Hellman parameters contained file",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.ssl_passphrase_command,
+		"",
+		NULL, NULL, NULL, NULL
+	},
+
+
+	{
 		{"memqcache_oiddir", CFGCXT_INIT, CACHE_CONFIG,
 			"Tempory directory to record table oids.",
 			CONFIG_VAR_TYPE_STRING, false, 0
@@ -1120,6 +1255,25 @@ static struct config_string ConfigureNamesString[] =
 		DEFAULT_LOGDIR,
 		NULL, NULL, NULL, NULL
 	},
+	{
+		{"log_directory", CFGCXT_INIT, LOGING_CONFIG,
+			"directory where log files are written.",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.log_directory,
+		"/tmp/pgpool_logs",
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"log_filename", CFGCXT_INIT, LOGING_CONFIG,
+			"log file name pattern.",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.log_filename,
+		"pgpool-%Y-%m-%d_%H%M%S.log",
+		NULL, NULL, NULL, NULL
+	},
 
 	/* End-of-list marker */
 	EMPTY_CONFIG_STRING
@@ -1141,12 +1295,12 @@ static struct config_string_list ConfigureNamesStringList[] =
 	},
 
 	{
-		{"white_function_list", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
+		{"read_only_function_list", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
 			"list of functions that does not writes to database.",
 			CONFIG_VAR_TYPE_STRING_LIST, false, 0
 		},
-		&g_pool_config.white_function_list,
-		&g_pool_config.num_white_function_list,
+		&g_pool_config.read_only_function_list,
+		&g_pool_config.num_read_only_function_list,
 		NULL,
 		",",
 		true,
@@ -1154,24 +1308,24 @@ static struct config_string_list ConfigureNamesStringList[] =
 	},
 
 	{
-		{"black_function_list", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
+		{"write_function_list", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
 			"list of functions that writes to database.",
 			CONFIG_VAR_TYPE_STRING_LIST, false, 0
 		},
-		&g_pool_config.black_function_list,
-		&g_pool_config.num_black_function_list,
-		(const char *) default_black_function_list,
+		&g_pool_config.write_function_list,
+		&g_pool_config.num_write_function_list,
+		(const char *) default_write_function_list,
 		",",
 		true,
 		NULL, NULL, NULL
 	},
 	{
-		{"white_memqcache_table_list", CFGCXT_RELOAD, CACHE_CONFIG,
+		{"cache_safe_memqcache_table_list", CFGCXT_RELOAD, CACHE_CONFIG,
 			"list of tables to be cached.",
 			CONFIG_VAR_TYPE_STRING_LIST, false, 0
 		},
-		&g_pool_config.white_memqcache_table_list,
-		&g_pool_config.num_white_memqcache_table_list,
+		&g_pool_config.cache_safe_memqcache_table_list,
+		&g_pool_config.num_cache_safe_memqcache_table_list,
 		NULL,
 		",",
 		true,
@@ -1179,12 +1333,12 @@ static struct config_string_list ConfigureNamesStringList[] =
 	},
 
 	{
-		{"black_memqcache_table_list", CFGCXT_RELOAD, CACHE_CONFIG,
+		{"cache_unsafe_memqcache_table_list", CFGCXT_RELOAD, CACHE_CONFIG,
 			"list of tables should not be cached.",
 			CONFIG_VAR_TYPE_STRING_LIST, false, 0
 		},
-		&g_pool_config.black_memqcache_table_list,
-		&g_pool_config.num_black_memqcache_table_list,
+		&g_pool_config.cache_unsafe_memqcache_table_list,
+		&g_pool_config.num_cache_unsafe_memqcache_table_list,
 		NULL,
 		",",
 		true,
@@ -1192,12 +1346,12 @@ static struct config_string_list ConfigureNamesStringList[] =
 	},
 
 	{
-		{"black_query_pattern_list", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
+		{"primary_routing_query_pattern_list", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
 			"list of query patterns that should be sent to primary node.",
 			CONFIG_VAR_TYPE_STRING_LIST, false, 0
 		},
-		&g_pool_config.black_query_pattern_list,
-		&g_pool_config.num_black_query_pattern_list,
+		&g_pool_config.primary_routing_query_pattern_list,
+		&g_pool_config.num_primary_routing_query_pattern_list,
 		NULL,
 		";",
 		true,
@@ -1226,8 +1380,8 @@ static struct config_long ConfigureNamesLong[] =
 {
 	{
 		{"delay_threshold", CFGCXT_RELOAD, STREAMING_REPLICATION_CONFIG,
-			"standby delay threshold.",
-			CONFIG_VAR_TYPE_LONG, false, 0
+			"standby delay threshold in bytes.",
+			CONFIG_VAR_TYPE_LONG, false, GUC_UNIT_BYTE
 		},
 		&g_pool_config.delay_threshold,
 		0,
@@ -1238,7 +1392,7 @@ static struct config_long ConfigureNamesLong[] =
 	{
 		{"relcache_expire", CFGCXT_INIT, CACHE_CONFIG,
 			"Relation cache expiration time in seconds.",
-			CONFIG_VAR_TYPE_LONG, false, 0
+			CONFIG_VAR_TYPE_LONG, false, GUC_UNIT_S
 		},
 		&g_pool_config.relcache_expire,
 		0,
@@ -1249,7 +1403,7 @@ static struct config_long ConfigureNamesLong[] =
 	{
 		{"memqcache_total_size", CFGCXT_INIT, CACHE_CONFIG,
 			"Total memory size in bytes for storing memory cache.",
-			CONFIG_VAR_TYPE_LONG, false, 0
+			CONFIG_VAR_TYPE_LONG, false, GUC_UNIT_BYTE
 		},
 		&g_pool_config.memqcache_total_size,
 		(int64) 67108864,
@@ -1278,8 +1432,8 @@ static struct config_int_array ConfigureNamesIntArray[] =
 	},
 
 	{
-		{"heartbeat_destination_port", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
-			"Destination port for sending heartbeat.",
+		{"heartbeat_port", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
+			"Port for sending heartbeat.",
 			CONFIG_VAR_TYPE_INT_ARRAY, true, 0, WD_MAX_IF_NUM
 		},
 		NULL,
@@ -1290,7 +1444,7 @@ static struct config_int_array ConfigureNamesIntArray[] =
 	},
 
 	{
-		{"other_wd_port", CFGCXT_RELOAD, WATCHDOG_CONFIG,
+		{"wd_port", CFGCXT_RELOAD, WATCHDOG_CONFIG,
 			"tcp/ip watchdog port number of other pgpool node for watchdog connection..",
 			CONFIG_VAR_TYPE_INT_ARRAY, true, 0, MAX_WATCHDOG_NUM
 		},
@@ -1302,7 +1456,7 @@ static struct config_int_array ConfigureNamesIntArray[] =
 	},
 
 	{
-		{"other_pgpool_port", CFGCXT_RELOAD, WATCHDOG_CONFIG,
+		{"pgpool_port", CFGCXT_RELOAD, WATCHDOG_CONFIG,
 			"tcp/ip pgpool port number of other pgpool node for watchdog connection.",
 			CONFIG_VAR_TYPE_INT_ARRAY, true, 0, MAX_WATCHDOG_NUM
 		},
@@ -1316,7 +1470,7 @@ static struct config_int_array ConfigureNamesIntArray[] =
 	{
 		{"health_check_timeout", CFGCXT_RELOAD, HEALTH_CHECK_CONFIG,
 			"Backend node health check timeout value in seconds.",
-			CONFIG_VAR_TYPE_INT_ARRAY, true, 0, MAX_NUM_BACKENDS
+			CONFIG_VAR_TYPE_INT_ARRAY, true, GUC_UNIT_S, MAX_NUM_BACKENDS
 		},
 		NULL,
 		20,
@@ -1337,7 +1491,7 @@ static struct config_int_array ConfigureNamesIntArray[] =
 	{
 		{"health_check_period", CFGCXT_RELOAD, HEALTH_CHECK_CONFIG,
 			"Time interval in seconds between the health checks.",
-			CONFIG_VAR_TYPE_INT_ARRAY, true, 0, MAX_NUM_BACKENDS
+			CONFIG_VAR_TYPE_INT_ARRAY, true, GUC_UNIT_S, MAX_NUM_BACKENDS
 		},
 		NULL,
 		0,
@@ -1379,7 +1533,7 @@ static struct config_int_array ConfigureNamesIntArray[] =
 	{
 		{"health_check_retry_delay", CFGCXT_RELOAD, HEALTH_CHECK_CONFIG,
 			"The amount of time in seconds to wait between failed health check retries.",
-			CONFIG_VAR_TYPE_INT_ARRAY, true, 0, MAX_NUM_BACKENDS
+			CONFIG_VAR_TYPE_INT_ARRAY, true, GUC_UNIT_S, MAX_NUM_BACKENDS
 		},
 		NULL,
 		1,
@@ -1400,7 +1554,7 @@ static struct config_int_array ConfigureNamesIntArray[] =
 	{
 		{"connect_timeout", CFGCXT_RELOAD, HEALTH_CHECK_CONFIG,
 			"Timeout in milliseconds before giving up connecting to backend.",
-			CONFIG_VAR_TYPE_INT_ARRAY, true, 0, MAX_NUM_BACKENDS
+			CONFIG_VAR_TYPE_INT_ARRAY, true, GUC_UNIT_MS, MAX_NUM_BACKENDS
 		},
 		NULL,
 		10000,
@@ -1501,20 +1655,20 @@ static struct config_string_array ConfigureNamesStringArray[] =
 			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, MAX_NUM_BACKENDS
 		},
 		NULL,
-		"ALWAYS_MASTER",
+		"",	/* for ALWAYS_PRIMARY */
 		EMPTY_CONFIG_STRING,
 		BackendFlagsAssignFunc, NULL, BackendFlagsShowFunc, BackendSlotEmptyCheckFunc
 	},
 
 	{
-		{"heartbeat_destination", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
-			"destination host for sending heartbeat signal.",
+		{"heartbeat_hostname", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
+			"Hostname for sending heartbeat signal.",
 			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, WD_MAX_IF_NUM
 		},
 		NULL,
 		"",
 		EMPTY_CONFIG_STRING,
-		HBDestinationAssignFunc, NULL, HBDestinationShowFunc, WdIFSlotEmptyCheckFunc
+		HBHostnameAssignFunc, NULL, HBHostnameShowFunc, WdIFSlotEmptyCheckFunc
 	},
 
 	{
@@ -1529,8 +1683,8 @@ static struct config_string_array ConfigureNamesStringArray[] =
 	},
 
 	{
-		{"other_pgpool_hostname", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
-			"Hostname of other pgpool node for watchdog connection.",
+		{"hostname", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
+			"Hostname of pgpool node for watchdog connection.",
 			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, MAX_WATCHDOG_NUM
 		},
 		NULL,
@@ -1664,7 +1818,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"child_life_time", CFGCXT_INIT, CONNECTION_POOL_CONFIG,
 			"pgpool-II child process life time in seconds.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.child_life_time,
 		300,
@@ -1675,7 +1829,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"client_idle_limit", CFGCXT_SESSION, CONNECTION_POOL_CONFIG,
 			"idle time in seconds to disconnects a client.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.client_idle_limit,
 		0,
@@ -1686,7 +1840,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"connection_life_time", CFGCXT_INIT, CONNECTION_POOL_CONFIG,
 			"Cached connections expiration time in seconds.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.connection_life_time,
 		0,
@@ -1708,7 +1862,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"authentication_timeout", CFGCXT_INIT, CONNECTION_CONFIG,
 			"Time out value in seconds for client authentication.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.authentication_timeout,
 		0,
@@ -1730,7 +1884,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"sr_check_period", CFGCXT_RELOAD, STREAMING_REPLICATION_CONFIG,
 			"Time interval in seconds between the streaming replication delay checks.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.sr_check_period,
 		0,
@@ -1741,7 +1895,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"recovery_timeout", CFGCXT_RELOAD, RECOVERY_CONFIG,
 			"Maximum time in seconds to wait for the recovering PostgreSQL node.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.recovery_timeout,
 		90,
@@ -1752,7 +1906,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"client_idle_limit_in_recovery", CFGCXT_SESSION, RECOVERY_CONFIG,
 			"Time limit is seconds for the child connection, before it is terminated during the 2nd stage recovery.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.client_idle_limit_in_recovery,
 		0,
@@ -1763,22 +1917,11 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"search_primary_node_timeout", CFGCXT_RELOAD, FAILOVER_CONFIG,
 			"Max time in seconds to search for primary node after failover.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.search_primary_node_timeout,
 		300,
 		0, INT_MAX,
-		NULL, NULL, NULL
-	},
-
-	{
-		{"wd_port", CFGCXT_INIT, WATCHDOG_CONFIG,
-			"tcp/IP port number on which watchdog of process of pgpool will listen on.",
-			CONFIG_VAR_TYPE_INT, false, 0
-		},
-		&g_pool_config.wd_port,
-		9000,
-		1024, INT_MAX,
 		NULL, NULL, NULL
 	},
 
@@ -1796,7 +1939,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"wd_interval", CFGCXT_INIT, WATCHDOG_CONFIG,
 			"Time interval in seconds between life check.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.wd_interval,
 		10,
@@ -1816,20 +1959,9 @@ static struct config_int ConfigureNamesInt[] =
 	},
 
 	{
-		{"wd_heartbeat_port", CFGCXT_INIT, WATCHDOG_CONFIG,
-			"Port number for receiving heartbeat signal.",
-			CONFIG_VAR_TYPE_INT, false, 0
-		},
-		&g_pool_config.wd_heartbeat_port,
-		9694,
-		1024, 65535,
-		NULL, NULL, NULL
-	},
-
-	{
 		{"wd_heartbeat_keepalive", CFGCXT_INIT, WATCHDOG_CONFIG,
 			"Time interval in seconds between sending the heartbeat siganl.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.wd_heartbeat_keepalive,
 		2,
@@ -1840,7 +1972,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"wd_heartbeat_deadtime", CFGCXT_INIT, WATCHDOG_CONFIG,
 			"Deadtime interval in seconds for heartbeat siganl.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.wd_heartbeat_deadtime,
 		30,
@@ -1884,7 +2016,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"memqcache_expire", CFGCXT_INIT, CACHE_CONFIG,
 			"Memory cache entry life time specified in seconds.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.memqcache_expire,
 		0,
@@ -1895,7 +2027,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"memqcache_maxcache", CFGCXT_INIT, CACHE_CONFIG,
 			"Maximum SELECT result size in bytes.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_BYTE
 		},
 		&g_pool_config.memqcache_maxcache,
 		409600,
@@ -1906,7 +2038,7 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"memqcache_cache_block_size", CFGCXT_INIT, CACHE_CONFIG,
 			"Cache block size in bytes.",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_BYTE
 		},
 		&g_pool_config.memqcache_cache_block_size,
 		1048576,
@@ -1917,13 +2049,44 @@ static struct config_int ConfigureNamesInt[] =
 	{
 		{"auto_failback_interval", CFGCXT_RELOAD, FAILOVER_CONFIG,
 			"min interval of executing auto_failback in seconds",
-			CONFIG_VAR_TYPE_INT, false, 0
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.auto_failback_interval,
 		60,
 		0, INT_MAX,
 		NULL, NULL, NULL
 	},
+	{
+		{"log_rotation_age", CFGCXT_INIT, LOGING_CONFIG,
+			"Automatic rotation of logfiles will happen after that (minutes) time.",
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_MIN
+		},
+		&g_pool_config.log_rotation_age,
+		1440,/*1 day*/
+		10, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"log_rotation_size", CFGCXT_INIT, LOGING_CONFIG,
+			"Automatic rotation of logfiles will happen after that much (kilobytes) log output.",
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_KB
+		},
+		&g_pool_config.log_rotation_size,
+		0,
+		1, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"log_file_mode", CFGCXT_INIT, LOGING_CONFIG,
+			"creation mode for log files.",
+			CONFIG_VAR_TYPE_INT, false, 0
+		},
+		&g_pool_config.log_file_mode,
+		0600,
+		0, INT_MAX,
+		NULL, NULL, NULL
+	},
+
 
 	/* End-of-list marker */
 	EMPTY_CONFIG_INT
@@ -1931,6 +2094,18 @@ static struct config_int ConfigureNamesInt[] =
 
 static struct config_enum ConfigureNamesEnum[] =
 {
+	{
+		{"backend_clustering_mode", CFGCXT_INIT, MAIN_REPLICA_CONFIG,
+			"backend clustering mode.",
+			CONFIG_VAR_TYPE_ENUM, false, 0
+		},
+		(int *) &g_pool_config.backend_clustering_mode,
+		CM_STREAMING_REPLICATION,
+		backend_clustering_mode_options,
+		NULL, NULL, NULL, NULL
+	},
+
+
 	{
 		{"syslog_facility", CFGCXT_RELOAD, LOGING_CONFIG,
 			"syslog local faclity.",
@@ -1978,18 +2153,7 @@ static struct config_enum ConfigureNamesEnum[] =
 	},
 
 	{
-		{"master_slave_sub_mode", CFGCXT_INIT, MASTER_SLAVE_CONFIG,
-			"master/slave sub mode.",
-			CONFIG_VAR_TYPE_ENUM, false, 0
-		},
-		(int *) &g_pool_config.master_slave_sub_mode,
-		STREAM_MODE,
-		master_slave_sub_mode_options,
-		NULL, NULL, NULL, NULL
-	},
-
-	{
-		{"log_standby_delay", CFGCXT_RELOAD, MASTER_SLAVE_CONFIG,
+		{"log_standby_delay", CFGCXT_RELOAD, MAIN_REPLICA_CONFIG,
 			"When to log standby delay.",
 			CONFIG_VAR_TYPE_ENUM, false, 0
 		},
@@ -2038,7 +2202,7 @@ static struct config_enum ConfigureNamesEnum[] =
 			CONFIG_VAR_TYPE_ENUM, false, 0
 		},
 		(int *) &g_pool_config.relcache_query_target,
-		RELQTARGET_MASTER,
+		RELQTARGET_PRIMARY,
 		relcache_query_target_options,
 		NULL, NULL, NULL, NULL
 	},
@@ -2318,11 +2482,11 @@ build_variable_groups(void)
 	ConfigureVarGroups[1].var_count = 3;
 	ConfigureVarGroups[1].var_list = palloc0(sizeof(struct config_generic *) * ConfigureVarGroups[1].var_count);
 	/* backend hostname */
-	ConfigureVarGroups[1].var_list[0] = find_option("other_pgpool_hostname", FATAL);
+	ConfigureVarGroups[1].var_list[0] = find_option("hostname", FATAL);
 	ConfigureVarGroups[1].var_list[0]->flags |= VAR_PART_OF_GROUP;
-	ConfigureVarGroups[1].var_list[1] = find_option("other_pgpool_port", FATAL);
+	ConfigureVarGroups[1].var_list[1] = find_option("pgpool_port", FATAL);
 	ConfigureVarGroups[1].var_list[1]->flags |= VAR_PART_OF_GROUP;
-	ConfigureVarGroups[1].var_list[2] = find_option("other_wd_port", FATAL);
+	ConfigureVarGroups[1].var_list[2] = find_option("wd_port", FATAL);
 	ConfigureVarGroups[1].var_list[2]->flags |= VAR_PART_OF_GROUP;
 	ConfigureVarGroups[1].gen.max_elements = ConfigureVarGroups[1].var_list[0]->max_elements;
 
@@ -2333,9 +2497,9 @@ build_variable_groups(void)
 	/* backend hostname */
 	ConfigureVarGroups[2].var_list[0] = find_option("heartbeat_device", FATAL);
 	ConfigureVarGroups[2].var_list[0]->flags |= VAR_PART_OF_GROUP;
-	ConfigureVarGroups[2].var_list[1] = find_option("heartbeat_destination", FATAL);
+	ConfigureVarGroups[2].var_list[1] = find_option("heartbeat_hostname", FATAL);
 	ConfigureVarGroups[2].var_list[1]->flags |= VAR_PART_OF_GROUP;
-	ConfigureVarGroups[2].var_list[2] = find_option("heartbeat_destination_port", FATAL);
+	ConfigureVarGroups[2].var_list[2] = find_option("heartbeat_port", FATAL);
 	ConfigureVarGroups[2].var_list[2]->flags |= VAR_PART_OF_GROUP;
 	ConfigureVarGroups[2].gen.max_elements = ConfigureVarGroups[2].var_list[0]->max_elements;
 
@@ -2620,7 +2784,7 @@ initialize_variables_with_default(struct config_generic *gconf)
 				}
 				else
 				{
-					if (strcmp(gconf->name, "black_query_pattern_list") == 0)
+					if (strcmp(gconf->name, "primary_routing_query_pattern_list") == 0)
 					{
 						*conf->variable = get_list_from_string_regex_delim(newval, conf->seperator, conf->list_elements_count);
 					}
@@ -3201,7 +3365,19 @@ setConfigOptionVar(struct config_generic *record, const char *name, int index_va
 
 				if (value != NULL)
 				{
-					newval = atoi(value);
+					int64 newval64;
+					const char *hintmsg;
+
+					if (!parse_int(value, &newval64,
+								   conf->gen.flags, &hintmsg, INT_MAX))
+					{
+						ereport(elevel,
+								(errmsg("invalid value for parameter \"%s\": \"%s\"",
+										name, value),
+								 hintmsg ? errhint("%s", _(hintmsg)) : 0));
+						return false;
+					}
+					newval = (int)newval64;
 				}
 				else if (source == PGC_S_DEFAULT)
 				{
@@ -3299,7 +3475,19 @@ setConfigOptionVar(struct config_generic *record, const char *name, int index_va
 
 				if (value != NULL)
 				{
-					newval = atoi(value);
+					int64 newval64;
+					const char *hintmsg;
+
+					if (!parse_int(value, &newval64,
+								   conf->gen.flags, &hintmsg, INT_MAX))
+					{
+						ereport(elevel,
+								(errmsg("invalid value for parameter \"%s\": \"%s\"",
+										name, value),
+								 hintmsg ? errhint("%s", _(hintmsg)) : 0));
+						return false;
+					}
+					newval = (int)newval64;
 				}
 				else if (source == PGC_S_DEFAULT)
 				{
@@ -3399,7 +3587,17 @@ setConfigOptionVar(struct config_generic *record, const char *name, int index_va
 
 				if (value != NULL)
 				{
-					newval = pool_atoi64(value);
+					const char *hintmsg;
+
+					if (!parse_int(value, &newval,
+								   conf->gen.flags, &hintmsg, conf->max))
+					{
+						ereport(elevel,
+								(errmsg("invalid value for parameter \"%s\": \"%s\"",
+										name, value),
+								 hintmsg ? errhint("%s", _(hintmsg)) : 0));
+						return false;
+					}
 				}
 				else if (source == PGC_S_DEFAULT)
 				{
@@ -3576,7 +3774,7 @@ setConfigOptionVar(struct config_generic *record, const char *name, int index_va
 						pfree(*conf->variable);
 					}
 
-					if (strcmp(name, "black_query_pattern_list") == 0)
+					if (strcmp(name, "primary_routing_query_pattern_list") == 0)
 					{
 						*conf->variable = get_list_from_string_regex_delim(newval, conf->seperator, conf->list_elements_count);
 					}
@@ -3844,24 +4042,16 @@ static bool
 BackendFlagsAssignFunc(ConfigContext context, char *newval, int index, int elevel)
 {
 
-	unsigned short flag = 0;
+	unsigned short flag;
 	int			i,
 				n;
 	bool		allow_to_failover_is_specified = false;
 	bool		disallow_to_failover_is_specified = false;
 	char	  **flags;
 
-	flags = get_list_from_string(newval, "|", &n);
-	if (!flags || n < 0)
-	{
-		if (flags)
-			pfree(flags);
+	flag = g_pool_config.backend_desc->backend_info[index].flag;
 
-		ereport(elevel,
-				(errmsg("invalid configuration for key \"backend_flag%d\"", index),
-				 errdetail("unable to get backend flags")));
-		return false;
-	}
+	flags = get_list_from_string(newval, "|", &n);
 
 	for (i = 0; i < n; i++)
 	{
@@ -3901,9 +4091,9 @@ BackendFlagsAssignFunc(ConfigContext context, char *newval, int index, int eleve
 			disallow_to_failover_is_specified = true;
 		}
 
-		else if ((!strcmp(flags[i], "ALWAYS_MASTER")))
+		else if ((!strcmp(flags[i], "ALWAYS_PRIMARY")))
 		{
-			flag |= POOL_ALWAYS_MASTER;
+			flag |= POOL_ALWAYS_PRIMARY;
 		}
 
 		else
@@ -3922,7 +4112,8 @@ BackendFlagsAssignFunc(ConfigContext context, char *newval, int index, int eleve
 	g_pool_config.backend_desc->backend_info[index].flag = flag;
 	ereport(DEBUG1,
 			(errmsg("setting \"backend_flag%d\" flag: %04x ", index, flag)));
-	pfree(flags);
+	if (flags)
+		pfree(flags);
 	return true;
 }
 
@@ -4073,12 +4264,12 @@ BackendFlagsShowFunc(int index)
 	else if (POOL_DISALLOW_TO_FAILOVER(flag))
 		snprintf(buffer, sizeof(buffer), "DISALLOW_TO_FAILOVER");
 
-	if (POOL_ALWAYS_MASTER & flag)
+	if (POOL_ALWAYS_PRIMARY & flag)
 	{
 		if (*buffer == '\0')
-			snprintf(buffer, sizeof(buffer), "ALWAYS_MASTER");
+			snprintf(buffer, sizeof(buffer), "ALWAYS_PRIMARY");
 		else
-			snprintf(buffer+strlen(buffer), sizeof(buffer), "|ALWAYS_MASTER");
+			snprintf(buffer+strlen(buffer), sizeof(buffer), "|ALWAYS_PRIMARY");
 	}
 	return buffer;
 }
@@ -4098,50 +4289,50 @@ BackendSlotEmptyCheckFunc(int index)
 static bool
 WdSlotEmptyCheckFunc(int index)
 {
-	return (g_pool_config.wd_remote_nodes.wd_remote_node_info[index].pgpool_port == 0);
+	return (g_pool_config.wd_nodes.wd_node_info[index].pgpool_port == 0);
 }
 
 static bool
 WdIFSlotEmptyCheckFunc(int index)
 {
 
-	return (index >= g_pool_config.num_hb_if);
+	return (index >= g_pool_config.num_hb_dest_if);
 }
 
 static const char *
 OtherPPHostShowFunc(int index)
 {
-	return g_pool_config.wd_remote_nodes.wd_remote_node_info[index].hostname;
+	return g_pool_config.wd_nodes.wd_node_info[index].hostname;
 }
 
 static const char *
 OtherPPPortShowFunc(int index)
 {
-	return IntValueShowFunc(g_pool_config.wd_remote_nodes.wd_remote_node_info[index].pgpool_port);
+	return IntValueShowFunc(g_pool_config.wd_nodes.wd_node_info[index].pgpool_port);
 }
 
 static const char *
 OtherWDPortShowFunc(int index)
 {
-	return IntValueShowFunc(g_pool_config.wd_remote_nodes.wd_remote_node_info[index].wd_port);
+	return IntValueShowFunc(g_pool_config.wd_nodes.wd_node_info[index].wd_port);
 }
 
 static const char *
 HBDeviceShowFunc(int index)
 {
-	return g_pool_config.hb_if[index].if_name;
+	return g_pool_config.hb_ifs[index].if_name;
 }
 
 static const char *
-HBDestinationShowFunc(int index)
+HBHostnameShowFunc(int index)
 {
-	return g_pool_config.hb_if[index].addr;
+	return g_pool_config.hb_ifs[index].addr;
 }
 
 static const char *
 HBDestinationPortShowFunc(int index)
 {
-	return IntValueShowFunc(g_pool_config.hb_if[index].dest_port);
+	return IntValueShowFunc(g_pool_config.hb_ifs[index].dest_port);
 }
 
 static const char *
@@ -4265,31 +4456,31 @@ HealthCheckDatabaseAssignFunc(ConfigContext context, char *newval, int index, in
 	return true;
 }
 
-/* Watchdog Assign functions */
-/*other_pgpool_hostname*/
+/* Watchdog hostname and heartbeat hostname assign functions */
+/* hostname */
 static bool
 OtherPPHostAssignFunc(ConfigContext context, char *newval, int index, int elevel)
 {
 	if (newval == NULL || strlen(newval) == 0)
-		g_pool_config.wd_remote_nodes.wd_remote_node_info[index].hostname[0] = '\0';
+		g_pool_config.wd_nodes.wd_node_info[index].hostname[0] = '\0';
 	else
-		strlcpy(g_pool_config.wd_remote_nodes.wd_remote_node_info[index].hostname, newval, MAX_DB_HOST_NAMELEN - 1);
+		strlcpy(g_pool_config.wd_nodes.wd_node_info[index].hostname, newval, MAX_DB_HOST_NAMELEN - 1);
 	return true;
 }
 
-/*other_pgpool_port*/
+/* pgpool_port */
 static bool
 OtherPPPortAssignFunc(ConfigContext context, int newval, int index, int elevel)
 {
-	g_pool_config.wd_remote_nodes.wd_remote_node_info[index].pgpool_port = newval;
+	g_pool_config.wd_nodes.wd_node_info[index].pgpool_port = newval;
 	return true;
 }
 
-/*other_wd_port*/
+/* wd_port */
 static bool
 OtherWDPortAssignFunc(ConfigContext context, int newval, int index, int elevel)
 {
-	g_pool_config.wd_remote_nodes.wd_remote_node_info[index].wd_port = newval;
+	g_pool_config.wd_nodes.wd_node_info[index].wd_port = newval;
 	return true;
 }
 
@@ -4298,28 +4489,28 @@ static bool
 HBDeviceAssignFunc(ConfigContext context, char *newval, int index, int elevel)
 {
 	if (newval == NULL || strlen(newval) == 0)
-		g_pool_config.hb_if[index].if_name[0] = '\0';
+		g_pool_config.hb_ifs[index].if_name[0] = '\0';
 	else
-		strlcpy(g_pool_config.hb_if[index].if_name, newval, WD_MAX_IF_NAME_LEN);
+		strlcpy(g_pool_config.hb_ifs[index].if_name, newval, WD_MAX_IF_NAME_LEN - 1);
 	return true;
 }
 
-/*heartbeat_destination*/
+/*heartbeat_hostname*/
 static bool
-HBDestinationAssignFunc(ConfigContext context, char *newval, int index, int elevel)
+HBHostnameAssignFunc(ConfigContext context, char *newval, int index, int elevel)
 {
 	if (newval == NULL || strlen(newval) == 0)
-		g_pool_config.hb_if[index].addr[0] = '\0';
+		g_pool_config.hb_ifs[index].addr[0] = '\0';
 	else
-		strlcpy(g_pool_config.hb_if[index].addr, newval, WD_MAX_HOST_NAMELEN - 1);
+		strlcpy(g_pool_config.hb_ifs[index].addr, newval, WD_MAX_HOST_NAMELEN - 1);
 	return true;
 }
 
-/*heartbeat_destination_port*/
+/*heartbeat_port*/
 static bool
 HBDestinationPortAssignFunc(ConfigContext context, int newval, int index, int elevel)
 {
-	g_pool_config.hb_if[index].dest_port = newval;
+	g_pool_config.hb_ifs[index].dest_port = newval;
 	return true;
 }
 
@@ -4378,13 +4569,16 @@ check_redirect_node_spec(char *node_spec)
 static bool
 config_post_processor(ConfigContext context, int elevel)
 {
-	double		total_weight = 0.0;
+	double		 total_weight = 0.0;
 	sig_atomic_t local_num_backends = 0;
-	int			i;
+	int			 i;
+
+	/* read from pgpool_node_id */
+	SetPgpoolNodeId(elevel);
 
 	if (context == CFGCXT_BOOT)
 	{
-		char		localhostname[256];
+		char		localhostname[128];
 		int			res = gethostname(localhostname, sizeof(localhostname));
 
 		if (res != 0)
@@ -4394,7 +4588,7 @@ config_post_processor(ConfigContext context, int elevel)
 					 errdetail("failed to get the local hostname")));
 			return false;
 		}
-		g_pool_config.wd_hostname = pstrdup(localhostname);
+		strcpy(g_pool_config.wd_nodes.wd_node_info[g_pool_config.pgpool_node_id].hostname, localhostname);
 		return true;
 	}
 	for (i = 0; i < MAX_CONNECTION_SLOTS; i++)
@@ -4455,23 +4649,25 @@ config_post_processor(ConfigContext context, int elevel)
 	}
 
 	/* Set the number of configured Watchdog nodes */
-	g_pool_config.wd_remote_nodes.num_wd = 0;
+	g_pool_config.wd_nodes.num_wd = 0;
 	for (i = 0; i < MAX_WATCHDOG_NUM; i++)
 	{
-		WdRemoteNodeInfo *wdNode = &g_pool_config.wd_remote_nodes.wd_remote_node_info[i];
+		WdNodeInfo *wdNode = &g_pool_config.wd_nodes.wd_node_info[i];
+
+		if (i == g_pool_config.pgpool_node_id && wdNode->wd_port <= 0)
+        {
+            ereport(elevel,
+                    (errmsg("invalid watchdog configuration"),
+                     errdetail("no watchdog configuration for local pgpool node, pgpool node id: %d ", g_pool_config.pgpool_node_id)));
+            return false;
+        }
 
 		if (wdNode->wd_port > 0)
-			g_pool_config.wd_remote_nodes.num_wd = i + 1;
+			g_pool_config.wd_nodes.num_wd = i + 1;
 	}
 
-	/* Set the number of configured heartbeat interfaces */
-	g_pool_config.num_hb_if = 0;
-	for (i = 0; i < WD_MAX_IF_NUM; i++)
-	{
-		if (g_pool_config.hb_if[i].dest_port > 0)
-			g_pool_config.num_hb_if = i + 1;
-	}
-
+	/* Set configured heartbeat destination interfaces */
+	SetHBDestIfFunc(elevel);
 
 	if (strcmp(pool_config->recovery_1st_stage_command, "") ||
 		strcmp(pool_config->recovery_2nd_stage_command, ""))
@@ -4505,6 +4701,89 @@ config_post_processor(ConfigContext context, int elevel)
 		return false;
 	}
 	return true;
+}
+
+static bool
+MakeDMLAdaptiveObjectRelationList(char *newval, int elevel)
+{
+	int i;
+	int elements_count = 0;
+	char **rawList = get_list_from_string(newval, ",", &elements_count);
+
+	if (rawList == NULL || elements_count == 0)
+	{
+		pool_config->parsed_dml_adaptive_object_relationship_list = NULL;
+		return true;
+	}
+	pool_config->parsed_dml_adaptive_object_relationship_list = palloc(sizeof(DBObjectRelation) * (elements_count + 1));
+
+	for (i = 0; i < elements_count; i++)
+	{
+		char *kvstr = rawList[i];
+		char *left_token = strtok(kvstr, ":");
+		char *right_token = strtok(NULL, ":");
+		DBObjectTypes object_type;
+
+		ereport(DEBUG5,
+				(errmsg("dml_adaptive_init"),
+					errdetail("%s -- left_token[%s] right_token[%s]", kvstr, left_token, right_token)));
+
+		pool_config->parsed_dml_adaptive_object_relationship_list[i].left_token.name =
+																	getParsedToken(left_token, &object_type);
+		pool_config->parsed_dml_adaptive_object_relationship_list[i].left_token.object_type = object_type;
+
+		pool_config->parsed_dml_adaptive_object_relationship_list[i].right_token.name =
+																	getParsedToken(right_token,&object_type);
+		pool_config->parsed_dml_adaptive_object_relationship_list[i].right_token.object_type = object_type;
+		pfree(kvstr);
+	}
+	pool_config->parsed_dml_adaptive_object_relationship_list[i].left_token.name = NULL;
+	pool_config->parsed_dml_adaptive_object_relationship_list[i].left_token.object_type = OBJECT_TYPE_UNKNOWN;
+	pool_config->parsed_dml_adaptive_object_relationship_list[i].right_token.name = NULL;
+	pool_config->parsed_dml_adaptive_object_relationship_list[i].right_token.object_type = OBJECT_TYPE_UNKNOWN;
+
+	pfree(rawList);
+	return true;
+}
+
+/*
+ * Identify the object type for dml adaptive object
+ * the function is very primitive and just looks for token
+ * ending with ().
+ * We also remove the trailing spaces from the function type token
+ * and return the palloc'd copy of token in new_token
+ */
+static char*
+getParsedToken(char *token, DBObjectTypes *object_type)
+{
+	int len;
+	*object_type = OBJECT_TYPE_UNKNOWN;
+
+	if (!token)
+		return NULL;
+
+	len = strlen(token);
+	if (len > strlen("*()"))
+	{
+		int namelen = len - 2;
+		/* check if token ends with () */
+		if (strcmp(token + namelen,"()") == 0)
+		{
+			/*
+			 * Remove the Parentheses from end of
+			 * token name
+			 */
+			char *new_token;
+			int new_len = strlen(token) - 2;
+			new_token = palloc(new_len + 1);
+			strncpy(new_token,token,new_len);
+			new_token[new_len] = '\0';
+			*object_type = OBJECT_TYPE_FUNCTION;
+			return new_token;
+		}
+	}
+	*object_type = OBJECT_TYPE_RELATION;
+	return pstrdup(token);
 }
 
 static bool
@@ -4593,6 +4872,175 @@ MakeDBRedirectListRegex(char *newval, int elevel)
 	return true;
 }
 
+/* Read the pgpool_node_id file */
+static bool
+SetPgpoolNodeId(int elevel)
+{
+	char		pgpool_node_id_file[POOLMAXPATHLEN + 1];
+	FILE		*fd;
+	int         length;
+	int         i;
+
+	if (g_pool_config.use_watchdog)
+	{
+		snprintf(pgpool_node_id_file, sizeof(pgpool_node_id_file), "%s/%s", config_file_dir, NODE_ID_FILE_NAME);
+
+#define MAXLINE 10
+		char        readbuf[MAXLINE];
+
+		fd = fopen(pgpool_node_id_file, "r");
+		if (!fd)
+		{
+			ereport(elevel,
+					(errmsg("Pgpool node id file %s does not exist", pgpool_node_id_file),
+					 errdetail("If watchdog is enable, pgpool_node_id file is required")));
+			return false;
+		}
+
+		readbuf[MAXLINE - 1] = '\0';
+		if (fgets(readbuf, MAXLINE - 1, fd) == 0)
+		{
+			ereport(elevel,
+					(errmsg("pgpool_node_id file is empty"),
+					 errdetail("If watchdog is enable, we need to specify pgpool node id in %s file", pgpool_node_id_file)));
+			fclose(fd);
+			return false;
+		}
+
+		length = strlen(readbuf);
+		if (length > 0 && readbuf[length - 1] == '\n')
+		{
+			readbuf[length - 1] = '\0';
+
+			length = strlen(readbuf);
+			if (length <= 0)
+			{
+				ereport(elevel,
+						(errmsg("pgpool_node_id file is empty"),
+						 errdetail("If watchdog is enable, we need to specify pgpool node id in %s file", pgpool_node_id_file)));
+				fclose(fd);
+				return false;
+			}
+		}
+
+		for (i = 0; i < length; i++)
+		{
+			if (!isdigit((int) readbuf[i]))
+			{
+				ereport(elevel,
+						(errmsg("pgpool_node_id is not a numeric value"),
+						 errdetail("Please specify a numeric value in %s file", pgpool_node_id_file)));
+				fclose(fd);
+				return false;
+			}
+		}
+
+		g_pool_config.pgpool_node_id = atoi(readbuf);
+
+		if (g_pool_config.pgpool_node_id < 0 || g_pool_config.pgpool_node_id > MAX_WATCHDOG_NUM)
+		{
+			ereport(elevel,
+					(errmsg("Invalid pgpool node id \"%d\", must be between 0 and %d",
+							g_pool_config.pgpool_node_id, MAX_WATCHDOG_NUM)));
+			fclose(fd);
+			return false;
+		}
+		else
+		{
+			ereport(DEBUG1,
+					(errmsg("read pgpool node id file %s", pgpool_node_id_file),
+					 errdetail("pgpool node id: %s", readbuf)));
+		}
+
+		fclose(fd);
+	}
+
+	return true;
+}
+
+/* Set configured heartbeat destination interfaces */
+static bool
+SetHBDestIfFunc(int elevel)
+{
+	int		idx = 0;
+	char	**addrs;
+	char	**if_names;
+	int		i, j,
+			n_addr,
+			n_if_name;
+
+	g_pool_config.num_hb_dest_if = 0;
+
+	if (g_pool_config.wd_lifecheck_method != LIFECHECK_BY_HB)
+	{
+		return true;
+	}
+
+	/*
+	 * g_pool_config.hb_ifs is the information for sending/receiving heartbeat
+	 * for all nodes specied in pgpool.conf.
+	 * If it is local pgpool node information, set dest_port to g_pool_config.wd_heartbeat_port
+	 * and ignore addr and if_name.
+	 * g_pool_config.hb_dest_if is the heartbeat destination information.
+	 */
+	for (i = 0; i < WD_MAX_IF_NUM; i++)
+	{
+		if (g_pool_config.hb_ifs[i].dest_port > 0)
+		{
+			/* Ignore local pgpool node */
+			if (i == g_pool_config.pgpool_node_id)
+			{
+				g_pool_config.wd_heartbeat_port = g_pool_config.hb_ifs[i].dest_port;
+				continue;
+			}
+
+			WdHbIf *hbNodeInfo = &g_pool_config.hb_ifs[i];
+
+			addrs = get_list_from_string(hbNodeInfo->addr, ";", &n_addr);
+			if_names = get_list_from_string(hbNodeInfo->if_name, ";", &n_if_name);
+
+			if (!addrs || n_addr < 0)
+			{
+				g_pool_config.hb_dest_if[idx].addr[0] = '\0';
+
+				if (addrs)
+					pfree(addrs);
+				if (if_names)
+					pfree(if_names);
+
+				ereport(elevel,
+						(errmsg("invalid watchdog configuration"),
+						 errdetail("heartbeat_hostname%d is not defined", i)));
+
+				return false;
+			}
+
+			for (j = 0; j < n_addr; j++)
+			{
+				strlcpy(g_pool_config.hb_dest_if[idx].addr, addrs[j], WD_MAX_HOST_NAMELEN - 1);
+				g_pool_config.hb_dest_if[idx].dest_port = hbNodeInfo->dest_port;
+				if (n_if_name > j + 1)
+				{
+					strlcpy(g_pool_config.hb_dest_if[idx].if_name, if_names[j], WD_MAX_IF_NAME_LEN - 1);
+					pfree(if_names[j]);
+				}
+				else
+					g_pool_config.hb_dest_if[idx].if_name[0] = '\0';
+
+				g_pool_config.num_hb_dest_if = idx + 1;
+				idx++;
+				pfree(addrs[j]);
+			}
+
+			if (addrs)
+				pfree(addrs);
+			if (if_names)
+				pfree(if_names);
+		}
+	}
+	return true;
+}
+
 static struct config_generic *
 get_index_free_record_if_any(struct config_generic *record)
 {
@@ -4632,7 +5080,204 @@ get_index_free_record_if_any(struct config_generic *record)
 	return ret;
 }
 
+/*
+ * Try to parse value as an integer.  The accepted formats are the
+ * usual decimal, octal, or hexadecimal formats, as well as floating-point
+ * formats (which will be rounded to integer after any units conversion).
+ * Optionally, the value can be followed by a unit name if "flags" indicates
+ * a unit is allowed.
+ *
+ * If the string parses okay, return true, else false.
+ * If okay and result is not NULL, return the value in *result.
+ * If not okay and hintmsg is not NULL, *hintmsg is set to a suitable
+ * HINT message, or NULL if no hint provided.
+ */
+static bool
+parse_int(const char *value, int64 *result, int flags, const char **hintmsg, int64 MaxVal)
+{
+	/*
+	 * We assume here that double is wide enough to represent any integer
+	 * value with adequate precision.
+	 */
+	double		val;
+	char	   *endptr;
+
+	/* To suppress compiler warnings, always set output params */
+	if (result)
+		*result = 0;
+	if (hintmsg)
+		*hintmsg = NULL;
+
+	/*
+	 * Try to parse as an integer (allowing octal or hex input).  If the
+	 * conversion stops at a decimal point or 'e', or overflows, re-parse as
+	 * float.  This should work fine as long as we have no unit names starting
+	 * with 'e'.  If we ever do, the test could be extended to check for a
+	 * sign or digit after 'e', but for now that's unnecessary.
+	 */
+	errno = 0;
+	val = strtol(value, &endptr, 0);
+	if (*endptr == '.' || *endptr == 'e' || *endptr == 'E' ||
+		errno == ERANGE)
+	{
+		errno = 0;
+		val = strtod(value, &endptr);
+	}
+
+	if (endptr == value || errno == ERANGE)
+		return false;			/* no HINT for these cases */
+
+	/* reject NaN (infinities will fail range check below) */
+	if (isnan(val))
+		return false;			/* treat same as syntax error; no HINT */
+
+
+	/* allow whitespace between number and unit */
+	while (isspace((unsigned char) *endptr))
+		endptr++;
+
+	/* Handle possible unit */
+	if (*endptr != '\0')
+	{
+		if ((flags & GUC_UNIT) == 0)
+		{
+			return false;		/* this setting does not accept a unit */
+		}
+		if (!convert_to_base_unit(val,
+								  endptr, (flags & GUC_UNIT),
+								  &val))
+		{
+			/* invalid unit, or garbage after the unit; set hint and fail. */
+			if (hintmsg)
+			{
+				if (flags & GUC_UNIT_MEMORY)
+					*hintmsg = memory_units_hint;
+				else
+					*hintmsg = time_units_hint;
+			}
+			return false;
+		}
+	}
+
+	/* Round to int, then check for overflow */
+	val = rint(val);
+
+	if (val > MaxVal || val < INT_MIN)
+	{
+		if (hintmsg)
+			*hintmsg = "Value exceeds allowed range.";
+		return false;
+	}
+
+	if (result)
+		*result = (int64) val;
+	return true;
+}
+/*
+ * Convert a value from one of the human-friendly units ("kB", "min" etc.)
+ * to the given base unit.  'value' and 'unit' are the input value and unit
+ * to convert from (there can be trailing spaces in the unit string).
+ * The converted value is stored in *base_value.
+ * It's caller's responsibility to round off the converted value as necessary
+ * and check for out-of-range.
+ *
+ * Returns true on success, false if the input unit is not recognized.
+ */
+
+static bool
+convert_to_base_unit(double value, const char *unit,
+					 int base_unit, double *base_value)
+{
+	char		unitstr[MAX_UNIT_LEN + 1];
+	int			unitlen;
+	const unit_conversion *table;
+	int			i;
+
+	/* extract unit string to compare to table entries */
+	unitlen = 0;
+	while (*unit != '\0' && !isspace((unsigned char) *unit) &&
+		   unitlen < MAX_UNIT_LEN)
+		unitstr[unitlen++] = *(unit++);
+	unitstr[unitlen] = '\0';
+	/* allow whitespace after unit */
+	while (isspace((unsigned char) *unit))
+		unit++;
+	if (*unit != '\0')
+		return false;			/* unit too long, or garbage after it */
+
+	/* now search the appropriate table */
+	if (base_unit & GUC_UNIT_MEMORY)
+		table = memory_unit_conversion_table;
+	else
+		table = time_unit_conversion_table;
+
+	for (i = 0; *table[i].unit; i++)
+	{
+		if (base_unit == table[i].base_unit &&
+			strcmp(unitstr, table[i].unit) == 0)
+		{
+			double		cvalue = value * table[i].multiplier;
+
+			/*
+			 * If the user gave a fractional value such as "30.1GB", round it
+			 * off to the nearest multiple of the next smaller unit, if there
+			 * is one.
+			 */
+			if (*table[i + 1].unit &&
+				base_unit == table[i + 1].base_unit)
+				cvalue = rint(cvalue / table[i + 1].multiplier) *
+					table[i + 1].multiplier;
+
+			*base_value = cvalue;
+			return true;
+		}
+	}
+	return false;
+}
 #ifndef POOL_PRIVATE
+
+/*
+ * Convert an integer value in some base unit to a human-friendly unit.
+ *
+ * The output unit is chosen so that it's the greatest unit that can represent
+ * the value without loss.  For example, if the base unit is GUC_UNIT_KB, 1024
+ * is converted to 1 MB, but 1025 is represented as 1025 kB.
+ */
+static void
+convert_int_from_base_unit(int64 base_value, int base_unit,
+						   int64 *value, const char **unit)
+{
+	const unit_conversion *table;
+	int			i;
+
+	*unit = NULL;
+
+	if (base_unit & GUC_UNIT_MEMORY)
+		table = memory_unit_conversion_table;
+	else
+		table = time_unit_conversion_table;
+
+	for (i = 0; *table[i].unit; i++)
+	{
+		if (base_unit == table[i].base_unit)
+		{
+			/*
+			 * Accept the first conversion that divides the value evenly.  We
+			 * assume that the conversions for each base unit are ordered from
+			 * greatest unit to the smallest!
+			 */
+			if (table[i].multiplier <= 1.0 ||
+				base_value % (int64) table[i].multiplier == 0)
+			{
+				*value = (int64) rint(base_value / table[i].multiplier);
+				*unit = table[i].unit;
+				break;
+			}
+		}
+	}
+
+	Assert(*unit != NULL);
+}
 
 /*
  * Lookup the name for an enum option with the selected value.
@@ -4686,10 +5331,23 @@ ShowOption(struct config_generic *record, int index, int elevel)
 					val = (*conf->show_hook) ();
 				else
 				{
-					int			result = *conf->variable;
 
-					snprintf(buffer, sizeof(buffer), "%d",
-							 result);
+					/*
+					 * Use int64 arithmetic to avoid overflows in units
+					 * conversion.
+					 */
+					int64		result = (int64) *conf->variable;
+					const char *unit;
+
+					if (result > 0 && (record->flags & GUC_UNIT))
+						convert_int_from_base_unit(result,
+												   record->flags & GUC_UNIT,
+												   &result, &unit);
+					else
+						unit = "";
+
+					snprintf(buffer, sizeof(buffer), INT64_FORMAT "%s",
+							 result, unit);
 					val = buffer;
 				}
 			}
@@ -4704,9 +5362,17 @@ ShowOption(struct config_generic *record, int index, int elevel)
 				else
 				{
 					int64		result = (int64) *conf->variable;
+					const char *unit;
 
-					snprintf(buffer, sizeof(buffer), INT64_FORMAT,
-							 result);
+					if (result > 0 && (record->flags & GUC_UNIT))
+						convert_int_from_base_unit(result,
+												   record->flags & GUC_UNIT,
+												   &result, &unit);
+					else
+						unit = "";
+
+					snprintf(buffer, sizeof(buffer), INT64_FORMAT "%s",
+							 result, unit);
 					val = buffer;
 				}
 			}

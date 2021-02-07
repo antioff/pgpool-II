@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="pgpool_admエクステンション"
@@ -18,15 +18,15 @@ REL="PREVIOUS"
 TITLE="pgpool_admエクステンション"
 HREF="pgpool-adm.html"><LINK
 REL="NEXT"
-TITLE="pgpool_adm_pcp_pool_status"
-HREF="pgpool-adm-pcp-pool-status.html"><LINK
+TITLE="pgpool_adm_pcp_health_check_stats"
+HREF="pgpool-adm-pcp-health-check-stats.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="pgpool_adm_pcp_pool_status"
-HREF="pgpool-adm-pcp-pool-status.html"
+TITLE="pgpool_adm_pcp_health_check_stats"
+HREF="pgpool-adm-pcp-health-check-stats.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -95,7 +95,7 @@ NAME="PGPOOL-ADM-PCP-NODE-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN8781"
+NAME="AEN9784"
 ></A
 ><H2
 >名前</H2
@@ -105,7 +105,7 @@ NAME="AEN8781"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN8784"
+NAME="AEN9787"
 ></A
 ><H2
 >概要</H2
@@ -114,7 +114,7 @@ CLASS="FUNCSYNOPSIS"
 ><P
 ></P
 ><A
-NAME="AEN8785"
+NAME="AEN9788"
 ></A
 ><P
 ><CODE
@@ -215,7 +215,7 @@ CLASS="FUNCTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8838"
+NAME="AEN9841"
 ></A
 ><H2
 >引数</H2
@@ -273,7 +273,7 @@ HREF="pcp-common-options.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8858"
+NAME="AEN9861"
 ></A
 ><H2
 >使用例</H2
@@ -282,7 +282,7 @@ NAME="AEN8858"
    使用例です。
    </P><PRE
 CLASS="PROGRAMLISTING"
->    test=# SELECT * FROM pcp_node_info(1,'',11001,'t-ishii','t-ishii');
+>    test=# SELECT * FROM pcp_node_info(node_id =&#62; 1, host =&#62; '', port =&#62; 11001, username =&#62; 't-ishii', password =&#62; 't-ishii');
     host | port  |      status       | weight |  role   | replication_delay | replication_state | replication_sync_state | last_status_change  
     ------+-------+-------------------+--------+---------+-------------------+-------------------+------------------------+---------------------
     /tmp | 11003 | Connection in use |      0 | Standby |                 0 | streaming         | async                  | 2019-04-23 15:02:46
@@ -384,7 +384,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="pgpool-adm-pcp-pool-status.html"
+HREF="pgpool-adm-pcp-health-check-stats.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -408,7 +408,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->pgpool_adm_pcp_pool_status</TD
+>pgpool_adm_pcp_health_check_stats</TD
 ></TR
 ></TABLE
 ></DIV

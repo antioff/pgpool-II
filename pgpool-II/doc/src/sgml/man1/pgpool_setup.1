@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.1.5 Documentation
-.\"    Source: pgpool-II 4.1.5
+.\"    Manual: pgpool-II 4.2.0 Documentation
+.\"    Source: pgpool-II 4.2.0
 .\"  Language: English
 .\"
-.TH "PGPOOL_SETUP" "1" "2020" "pgpool-II 4.1.5" "pgpool-II 4.1.5 Documentation"
+.TH "PGPOOL_SETUP" "1" "2020" "pgpool-II 4.2.0" "pgpool-II 4.2.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -56,7 +56,7 @@ so that it can login to localhost without password\&.
 .PP
 Currently
 pgpool_setup
-supports streaming replication mode, native replication mode, raw mode and logical replication mode\&. To support watchdog, see
+supports streaming replication mode, native replication mode, raw mode, logical replication mode and snapshot isolation mode\&. To support watchdog, see
 \fBwatchdog_setup\fR(1)
 for details\&.
 .SH "OPTIONS"
@@ -76,9 +76,11 @@ s
 n
 (raw mode),
 l
-(logical replication mode) or
+(logical replication mode),
 y
-(slony mode)\&. If this is omitted,
+(slony mode) or
+i
+(snapshot isolation mode)\&. If this is omitted,
 s
 is assumed\&.
 .RE
@@ -216,7 +218,7 @@ temporarily start pgpool\-II to create standby nodes
 
 recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
 done\&.
-creating follow master script
+creating follow primary script
  node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
 \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
  0       | /tmp     | 11002 | up     | 0\&.500000  | primary | 0          | true              | 0                 |                   |                        | 2020\-08\-18 13:50:19

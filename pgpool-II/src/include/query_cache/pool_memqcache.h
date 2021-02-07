@@ -242,8 +242,8 @@ extern int pool_fetch_cache(POOL_CONNECTION_POOL * backend, const char *query, c
 extern int pool_catalog_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *data, size_t datalen);
 
 extern bool pool_is_likely_select(char *query);
-extern bool pool_is_table_in_black_list(const char *table_name);
-extern bool pool_is_table_in_white_list(const char *table_name);
+extern bool pool_is_table_in_unsafe_list(const char *table_name);
+extern bool pool_is_table_in_safe_list(const char *table_name);
 extern bool pool_is_allow_to_cache(Node *node, char *query);
 extern int	pool_extract_table_oids(Node *node, int **oidsp);
 extern int	pool_extract_withclause_oids(Node *with, int *oidsp);
@@ -282,5 +282,7 @@ extern void pool_discard_temp_query_cache(POOL_TEMP_QUERY_CACHE * temp_cache);
 extern void pool_shmem_lock(void);
 extern void pool_shmem_unlock(void);
 extern bool pool_is_shmem_lock(void);
+
+extern void InvalidateQueryCache(int tableoid, int dboid);
 
 #endif							/* POOL_MEMQCACHE_H */

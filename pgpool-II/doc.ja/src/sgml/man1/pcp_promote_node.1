@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: Pgpool-II 4.1.5 文書
-.\"    Source: Pgpool-II 4.1.5
+.\"    Manual: Pgpool-II 4.2.0 文書
+.\"    Source: Pgpool-II 4.2.0
 .\"  Language: Japanese
 .\"
-.TH "PCP_PROMOTE_NODE" "1" "2020" "Pgpool-II 4.1.5" "Pgpool-II 4.1.5 文書"
+.TH "PCP_PROMOTE_NODE" "1" "2020" "Pgpool-II 4.2.0" "Pgpool-II 4.2.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,7 +28,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "名前"
-pcp_promote_node \- Pgpool\-II のノードをマスターに昇格させる
+pcp_promote_node \- Pgpool\-II のノードをプライマリに昇格させる
 .SH "概要"
 .HP \w'\fBpcp_promote_node\fR\ 'u
 \fBpcp_promote_node\fR [\fIoptions\fR...] [\fInode_id\fR] [\fIgracefully\fR]
@@ -37,7 +37,7 @@ pcp_promote_node \- Pgpool\-II のノードをマスターに昇格させる
 \fBpcp_promote_node\fR
 は
 Pgpool\-II
-のノードをマスターに昇格させます。 これは、マスタースレーブモードで ストリーミングレプリケーション構成の場合のみ使用できます。 このコマンドは実際に
+のノードをプライマリに昇格させます。 これは、ストリーミングレプリケーション構成の場合のみ使用できます。 このコマンドは実際に
 PostgreSQL
 のスタンバイサーバを昇格するわけではないことに注意してください。 単に
 Pgpool\-II
@@ -46,7 +46,7 @@ PostgreSQL
 のスタンバイを昇格させるようにしてください。
 .PP
 \fBpcp_promote_node\fRは、起動された後以下を行います。
-follow_master_commandが設定されている場合はそれも起動されるので、十分な注意が必要です。 通常はfollow_master_commandを無効にしてからこのコマンドを実行することをお勧めします。
+follow_primary_commandが設定されている場合はそれも起動されるので、十分な注意が必要です。 通常はfollow_primary_commandを無効にしてからこのコマンドを実行することをお勧めします。
 .sp
 .RS 4
 .ie n \{\
@@ -81,7 +81,7 @@ follow_master_commandが設定されている場合はそれも起動される�
 .sp -1
 .IP "  3." 4.2
 .\}
-follow_master_commandが設定されている場合は、2でダウンさせたPostgreSQLノードに対してfollow_master_commandを実行します。
+follow_primary_commandが設定されている場合は、2でダウンさせたPostgreSQLノードに対してfollow_primary_commandを実行します。
 .RE
 .sp
 .SH "オプション"
@@ -91,7 +91,7 @@ follow_master_commandが設定されている場合は、2でダウンさせたP
 .br
 \fB\-\-node\-id=\fR\fB\fInode_id\fR\fR
 .RS 4
-マスターに昇格させるバックエンドノードのインデックスを指定します。
+プライマリに昇格させるバックエンドノードのインデックスを指定します。
 .RE
 .PP
 \fB\-g \fR

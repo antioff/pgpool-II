@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP commands"
@@ -18,15 +18,15 @@ REL="PREVIOUS"
 TITLE="pcp_promote_node"
 HREF="pcp-promote-node.html"><LINK
 REL="NEXT"
-TITLE="pcp_recovery_node"
-HREF="pcp-recovery-node.html"><LINK
+TITLE="pcp_reload_config"
+HREF="pcp-reload-config.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="pcp_recovery_node"
-HREF="pcp-recovery-node.html"
+TITLE="pcp_reload_config"
+HREF="pcp-reload-config.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -95,7 +95,7 @@ NAME="PCP-STOP-PGPOOL"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN7596"
+NAME="AEN8191"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN7596"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN7599"
+NAME="AEN8194"
 ></A
 ><H2
 >Synopsis</H2
@@ -141,7 +141,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN7610"
+NAME="AEN8205"
 ></A
 ><H2
 >Options</H2
@@ -174,7 +174,7 @@ CLASS="REPLACEABLE"
 >       Shutdown mode for terminating the Pgpool-II process.
       </P
 ><P
->       The available modes are as follows:
+>       The available modes are as follows (The default is "smart"):
        <P
 ></P
 ></P><UL
@@ -189,6 +189,45 @@ CLASS="REPLACEABLE"
 ><LI
 ><P
 >i, immediate : immediate mode </P
+></LI
+></UL
+><P>
+      </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-s <TT
+CLASS="REPLACEABLE"
+><I
+>scope</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--scope=<TT
+CLASS="REPLACEABLE"
+><I
+>scope</I
+></TT
+></TT
+></DT
+><DD
+><P
+>       Specifies the breadth of a command's impact.
+      </P
+><P
+>       The supported command scopes are as follows (The default is "local"):
+       <P
+></P
+></P><UL
+><LI
+><P
+>c, cluster : terminates all Pgpool-II nodes part of the cluster </P
+></LI
+><LI
+><P
+>l, local : terminates local Pgpool-II node only </P
 ></LI
 ></UL
 ><P>
@@ -246,7 +285,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="pcp-recovery-node.html"
+HREF="pcp-reload-config.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -270,7 +309,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->pcp_recovery_node</TD
+>pcp_reload_config</TD
 ></TR
 ></TABLE
 ></DIV

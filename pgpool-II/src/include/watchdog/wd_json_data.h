@@ -28,22 +28,9 @@
 #ifndef WD_JSON_DATA_H
 #define WD_JSON_DATA_H
 
-typedef struct WDNodeInfo
-{
-	int			state;
-	char		nodeName[WD_MAX_HOST_NAMELEN];
-	char		hostName[WD_MAX_HOST_NAMELEN];	/* host name */
-	char		stateName[WD_MAX_HOST_NAMELEN]; /* watchdog state name */
-	int			wd_port;		/* watchdog port */
-	int			pgpool_port;	/* pgpool port */
-	int			wd_priority;	/* node priority */
-	char		delegate_ip[WD_MAX_HOST_NAMELEN];	/* delegate IP */
-	int			id;
-}			WDNodeInfo;
-
 /*
  * The structure to hold the parsed PG backend node status data fetched
- * from the master watchdog node
+ * from the leader watchdog node
  */
 typedef struct WDPGBackendStatus
 {
@@ -61,7 +48,6 @@ extern char *get_pool_config_json(void);
 extern char *get_lifecheck_node_status_change_json(int nodeID, int nodeStatus, char *message, char *authKey);
 extern bool parse_node_status_json(char *json_data, int data_len, int *nodeID, int *nodeStatus, char **message);
 
-extern WDNodeInfo * get_WDNodeInfo_from_wd_node_json(json_value * source);
 
 extern bool parse_beacon_message_json(char *json_data, int data_len, int *state,
 						  long *seconds_since_node_startup,
@@ -82,5 +68,15 @@ extern char *get_simple_request_json(char *key, char *value, unsigned int shared
 
 extern bool parse_data_request_json(char *json_data, int data_len, char **request_type);
 extern char *get_data_request_json(char *request_type, unsigned int sharedKey, char *authKey);
+
+extern bool
+parse_wd_exec_cluster_command_json(char *json_data, int data_len,
+								   char **clusterCommand,
+								   int *nArgs, WDExecCommandArg **wdExecCommandArg);
+
+extern char *
+get_wd_exec_cluster_command_json(char *clusterCommand,int nArgs,
+								 WDExecCommandArg *wdExecCommandArg,
+								unsigned int sharedKey, char *authKey);
 
 #endif

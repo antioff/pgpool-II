@@ -69,8 +69,8 @@ typedef struct
 
 typedef enum
 {
-	ROLE_MASTER,
-	ROLE_SLAVE,
+	ROLE_MAIN,
+	ROLE_REPLICA,
 	ROLE_PRIMARY,
 	ROLE_STANDBY
 }			SERVER_ROLE;
@@ -171,6 +171,7 @@ typedef struct
 #define POOLCONFIG_MAXWEIGHTLEN 20
 #define POOLCONFIG_MAXDATELEN 128
 #define POOLCONFIG_MAXCOUNTLEN 16
+#define POOLCONFIG_MAXLONGCOUNTLEN 20
 
 /* config report struct*/
 typedef struct
@@ -231,6 +232,50 @@ typedef struct
 	char		version[POOLCONFIG_MAXVALLEN + 1];
 }			POOL_REPORT_VERSION;
 
+/* health check statistics report struct */
+typedef struct
+{
+	char		node_id[POOLCONFIG_MAXIDLEN + 1];
+	char		hostname[MAX_DB_HOST_NAMELEN + 1];
+	char		port[POOLCONFIG_MAXPORTLEN + 1];
+	char		status[POOLCONFIG_MAXSTATLEN + 1];
+	char		role[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		last_status_change[POOLCONFIG_MAXDATELEN];
+	char		total_count[POOLCONFIG_MAXLONGCOUNTLEN+1];
+	char		success_count[POOLCONFIG_MAXLONGCOUNTLEN+1];
+	char		fail_count[POOLCONFIG_MAXLONGCOUNTLEN+1];
+	char		skip_count[POOLCONFIG_MAXLONGCOUNTLEN+1];
+	char		retry_count[POOLCONFIG_MAXLONGCOUNTLEN+1];
+	char		average_retry_count[POOLCONFIG_MAXLONGCOUNTLEN+1];
+	char		max_retry_count[POOLCONFIG_MAXCOUNTLEN+1];
+	char		max_health_check_duration[POOLCONFIG_MAXCOUNTLEN+1];
+	char		min_health_check_duration[POOLCONFIG_MAXCOUNTLEN+1];
+	char		average_health_check_duration[POOLCONFIG_MAXLONGCOUNTLEN+1];
+	char		last_health_check[POOLCONFIG_MAXDATELEN];
+	char		last_successful_health_check[POOLCONFIG_MAXDATELEN];
+	char		last_skip_health_check[POOLCONFIG_MAXDATELEN];
+	char		last_failed_health_check[POOLCONFIG_MAXDATELEN];
+}			POOL_HEALTH_CHECK_STATS;
+
+/* show backend statistics report struct */
+typedef struct
+{
+	char		node_id[POOLCONFIG_MAXIDLEN + 1];
+	char		hostname[MAX_DB_HOST_NAMELEN + 1];
+	char		port[POOLCONFIG_MAXPORTLEN + 1];
+	char		status[POOLCONFIG_MAXSTATLEN + 1];
+	char		role[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		select_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		insert_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		update_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		delete_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		ddl_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		other_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];	
+	char		panic_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];	
+	char		fatal_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];	
+	char		error_cnt[POOLCONFIG_MAXWEIGHTLEN + 1];	
+}			POOL_BACKEND_STATS;
+
 typedef enum
 {
 	PCP_CONNECTION_OK,
@@ -287,12 +332,13 @@ struct WdInfo;
 extern PCPConnInfo * pcp_connect(char *hostname, int port, char *username, char *password, FILE *Pfdebug);
 extern void pcp_disconnect(PCPConnInfo * pcpConn);
 
-extern PCPResultInfo * pcp_terminate_pgpool(PCPConnInfo * pcpCon, char mode);
+extern PCPResultInfo * pcp_terminate_pgpool(PCPConnInfo * pcpConn, char mode, char command_scope);
 extern PCPResultInfo * pcp_node_count(PCPConnInfo * pcpCon);
 extern PCPResultInfo * pcp_node_info(PCPConnInfo * pcpCon, int nid);
-
+extern PCPResultInfo * pcp_health_check_stats(PCPConnInfo * pcpCon, int nid);
 extern PCPResultInfo * pcp_process_count(PCPConnInfo * pcpConn);
 extern PCPResultInfo * pcp_process_info(PCPConnInfo * pcpConn, int pid);
+extern PCPResultInfo * pcp_reload_config(PCPConnInfo * pcpConn,char command_scope);
 
 extern PCPResultInfo * pcp_detach_node(PCPConnInfo * pcpConn, int nid);
 extern PCPResultInfo * pcp_detach_node_gracefully(PCPConnInfo * pcpConn, int nid);
@@ -318,6 +364,8 @@ extern char *pcp_get_last_error(PCPConnInfo * pcpConn);
 extern int	pcp_result_is_empty(PCPResultInfo * res);
 
 extern char *role_to_str(SERVER_ROLE role);
+
+extern	int * pool_health_check_stats_offsets(int *n);
 
 /* ------------------------------
  * pcp_error.c

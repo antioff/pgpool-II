@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2008	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -17,7 +17,7 @@
  * suitability of this software for any purpose.  It is provided "as
  * is" without express or implied warranty.
  *
- * pcp_stream.h - master header file.
+ * pcp_stream.h - pcp_stream header file.
  */
 
 #ifndef PCP_STREAM_H

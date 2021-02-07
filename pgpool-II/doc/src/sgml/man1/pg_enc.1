@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.1.5 Documentation
-.\"    Source: pgpool-II 4.1.5
+.\"    Manual: pgpool-II 4.2.0 Documentation
+.\"    Source: pgpool-II 4.2.0
 .\"  Language: English
 .\"
-.TH "PG_ENC" "1" "2020" "pgpool-II 4.1.5" "pgpool-II 4.1.5 Documentation"
+.TH "PG_ENC" "1" "2020" "pgpool-II 4.2.0" "pgpool-II 4.2.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -65,6 +65,13 @@ Encryption key to be used for encrypting database passwords\&.
 Specifies the
 pgpool\&.conf
 file\&.
+.RE
+.PP
+\fB\-i \fR\fB\fIINPUT_FILE\fR\fR
+.br
+\fB\-\-input\-file=\fR\fB\fIINPUT_FILE\fR\fR
+.RS 4
+Specifies file containing username and password pairs\&.
 .RE
 .PP
 \fB\-p\fR
@@ -158,3 +165,32 @@ passwords with:
 which will add an entry for
 username
 with the password given\&.
+.PP
+To avoid password prompt or password in command parameter,
+pg_enc
+can read user name:password pairs from file\&. It will add all user names and encrypted password to
+pool_passwd
+authentication file\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    $ cat users\&.txt
+    username1:secretpassword1
+    username2:secretpassword2
+
+    $ pg_enc \-m \-f /path/to/pgpool\&.conf \-i users\&.txt
+    trying to read key from file /home/pgpool/\&.pgpoolkey
+    trying to read user:password pairs from file users\&.text
+
+    $ cat /path/to/pool_passwd
+    username1:AESrx5QdpGyW/+4CB80KWtwhg==
+    username2:AESUAdohy7nCUhWliRI9WiYQA==
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

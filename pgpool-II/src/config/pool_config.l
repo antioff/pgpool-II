@@ -32,6 +32,7 @@
 #include "pool_config.h"
 #include "pool_config_variables.h"
 #include "utils/regex_array.h"
+#include "utils/pool_path.h"
 #ifndef POOL_PRIVATE
 #include "utils/elog.h"
 #else
@@ -44,6 +45,7 @@ int yylex(void);
 POOL_CONFIG g_pool_config;	/* configuration values */
 POOL_CONFIG *pool_config = &g_pool_config;	/* for lagacy reason pointer to the above struct */
 static unsigned Lineno;
+char   *config_file_dir = NULL; /* directory path of config file pgpool.conf */
 
 typedef enum {
   POOL_KEY = 1,
@@ -73,7 +75,8 @@ SIGN            ("-"|"+")
 DIGIT           [0-9]
 HEXDIGIT        [0-9a-fA-F]
 
-INTEGER         {SIGN}?({DIGIT}+|0x{HEXDIGIT}+)
+UNIT_LETTER     [a-zA-Z]
+INTEGER         {SIGN}?({DIGIT}+|0x{HEXDIGIT}+){UNIT_LETTER}*
 
 EXPONENT        [Ee]{SIGN}?{DIGIT}+
 REAL            {SIGN}?{DIGIT}*"."{DIGIT}*{EXPONENT}?
@@ -122,7 +125,7 @@ int pool_init_config(void)
 
 /*
  * Add regex expression to patterns array
- * The supported type are: black_function_list and white_function_list
+ * The supported type are: write_function_list and read_only_function_list
  * Return 0 on error, 1 on success
  */
 int add_regex_pattern(const char *type, char *s)
@@ -134,16 +137,16 @@ int add_regex_pattern(const char *type, char *s)
 	/* Add extended regex search */
 	regex_flags |= REG_EXTENDED;
 	/* Fill the pattern type */
-	if (strcmp(type, "black_function_list") == 0 ||
-		strcmp(type, "black_query_pattern_list") == 0 ||
-		strcmp(type, "black_memqcache_table_list") == 0)
+	if (strcmp(type, "write_function_list") == 0 ||
+		strcmp(type, "primary_routing_query_pattern_list") == 0 ||
+		strcmp(type, "cache_unsafe_memqcache_table_list") == 0)
 	{
-		currItem.type = BLACKLIST;
+		currItem.type = WRITELIST;
 	}
-	else if (strcmp(type, "white_function_list") == 0 ||
-	         strcmp(type, "white_memqcache_table_list") == 0)
+	else if (strcmp(type, "read_only_function_list") == 0 ||
+	         strcmp(type, "cache_safe_memqcache_table_list") == 0)
 	{
-		currItem.type = WHITELIST;
+		currItem.type = READONLYLIST;
 	}
 	else
 	{
@@ -179,23 +182,23 @@ int add_regex_pattern(const char *type, char *s)
 		ereport(WARNING,
 			(errmsg("unable to add regex pattern for \"%s\", invalid pattern: \"%s\"", type,currItem.pattern)));
 	}
-    else if ((strcmp(type, "white_function_list") == 0 ||
-	          strcmp(type, "black_function_list") == 0) &&
+    else if ((strcmp(type, "read_only_function_list") == 0 ||
+	          strcmp(type, "write_function_list") == 0) &&
              growFunctionPatternArray(currItem) < 0)
     {
 		ereport(WARNING,
 			(errmsg("unable to add regex pattern for \"%s\", unable to allocate new pattern", type)));
         return 0;
     }
-    else if ((strcmp(type, "white_memqcache_table_list") == 0 ||
-	          strcmp(type, "black_memqcache_table_list") == 0) &&
+    else if ((strcmp(type, "cache_safe_memqcache_table_list") == 0 ||
+	          strcmp(type, "cache_unsafe_memqcache_table_list") == 0) &&
              growMemqcacheTablePatternArray(currItem) < 0)
     {
 		ereport(WARNING,
 			(errmsg("unable to add regex pattern for \"%s\", unable to allocate new pattern", type)));
         return 0;
     }
-	else if (strcmp(type, "black_query_pattern_list") == 0 &&
+	else if (strcmp(type, "primary_routing_query_pattern_list") == 0 &&
 			growQueryPatternArray(currItem) < 0)
 	{
 		ereport(WARNING,
@@ -331,8 +334,14 @@ ParseConfigFile(const char *config_file, int elevel,
 	char *key;
 	char *val;
 	ConfigVariable *item;
-	
+	char buf[POOLMAXPATHLEN + 1];
+
 	*head_p = NULL;
+
+	/* get directory path of config file pgpool.conf */
+	strlcpy(buf, config_file, sizeof(buf));
+	get_parent_directory(buf);
+	config_file_dir = buf;
 
 	/* open config file */
 	fd = fopen(config_file, "r");
@@ -570,12 +579,12 @@ char *pool_flag_to_str(unsigned short flag)
 	else if (POOL_DISALLOW_TO_FAILOVER(flag))
 		snprintf(buf, sizeof(buf), "DISALLOW_TO_FAILOVER");
 
-	if (POOL_ALWAYS_MASTER & flag)
+	if (POOL_ALWAYS_PRIMARY & flag)
 	{
 		if (*buf == '\0')
-			snprintf(buf, sizeof(buf), "ALWAYS_MASTER");
+			snprintf(buf, sizeof(buf), "ALWAYS_PRIMARY");
 		else
-			snprintf(buf+strlen(buf), sizeof(buf), "|ALWAYS_MASTER");
+			snprintf(buf+strlen(buf), sizeof(buf), "|ALWAYS_PRIMARY");
 	}
 
 	return buf;

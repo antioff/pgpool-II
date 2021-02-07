@@ -8,6 +8,8 @@ pgpool_SOURCES = main/main.c \
 	main/pool_globals.c \
 	main/pgpool_main.c \
 	main/health_check.c \
+	main/pool_internal_comms.c \
+	main/pgpool_logger.c \
 	config/pool_config.l \
 	config/pool_config_variables.c \
 	pcp_con/pcp_child.c \
@@ -20,6 +22,7 @@ pgpool_SOURCES = main/main.c \
 	auth/auth-scram.c \
 	protocol/pool_proto2.c \
 	protocol/child.c \
+	protocol/pool_pg_utils.c \
 	protocol/pool_process_query.c \
 	protocol/pool_connection_pool.c \
 	protocol/pool_proto_modules.c \
@@ -45,6 +48,7 @@ pgpool_SOURCES = main/main.c \
 	utils/pool_process_reporting.c \
 	utils/pool_ssl.c \
 	utils/pool_stream.c \
+	utils/socket_stream.c \
 	utils/getopt_long.c \
 	utils/mmgr/mcxt.c \
 	utils/mmgr/aset.c \
@@ -58,7 +62,8 @@ pgpool_SOURCES = main/main.c \
 	utils/base64.c \
 	utils/sha2.c \
 	utils/ssl_utils.c \
-    utils/statistics.c
+	utils/statistics.c \
+	utils/pool_health_check_stats.c
 
 DEFS = @DEFS@ \
 	-DDEFAULT_CONFIGDIR=\"$(sysconfdir)\" \
@@ -68,14 +73,17 @@ sysconf_DATA = sample/pgpool.conf.sample \
 			   sample/pcp.conf.sample \
 			   sample/pool_hba.conf.sample \
 			   sample/pgpool.conf.sample-replication \
-			   sample/pgpool.conf.sample-master-slave \
+			   sample/pgpool.conf.sample-slony \
 			   sample/pgpool.conf.sample-stream \
 			   sample/pgpool.conf.sample-logical \
+			   sample/pgpool.conf.sample-raw \
+			   sample/pgpool.conf.sample-snapshot \
 			   sample/scripts/failover.sh.sample \
-			   sample/scripts/follow_master.sh.sample \
+			   sample/scripts/follow_primary.sh.sample \
 			   sample/scripts/pgpool_remote_start.sample \
 			   sample/scripts/recovery_1st_stage.sample \
-			   sample/scripts/recovery_2nd_stage.sample
+			   sample/scripts/recovery_2nd_stage.sample \
+			   sample/scripts/escalation.sh.sample
 
 
 pkgdata_DATA = sql/insert_lock.sql \
@@ -98,12 +106,14 @@ AM_YFLAGS = -d
 
 EXTRA_DIST = sample/pgpool.pam \
 		sample/scripts/failover.sh.sample \
-		sample/scripts/follow_master.sh.sample \
+		sample/scripts/follow_primary.sh.sample \
 		sample/scripts/pgpool_remote_start.sample \
 		sample/scripts/recovery_1st_stage.sample \
 		sample/scripts/recovery_2nd_stage.sample \
+		sample/scripts/escalation.sh.sample \
 		sample/pgpool.conf.sample sample/pool_hba.conf.sample \
-		sample/pgpool.conf.sample-replication sample/pgpool.conf.sample-master-slave \
+		sample/pgpool.conf.sample-replication sample/pgpool.conf.sample-slony \
+		sample/pgpool.conf.sample-raw sample/pgpool.conf.sample-snapshot \
 		sample/pgpool.conf.sample-stream sample/pgpool.conf.sample-logical sample/pcp.conf.sample \
 		sql/Makefile \
 		sql/insert_lock.sql \
@@ -131,6 +141,8 @@ EXTRA_DIST = sample/pgpool.pam \
 		sql/pgpool_adm/pgpool_adm--1.0.sql \
 		sql/pgpool_adm/pgpool_adm--1.2.sql \
 		sql/pgpool_adm/pgpool_adm--1.1--1.2.sql \
+		sql/pgpool_adm/pgpool_adm--1.3.sql \
+		sql/pgpool_adm/pgpool_adm--1.2--1.3.sql \
 		sql/pgpool_adm/Makefile \
 		test/parser/expected/copy.out test/parser/expected/create.out \
 		test/parser/expected/cursor.out test/parser/expected/delete.out \

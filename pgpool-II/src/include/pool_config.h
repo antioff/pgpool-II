@@ -43,11 +43,11 @@
 
 #include "utils/regex_array.h"
 /*
- *  Regex support in white and black list function
+ *  Regex support in write and readonly list function
  */
 #include <regex.h>
-#define BLACKLIST	0
-#define WHITELIST	1
+#define WRITELIST	0
+#define READONLYLIST	1
 #define PATTERN_ARR_SIZE 16		/* Default length of regex array: 16 patterns */
 typedef struct
 {
@@ -57,12 +57,22 @@ typedef struct
 	regex_t		regexv;
 }			RegPattern;
 
-typedef enum MasterSlaveSubModes
+typedef enum NativeReplicationSubModes
 {
 	SLONY_MODE = 1,
 	STREAM_MODE,
 	LOGICAL_MODE
-}			MasterSlaveSubModes;
+}			NativeReplicationSubModes;
+
+typedef enum ClusteringModes
+{
+	CM_STREAMING_REPLICATION = 1,
+	CM_NATIVE_REPLICATION,
+	CM_LOGICAL_REPLICATION,
+	CM_SLONY,
+	CM_RAW,
+	CM_SNAPSHOT_ISOLATION
+}			ClusteringModes;
 
 typedef enum LogStandbyDelayModes
 {
@@ -90,12 +100,13 @@ typedef enum DLBOW_OPTION
 	DLBOW_OFF = 1,
 	DLBOW_TRANSACTION,
 	DLBOW_TRANS_TRANSACTION,
-	DLBOW_ALWAYS
+	DLBOW_ALWAYS,
+	DLBOW_DML_ADAPTIVE
 }			DLBOW_OPTION;
 
 typedef enum RELQTARGET_OPTION
 {
-	RELQTARGET_MASTER = 1,
+	RELQTARGET_PRIMARY = 1,
 	RELQTARGET_LOAD_BALANCE_NODE
 }			RELQTARGET_OPTION;
 
@@ -112,25 +123,25 @@ typedef enum CHECK_TEMP_TABLE_OPTION
  * Flags for backendN_flag
  */
 #define POOL_FAILOVER	(1 << 0)	/* allow or disallow failover */
-#define POOL_ALWAYS_MASTER	(1 << 1)	/* this backend is always master */
+#define POOL_ALWAYS_PRIMARY	(1 << 1)	/* this backend is always primary */
 #define POOL_DISALLOW_TO_FAILOVER(x) ((unsigned short)(x) & POOL_FAILOVER)
 #define POOL_ALLOW_TO_FAILOVER(x) (!(POOL_DISALLOW_TO_FAILOVER(x)))
 
 /*
  * watchdog list
  */
-typedef struct WdRemoteNodeInfo
+typedef struct WdNodeInfo
 {
 	char		hostname[WD_MAX_HOST_NAMELEN];	/* host name */
 	int			pgpool_port;	/* pgpool port */
 	int			wd_port;		/* watchdog port */
-}			WdRemoteNodeInfo;
+}			WdNodeInfo;
 
-typedef struct WdRemoteNodesConfig
+typedef struct WdNodesConfig
 {
 	int			num_wd;			/* number of watchdogs */
-	WdRemoteNodeInfo wd_remote_node_info[MAX_WATCHDOG_NUM];
-}			WdRemoteNodesConfig;
+	WdNodeInfo wd_node_info[MAX_WATCHDOG_NUM];
+}			WdNodesConfig;
 
 
 typedef struct
@@ -140,8 +151,8 @@ typedef struct
 	int			dest_port;
 }			WdHbIf;
 
-#define WD_INFO(wd_id) (pool_config->wd_remote_nodes.wd_remote_node_info[(wd_id)])
-#define WD_HB_IF(if_id) (pool_config->hb_if[(if_id)])
+#define WD_INFO(wd_id) (pool_config->wd_nodes.wd_node_info[(wd_id)])
+#define WD_HB_IF(if_id) (pool_config->hb_dest_if[(if_id)])
 
 /*
  * Per node health check parameters
@@ -162,10 +173,36 @@ typedef struct
 }			HealthCheckParams;
 
 /*
+ * For dml adaptive object relations
+ * Currently we only require functions
+ * and relations
+ *
+ */
+typedef enum
+{
+	OBJECT_TYPE_FUNCTION,
+	OBJECT_TYPE_RELATION,
+	OBJECT_TYPE_UNKNOWN
+}		DBObjectTypes;
+
+typedef struct
+{
+	char	*name;
+	DBObjectTypes object_type;
+}		DBObject;
+
+typedef struct
+{
+	DBObject	left_token;
+	DBObject	right_token;
+}		DBObjectRelation;
+
+/*
  * configuration parameters
  */
 typedef struct
 {
+	ClusteringModes	backend_clustering_mode;	/* Backend clustering mode */
 	char	   *listen_addresses;	/* hostnames/IP addresses to listen on */
 	int			port;			/* port # to bind */
 	char	   *pcp_listen_addresses;	/* PCP listen address to listen on */
@@ -206,6 +243,7 @@ typedef struct
 	char	   *pid_file_name;	/* pid file name */
 	bool		replication_mode;	/* replication mode */
 	bool		log_connections;	/* logs incoming connections */
+	bool		log_disconnections;	/* logs closing connections */
 	bool		log_hostname;	/* resolve hostname */
 	bool		enable_pool_hba;	/* enables pool_hba.conf file
 									 * authentication */
@@ -214,7 +252,7 @@ typedef struct
 	bool		load_balance_mode;	/* load balance mode */
 
 	bool		replication_stop_on_mismatch;	/* if there's a data mismatch
-												 * between master and
+												 * between primary and
 												 * secondary start
 												 * degeneration to stop
 												 * replication mode */
@@ -237,10 +275,10 @@ typedef struct
 									 * balancing is disabled. */
 	char	  **reset_query_list;	/* comma separated list of queries to be
 									 * issued at the end of session */
-	char	  **white_function_list;	/* list of functions with no side
+	char	  **read_only_function_list;	/* list of functions with no side
 										 * effects */
-	char	  **black_function_list;	/* list of functions with side effects */
-	char	  **black_query_pattern_list;	/* list of query patterns that
+	char	  **write_function_list;	/* list of functions with side effects */
+	char	  **primary_routing_query_pattern_list;	/* list of query patterns that
 											 * should be sent to primary node */
 	char	   *log_line_prefix;	/* printf-style string to output at
 									 * beginning of each log line */
@@ -250,8 +288,15 @@ typedef struct
 										 * sent to client */
 	int			log_min_messages;	/* controls which message should be
 									 * emitted to server log */
-	bool		master_slave_mode;	/* operate in master/slave mode */
-	MasterSlaveSubModes master_slave_sub_mode;	/* either "slony" or "stream" */
+	/* log collector settings */
+	bool		logging_collector;
+	int			log_rotation_age;
+	int			log_rotation_size;
+	char		*log_directory;
+	char		*log_filename;
+	bool		log_truncate_on_rotation;
+	int			log_file_mode;
+
 	int64		delay_threshold;	/* If the standby server delays more than
 									 * delay_threshold, any query goes to the
 									 * primary only. The unit is in bytes. 0
@@ -281,7 +326,7 @@ typedef struct
 	char	   *sr_check_database;	/* PostgreSQL database name for streaming
 									 * replication check */
 	char	   *failover_command;	/* execute command when failover happens */
-	char	   *follow_master_command;	/* execute command when failover is
+	char	   *follow_primary_command;	/* execute command when failover is
 										 * ended */
 	char	   *failback_command;	/* execute command when failback happens */
 
@@ -331,19 +376,18 @@ typedef struct
 
 	/* followings till syslog, does not exist in the configuration file */
 	int			num_reset_queries;	/* number of queries in reset_query_list */
-	int			num_white_function_list;	/* number of functions in
-											 * white_function_list */
-	int			num_black_function_list;	/* number of functions in
-											 * black_function_list */
-	int			num_white_memqcache_table_list; /* number of functions in
-												 * white_memqcache_table_list */
-	int			num_black_memqcache_table_list; /* number of functions in
-												 * black_memqcache_table_list */
-	int			num_black_query_pattern_list;	/* number of query patterns in
-												 * black_query_pattern_list */
+	int			num_read_only_function_list;	/* number of functions in
+											 * read_only_function_list */
+	int			num_write_function_list;	/* number of functions in
+											 * write_function_list */
+	int			num_cache_safe_memqcache_table_list; /* number of functions in
+												 * cache_safe_memqcache_table_list */
+	int			num_cache_unsafe_memqcache_table_list; /* number of functions in
+												 * cache_unsafe_memqcache_table_list */
+	int			num_primary_routing_query_pattern_list;	/* number of query patterns in
+												 * primary_routing_query_pattern_list */
 	int			num_wd_monitoring_interfaces_list;	/* number of items in
 													 * wd_monitoring_interfaces_list */
-
 	/* ssl configuration */
 	bool		ssl;			/* if non 0, activate ssl support
 								 * (frontend+backend) */
@@ -352,10 +396,12 @@ typedef struct
 	char	   *ssl_ca_cert;	/* path to root (CA) certificate */
 	char	   *ssl_ca_cert_dir;	/* path to directory containing CA
 									 * certificates */
+	char	   *ssl_crl_file;	/* path to the SSL certificate revocation list file */
 	char	   *ssl_ciphers;	/* allowed ssl ciphers */
 	bool		ssl_prefer_server_ciphers; /*Use SSL cipher preferences, rather than the client's*/
 	char	   *ssl_ecdh_curve; /* the curve to use in ECDH key exchange */
 	char	   *ssl_dh_params_file; /* path to the Diffie-Hellman parameters contained file */
+	char	   *ssl_passphrase_command; /* path to the Diffie-Hellman parameters contained file */
 	int64		relcache_expire;	/* relation cache life time in seconds */
 	int			relcache_size;	/* number of relation cache life entry */
 	CHECK_TEMP_TABLE_OPTION		check_temp_table;	/* how to check temporary table */
@@ -367,13 +413,13 @@ typedef struct
 	 * followings are for regex support and do not exist in the configuration
 	 * file
 	 */
-	RegPattern *lists_patterns; /* Precompiled regex patterns for black/white
+	RegPattern *lists_patterns; /* Precompiled regex patterns for write/readonly
 								 * lists */
 	int			pattc;			/* number of regexp pattern */
 	int			current_pattern_size;	/* size of the regex pattern array */
 
 	RegPattern *lists_query_patterns;	/* Precompiled regex patterns for
-										 * black query pattern lists */
+										 * primary routing query pattern lists */
 	int			query_pattc;	/* number of regexp pattern */
 	int			current_query_pattern_size; /* size of the regex pattern array */
 
@@ -406,11 +452,11 @@ typedef struct
 											 * by default */
 	char	   *memqcache_oiddir;	/* Temporary work directory to record
 									 * table oids */
-	char	  **white_memqcache_table_list; /* list of tables to memqcache */
-	char	  **black_memqcache_table_list; /* list of tables not to memqcache */
+	char	  **cache_safe_memqcache_table_list; /* list of tables to memqcache */
+	char	  **cache_unsafe_memqcache_table_list; /* list of tables not to memqcache */
 
 	RegPattern *lists_memqcache_table_patterns; /* Precompiled regex patterns
-												 * for black/white lists */
+												 * for cache safe/unsafe lists */
 	int			memqcache_table_pattc;	/* number of regexp pattern */
 	int			current_memqcache_table_pattern_size;	/* size of the regex
 														 * pattern array */
@@ -464,6 +510,9 @@ typedef struct
 												 * will not be load balanced
 												 * until the session ends. */
 
+	char	   *dml_adaptive_object_relationship_list;	/* objects relationship list*/
+	DBObjectRelation *parsed_dml_adaptive_object_relationship_list;
+
 	bool		statement_level_load_balance; /* if on, select load balancing node per statement */
 
 	/*
@@ -492,12 +541,11 @@ typedef struct
 	char	   *wd_escalation_command;	/* Executes this command at escalation
 										 * on new active pgpool. */
 	char	   *wd_de_escalation_command;	/* Executes this command when
-											 * master pgpool goes down. */
-	char	   *wd_hostname;	/* watchdog hostname */
-	int			wd_port;		/* watchdog port */
+											 * leader pgpool goes down. */
 	int			wd_priority;	/* watchdog node priority, during leader
 								 * election */
-	WdRemoteNodesConfig wd_remote_nodes;	/* watchdog lists */
+	int			pgpool_node_id;	/* pgpool (watchdog) node id */
+	WdNodesConfig wd_nodes;		/* watchdog lists */
 	char	   *trusted_servers;	/* icmp reachable server list (A,B,C) */
 	char	   *delegate_IP;	/* delegate IP address */
 	int			wd_interval;	/* lifecheck interval (sec) */
@@ -520,14 +568,16 @@ typedef struct
 										 * signal (sec) */
 	int			wd_heartbeat_deadtime;	/* Deadtime interval for heartbeat
 										 * signal (sec) */
-	WdHbIf		hb_if[WD_MAX_IF_NUM];	/* interface devices */
-	int			num_hb_if;		/* number of interface devices */
+	WdHbIf		hb_ifs[WD_MAX_IF_NUM];		/* heartbeat interfaces of all watchdog nodes */
+	WdHbIf		hb_dest_if[WD_MAX_IF_NUM];	/* heartbeat destination interfaces */
+	int			num_hb_dest_if;				/* number of interface devices */
 	char	  **wd_monitoring_interfaces_list;	/* network interface name list
 												 * to be monitored by watchdog */
 
 }			POOL_CONFIG;
 
 extern POOL_CONFIG * pool_config;
+extern char *config_file_dir; /* directory path of config file pgpool.conf */
 
 typedef enum
 {

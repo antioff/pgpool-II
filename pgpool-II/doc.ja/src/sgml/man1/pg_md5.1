@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: Pgpool-II 4.1.5 文書
-.\"    Source: Pgpool-II 4.1.5
+.\"    Manual: Pgpool-II 4.2.0 文書
+.\"    Source: Pgpool-II 4.2.0
 .\"  Language: Japanese
 .\"
-.TH "PG_MD5" "1" "2020" "Pgpool-II 4.1.5" "Pgpool-II 4.1.5 文書"
+.TH "PG_MD5" "1" "2020" "Pgpool-II 4.2.0" "Pgpool-II 4.2.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -77,6 +77,13 @@ your_username
 設定ファイル
 pgpool\&.confへのパスを指定します。
 .RE
+.PP
+\fB\-i \fR\fB\fIINPUT_FILE\fR\fR
+.br
+\fB\-\-input\-file=\fR\fB\fIINPUT_FILE\fR\fR
+.RS 4
+ユーザ名とパスワードのペアを含むファイルを指定します。
+.RE
 .SH "例"
 .PP
 以下は
@@ -125,6 +132,28 @@ md5
 
      $ cat /path/to/pool_passwd 
      username:md55a231fcdb710d73268c4f44283487ba2
+    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+パスワードの入力が促されたりコマンド引数の中でパスワードを指定するのを避けたい場合はpg_md5は名前:パスワードのペアをファイルから読むことができます。 すべてのユーザ名と暗号化されたパスワードがpool_passwd認証ファイルに追加されます。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+     $ cat users\&.txt
+     username1:secretpassword1
+     username2:secretpassword1
+
+     $ pg_md5 \-m \-f /path/to/pgpool\&.conf \-i users\&.txt
+     trying to read username:password pairs from file users\&.txt
+
+     $ cat /path/to/pool_passwd
+     username1:md533314126ba0b187df1e37f5ce6a489a8
+     username2:md58ae92c6e1d6a48d80e2583fe715e2b36
     
 .fi
 .if n \{\

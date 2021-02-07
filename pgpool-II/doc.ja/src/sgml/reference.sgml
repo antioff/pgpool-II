@@ -145,6 +145,7 @@
   &pcpCommonOptions;
   &pcpNodeCount;
   &pcpNodeInfo;
+  &pcpHealthCheckStats;
   &pcpWatchdogInfo;
   &pcpProcCount;
   &pcpProcInfo;
@@ -153,6 +154,7 @@
   &pcpAttachNode;
   &pcpPromoteNode;
   &pcpStopPgpool;
+  &pcpReloadConfig;
   &pcpRecoveryNode;
 
  </reference>
@@ -178,6 +180,7 @@
   &pgproto;
   &pgpoolSetup;
   &watchdoglSetup;
+  &wdCli;
 
  </reference>
 
@@ -219,7 +222,8 @@
   &showPoolPools
   &showPoolVersion
   &showPoolCache
-
+  &showPoolHealthCheckStats
+  &showPoolBackendStats
  </reference>
  <reference id="pgpool-adm">
   <!--
@@ -343,6 +347,7 @@
   </partintro>
 
   &pgpoolAdmPcpNodeInfo
+  &pgpoolAdmPcpHealthCheckStats
   &pgpoolAdmPcpPoolStatus
   &pgpoolAdmPcpNodeCount
   &pgpoolAdmPcpAttachNode

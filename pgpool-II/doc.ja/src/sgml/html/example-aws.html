@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="設定の例"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="EXAMPLE-AWS"
->8.4. AWS設定の例</A
+>8.3. AWS設定の例</A
 ></H1
 ><P
 >  
@@ -129,7 +129,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-SETUP"
->8.4.1. AWSのセットアップ</A
+>8.3.1. AWSのセットアップ</A
 ></H2
 ><P
 >   
@@ -180,15 +180,14 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-CONFIG"
->8.4.2. <SPAN
+>8.3.2. <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >の設定</A
 ></H2
 ><P
->   
-   この例の設定は<A
-HREF="example-watchdog.html"
+>   この例の設定は<A
+HREF="example-cluster.html"
 >項8.2</A
 >とほとんど同じになりますが、<A
 HREF="runtime-watchdog-config.html#GUC-DELEGATE-IP"
@@ -199,65 +198,19 @@ HREF="runtime-watchdog-config.html#GUC-WD-ESCALATION-COMMAND"
 >と<A
 HREF="runtime-watchdog-config.html#GUC-WD-DE-ESCALATION-COMMAND"
 >wd_de_escalation_command</A
->を使ってmaster/Active <SPAN
+>を使ってleader/Active <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >ノードのElastic IPアドレスを切り替えるのが異なります。
   </P
-><DIV
-CLASS="SECT3"
-><H3
-CLASS="SECT3"
-><A
-NAME="EXAMPLE-AWS-PGPOOL-CONFIG-INSTANCE-1"
->8.4.2.1. Instance-1における<SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->の設定</A
-></H3
-><P
->&#13;    </P><PRE
+><PRE
 CLASS="PROGRAMLISTING"
->     use_watchdog = on
-     delegate_IP = ''
-     wd_hostname = 'instance-1-private-ip'
-     other_pgpool_hostname0 = 'instance-2-private-ip'
-     other_pgpool_port0 = 9999
-     other_wd_port0 = 9000
-     wd_escalation_command = '$path_to_script/aws-escalation.sh'
-     wd_de_escalation_command = '$path_to_script/aws-de-escalation.sh'
-    </PRE
-><P>
-
-   </P
-></DIV
-><DIV
-CLASS="SECT3"
-><H3
-CLASS="SECT3"
-><A
-NAME="EXAMPLE-AWS-PGPOOL-CONFIG-INSTANCE-2"
->8.4.2.2. Instance-2における<SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->の設定</A
-></H3
-><P
->&#13;    </P><PRE
-CLASS="PROGRAMLISTING"
->     use_watchdog = on
-     delegate_IP = ''
-     wd_hostname = 'instance-2-private-ip'
-     other_pgpool_hostname0 = 'instance-1-private-ip'
-     other_pgpool_port0 = 9999
-     other_wd_port0 = 9000
-     wd_escalation_command = '$path_to_script/aws-escalation.sh'
-     wd_de_escalation_command = '$path_to_script/aws-de-escalation.sh'
-    </PRE
-><P>
-
-   </P
-></DIV
+>use_watchdog = on
+delegate_IP = ''
+...
+wd_escalation_command = '$path_to_script/aws-escalation.sh'
+wd_de_escalation_command = '$path_to_script/aws-de-escalation.sh'
+  </PRE
 ></DIV
 ><DIV
 CLASS="SECT2"
@@ -265,7 +218,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-AWS-ESCALATION-INSTANCE"
->8.4.3. エスカレーションおよびディエスカレーション用のスクリプト</A
+>8.3.3. エスカレーションおよびディエスカレーション用のスクリプト</A
 ></H2
 ><P
 >   
@@ -300,11 +253,11 @@ CLASS="SECT3"
 CLASS="SECT3"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-AWS-ESCALATION-SCRIPT"
->8.4.3.1. エスカレーションスクリプト</A
+>8.3.3.1. エスカレーションスクリプト</A
 ></H3
 ><P
 >    
-    このスクリプトは、watchdogがactive/masterノードになったときに、Elastic IPをアサインするためにwatchdogが実行します。
+    このスクリプトは、watchdogがactive/leaderノードになったときに、Elastic IPをアサインするためにwatchdogが実行します。
    </P
 ><P
 >    <SPAN
@@ -341,11 +294,11 @@ CLASS="SECT3"
 CLASS="SECT3"
 ><A
 NAME="EXAMPLE-AWS-PGPOOL-AWS-DE-ESCALATION-SCRIPT"
->8.4.3.2. ディエスカレーションスクリプト</A
+>8.3.3.2. ディエスカレーションスクリプト</A
 ></H3
 ><P
 >    
-    このスクリプトは、watchdogがactive/masterノードを退任するときに、Elastic IPのアサインを解除するためにwatchdogが実行します。
+    このスクリプトは、watchdogがactive/leaderノードを退任するときに、Elastic IPのアサインを解除するためにwatchdogが実行します。
    </P
 ><P
 >    <SPAN
@@ -373,13 +326,13 @@ CLASS="PROGRAMLISTING"
 ></DIV
 ><H3
 ><A
-NAME="AEN6783"
+NAME="AEN7227"
 >AWSコマンドリファレンス</A
 ></H3
 ><DIV
 CLASS="BIBLIOENTRY"
 ><A
-NAME="AEN6785"
+NAME="AEN7229"
 ></A
 ><P
 >"<A
@@ -397,7 +350,7 @@ STYLE="margin-left: 0.5in"
 ><DIV
 CLASS="BIBLIOENTRY"
 ><A
-NAME="AEN6791"
+NAME="AEN7235"
 ></A
 ><P
 >"<A
@@ -415,7 +368,7 @@ STYLE="margin-left: 0.5in"
 ><DIV
 CLASS="BIBLIOENTRY"
 ><A
-NAME="AEN6797"
+NAME="AEN7241"
 ></A
 ><P
 >"<A
@@ -437,7 +390,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-TRY"
->8.4.4. 実行してみる</A
+>8.3.4. 実行してみる</A
 ></H2
 ><P
 >   
@@ -445,7 +398,7 @@ NAME="EXAMPLE-AWS-TRY"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >を"-n"スイッチ付きで起動し、pgpool.logにログメッセージをリダイレクトします。
-   master/active <SPAN
+   leader/active <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >ノードは、Elastic IPのアサインメッセージを表示します。
@@ -499,7 +452,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="EXAMPLE-AWS-VIP-SWITCH"
->8.4.5. Elastic IPの切換</A
+>8.3.5. Elastic IPの切換</A
 ></H2
 ><P
 >   
@@ -524,8 +477,8 @@ CLASS="EMPHASIS"
     LOG:  watchdog node state changed from [JOINING] to [INITIALIZING]
     LOG:  I am the only alive node in the watchdog cluster
     HINT:  skipping stand for coordinator state
-    LOG:  watchdog node state changed from [INITIALIZING] to [MASTER]
-    LOG:  I am announcing my self as master/coordinator watchdog node
+    LOG:  watchdog node state changed from [INITIALIZING] to [LEADER]
+    LOG:  I am announcing my self as leader/coordinator watchdog node
     LOG:  I am the cluster leader node
     DETAIL:  our declare coordinator message is accepted by all nodes
     LOG:  I am the cluster leader node. Starting escalation process

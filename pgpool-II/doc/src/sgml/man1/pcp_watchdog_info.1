@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.1.5 Documentation
-.\"    Source: pgpool-II 4.1.5
+.\"    Manual: pgpool-II 4.2.0 Documentation
+.\"    Source: pgpool-II 4.2.0
 .\"  Language: English
 .\"
-.TH "PCP_WATCHDOG_INFO" "1" "2020" "pgpool-II 4.1.5" "pgpool-II 4.1.5 Documentation"
+.TH "PCP_WATCHDOG_INFO" "1" "2020" "pgpool-II 4.2.0" "pgpool-II 4.2.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -68,7 +68,7 @@ Here is an example output:
     3 NO Linux_host1\&.localdomain_9991 host1
 
     Linux_host1\&.localdomain_9991 host1 9991 9001 7 STANDBY
-    Linux_host2\&.localdomain_9992 host2 9992 9002 4 MASTER
+    Linux_host2\&.localdomain_9992 host2 9992 9002 4 LEADER
     Linux_host3\&.localdomain_9993 host3 9993 9003 7 STANDBY
    
 .fi
@@ -86,8 +86,8 @@ The result is in the following order:
 
     1\&. Total watchdog nodes in the cluster
     2\&. Is VIP is up on current node?
-    3\&. Master node name
-    4\&. Master node host
+    3\&. Leader node name
+    4\&. Leader node host
    
 .fi
 .if n \{\
@@ -128,8 +128,8 @@ option can help understand the output\&. For example:
    Quorum state         : QUORUM EXIST
    Alive Remote Nodes   : 2
    VIP up on local node : NO
-   Master Node Name     : Linux_host2\&.localdomain_9992
-   Master Host Name     : localhost
+   Leader Node Name     : Linux_host2\&.localdomain_9992
+   Leader Host Name     : localhost
 
    Watchdog Node Information
    Node Name      : Linux_host1\&.localdomain_9991
@@ -148,7 +148,7 @@ option can help understand the output\&. For example:
    Watchdog port  : 9002
    Node priority  : 1
    Status         : 4
-   Status Name    : MASTER
+   Status Name    : LEADER
 
    Node Name      : Linux_host3\&.localdomain_9993
    Host Name      : host3

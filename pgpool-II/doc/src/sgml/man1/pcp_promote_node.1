@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.1.5 Documentation
-.\"    Source: pgpool-II 4.1.5
+.\"    Manual: pgpool-II 4.2.0 Documentation
+.\"    Source: pgpool-II 4.2.0
 .\"  Language: English
 .\"
-.TH "PCP_PROMOTE_NODE" "1" "2020" "pgpool-II 4.1.5" "pgpool-II 4.1.5 Documentation"
+.TH "PCP_PROMOTE_NODE" "1" "2020" "pgpool-II 4.2.0" "pgpool-II 4.2.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,20 +28,20 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-pcp_promote_node \- promotes the given node as new master to Pgpool\-II
+pcp_promote_node \- promotes the given node as new main to Pgpool\-II
 .SH "SYNOPSIS"
 .HP \w'\fBpcp_promote_node\fR\ 'u
 \fBpcp_promote_node\fR [\fIoptions\fR...] [\fInode_id\fR] [\fIgracefully\fR]
 .SH "DESCRIPTION"
 .PP
 \fBpcp_promote_node\fR
-promotes the given node as new master to Pgpool\-II\&. In master/slave streaming replication only\&. Please note that this command does not actually promote standby PostgreSQL backend: it just changes the internal status of Pgpool\-II and trigger failover and users have to promote standby PostgreSQL outside Pgpool\-II\&.
+promotes the given node as new primary to Pgpool\-II\&. In streaming replication mode only\&. Please note that this command does not actually promote standby PostgreSQL backend: it just changes the internal status of Pgpool\-II and trigger failover and users have to promote standby PostgreSQL outside Pgpool\-II\&.
 .PP
 \fBpcp_promote_node\fR
 executes followings\&. Please be warned that if
-follow_master_command
+follow_primary_command
 is set, the command will be executed\&. It is a standard advice that you disable
-follow_master_command
+follow_primary_command
 before executing this command\&.
 .sp
 .RS 4
@@ -83,9 +83,9 @@ standby server down\&.
 .IP "  3." 4.2
 .\}
 If
-follow_master_command
+follow_primary_command
 is set, execute
-follow_master_command
+follow_primary_command
 against
 PostgreSQL\&.
 .RE
@@ -97,7 +97,7 @@ PostgreSQL\&.
 .br
 \fB\-\-node\-id=\fR\fB\fInode_id\fR\fR
 .RS 4
-The index of backend node to promote as new master\&.
+The index of backend node to promote as new main\&.
 .RE
 .PP
 \fB\-g \fR

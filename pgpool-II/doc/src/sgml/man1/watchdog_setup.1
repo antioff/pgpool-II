@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.1.5 Documentation
-.\"    Source: pgpool-II 4.1.5
+.\"    Manual: pgpool-II 4.2.0 Documentation
+.\"    Source: pgpool-II 4.2.0
 .\"  Language: English
 .\"
-.TH "WATCHDOG_SETUP" "1" "2020" "pgpool-II 4.1.5" "pgpool-II 4.1.5 Documentation"
+.TH "WATCHDOG_SETUP" "1" "2020" "pgpool-II 4.2.0" "pgpool-II 4.2.0 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -179,7 +179,7 @@ Specifies the arguments for initdb command\&. The default is "\-\-no\-locale \-E
 
     recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
     done\&.
-    creating follow master script
+    creating follow primary script
     Pager usage is off\&.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
@@ -224,7 +224,7 @@ Specifies the arguments for initdb command\&. The default is "\-\-no\-locale \-E
 
     recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
     done\&.
-    creating follow master script
+    creating follow primary script
     Pager usage is off\&.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
@@ -269,7 +269,7 @@ Specifies the arguments for initdb command\&. The default is "\-\-no\-locale \-E
 
     recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
     done\&.
-    creating follow master script
+    creating follow primary script
     Pager usage is off\&.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
@@ -319,8 +319,8 @@ Specifies the arguments for initdb command\&. The default is "\-\-no\-locale \-E
     Quorum state         : QUORUM EXIST
     Alive Remote Nodes   : 2
     VIP up on local node : NO
-    Master Node Name     : Linux_tishii\-CF\-SX3HE4BP_50004
-    Master Host Name     : localhost
+    Leader Node Name     : Linux_tishii\-CF\-SX3HE4BP_50004
+    Leader Host Name     : localhost
 
     Watchdog Node Information
     Node Name      : Linux_tishii\-CF\-SX3HE4BP_50000
@@ -339,7 +339,7 @@ Specifies the arguments for initdb command\&. The default is "\-\-no\-locale \-E
     Watchdog port  : 50006
     Node priority  : 1
     Status         : 4
-    Status Name    : MASTER
+    Status Name    : LEADER
 
     Node Name      : Linux_tishii\-CF\-SX3HE4BP_50008
     Host Name      : localhost

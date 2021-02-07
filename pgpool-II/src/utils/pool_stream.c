@@ -32,16 +32,16 @@
 #include <errno.h>
 #include <unistd.h>
 
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
 
 #include "pool.h"
+#include "pool_config.h"
 #include "utils/elog.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
+#include "utils/socket_stream.h"
 #include "utils/pool_stream.h"
-#include "pool_config.h"
+#include "utils/pool_ssl.h"
+#include "main/pool_internal_comms.h"
 
 static int	mystrlen(char *str, int upper, int *flag);
 static int	mystrlinelen(char *str, int upper, int *flag);
@@ -172,7 +172,7 @@ pool_read(POOL_CONNECTION * cp, void *buf, int len)
 		 */
 		if (pool_get_timeout() >= 0 && pool_check_fd(cp))
 		{
-			if (!IS_MASTER_NODE_ID(cp->db_node_id) && (getpid() != mypid))
+			if (!IS_MAIN_NODE_ID(cp->db_node_id) && (getpid() != mypid))
 			{
 				ereport(FATAL,
 						(errmsg("unable to read data from DB node %d", cp->db_node_id),
@@ -183,7 +183,7 @@ pool_read(POOL_CONNECTION * cp, void *buf, int len)
 			{
 				ereport(ERROR,
 						(errmsg("unable to read data from DB node %d", cp->db_node_id),
-						 errdetail("pool_check_fd call failed with an error \"%s\"", strerror(errno))));
+						 errdetail("pool_check_fd call failed with error \"%m\"")));
 			}
 		}
 
@@ -217,7 +217,7 @@ pool_read(POOL_CONNECTION * cp, void *buf, int len)
 			if (errno == EINTR || errno == EAGAIN)
 			{
 				ereport(DEBUG5,
-						(errmsg("read on socket failed with error :\"%s\"", strerror(errno)),
+						(errmsg("read on socket failed with error :\"%m\""),
 						 errdetail("retrying...")));
 				continue;
 			}
@@ -245,20 +245,20 @@ pool_read(POOL_CONNECTION * cp, void *buf, int len)
 					child_exit(POOL_EXIT_AND_RESTART);
 					ereport(ERROR,
 							(errmsg("unable to read data from DB node %d", cp->db_node_id),
-							 errdetail("socket read failed with an error \"%s\"", strerror(errno))));
+							 errdetail("socket read failed with error \"%m\"")));
 				}
 				else
 				{
 					ereport(ERROR,
 							(errmsg("unable to read data from DB node %d", cp->db_node_id),
-							 errdetail("socket read failed with an error \"%s\"", strerror(errno))));
+							 errdetail("socket read failed with error \"%m\"")));
 				}
 			}
 			else
 			{
 				ereport(FRONTEND_ERROR,
 						(errmsg("unable to read data from frontend"),
-						 errdetail("socket read failed with an error \"%s\"", strerror(errno))));
+						 errdetail("socket read failed with error \"%m\"")));
 			}
 		}
 		else if (readlen == 0)
@@ -340,7 +340,7 @@ pool_read2(POOL_CONNECTION * cp, int len)
 		 */
 		if (pool_get_timeout() >= 0 && pool_check_fd(cp))
 		{
-			if (!IS_MASTER_NODE_ID(cp->db_node_id))
+			if (!IS_MAIN_NODE_ID(cp->db_node_id))
 			{
 				ereport(FATAL,
 						(errmsg("unable to read data from DB node %d", cp->db_node_id),
@@ -351,7 +351,7 @@ pool_read2(POOL_CONNECTION * cp, int len)
 			{
 				ereport(ERROR,
 						(errmsg("unable to read data from DB node %d", cp->db_node_id),
-						 errdetail("pool_check_fd call failed with an error \"%s\"", strerror(errno))));
+						 errdetail("pool_check_fd call failed with error \"%m\"")));
 			}
 		}
 
@@ -373,7 +373,7 @@ pool_read2(POOL_CONNECTION * cp, int len)
 			if (errno == EINTR || errno == EAGAIN)
 			{
 				ereport(DEBUG5,
-						(errmsg("read on socket failed with error :\"%s\"", strerror(errno)),
+						(errmsg("read on socket failed with error :\"%m\""),
 						 errdetail("retrying...")));
 				continue;
 			}
@@ -400,7 +400,7 @@ pool_read2(POOL_CONNECTION * cp, int len)
 					/* we are in main process */
 					ereport(ERROR,
 							(errmsg("unable to read data from DB node %d", cp->db_node_id),
-							 errdetail("socket read failed with an error \"%s\"", strerror(errno))));
+							 errdetail("socket read failed with error \"%m\"")));
 				}
 				else
 				{
@@ -621,11 +621,11 @@ pool_write_flush(POOL_CONNECTION * cp, void *buf, int len)
 			 */
 			if (cp->isbackend)
 				ereport(WARNING,
-						(errmsg("write on backend %d failed with error :\"%s\"", cp->db_node_id, strerror(errno)),
+						(errmsg("write on backend %d failed with error :\"%m\"", cp->db_node_id),
 						 errdetail("while trying to write data from offset: %d wlen: %d", offset, wlen)));
 			else
 				ereport(DEBUG5,
-						(errmsg("write on frontend failed with error :\"%s\"", strerror(errno)),
+						(errmsg("write on frontend failed with error :\"%m\""),
 						 errdetail("while trying to write data from offset: %d wlen: %d", offset, wlen)));
 			return -1;
 		}
@@ -712,11 +712,11 @@ pool_flush_it(POOL_CONNECTION * cp)
 			 */
 			if (cp->isbackend)
 				ereport(WARNING,
-						(errmsg("write on backend %d failed with error :\"%s\"", cp->db_node_id, strerror(errno)),
+						(errmsg("write on backend %d failed with error :\"%m\"", cp->db_node_id),
 						 errdetail("while trying to write data from offset: %d wlen: %d", offset, wlen)));
 			else
 				ereport(DEBUG5,
-						(errmsg("write on frontend failed with error :\"%s\"", strerror(errno)),
+						(errmsg("write on frontend failed with error :\"%m\""),
 						 errdetail("while trying to write data from offset: %d wlen: %d", offset, wlen)));
 			cp->wbufpo = 0;
 			return -1;
@@ -944,7 +944,7 @@ pool_read_string(POOL_CONNECTION * cp, int *len, int line)
 	{
 		if (pool_check_fd(cp))
 		{
-			if (!IS_MASTER_NODE_ID(cp->db_node_id))
+			if (!IS_MAIN_NODE_ID(cp->db_node_id))
 			{
 				ereport(FATAL,
 						(errmsg("unable to read data from DB node %d", cp->db_node_id),
@@ -955,7 +955,7 @@ pool_read_string(POOL_CONNECTION * cp, int *len, int line)
 			{
 				ereport(ERROR,
 						(errmsg("unable to read data from DB node %d", cp->db_node_id),
-						 errdetail("pool_check_fd call failed with an error \"%s\"", strerror(errno))));
+						 errdetail("pool_check_fd call failed with error \"%m\"")));
 			}
 		}
 
@@ -1287,55 +1287,6 @@ pool_stacklen(POOL_CONNECTION * cp)
 	return cp->bufsz3;
 }
 
-/*
- * set non-block flag
- */
-void
-pool_set_nonblock(int fd)
-{
-	int			var;
-
-	/* set fd to none blocking */
-	var = fcntl(fd, F_GETFL, 0);
-	if (var == -1)
-	{
-		ereport(FATAL,
-				(errmsg("unable to set options on socket"),
-				 errdetail("fcntl system call failed with error \"%s\"", strerror(errno))));
-
-	}
-	if (fcntl(fd, F_SETFL, var | O_NONBLOCK) == -1)
-	{
-		ereport(FATAL,
-				(errmsg("unable to set options on socket"),
-				 errdetail("fcntl system call failed with error \"%s\"", strerror(errno))));
-	}
-}
-
-/*
- * unset non-block flag
- */
-void
-pool_unset_nonblock(int fd)
-{
-	int			var;
-
-	/* set fd to none blocking */
-	var = fcntl(fd, F_GETFL, 0);
-	if (var == -1)
-	{
-		ereport(FATAL,
-				(errmsg("unable to set options on socket"),
-				 errdetail("fcntl system call failed with error \"%s\"", strerror(errno))));
-	}
-	if (fcntl(fd, F_SETFL, var & ~O_NONBLOCK) == -1)
-	{
-		ereport(FATAL,
-				(errmsg("unable to set options on socket"),
-				 errdetail("fcntl system call failed with error \"%s\"", strerror(errno))));
-	}
-}
-
 #ifdef DEBUG
 /*
  * Debug aid
@@ -1350,91 +1301,6 @@ dump_buffer(char *buf, int len)
 	}
 }
 #endif
-int
-socket_write(int fd, void *buf, size_t len)
-{
-	int			bytes_send = 0;
-
-	do
-	{
-		int			ret;
-
-		ret = write(fd, buf + bytes_send, (len - bytes_send));
-		if (ret <= 0)
-		{
-			if (errno == EINTR || errno == EAGAIN)
-			{
-				ereport(DEBUG5,
-						(errmsg("write on socket failed with error :\"%s\"", strerror(errno)),
-						 errdetail("retrying...")));
-				continue;
-			}
-			ereport(LOG,
-					(errmsg("write on socket failed with error :\"%s\"", strerror(errno))));
-			return -1;
-		}
-		bytes_send += ret;
-	} while (bytes_send < len);
-	return bytes_send;
-}
-
-int
-socket_read(int fd, void *buf, size_t len, int timeout)
-{
-	int			ret,
-				read_len;
-
-	read_len = 0;
-	struct timeval timeoutval;
-	fd_set		readmask;
-	int			fds;
-
-	while (read_len < len)
-	{
-		FD_ZERO(&readmask);
-		FD_SET(fd, &readmask);
-
-		timeoutval.tv_sec = timeout;
-		timeoutval.tv_usec = 0;
-
-		fds = select(fd + 1, &readmask, NULL, NULL, timeout ? &timeoutval : NULL);
-		if (fds == -1)
-		{
-			if (errno == EAGAIN || errno == EINTR)
-				continue;
-
-			ereport(WARNING,
-					(errmsg("select failed with error: \"%s\"", strerror(errno))));
-			return -1;
-		}
-		else if (fds == 0)
-		{
-			return -2;
-		}
-		ret = read(fd, buf + read_len, (len - read_len));
-		if (ret < 0)
-		{
-			if (errno == EINTR || errno == EAGAIN)
-			{
-				ereport(DEBUG5,
-						(errmsg("read from socket failed with error :\"%s\"", strerror(errno)),
-						 errdetail("retrying...")));
-				continue;
-			}
-			ereport(LOG,
-					(errmsg("read from socket failed with error :\"%s\"", strerror(errno))));
-			return -1;
-		}
-		if (ret == 0)
-		{
-			ereport(LOG,
-					(errmsg("read from socket failed, remote end closed the connection")));
-			return 0;
-		}
-		read_len += ret;
-	}
-	return read_len;
-}
 
 /*
  * Set timeout in seconds for pool_check_fd
@@ -1516,7 +1382,7 @@ pool_check_fd(POOL_CONNECTION * cp)
 				continue;
 
 			ereport(WARNING,
-					(errmsg("waiting for reading data. select failed with error: \"%s\"", strerror(errno))));
+					(errmsg("waiting for reading data. select failed with error: \"%m\"")));
 			break;
 		}
 		else if (fds == 0)		/* timeout */

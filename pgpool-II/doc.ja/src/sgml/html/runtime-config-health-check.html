@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -139,6 +139,17 @@ CLASS="LITERAL"
 ></TABLE
 ></DIV
 >
+ </P
+><P
+>  ヘルスチェックプロセスは、ヘルスチェックの合計実行回数のような様々な統計情報データを収集します。
+  統計情報を調べるには、<A
+HREF="sql-show-pool-health-check-stats.html"
+>SHOW POOL_HEALTH_CHECK_STATS</A
+>コマンドを使用してください。
+  なお、このデータは共有メモリ領域に格納されるので、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の起動時に初期化されることに注意してください。
  </P
 ><P
 >  
@@ -473,7 +484,7 @@ CLASS="TIP"
 ><B
 >ティップ: </B
 >       
-       この設定は動作にむらのあるネットワーク環境において、マスターノードが正常であるにも関わらず、たまにヘルスチェックが失敗することが予想される場合に有用です。
+       この設定は動作にむらのあるネットワーク環境において、ノードが正常であるにも関わらず、たまにヘルスチェックが失敗することが予想される場合に有用です。
       </P
 ></BLOCKQUOTE
 ></DIV

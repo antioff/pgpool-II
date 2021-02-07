@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -39,11 +39,13 @@
 #include "utils/elog.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
+#include "utils/pool_signal.h"
+#include "utils/ps_status.h"
 
 #include "watchdog/wd_utils.h"
 #include "watchdog/wd_lifecheck.h"
 #include "watchdog/wd_ipc_defines.h"
-#include "watchdog/wd_ipc_commands.h"
+#include "watchdog/wd_internal_commands.h"
 #include "watchdog/wd_json_data.h"
 
 #include "libpq-fe.h"
@@ -132,7 +134,7 @@ lifecheck_child_name(pid_t pid)
 {
 	int			i;
 
-	for (i = 0; i < pool_config->num_hb_if; i++)
+	for (i = 0; i < pool_config->num_hb_dest_if; i++)
 	{
 		if (g_hb_receiver_pid && pid == g_hb_receiver_pid[i])
 			return "heartBeat receiver";
@@ -211,13 +213,13 @@ wd_reaper_lifecheck(pid_t pid, int status)
 	if (g_hb_receiver_pid == NULL && g_hb_sender_pid == NULL)
 		return -1;
 
-	for (i = 0; i < pool_config->num_hb_if; i++)
+	for (i = 0; i < pool_config->num_hb_dest_if; i++)
 	{
 		if (g_hb_receiver_pid && pid == g_hb_receiver_pid[i])
 		{
 			if (restart_child)
 			{
-				g_hb_receiver_pid[i] = wd_hb_receiver(1, &(pool_config->hb_if[i]));
+				g_hb_receiver_pid[i] = wd_hb_receiver(1, &(pool_config->hb_dest_if[i]));
 				ereport(LOG,
 						(errmsg("fork a new %s process with pid: %d", proc_name, g_hb_receiver_pid[i])));
 			}
@@ -231,7 +233,7 @@ wd_reaper_lifecheck(pid_t pid, int status)
 		{
 			if (restart_child)
 			{
-				g_hb_sender_pid[i] = wd_hb_sender(1, &(pool_config->hb_if[i]));
+				g_hb_sender_pid[i] = wd_hb_sender(1, &(pool_config->hb_dest_if[i]));
 				ereport(LOG,
 						(errmsg("fork a new %s process with pid: %d", proc_name, g_hb_sender_pid[i])));
 			}
@@ -254,7 +256,7 @@ lifecheck_kill_all_children(int sig)
 	{
 		int			i;
 
-		for (i = 0; i < pool_config->num_hb_if; i++)
+		for (i = 0; i < pool_config->num_hb_dest_if; i++)
 		{
 			pid_t		pid_child = g_hb_receiver_pid[i];
 
@@ -315,7 +317,8 @@ lifecheck_exit_handler(int sig)
 
 		if (wpid == -1 && errno != ECHILD)
 			ereport(WARNING,
-					(errmsg("wait() on lifecheck children failed. reason:%s", strerror(errno))));
+					(errmsg("wait() on lifecheck children failed"),
+					 errdetail("%m")));
 
 		if (g_hb_receiver_pid)
 			pfree(g_hb_receiver_pid);
@@ -354,9 +357,7 @@ fork_lifecheck_child(void)
 	if (pid == 0)
 	{
 		on_exit_reset();
-
-		/* Set the process type variable */
-		processType = PT_LIFECHECK;
+		SetProcessGlobalVaraibles(PT_LIFECHECK);
 
 		/* call lifecheck child main */
 		POOL_SETMASK(&UnBlockSig);
@@ -365,7 +366,8 @@ fork_lifecheck_child(void)
 	else if (pid == -1)
 	{
 		ereport(FATAL,
-				(errmsg("fork() failed. reason: %s", strerror(errno))));
+				(errmsg("fork() failed"),
+				 errdetail("%m")));
 	}
 
 	return pid;
@@ -468,16 +470,16 @@ spawn_lifecheck_children(void)
 	{
 		int			i;
 
-		g_hb_receiver_pid = palloc0(sizeof(pid_t) * pool_config->num_hb_if);
-		g_hb_sender_pid = palloc0(sizeof(pid_t) * pool_config->num_hb_if);
+		g_hb_receiver_pid = palloc0(sizeof(pid_t) * pool_config->num_hb_dest_if);
+		g_hb_sender_pid = palloc0(sizeof(pid_t) * pool_config->num_hb_dest_if);
 
-		for (i = 0; i < pool_config->num_hb_if; i++)
+		for (i = 0; i < pool_config->num_hb_dest_if; i++)
 		{
 			/* heartbeat receiver process */
-			g_hb_receiver_pid[i] = wd_hb_receiver(1, &(pool_config->hb_if[i]));
+			g_hb_receiver_pid[i] = wd_hb_receiver(1, &(pool_config->hb_dest_if[i]));
 
 			/* heartbeat sender process */
-			g_hb_sender_pid[i] = wd_hb_sender(1, &(pool_config->hb_if[i]));
+			g_hb_sender_pid[i] = wd_hb_sender(1, &(pool_config->hb_dest_if[i]));
 		}
 	}
 }
@@ -551,7 +553,7 @@ inform_node_status(LifeCheckNode * node, char *message)
 static bool
 fetch_watchdog_nodes_data(void)
 {
-	char	   *json_data = wd_get_watchdog_nodes(-1);
+	char	   *json_data = wd_internal_get_watchdog_nodes_json(-1);
 
 	if (json_data == NULL)
 	{
@@ -620,9 +622,11 @@ load_watchdog_nodes_from_json(char *json_data, int len)
 	gslifeCheckCluster->lifeCheckNodes = pool_shared_memory_create(sizeof(LifeCheckNode) * gslifeCheckCluster->nodeCount);
 	for (i = 0; i < nodeCount; i++)
 	{
-		WDNodeInfo *nodeInfo = get_WDNodeInfo_from_wd_node_json(value->u.array.values[i]);
-
-		gslifeCheckCluster->lifeCheckNodes[i].nodeState = NODE_EMPTY;
+		WDNodeInfo *nodeInfo = parse_watchdog_node_info_from_wd_node_json(value->u.array.values[i]);
+		
+		gslifeCheckCluster->lifeCheckNodes[i].wdState = nodeInfo->state;
+		strcpy(gslifeCheckCluster->lifeCheckNodes[i].stateName, nodeInfo->stateName);
+		gslifeCheckCluster->lifeCheckNodes[i].nodeState = NODE_EMPTY; /* This is local health check state*/
 		gslifeCheckCluster->lifeCheckNodes[i].ID = nodeInfo->id;
 		strcpy(gslifeCheckCluster->lifeCheckNodes[i].hostName, nodeInfo->hostName);
 		strcpy(gslifeCheckCluster->lifeCheckNodes[i].nodeName, nodeInfo->nodeName);
@@ -665,7 +669,7 @@ is_wd_lifecheck_ready(void)
 		/* heartbeat mode */
 		else if (pool_config->wd_lifecheck_method == LIFECHECK_BY_HB)
 		{
-			if (node->ID == 0)	/* local node */
+			if (node->ID == pool_config->pgpool_node_id)	/* local node */
 				continue;
 
 			if (!WD_TIME_ISSET(node->hb_last_recv_time) ||
@@ -1140,7 +1144,7 @@ wd_ping_all_server(void)
 				continue;
 			ereport(WARNING,
 					(errmsg("failed to check the ping status of trusted servers"),
-					 errdetail("waitpid failed with reason: %s", strerror(errno))));
+					 errdetail("waitpid failed with reason: %m")));
 			break;
 		}
 	}

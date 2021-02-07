@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -35,7 +35,7 @@ typedef enum
 	LOAD_BALANCE_CONFIG,
 	REPLICATION_CONFIG,
 	STREAMING_REPLICATION_CONFIG,
-	MASTER_SLAVE_CONFIG,
+	MAIN_REPLICA_CONFIG,
 	WATCHDOG_CONFIG,
 	SSL_CONFIG,
 	FAILOVER_CONFIG,
@@ -94,6 +94,20 @@ typedef enum
 											 * alows variable with same naem
 											 * with out index */
 #define DEFAULT_FOR_NO_VALUE_ARRAY_VAR	0x0020
+
+/* From PG's src/include/utils/guc.h */
+#define GUC_UNIT_KB             0x1000  /* value is in kilobytes */
+#define GUC_UNIT_BLOCKS         0x2000  /* value is in blocks */
+#define GUC_UNIT_XBLOCKS        0x3000  /* value is in xlog blocks */
+#define GUC_UNIT_MB             0x4000  /* value is in megabytes */
+#define GUC_UNIT_BYTE           0x8000  /* value is in bytes */
+#define GUC_UNIT_MEMORY         0xF000  /* mask for size-related units */
+
+#define GUC_UNIT_MS            0x10000  /* value is in milliseconds */
+#define GUC_UNIT_S             0x20000  /* value is in seconds */
+#define GUC_UNIT_MIN           0x30000  /* value is in minutes */
+#define GUC_UNIT_TIME          0xF0000  /* mask for time-related units */
+#define GUC_UNIT                (GUC_UNIT_MEMORY | GUC_UNIT_TIME)
 
 /*
  * Signatures for per-variable check/assign/show  functions

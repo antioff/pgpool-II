@@ -47,6 +47,12 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
+/* Define to 1 if you have the <ldap.h> header file. */
+/* #undef HAVE_LDAP_H */
+
+/* Define to 1 if you have the `ldap_initialize' function. */
+/* #undef HAVE_LDAP_INITIALIZE */
+
 /* Define to 1 if you have the `BSD' library (-lBSD). */
 /* #undef HAVE_LIBBSD */
 
@@ -64,6 +70,9 @@
 
 /* Define to 1 if you have the `lc' library (-llc). */
 /* #undef HAVE_LIBLC */
+
+/* Define to 1 if you have the `ldap' library (-lldap). */
+/* #undef HAVE_LIBLDAP */
 
 /* Define to 1 if you have the `m' library (-lm). */
 #define HAVE_LIBM 1
@@ -279,7 +288,7 @@
 #define PACKAGE_NAME "pgpool-II"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "pgpool-II 4.1.5"
+#define PACKAGE_STRING "pgpool-II 4.2.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "pgpool-II"
@@ -288,7 +297,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.1.5"
+#define PACKAGE_VERSION "4.2.0"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
@@ -323,6 +332,9 @@
    (--enable-float8-byval) */
 #define USE_FLOAT8_BYVAL 1
 
+/* Define to 1 to build with LDAP support. (--with-ldap) */
+/* #undef USE_LDAP */
+
 /* Define to 1 to build with memcached support */
 /* #undef USE_MEMCACHED */
 
@@ -344,7 +356,7 @@
 /* #undef USE_TABLE_LOCK */
 
 /* Version number of package */
-#define VERSION "4.1.5"
+#define VERSION "4.2.0"
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */

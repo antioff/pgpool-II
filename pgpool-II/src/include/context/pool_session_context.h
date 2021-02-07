@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -156,6 +156,13 @@ typedef struct {
 	POOL_TEMP_TABLE_STATE	state;	/* see above */
 }			POOL_TEMP_TABLE;
 
+
+typedef enum
+{
+	SI_NO_SNAPSHOT,
+	SI_SNAPSHOT_PREPARED
+} SI_STATE;
+
 /*
  * Per session context:
  */
@@ -278,10 +285,23 @@ typedef struct
 	 */
 	List	   *temp_tables;
 
+	bool		is_in_transaction;
+
+	/*
+	 * Current transaction temp write list
+	 */
+	List	   *transaction_temp_write_list;
+
 #ifdef NOT_USED
-	/* Preferred "master" node id. Only used for SimpleForwardToFrontend. */
-	int			preferred_master_node_id;
+	/* Preferred "main" node id. Only used for SimpleForwardToFrontend. */
+	int			preferred_main_node_id;
 #endif
+
+	/* Whether snapshot is aquired in this transaction. Only used by Snapshot Isolation mode. */
+	SI_STATE	si_state;
+	/* Whether transaction is read only. Only used by Snapshot Isolation mode. */
+	SI_STATE	transaction_read_only;
+
 }			POOL_SESSION_CONTEXT;
 
 extern void pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend);
@@ -366,9 +386,9 @@ extern void	pool_temp_tables_remove_pending(void);
 extern void	pool_temp_tables_dump(void);
 
 #ifdef NOT_USED
-extern void pool_set_preferred_master_node_id(int node_id);
-extern int	pool_get_preferred_master_node_id(void);
-extern void pool_reset_preferred_master_node_id(void);
+extern void pool_set_preferred_main_node_id(int node_id);
+extern int	pool_get_preferred_main_node_id(void);
+extern void pool_reset_preferred_main_node_id(void);
 #endif
 
 #ifdef NOT_USED

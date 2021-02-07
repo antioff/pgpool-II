@@ -1,12 +1,13 @@
 AM_CPPFLAGS = -D_GNU_SOURCE -DPOOL_PRIVATE -I @PGSQL_INCLUDE_DIR@
 
 lib_LTLIBRARIES = libpcp.la
-libpcp_la_LDFLAGS = -version-info 1:0:0
+libpcp_la_LDFLAGS = -version-info 2:0:0
 dist_libpcp_la_SOURCES = pcp.c \
 					../../utils/pool_path.c \
 					../../tools/fe_port.c \
 					../../tools/fe_memutils.c \
-					../../utils/strlcpy.c
+					../../utils/strlcpy.c \
+					../../utils/pool_health_check_stats.c
 nodist_libpcp_la_SOURCES = pcp_stream.c \
 					md5.c \
 					json.c

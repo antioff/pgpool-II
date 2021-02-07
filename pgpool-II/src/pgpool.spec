@@ -43,7 +43,7 @@ Patch2:         pgpool_socket_dir.patch
 Patch3:         pcp_unix_domain_path.patch
 %endif
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel jade libxslt docbook-dtds docbook-style-xsl docbook-style-dsssl
+BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel jade libxslt docbook-dtds docbook-style-xsl docbook-style-dsssl openldap-devel
 %if %{pgsql_ver} >= 110 && %{rhel} == 7
 BuildRequires:  llvm-toolset-7 llvm-toolset-7-llvm-devel llvm5.0
 %endif
@@ -105,6 +105,7 @@ Postgresql extensions libraries and sql files for pgpool-II.
            --disable-static \
            --with-pam \
            --with-openssl \
+           --with-ldap \
            --with-memcached=%{_usr} \
            --disable-rpath \
            --sysconfdir=%{_sysconfdir}/%{short_name}/
@@ -134,6 +135,7 @@ cp %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf.sample %{buildroot}%{_sysco
 cp %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf
 cp %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf
 touch %{buildroot}%{_sysconfdir}/%{short_name}/pool_passwd
+touch %{buildroot}%{_sysconfdir}/%{short_name}/pgpool_node_id
 
 %if %{systemd_enabled}
 install -d %{buildroot}%{_unitdir}
@@ -235,11 +237,14 @@ fi
 %{_bindir}/pcp_stop_pgpool
 %{_bindir}/pcp_recovery_node
 %{_bindir}/pcp_watchdog_info
+%{_bindir}/pcp_reload_config
+%{_bindir}/pcp_health_check_stats
 %{_bindir}/pg_md5
 %{_bindir}/pg_enc
 %{_bindir}/pgpool_setup
 %{_bindir}/watchdog_setup
 %{_bindir}/pgproto
+%{_bindir}/wd_cli
 %{_mandir}/man8/*.8.gz
 %{_mandir}/man1/*.1.gz
 %{_datadir}/%{short_name}/insert_lock.sql
@@ -254,20 +259,24 @@ fi
 %endif
 %defattr(600,postgres,postgres,-)
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-master-slave
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample-logical
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-raw
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-slony
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-snapshot
+%{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
 %{_sysconfdir}/%{short_name}/pcp.conf.sample
 %{_sysconfdir}/%{short_name}/pool_hba.conf.sample
 %defattr(755,postgres,postgres,-)
 %{_sysconfdir}/%{short_name}/failover.sh.sample
-%{_sysconfdir}/%{short_name}/follow_master.sh.sample
+%{_sysconfdir}/%{short_name}/follow_primary.sh.sample
 %{_sysconfdir}/%{short_name}/pgpool_remote_start.sample
 %{_sysconfdir}/%{short_name}/recovery_1st_stage.sample
 %{_sysconfdir}/%{short_name}/recovery_2nd_stage.sample
+%{_sysconfdir}/%{short_name}/escalation.sh.sample
 %attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/*.conf
 %attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/pool_passwd
+%attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/pgpool_node_id
 %config(noreplace) %{_sysconfdir}/sysconfig/pgpool
 
 %files devel
@@ -293,6 +302,8 @@ fi
 %{pghome}/share/extension/pgpool_adm--1.0--1.1.sql
 %{pghome}/share/extension/pgpool_adm--1.2.sql
 %{pghome}/share/extension/pgpool_adm--1.1--1.2.sql
+%{pghome}/share/extension/pgpool_adm--1.2--1.3.sql
+%{pghome}/share/extension/pgpool_adm--1.3.sql
 %{pghome}/share/extension/pgpool_adm.control
 %{pghome}/lib/pgpool_adm.so
 # From PostgreSQL 9.4 pgpool-regclass.so is not needed anymore
@@ -313,6 +324,9 @@ fi
 %endif
 
 %changelog
+* Thu Sep 10 2020 Bo Peng <pengbo@sraoss.co.jp> 4.2.0
+- Update to 4.2
+
 * Mon Jul 27 2020 Bo Peng <pengbo@sraoss.co.jp> 4.1.3
 - Rename src/redhat/pgpool_rhel7.sysconfig to src/redhat/pgpool_rhel.sysconfig.
 

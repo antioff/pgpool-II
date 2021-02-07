@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: Pgpool-II 4.1.5 文書
-.\"    Source: Pgpool-II 4.1.5
+.\"    Manual: Pgpool-II 4.2.0 文書
+.\"    Source: Pgpool-II 4.2.0
 .\"  Language: Japanese
 .\"
-.TH "PG_ENC" "1" "2020" "Pgpool-II 4.1.5" "Pgpool-II 4.1.5 文書"
+.TH "PG_ENC" "1" "2020" "Pgpool-II 4.2.0" "Pgpool-II 4.2.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -67,6 +67,13 @@ pgpool\&.confファイルを指定します。
 \fB\-\-prompt\fR
 .RS 4
 標準入力からデータベースのパスワードを読み込みます。
+.RE
+.PP
+\fB\-i \fR\fB\fIINPUT_FILE\fR\fR
+.br
+\fB\-\-input\-file=\fR\fB\fIINPUT_FILE\fR\fR
+.RS 4
+ユーザ名とパスワードのペアを含むファイルを指定します。
 .RE
 .PP
 \fB\-P\fR
@@ -145,3 +152,28 @@ pg_encはpool_passwd
 .\}
 .sp
 入力したパスワードとusernameのエントリが追加されます。
+.PP
+パスワードの入力が促されたりコマンド引数の中でパスワードを指定するのを避けたい場合はpg_encは名前:パスワードのペアをファイルから読むことができます。 すべてのユーザ名と暗号化されたパスワードがpool_passwd認証ファイルに追加されます。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    $ cat users\&.txt
+    username1:secretpassword1
+    username2:secretpassword2
+
+    $ pg_enc \-m \-f /path/to/pgpool\&.conf \-i users\&.txt
+    trying to read key from file /home/pgpool/\&.pgpoolkey
+    trying to read user:password pairs from file users\&.text
+
+    $ cat /path/to/pool_passwd
+    username1:AESrx5QdpGyW/+4CB80KWtwhg==
+    username2:AESUAdohy7nCUhWliRI9WiYQA==
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Watchdog"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -191,7 +191,7 @@ CLASS="PRODUCTNAME"
     また、watchdogは、接続したすべての<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->ノードを調停し、フェイルバック、フェイルオーバ、フォローマスターコマンドがただひとつの<SPAN
+>ノードを調停し、フェイルバック、フェイルオーバ、フォロープライマリコマンドがただひとつの<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >で実行されるようにします。
@@ -347,7 +347,7 @@ CLASS="PRODUCTNAME"
     起動時に、watchdogはローカルノードの<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->の設定パラメータを、マスターノードのwatchdog上の設定パラメータとの一貫性を確認し、違いがあれば警告を出します。
+>の設定パラメータを、リーダーノードのwatchdog上の設定パラメータとの一貫性を確認し、違いがあれば警告を出します。
     これにより、異なる<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN

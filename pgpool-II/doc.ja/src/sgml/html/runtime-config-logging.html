@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -197,6 +197,291 @@ CLASS="PROGRAMLISTING"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >の設定を再読み込みすることで変更可能です。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-LOGGING-COLLECTOR"
+></A
+><TT
+CLASS="VARNAME"
+>logging_collector</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+     </DT
+><DD
+><P
+>      このパラメータは<I
+CLASS="FIRSTTERM"
+>ログ収集機構</I
+>を有効にします。
+      それは<SPAN
+CLASS="SYSTEMITEM"
+>stderr</SPAN
+>に送られたログメッセージを捕捉し、ログファイルにリダイレクトするバックグラウンドプロセスです。
+     </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>       ログ収集機構を使わずに<SPAN
+CLASS="SYSTEMITEM"
+>stderr</SPAN
+>にログを出力することもできます。
+       その場合はログメッセージはサーバの<SPAN
+CLASS="SYSTEMITEM"
+>stderr</SPAN
+>がリダイレクトされたところに単に出力されます。
+       しかしこの方法はログの量が少ない場合にのみ適切な方法です。
+       ログを巡回させる便利な方法がないからです。
+      </P
+></BLOCKQUOTE
+></DIV
+><P
+>      このパラメータはサーバ起動時のみ設定可能です。
+     </P
+><P
+>      <TT
+CLASS="VARNAME"
+>logging_collector</TT
+>は<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II </SPAN
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.2</I
+></SPAN
+>以降でのみ使用可能です。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-LOG-DIRECTORY"
+></A
+><TT
+CLASS="VARNAME"
+>log_directory</TT
+> (<TT
+CLASS="TYPE"
+>string</TT
+>)
+     </DT
+><DD
+><P
+>      <A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>を有効と設定した場合、このパラメータはログファイルが作成されるディレクトリを確定します。
+     </P
+><P
+>      デフォルトは<TT
+CLASS="LITERAL"
+>/tmp/pgpool_logs</TT
+>です。
+      </P
+><P
+>      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動時のみ設定可能です。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-LOG-FILENAME"
+></A
+><TT
+CLASS="VARNAME"
+>log_filename</TT
+> (<TT
+CLASS="TYPE"
+>string</TT
+>)
+     </DT
+><DD
+><P
+>      <A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>が有効な場合、このパラメータは作成されたログファイルのファイル名を設定します。
+      値は<CODE
+CLASS="FUNCTION"
+>strftime</CODE
+>パターンとして扱われるため、<TT
+CLASS="LITERAL"
+>%</TT
+>エスケープを使用して、時刻によって変動するファイル名を指定することができます。
+      サポートされている<TT
+CLASS="LITERAL"
+>%</TT
+>-エスケープは<A
+HREF="http://pubs.opengroup.org/onlinepubs/009695399/functions/strftime.html"
+TARGET="_top"
+>strftime</A
+> 仕様によく似ています。
+     </P
+><P
+>      エスケープすることなくファイル名を指定する場合、ディスク全体を使い切ってしまうことを防止するためにログローテーションを行うユーティリティを使用することを計画するべきです。
+     </P
+><P
+>      デフォルトは<TT
+CLASS="LITERAL"
+>pgpool-%Y-%m-%d_%H%M%S.log</TT
+>です。
+     </P
+><P
+>      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動時のみ設定可能です。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-LOG-FILE-MODE"
+></A
+><TT
+CLASS="VARNAME"
+>log_file_mode</TT
+> (<TT
+CLASS="TYPE"
+>integer</TT
+>)
+     </DT
+><DD
+><P
+>      <A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>が有効になっている場合、このパラメータはログファイルのパーミッションを設定します。
+       パラメータの値は<CODE
+CLASS="FUNCTION"
+>chmod</CODE
+> および <CODE
+CLASS="FUNCTION"
+>umask</CODE
+>システムコールで許容されるフォーマットで指定される数値モードであると期待されます。
+     </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>       8進数を使うには、数値を0（ゼロ）で開始してください。
+      </P
+></BLOCKQUOTE
+></DIV
+><P
+>      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動時のみ設定可能です。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-LOG-ROTATION-AGE"
+></A
+><TT
+CLASS="VARNAME"
+>log_rotation_age</TT
+> (<TT
+CLASS="TYPE"
+>integer</TT
+>)
+     </DT
+><DD
+><P
+>      <A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>が有効な場合、このパラメータは個々のログファイルの最大寿命を決定します。
+     </P
+><P
+>      ゼロに設定することで、サイズに基づいた新しいログファイルの生成は無効になります。
+     </P
+><P
+>      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動時のみ設定可能です。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-LOG-ROTATION-SIZE"
+></A
+><TT
+CLASS="VARNAME"
+>log_rotation_size</TT
+> (<TT
+CLASS="TYPE"
+>integer</TT
+>)
+     </DT
+><DD
+><P
+>      <A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>が有効な場合、このパラメータは個々のログファイルの最大容量を決定します。
+       ここでキロバイト単位で指定したデータ量がログファイルに出力された後、新しいログファイルが生成されます。
+     </P
+><P
+>      ゼロに設定することで、サイズに基づいた新しいログファイルの生成は無効になります。
+     </P
+><P
+>      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動時のみ設定可能です。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-LOG-TRUNCATE-ON-ROTATION"
+></A
+><TT
+CLASS="VARNAME"
+>log_truncate_on_rotation</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+     </DT
+><DD
+><P
+>      <A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>が有効な場合、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>は既存の同名のファイルに追加するのではなく、そのファイルを切り詰める（上書きする）ようになります。
+       しかし、切り詰めは時間を基にしたローテーションのために新規にファイルが開かれた時にのみ発生し、サーバ起動時やサイズを基にしたローテーションでは発生しません。
+       オフの場合、全ての場合において既存のファイルに追記されます。
+       例えば、この設定を<TT
+CLASS="LITERAL"
+>pgpool-%H.log</TT
+>のような<A
+HREF="runtime-config-logging.html#GUC-LOG-FILENAME"
+>log_filename</A
+>と組み合わせて使用すると、24個の時別のログファイルが生成され、それらは周期的に上書きされることになります。
+     </P
+><P
+>      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>起動時のみ設定可能です。
      </P
 ></DD
 ><DT
@@ -618,6 +903,31 @@ CLASS="PRODUCTNAME"
 ></DD
 ><DT
 ><A
+NAME="GUC-LOG-DISCONNECTIONS"
+></A
+><TT
+CLASS="VARNAME"
+>log_disconnections</TT
+> (<TT
+CLASS="TYPE"
+>boolean</TT
+>)
+     </DT
+><DD
+><P
+>      
+      onに設定されている場合、全てのクライアント接続終了をログへ出力します。
+     </P
+><P
+>      
+      このパラメータは<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の設定を再読み込みすることで変更可能です。
+     </P
+></DD
+><DT
+><A
 NAME="GUC-LOG-ERROR-VERBOSITY"
 ></A
 ><TT
@@ -718,7 +1028,7 @@ NAME="LOG-LINE-PREFIX-TABLE"
 ></A
 ><P
 ><B
->表 5-5. log_line_prefix escape options</B
+>表 5-4. log_line_prefixのエスケープオプション</B
 ></P
 ><TABLE
 BORDER="1"
@@ -736,7 +1046,15 @@ CLASS="CALSTABLE"
 ><TD
 >%a</TD
 ><TD
->クライアントのアプリケーション名</TD
+>	  アプリケーション名。
+	  子プロセス（セッションプロセス）の初期値は"child"です。
+	  クライアントがアプリケーション名（スタートアップメッセージあるいはSETコマンドを使って）を設定すると、アプリケーション名は変更されます。
+	  他の種類のプロセスでは、アプリケーション名はハードコードされた文字列です。
+	  <A
+HREF="runtime-config-logging.html#APPLICATION-NAME-TABLE"
+>表5-5</A
+>を参照してください。
+	 </TD
 ></TR
 ><TR
 ><TD
@@ -779,6 +1097,102 @@ CLASS="CALSTABLE"
 >%%</TD
 ><TD
 >'%' 文字自身</TD
+></TR
+></TBODY
+></TABLE
+></DIV
+><DIV
+CLASS="TABLE"
+><A
+NAME="APPLICATION-NAME-TABLE"
+></A
+><P
+><B
+>表 5-5. 各プロセスのアプリケーション名</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL><COL><THEAD
+><TR
+><TH
+>プロセスの種類</TH
+><TH
+>アプリケーション名</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+>main</TD
+><TD
+>main</TD
+></TR
+><TR
+><TD
+>child</TD
+><TD
+>child</TD
+></TR
+><TR
+><TD
+>streaming replication delay check worker</TD
+><TD
+>sr_check_worker</TD
+></TR
+><TR
+><TD
+>watchdog heart beat sender</TD
+><TD
+>heart_beat_sender</TD
+></TR
+><TR
+><TD
+>watchdog heart beat reciever</TD
+><TD
+>heart_beat_receiver</TD
+></TR
+><TR
+><TD
+>watchdog</TD
+><TD
+>watchdog</TD
+></TR
+><TR
+><TD
+>watchdog life check</TD
+><TD
+>life_check</TD
+></TR
+><TR
+><TD
+>follow primary child</TD
+><TD
+>follow_child</TD
+></TR
+><TR
+><TD
+>watchdog utility</TD
+><TD
+>watchdog_utility</TD
+></TR
+><TR
+><TD
+>pcp main</TD
+><TD
+>pcp_main</TD
+></TR
+><TR
+><TD
+>pcp child</TD
+><TD
+>pcp_child</TD
+></TR
+><TR
+><TD
+>health check process</TD
+><TD
+>health_check%d (%dはバックエンドノードIDに置換されます)</TD
 ></TR
 ></TBODY
 ></TABLE

@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2018	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -21,9 +21,12 @@
 #include "pool.h"
 #include "pool_config.h"
 #include "protocol/pool_proto_modules.h"
+#include "protocol/pool_process_query.h"
+#include "protocol/pool_pg_utils.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
 #include "utils/elog.h"
+#include "utils/statistics.h"
 #include "utils/pool_select_walker.h"
 #include "utils/pool_stream.h"
 #include "context/pool_session_context.h"
@@ -33,6 +36,7 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <stdlib.h>
+#include <time.h>
 
 /*
  * Where to send query
@@ -55,6 +59,15 @@ typedef enum
 static POOL_DEST send_to_where(Node *node, char *query);
 static void where_to_send_deallocate(POOL_QUERY_CONTEXT * query_context, Node *node);
 static char *remove_read_write(int len, const char *contents, int *rewritten_len);
+static void set_virtual_main_node(POOL_QUERY_CONTEXT *query_context);
+static void set_load_balance_info(POOL_QUERY_CONTEXT *query_context);
+
+static bool is_in_list(char *name, List *list);
+static bool is_select_object_in_temp_write_list(Node *node, void *context);
+static bool add_object_into_temp_write_list(Node *node, void *context);
+static void dml_adaptive(Node *node, char *query);
+static char* get_associated_object_from_dml_adaptive_relations
+							(char *left_token, DBObjectTypes object_type);
 
 /*
  * Create and initialize per query session context
@@ -144,8 +157,8 @@ pool_start_query(POOL_QUERY_CONTEXT * query_context, char *query, int len, Node 
 		query_context->original_query = pstrdup(query);
 		query_context->rewritten_query = NULL;
 		query_context->parse_tree = node;
-		query_context->virtual_master_node_id = my_master_node_id;
-		query_context->load_balance_node_id = my_master_node_id;
+		query_context->virtual_main_node_id = my_main_node_id;
+		query_context->load_balance_node_id = my_main_node_id;
 		query_context->is_cache_safe = false;
 		query_context->num_original_params = -1;
 		if (pool_config->memory_cache_enabled)
@@ -291,7 +304,7 @@ pool_is_node_to_be_sent_in_current_query(int node_id)
 	POOL_SESSION_CONTEXT *sc;
 
 	if (RAW_MODE)
-		return node_id == REAL_MASTER_NODE_ID;
+		return node_id == REAL_MAIN_NODE_ID;
 
 	sc = pool_get_session_context(true);
 	if (!sc)
@@ -305,10 +318,10 @@ pool_is_node_to_be_sent_in_current_query(int node_id)
 }
 
 /*
- * Returns virtual master DB node id,
+ * Returns virtual main DB node id,
  */
 int
-pool_virtual_master_db_node_id(void)
+pool_virtual_main_db_node_id(void)
 {
 	POOL_SESSION_CONTEXT *sc;
 
@@ -331,19 +344,19 @@ pool_virtual_master_db_node_id(void)
 	sc = pool_get_session_context(true);
 	if (!sc)
 	{
-		return REAL_MASTER_NODE_ID;
+		return REAL_MAIN_NODE_ID;
 	}
 
 	if (sc->in_progress && sc->query_context)
 	{
-		int			node_id = sc->query_context->virtual_master_node_id;
+		int			node_id = sc->query_context->virtual_main_node_id;
 
 		if (SL_MODE)
 		{
 			/*
-			 * Make sure that virtual_master_node_id is either primary node id
+			 * Make sure that virtual_main_node_id is either primary node id
 			 * or load balance node id.  If not, it is likely that
-			 * virtual_master_node_id is not set up yet. Let's use the primary
+			 * virtual_main_node_id is not set up yet. Let's use the primary
 			 * node id. except for the special case where we need to send the
 			 * query to the node which is not primary nor the load balance
 			 * node. Currently there is only one special such case that is
@@ -356,7 +369,7 @@ pool_virtual_master_db_node_id(void)
 			 */
 
 			ereport(DEBUG5,
-					(errmsg("pool_virtual_master_db_node_id: virtual_master_node_id:%d load_balance_node_id:%d PRIMARY_NODE_ID:%d",
+					(errmsg("pool_virtual_main_db_node_id: virtual_main_node_id:%d load_balance_node_id:%d PRIMARY_NODE_ID:%d",
 							node_id, sc->load_balance_node_id, PRIMARY_NODE_ID)));
 
 			if (node_id != sc->query_context->load_balance_node_id && node_id != PRIMARY_NODE_ID)
@@ -374,15 +387,15 @@ pool_virtual_master_db_node_id(void)
 	}
 
 	/*
-	 * No query context exists.  If in master/slave mode, returns primary node
-	 * if exists.  Otherwise returns my_master_node_id, which represents the
-	 * last REAL_MASTER_NODE_ID.
+	 * No query context exists.  If in native replication mode, returns primary node
+	 * if exists.  Otherwise returns my_main_node_id, which represents the
+	 * last REAL_MAIN_NODE_ID.
 	 */
-	if (MASTER_SLAVE)
+	if (MAIN_REPLICA)
 	{
 		return PRIMARY_NODE_ID;
 	}
-	return my_master_node_id;
+	return my_main_node_id;
 }
 
 /*
@@ -403,7 +416,7 @@ pool_force_query_node_to_backend(POOL_QUERY_CONTEXT * query_context, int backend
 	{
 		if (query_context->where_to_send[i])
 		{
-			query_context->virtual_master_node_id = i;
+			query_context->virtual_main_node_id = i;
 			break;
 		}
 	}
@@ -430,17 +443,17 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 	pool_clear_node_to_be_sent(query_context);
 
 	/*
-	 * If there is "NO LOAD BALANCE" comment, we send only to master node.
+	 * If there is "NO LOAD BALANCE" comment, we send only to main node.
 	 */
 	if (!strncasecmp(query, NO_LOAD_BALANCE, NO_LOAD_BALANCE_COMMENT_SZ))
 	{
 		pool_set_node_to_be_sent(query_context,
-								 MASTER_SLAVE ? PRIMARY_NODE_ID : REAL_MASTER_NODE_ID);
+								 MAIN_REPLICA ? PRIMARY_NODE_ID : REAL_MAIN_NODE_ID);
 		for (i = 0; i < NUM_BACKENDS; i++)
 		{
 			if (query_context->where_to_send[i])
 			{
-				query_context->virtual_master_node_id = i;
+				query_context->virtual_main_node_id = i;
 				break;
 			}
 		}
@@ -448,16 +461,16 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 	}
 
 	/*
-	 * In raw mode, we send only to master node. Simple enough.
+	 * In raw mode, we send only to main node. Simple enough.
 	 */
 	if (RAW_MODE)
 	{
-		pool_set_node_to_be_sent(query_context, REAL_MASTER_NODE_ID);
+		pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
 	}
-	else if (MASTER_SLAVE && query_context->is_multi_statement)
+	else if (MAIN_REPLICA && query_context->is_multi_statement)
 	{
 		/*
-		 * If we are in master/slave mode and we have multi statement query,
+		 * If we are in native replication mode and we have multi statement query,
 		 * we should send it to primary server only. Otherwise it is possible
 		 * to send a write query to standby servers because we only use the
 		 * first element of the multi statement query and don't care about the
@@ -470,11 +483,13 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 		 */
 		pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
 	}
-	else if (MASTER_SLAVE)
+	else if (MAIN_REPLICA)
 	{
 		POOL_DEST	dest;
 
 		dest = send_to_where(node, query);
+
+		dml_adaptive(node, query);
 
 		ereport(DEBUG1,
 				(errmsg("decide where to send the query"),
@@ -591,10 +606,10 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
 					}
 					/*
-					 * When query match the query patterns in black_query_pattern_list, we
-					 * send only to master node.
+					 * When query match the query patterns in primary_routing_query_pattern_list, we
+					 * send only to main node.
 					 */
-					else if (pattern_compare(query, BLACKLIST, "black_query_pattern_list") == 1)
+					else if (pattern_compare(query, WRITELIST, "primary_routing_query_pattern_list") == 1)
 					{
 						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
 					}
@@ -608,6 +623,10 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 								(errmsg("could not load balance because writing functions are used"),
 								 errdetail("destination = %d for query= \"%s\"", dest, query)));
 
+						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+					}
+					else if (is_select_object_in_temp_write_list(node, query))
+					{
 						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
 					}
 					else
@@ -640,6 +659,59 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 			MAJOR(backend) == PROTO_MAJOR_V3)
 		{
 			/*
+			 * In snapshot isolation mode, we always load balance if current
+			 * transaction is read only unless load balance mode is off.
+			 */
+			if (pool_config->backend_clustering_mode == CM_SNAPSHOT_ISOLATION &&
+				pool_config->load_balance_mode)
+			{
+				if (TSTATE(backend, MAIN_NODE_ID) == 'T')
+				{
+					/*
+					 * We are in an explicit transaction. If the transaction is
+					 * read only, we can load balance.
+					 */
+					if (session_context->transaction_read_only)
+					{
+						/* Ok, we can load balance. We are done! */
+						set_load_balance_info(query_context);
+						set_virtual_main_node(query_context);
+						return;
+					}
+				}
+				else if (TSTATE(backend, MAIN_NODE_ID) == 'I')
+				{
+					/*
+					 * We are out side transaction. If default transaction is read only,
+					 * we can load balance.
+					 */
+					static	char *si_query = "SELECT current_setting('transaction_read_only')";
+					POOL_SELECT_RESULT *res;
+					bool	load_balance = false;
+
+					do_query(CONNECTION(backend, MAIN_NODE_ID), si_query, &res, MAJOR(backend));
+					if (res)
+					{
+						if (res->data[0] && !strcmp(res->data[0], "on"))
+						{
+							load_balance = true;
+						}
+						free_select_result(res);
+					}
+
+					per_node_statement_log(backend, MAIN_NODE_ID, si_query);
+
+					if (load_balance)
+					{
+						/* Ok, we can load balance. We are done! */
+						set_load_balance_info(query_context);
+						set_virtual_main_node(query_context);
+						return;
+					}
+				}
+			}
+			
+			/*
 			 * If a writing function call is used or replicate_select is true,
 			 * we prefer to send to all nodes.
 			 */
@@ -654,27 +726,17 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 			 * isolation level is not SERIALIZABLE) we might be able to load
 			 * balance.
 			 */
-			else if (TSTATE(backend, MASTER_NODE_ID) == 'I' ||
+			else if (TSTATE(backend, MAIN_NODE_ID) == 'I' ||
 					 (!pool_is_writing_transaction() &&
 					  !pool_is_failed_transaction() &&
 					  pool_get_transaction_isolation() != POOL_SERIALIZABLE))
 			{
-
-
-
-				/* load balance */
-				if (pool_config->statement_level_load_balance)
-					session_context->load_balance_node_id = select_load_balancing_node();
-
-				session_context->query_context->load_balance_node_id = session_context->load_balance_node_id;
-
-				pool_set_node_to_be_sent(query_context,
-										 session_context->query_context->load_balance_node_id);
+				set_load_balance_info(query_context);
 			}
 			else
 			{
-				/* only send to master node */
-				pool_set_node_to_be_sent(query_context, REAL_MASTER_NODE_ID);
+				/* only send to main node */
+				pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
 			}
 		}
 		else
@@ -682,8 +744,8 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 			if (is_select_query(node, query) && !pool_config->replicate_select &&
 				!pool_has_function_call(node))
 			{
-				/* only send to master node */
-				pool_set_node_to_be_sent(query_context, REAL_MASTER_NODE_ID);
+				/* only send to main node */
+				pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
 			}
 			else
 			{
@@ -722,14 +784,8 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 		where_to_send_deallocate(query_context, node);
 	}
 
-	for (i = 0; i < NUM_BACKENDS; i++)
-	{
-		if (query_context->where_to_send[i])
-		{
-			query_context->virtual_master_node_id = i;
-			break;
-		}
-	}
+	/* Set virtual main node according to the where_to_send map. */
+	set_virtual_main_node(query_context);
 
 	return;
 }
@@ -764,7 +820,7 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 
 	/*
 	 * If the query is BEGIN READ WRITE or BEGIN ... SERIALIZABLE in
-	 * master/slave mode, we send BEGIN to slaves/standbys instead.
+	 * native replication mode, we send BEGIN to standbys instead.
 	 * original_query which is BEGIN READ WRITE is sent to primary.
 	 * rewritten_query which is BEGIN is sent to standbys.
 	 */
@@ -797,10 +853,10 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 			continue;
 
 		/*
-		 * If in master/slave mode, we do not send COMMIT/ABORT to
-		 * slaves/standbys if it's in I(idle) state.
+		 * If in native replication mode, we do not send COMMIT/ABORT to
+		 * standbys if it's in I(idle) state.
 		 */
-		if (is_commit && MASTER_SLAVE && !IS_MASTER_NODE_ID(i) && TSTATE(backend, i) == 'I')
+		if (is_commit && MAIN_REPLICA && !IS_MAIN_NODE_ID(i) && TSTATE(backend, i) == 'I')
 		{
 			pool_unset_node_to_be_sent(query_context, i);
 			continue;
@@ -848,10 +904,10 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 #ifdef NOT_USED
 
 		/*
-		 * If in master/slave mode, we do not send COMMIT/ABORT to
-		 * slaves/standbys if it's in I(idle) state.
+		 * If in native replication mode, we do not send COMMIT/ABORT to
+		 * standbys if it's in I(idle) state.
 		 */
-		if (is_commit && MASTER_SLAVE && !IS_MASTER_NODE_ID(i) && TSTATE(backend, i) == 'I')
+		if (is_commit && MAIN_REPLICA && !IS_MAIN_NODE_ID(i) && TSTATE(backend, i) == 'I')
 		{
 			continue;
 		}
@@ -868,8 +924,8 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 		wait_for_query_response_with_trans_cleanup(frontend,
 												   CONNECTION(backend, i),
 												   MAJOR(backend),
-												   MASTER_CONNECTION(backend)->pid,
-												   MASTER_CONNECTION(backend)->key);
+												   MAIN_CONNECTION(backend)->pid,
+												   MAIN_CONNECTION(backend)->key);
 
 		/*
 		 * Check if some error detected.  If so, emit log. This is useful when
@@ -917,7 +973,7 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 
 	/*
 	 * If the query is BEGIN READ WRITE or BEGIN ... SERIALIZABLE in
-	 * master/slave mode, we send BEGIN to slaves/standbys instead.
+	 * native replication mode, we send BEGIN to standbys instead.
 	 * original_query which is BEGIN READ WRITE is sent to primary.
 	 * rewritten_query which is BEGIN is sent to standbys.
 	 */
@@ -974,7 +1030,7 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 			char		msgbuf[QUERY_STRING_BUFFER_LEN];
 			char	   *stmt;
 
-			if (*kind == 'P' || *kind == 'E')
+			if (*kind == 'P' || *kind == 'E' || *kind == 'B')
 			{
 				if (query_context->rewritten_query)
 				{
@@ -997,6 +1053,8 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 
 				if (*kind == 'P')
 					snprintf(msgbuf, sizeof(msgbuf), "Parse: %s", stmt);
+				else if (*kind == 'B')
+					snprintf(msgbuf, sizeof(msgbuf), "Bind: %s", stmt);
 				else
 					snprintf(msgbuf, sizeof(msgbuf), "Execute: %s", stmt);
 			}
@@ -1056,10 +1114,10 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 				continue;
 
 			/*
-			 * If in master/slave mode, we do not send COMMIT/ABORT to
-			 * slaves/standbys if it's in I(idle) state.
+			 * If in native replication mode, we do not send COMMIT/ABORT to
+			 * standbys if it's in I(idle) state.
 			 */
-			if (is_commit && MASTER_SLAVE && !IS_MASTER_NODE_ID(i) && TSTATE(backend, i) == 'I')
+			if (is_commit && MAIN_REPLICA && !IS_MAIN_NODE_ID(i) && TSTATE(backend, i) == 'I')
 			{
 				continue;
 			}
@@ -1075,8 +1133,8 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 			wait_for_query_response_with_trans_cleanup(frontend,
 													   CONNECTION(backend, i),
 													   MAJOR(backend),
-													   MASTER_CONNECTION(backend)->pid,
-													   MASTER_CONNECTION(backend)->key);
+													   MAIN_CONNECTION(backend)->pid,
+													   MAIN_CONNECTION(backend)->key);
 
 			/*
 			 * Check if some error detected.  If so, emit log. This is useful
@@ -1095,7 +1153,7 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 
 /*
  * From syntactically analysis decide the statement to be sent to the
- * primary, the standby or either or both in master/slave+HR/SR mode.
+ * primary, the standby or either or both in native replication+HR/SR mode.
  */
 static POOL_DEST send_to_where(Node *node, char *query)
 
@@ -1680,15 +1738,15 @@ is_serializable(TransactionStmt *node)
 
 /*
  * If the query is BEGIN READ WRITE or
- * BEGIN ... SERIALIZABLE in master/slave mode,
- * we send BEGIN to slaves/standbys instead.
+ * BEGIN ... SERIALIZABLE in native replication mode,
+ * we send BEGIN to standbys instead.
  * original_query which is BEGIN READ WRITE is sent to primary.
  * rewritten_query which is BEGIN is sent to standbys.
  */
 bool
 pool_need_to_treat_as_if_default_transaction(POOL_QUERY_CONTEXT * query_context)
 {
-	return (MASTER_SLAVE &&
+	return (MAIN_REPLICA &&
 			is_start_transaction_query(query_context->parse_tree) &&
 			(is_read_write((TransactionStmt *) query_context->parse_tree) ||
 			 is_serializable((TransactionStmt *) query_context->parse_tree)));
@@ -2000,4 +2058,223 @@ pool_is_transaction_read_only(Node *node)
 		}
 	}
 	return ret;
+}
+
+/*
+ * Set virtual main node according to the where_to_send map.
+ */
+static void
+set_virtual_main_node(POOL_QUERY_CONTEXT *query_context)
+{
+	int	i;
+
+	for (i = 0; i < NUM_BACKENDS; i++)
+	{
+		if (query_context->where_to_send[i])
+		{
+			query_context->virtual_main_node_id = i;
+			break;
+		}
+	}
+}
+
+/*
+ * Set load balance info.
+ */
+static void
+set_load_balance_info(POOL_QUERY_CONTEXT *query_context)
+{
+	POOL_SESSION_CONTEXT *session_context;
+	session_context = pool_get_session_context(false);
+
+	if (pool_config->statement_level_load_balance)
+		session_context->load_balance_node_id = select_load_balancing_node();
+
+	session_context->query_context->load_balance_node_id = session_context->load_balance_node_id;
+
+	pool_set_node_to_be_sent(query_context,
+							 query_context->load_balance_node_id);
+}
+
+/*
+ * Check if the name is in the list.
+ */
+static bool
+is_in_list(char *name, List *list)
+{
+	if (name == NULL || list == NIL)
+		return false;
+
+	ListCell *cell;
+	foreach (cell, list)
+	{
+		char *cell_name = (char *)lfirst(cell);
+		if (strcasecmp(name, cell_name) == 0)
+		{
+			ereport(DEBUG1,
+					(errmsg("[%s] is in list", name)));
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/*
+ * Check if the relname of SelectStmt is in the temp write list.
+ */
+static bool
+is_select_object_in_temp_write_list(Node *node, void *context)
+{
+	if (node == NULL || pool_config->disable_load_balance_on_write != DLBOW_DML_ADAPTIVE)
+		return false;
+
+	if (IsA(node, RangeVar))
+	{
+		RangeVar   *rgv = (RangeVar *) node;
+		POOL_SESSION_CONTEXT *session_context = pool_get_session_context(false);
+
+		if (pool_config->disable_load_balance_on_write == DLBOW_DML_ADAPTIVE && session_context->is_in_transaction)
+		{
+			ereport(DEBUG1,
+					(errmsg("is_select_object_in_temp_write_list: \"%s\", found relation \"%s\"", (char*)context, rgv->relname)));
+
+			return is_in_list(rgv->relname, session_context->transaction_temp_write_list);
+		}
+	}
+
+	return raw_expression_tree_walker(node, is_select_object_in_temp_write_list, context);
+}
+
+static char*
+get_associated_object_from_dml_adaptive_relations
+						(char *left_token, DBObjectTypes object_type)
+{
+	int i;
+	char *right_token = NULL;
+	if (!pool_config->parsed_dml_adaptive_object_relationship_list)
+		return NULL;
+	for (i=0 ;; i++)
+	{
+		if (pool_config->parsed_dml_adaptive_object_relationship_list[i].left_token.name == NULL)
+			break;
+
+		if (pool_config->parsed_dml_adaptive_object_relationship_list[i].left_token.object_type != object_type)
+			continue;
+
+		if (strcasecmp(pool_config->parsed_dml_adaptive_object_relationship_list[i].left_token.name, left_token) == 0)
+		{
+			right_token = pool_config->parsed_dml_adaptive_object_relationship_list[i].right_token.name;
+			break;
+		}
+	}
+	return right_token;
+}
+
+/*
+ * Check the object relationship list.
+ * If find the name in the list, will add related objects to the transaction temp write list.
+ */
+void
+check_object_relationship_list(char *name, bool is_func_name)
+{
+	if (pool_config->disable_load_balance_on_write == DLBOW_DML_ADAPTIVE && pool_config->parsed_dml_adaptive_object_relationship_list)
+	{
+		POOL_SESSION_CONTEXT *session_context = pool_get_session_context(false);
+
+		if (session_context->is_in_transaction)
+		{
+			char	*right_token =
+						get_associated_object_from_dml_adaptive_relations
+							(name, is_func_name? OBJECT_TYPE_FUNCTION : OBJECT_TYPE_RELATION);
+
+			if (right_token)
+			{
+				MemoryContext old_context = MemoryContextSwitchTo(session_context->memory_context);
+				session_context->transaction_temp_write_list =
+					lappend(session_context->transaction_temp_write_list, pstrdup(right_token));
+				MemoryContextSwitchTo(old_context);
+			}
+		}
+
+	}
+}
+
+/*
+ * Find the relname and add it to the transaction temp write list.
+ */
+static bool
+add_object_into_temp_write_list(Node *node, void *context)
+{
+	if (node == NULL)
+		return false;
+
+	if (IsA(node, RangeVar))
+	{
+		RangeVar   *rgv = (RangeVar *) node;
+
+		ereport(DEBUG5,
+				(errmsg("add_object_into_temp_write_list: \"%s\", found relation \"%s\"", (char*)context, rgv->relname)));
+
+		POOL_SESSION_CONTEXT *session_context = pool_get_session_context(false);
+		MemoryContext old_context = MemoryContextSwitchTo(session_context->memory_context);
+
+		if (!is_in_list(rgv->relname, session_context->transaction_temp_write_list))
+		{
+			ereport(DEBUG1,
+					(errmsg("add \"%s\" into transaction_temp_write_list", rgv->relname)));
+
+			session_context->transaction_temp_write_list = lappend(session_context->transaction_temp_write_list, pstrdup(rgv->relname));
+		}
+
+		MemoryContextSwitchTo(old_context);
+
+		check_object_relationship_list(rgv->relname, false);
+	}
+
+	return raw_expression_tree_walker(node, add_object_into_temp_write_list, context);
+}
+
+/*
+ * dml adaptive.
+ */
+static void
+dml_adaptive(Node *node, char *query)
+{
+	if (pool_config->disable_load_balance_on_write == DLBOW_DML_ADAPTIVE)
+	{
+		/* Set/Unset transaction status flags */
+		if (IsA(node, TransactionStmt))
+		{
+			POOL_SESSION_CONTEXT *session_context = pool_get_session_context(false);
+			MemoryContext old_context = MemoryContextSwitchTo(session_context->memory_context);
+
+			if (is_start_transaction_query(node))
+			{
+				session_context->is_in_transaction = true;
+
+				if (session_context->transaction_temp_write_list != NIL)
+					list_free_deep(session_context->transaction_temp_write_list);
+
+				session_context->transaction_temp_write_list = NIL;
+			}
+			else if(is_commit_or_rollback_query(node))
+			{
+				session_context->is_in_transaction = false;
+
+				if (session_context->transaction_temp_write_list != NIL)
+					list_free_deep(session_context->transaction_temp_write_list);
+
+				session_context->transaction_temp_write_list = NIL;
+			}
+
+			MemoryContextSwitchTo(old_context);
+			return;
+		}
+
+		/* If non-selectStmt, find the relname and add it to the transaction temp write list. */
+		if (!is_select_query(node, query))
+			add_object_into_temp_write_list(node, query);
+
+	}
 }

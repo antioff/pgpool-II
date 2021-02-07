@@ -1,0 +1,259 @@
+'\" t
+.\"     Title: SHOW POOL_HEALTH_CHECK_STATS
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 2020
+.\"    Manual: pgpool-II 4.2.0 Documentation
+.\"    Source: pgpool-II 4.2.0
+.\"  Language: English
+.\"
+.TH "SHOW POOL_HEALTH_CHECK_STATS" "1" "2020" "pgpool-II 4.2.0" "pgpool-II 4.2.0 Documentation"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+SHOW_POOL_HEALTH_CHECK_STATS \- show health check statistics data
+.SH "SYNOPSIS"
+.sp
+.nf
+   SHOW POOL_HEALTH_CHECK_STATS
+  
+.fi
+.SH "DESCRIPTION"
+.PP
+\fBSHOW POOL_HEALTH_CHECK_STATS\fR
+displays health check (see
+Section 5.8, \(lqHealth Check\(rq, in the documentation) statistic data mostly collected by health check process\&. This command helps
+Pgpool\-II
+admin to study events related to health check\&. For example, admin can easily locate the failover event in the log file by looking at "last_failed_health_check" column\&. Another example is finding unstable connection to backend by evaluating "average_retry_count" column\&. If particular node shows higher retry count than other node, there may be problem to the connection to the backend\&.
+.PP
+Table\ \&21, \(lqStatistics data shown by pool_health_check_stats command\(rq
+shows each column name and its description\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&21.\ \&Statistics data shown by pool_health_check_stats command
+.TS
+allbox tab(:);
+lB lB.
+T{
+Column Name
+T}:T{
+Description
+T}
+.T&
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l.
+T{
+node_id
+T}:T{
+Backend node id\&.
+T}
+T{
+hostname
+T}:T{
+Backend hostname or UNIX domain socket path\&.
+T}
+T{
+port
+T}:T{
+Backend port number\&.
+T}
+T{
+status
+T}:T{
+Backend status\&. One of up, down, waiting, unused or quarantine\&.
+T}
+T{
+role
+T}:T{
+Role of the node\&. Either primary or standby in streaming
+       replication mode\&. Either main or replica in other mode\&.
+T}
+T{
+last_status_change
+T}:T{
+Timestamp of last backend status changed\&.
+T}
+T{
+total_count
+T}:T{
+Number of health check count in total\&.
+T}
+T{
+success_count
+T}:T{
+Number of successful health check count in total\&.
+T}
+T{
+fail_count
+T}:T{
+Number of failed health check count in total\&.
+T}
+T{
+skip_count
+T}:T{
+Number of skipped health check count in total\&. If the node is
+       already down, health check skips the node\&.
+T}
+T{
+retry_count
+T}:T{
+Number of retried health check count in total\&.
+T}
+T{
+average_retry_count
+T}:T{
+Number of average retried health check count in a health check
+       session\&.
+T}
+T{
+max_retry_count
+T}:T{
+Number of maximum retried health check count in a health check
+       session\&.
+T}
+T{
+max_duration
+T}:T{
+Maximum health check duration in Millie seconds\&. If a health
+       check session retries, the health check duration is sum of each
+       retried health check\&.
+T}
+T{
+min_duration
+T}:T{
+Minimum health check duration in Millie seconds\&. If a health
+       check session retries, the health check duration is sum of each
+       retried health check\&.
+T}
+T{
+average_duration
+T}:T{
+Average health check duration in Millie seconds\&. If a health
+       check session retries, the health check duration is sum of each
+       retried health check\&.
+T}
+T{
+last_health_check
+T}:T{
+Timestamp of last health check\&.  If heath check does not
+       performed yet, empty string\&.
+T}
+T{
+last_successful_health_check
+T}:T{
+Timestamp of last successful health check\&. If heath check does
+       not succeeds yet, empty string\&.
+T}
+T{
+last_skip_health_check
+T}:T{
+Timestamp of last skipped health check\&. If heath check is not
+       skipped yet, empty string\&. Note that it is possible that this
+       field is an empty string even if the status is down\&. In this
+       case failover was triggered by other than health check process\&.
+T}
+T{
+last_falied_health_check
+T}:T{
+Timestamp of last failed health check\&. If heath check does not
+       fail yet, empty string\&. Note that it is possible that this
+       field is an empty string even if the status is down\&. In this
+       case failover was triggered by other than health check process\&.
+T}
+.TE
+.sp 1
+.PP
+Here is an example session:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+test=# show pool_health_check_stats;
+\-[ RECORD 1 ]\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+node_id                      | 0
+hostname                     | /tmp
+port                         | 11002
+status                       | up
+role                         | primary
+last_status_change           | 2020\-01\-26 19:08:45
+total_count                  | 27
+success_count                | 27
+fail_count                   | 0
+skip_count                   | 0
+retry_count                  | 0
+average_retry_count          | 0\&.000000
+max_retry_count              | 0
+max_duration                 | 9
+min_duration                 | 2
+average_duration             | 6\&.296296
+last_health_check            | 2020\-01\-26 19:12:45
+last_successful_health_check | 2020\-01\-26 19:12:45
+last_skip_health_check       | 
+last_failed_health_check     | 
+\-[ RECORD 2 ]\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+node_id                      | 1
+hostname                     | /tmp
+port                         | 11003
+status                       | down
+role                         | standby
+last_status_change           | 2020\-01\-26 19:11:48
+total_count                  | 19
+success_count                | 12
+fail_count                   | 1
+skip_count                   | 6
+retry_count                  | 3
+average_retry_count          | 0\&.230769
+max_retry_count              | 3
+max_duration                 | 83003
+min_duration                 | 0
+average_duration             | 6390\&.307692
+last_health_check            | 2020\-01\-26 19:12:48
+last_successful_health_check | 2020\-01\-26 19:10:15
+last_skip_health_check       | 2020\-01\-26 19:12:48
+last_failed_health_check     | 2020\-01\-26 19:11:48
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

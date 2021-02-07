@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -25,6 +25,11 @@
 #include "pool.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
+#include "utils/pool_signal.h"
+#include "utils/pool_ipc.h"
+#include "utils/ps_status.h"
+
+#include "pcp/pcp_worker.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -190,7 +195,7 @@ pcp_do_accept(int unix_fd, int inet_fd)
 			return -1;
 		ereport(ERROR,
 				(errmsg("unable to accept new pcp connection"),
-				 errdetail("select system call failed with error : \"%s\"", strerror(errno))));
+				 errdetail("select system call failed with error : \"%m\"")));
 	}
 	if (FD_ISSET(unix_fd, &readmask))
 	{
@@ -214,7 +219,7 @@ pcp_do_accept(int unix_fd, int inet_fd)
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			ereport(ERROR,
 					(errmsg("unable to accept new pcp connection"),
-					 errdetail("socket accept system call failed with error : \"%s\"", strerror(errno))));
+					 errdetail("socket accept system call failed with error : \"%m\"")));
 	}
 	if (pcp_got_sighup)
 	{
@@ -237,7 +242,7 @@ pcp_do_accept(int unix_fd, int inet_fd)
 			close(afd);
 			ereport(ERROR,
 					(errmsg("unable to accept new pcp connection"),
-					 errdetail("setsockopt system call failed with error : \"%s\"", strerror(errno))));
+					 errdetail("setsockopt system call failed with error : \"%m\"")));
 		}
 		if (setsockopt(afd, SOL_SOCKET, SO_KEEPALIVE,
 					   (char *) &on,
@@ -246,7 +251,7 @@ pcp_do_accept(int unix_fd, int inet_fd)
 			close(afd);
 			ereport(ERROR,
 					(errmsg("unable to accept new pcp connection"),
-					 errdetail("setsockopt system call failed with error : \"%s\"", strerror(errno))));
+					 errdetail("setsockopt system call failed with error : \"%m\"")));
 		}
 	}
 	return afd;
@@ -262,8 +267,8 @@ start_pcp_command_processor_process(int port)
 
 	if (pid == 0)				/* child */
 	{
-		/* Set the process type variable */
-		processType = PT_PCP_WORKER;
+		SetProcessGlobalVaraibles(PT_PCP_WORKER);
+
 		on_exit_reset();
 		/* Close the listen sockets sockets */
 		close(pcp_unix_fd);
@@ -278,7 +283,8 @@ start_pcp_command_processor_process(int port)
 	else if (pid == -1)
 	{
 		ereport(FATAL,
-				(errmsg("fork() failed. reason: %s", strerror(errno))));
+				(errmsg("fork() failed"),
+				 errdetail("%m")));
 	}
 	else						/* parent */
 	{
@@ -437,7 +443,8 @@ pcp_child_will_die(int code, Datum arg)
 
 	if (wpid == -1 && errno != ECHILD)
 		ereport(WARNING,
-				(errmsg("wait() on pcp worker children failed. reason:%s", strerror(errno))));
+				(errmsg("wait() on pcp worker children failed"),
+				 errdetail("%m")));
 
 	POOL_SETMASK(&UnBlockSig);
 }

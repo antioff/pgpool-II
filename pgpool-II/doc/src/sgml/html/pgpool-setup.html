@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Other commands"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PGPOOL-SETUP"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN7998"
+NAME="AEN8678"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN7998"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN8001"
+NAME="AEN8681"
 ></A
 ><H2
 >Synopsis</H2
@@ -176,8 +176,8 @@ CLASS="APPLICATION"
 CLASS="APPLICATION"
 >pgpool_setup</SPAN
 > supports
-   streaming replication mode, native replication mode, raw mode and
-   logical replication mode.  To support watchdog,
+   streaming replication mode, native replication mode, raw mode,
+   logical replication mode and snapshot isolation mode.  To support watchdog,
    see <A
 HREF="watchdog-setup.html"
 >watchdog_setup</A
@@ -187,7 +187,7 @@ HREF="watchdog-setup.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8023"
+NAME="AEN8703"
 ></A
 ><H2
 >Options</H2
@@ -234,10 +234,13 @@ CLASS="LITERAL"
 CLASS="LITERAL"
 >l</TT
 >
-       (logical replication mode) or <TT
+       (logical replication mode), <TT
 CLASS="LITERAL"
 >y</TT
-> (slony mode).  If this is
+> (slony mode) or <TT
+CLASS="LITERAL"
+>i</TT
+> (snapshot isolation mode).  If this is
        omitted, <TT
 CLASS="LITERAL"
 >s</TT
@@ -395,7 +398,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8091"
+NAME="AEN8772"
 ></A
 ><H2
 >Environment variables</H2
@@ -512,7 +515,7 @@ CLASS="COMMAND"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8137"
+NAME="AEN8818"
 ></A
 ><H2
 >Example</H2
@@ -544,7 +547,7 @@ temporarily start pgpool-II to create standby nodes
 
 recovery node 1...pcp_recovery_node -- Command Successful
 done.
-creating follow master script
+creating follow primary script
  node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
 ---------+----------+-------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
  0       | /tmp     | 11002 | up     | 0.500000  | primary | 0          | true              | 0                 |                   |                        | 2020-08-18 13:50:19

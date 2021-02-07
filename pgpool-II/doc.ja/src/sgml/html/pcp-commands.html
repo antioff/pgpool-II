@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リファレンス"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="REFERENCE"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -100,7 +100,7 @@ CLASS="TITLE"
 ><DIV
 CLASS="PARTINTRO"
 ><A
-NAME="AEN7064"
+NAME="AEN7639"
 ></A
 ><P
 >    
@@ -227,6 +227,12 @@ HREF="pcp-node-info.html"
    指定されたノードの情報を表示する</DT
 ><DT
 ><A
+HREF="pcp-health-check-stats.html"
+>pcp_health_check_stats</A
+>&nbsp;--&nbsp;   与えられたノードIDのヘルスチェック統計データを表示する
+  </DT
+><DT
+><A
 HREF="pcp-watchdog-info.html"
 >pcp_watchdog_info</A
 >&nbsp;--&nbsp;   
@@ -287,7 +293,7 @@ HREF="pcp-promote-node.html"
    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> のノードをマスターに昇格させる</DT
+> のノードをプライマリに昇格させる</DT
 ><DT
 ><A
 HREF="pcp-stop-pgpool.html"
@@ -297,6 +303,11 @@ HREF="pcp-stop-pgpool.html"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > を指定されたモードでシャットダウンする</DT
+><DT
+><A
+HREF="pcp-reload-config.html"
+>pcp_reload_config</A
+>&nbsp;--&nbsp;   Pgpool-IIの設定ファイルを再読込します</DT
 ><DT
 ><A
 HREF="pcp-recovery-node.html"

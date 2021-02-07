@@ -9,11 +9,11 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="PREVIOUS"
-TITLE="Auroraの設定例"
-HREF="example-aurora.html"><LINK
+TITLE="Kubernetesの設定例"
+HREF="example-kubernetes.html"><LINK
 REL="NEXT"
 TITLE="サーバコマンド"
 HREF="server-commands.html"><LINK
@@ -23,7 +23,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="PART"
 ><DIV
@@ -41,7 +41,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -50,8 +50,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="Auroraの設定例"
-HREF="example-aurora.html"
+TITLE="Kubernetesの設定例"
+HREF="example-kubernetes.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -97,7 +97,7 @@ CLASS="TITLE"
 ><DIV
 CLASS="PARTINTRO"
 ><A
-NAME="AEN6887"
+NAME="AEN7462"
 ></A
 ><P
 >   
@@ -170,6 +170,12 @@ HREF="pcp-node-info.html"
    指定されたノードの情報を表示する</DT
 ><DT
 ><A
+HREF="pcp-health-check-stats.html"
+>pcp_health_check_stats</A
+>&nbsp;--&nbsp;   与えられたノードIDのヘルスチェック統計データを表示する
+  </DT
+><DT
+><A
 HREF="pcp-watchdog-info.html"
 >pcp_watchdog_info</A
 >&nbsp;--&nbsp;   
@@ -230,7 +236,7 @@ HREF="pcp-promote-node.html"
    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> のノードをマスターに昇格させる</DT
+> のノードをプライマリに昇格させる</DT
 ><DT
 ><A
 HREF="pcp-stop-pgpool.html"
@@ -240,6 +246,11 @@ HREF="pcp-stop-pgpool.html"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > を指定されたモードでシャットダウンする</DT
+><DT
+><A
+HREF="pcp-reload-config.html"
+>pcp_reload_config</A
+>&nbsp;--&nbsp;   Pgpool-IIの設定ファイルを再読込します</DT
 ><DT
 ><A
 HREF="pcp-recovery-node.html"
@@ -296,6 +307,12 @@ HREF="watchdog-setup.html"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > クラスタのテスト環境を構築するツール</DT
+><DT
+><A
+HREF="wd-cli.html"
+>wd_cli</A
+>&nbsp;--&nbsp;外部ヘルスチェックシステムとの統合に用いるためのWatchdog Command Line Interface (CLI)ユーティリティ
+  </DT
 ></DL
 ></DD
 ><DT
@@ -371,6 +388,18 @@ HREF="sql-show-pool-cache.html"
 >&nbsp;--&nbsp;   
    クエリキャッシュのヒット率や、キャッシュストレージの状況を表示する
   </DT
+><DT
+><A
+HREF="sql-show-pool-health-check-stats.html"
+>SHOW POOL_HEALTH_CHECK_STATS</A
+>&nbsp;--&nbsp;   ヘルスチェックの統計情報を表示する
+  </DT
+><DT
+><A
+HREF="sql-show-pool-backend-stats.html"
+>SHOW POOL_BACKEND_STATS</A
+>&nbsp;--&nbsp;   SQLコマンドの統計情報を表示する
+  </DT
 ></DL
 ></DD
 ><DT
@@ -387,6 +416,12 @@ HREF="pgpool-adm-pcp-node-info.html"
 >&nbsp;--&nbsp;   
    指定ノードIDの情報を表示する関数
   </DT
+><DT
+><A
+HREF="pgpool-adm-pcp-health-check-stats.html"
+>pgpool_adm_pcp_health_check_stats</A
+>&nbsp;--&nbsp;   与えられたノードIDのヘルスチェック統計データを表示する関数
+   </DT
 ><DT
 ><A
 HREF="pgpool-adm-pcp-pool-status.html"
@@ -437,7 +472,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="example-aurora.html"
+HREF="example-kubernetes.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -465,7 +500,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->Auroraの設定例</TD
+>Kubernetesの設定例</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

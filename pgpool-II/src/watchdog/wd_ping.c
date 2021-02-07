@@ -34,6 +34,7 @@
 #include "utils/elog.h"
 #include "pool_config.h"
 #include "watchdog/wd_utils.h"
+#include "utils/pool_signal.h"
 
 #define WD_MAX_PING_RESULT 256
 
@@ -80,7 +81,7 @@ wd_is_ip_exists(char *ip)
 		close(outputfd);
 		ereport(WARNING,
 				(errmsg("watchdog failed to ping host\"%s\"", ip),
-				 errdetail("waitpid() failed with reason \"%s\"", strerror(errno))));
+				 errdetail("waitpid() failed with reason \"%m\"")));
 		return false;
 	}
 
@@ -111,7 +112,7 @@ wd_issue_ping_command(char *hostname, int *outfd)
 	{
 		ereport(WARNING,
 				(errmsg("watchdog failed to ping host\"%s\"", hostname),
-				 errdetail("pipe open failed. reason: %s", strerror(errno))));
+				 errdetail("pipe open failed. reason: %m")));
 		return -1;
 	}
 
@@ -126,14 +127,15 @@ wd_issue_ping_command(char *hostname, int *outfd)
 	{
 		ereport(WARNING,
 				(errmsg("watchdog failed to ping host\"%s\"", hostname),
-				 errdetail("fork() failed. reason: %s", strerror(errno))));
+				 errdetail("fork() failed. reason: %m")));
 		return -1;
 	}
 	if (pid == 0)
 	{
 		/* CHILD */
 		on_exit_reset();
-		processType = PT_WATCHDOG_UTILITY;
+		SetProcessGlobalVaraibles(PT_WATCHDOG_UTILITY);
+
 		close(STDOUT_FILENO);
 		dup2(pfd[1], STDOUT_FILENO);
 		close(pfd[0]);
@@ -143,7 +145,7 @@ wd_issue_ping_command(char *hostname, int *outfd)
 		{
 			ereport(FATAL,
 					(errmsg("watchdog failed to ping host\"%s\"", hostname),
-					 errdetail("execv(%s) failed. reason: %s", ping_path, strerror(errno))));
+					 errdetail("execv(%s) failed. reason: %m", ping_path)));
 		}
 		exit(0);
 	}
@@ -255,7 +257,8 @@ get_result(char *ping_data)
 	if (errno != 0)
 	{
 		ereport(WARNING,
-				(errmsg("get_result: strtod() failed with reason \"%s\"", strerror(errno))));
+				(errmsg("get_result: strtod() failed"),
+				 errdetail("%m")));
 		return -1;
 	}
 

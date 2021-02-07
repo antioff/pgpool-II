@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -18,7 +18,7 @@
  * is" without express or implied warranty.
  *
  *
- * pcp.h - master header file.
+ * pcp.h - pcp header file.
  */
 
 #ifndef PCP_H
@@ -54,8 +54,8 @@ typedef struct PCPWDClusterInfo
 	int			quorumStatus;
 	int			aliveNodeCount;
 	bool		escalated;
-	char		masterNodeName[WD_MAX_HOST_NAMELEN];
-	char		masterHostName[WD_MAX_HOST_NAMELEN];
+	char		leaderNodeName[WD_MAX_HOST_NAMELEN];
+	char		leaderHostName[WD_MAX_HOST_NAMELEN];
 	int			nodeCount;
 	PCPWDNodeInfo nodeList[1];
 }			PCPWDClusterInfo;

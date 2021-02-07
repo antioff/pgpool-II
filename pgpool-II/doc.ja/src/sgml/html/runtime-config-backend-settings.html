@@ -9,13 +9,13 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
 HREF="runtime-config.html"><LINK
 REL="PREVIOUS"
-TITLE="動作モード"
+TITLE="クラスタリングモード"
 HREF="runtime-config-running-mode.html"><LINK
 REL="NEXT"
 TITLE="コネクションプーリング"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -53,7 +53,7 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="動作モード"
+TITLE="クラスタリングモード"
 HREF="runtime-config-running-mode.html"
 ACCESSKEY="P"
 >前のページ</A
@@ -157,9 +157,9 @@ CLASS="FILENAME"
 >      
       パラメータ名の末尾に数字を付加することで複数のバックエンドを指定することができます(たとえばbackend_hostname0)。
       この数字のことを「DBノードID」と呼び、0から開始します。
-      DBノードIDが0のバックエンドは「マスターノード」と呼ばれます。
-      複数のDBノードを定義している場合、条件によってはマスターノードがダウンしても運用を続けることができます（いくつかのモードを除きます）。
-      この場合は、稼働中かつDBノードIDがもっとも若いものが新しいマスターノードになります。
+      DBノードIDが0のバックエンドは「メインノード」と呼ばれます。
+      複数のDBノードを定義している場合、条件によってはメインノードがダウンしても運用を続けることができます（いくつかのモードを除きます）。
+      この場合は、稼働中かつDBノードIDがもっとも若いものが新しいメインノードになります。
      </P
 ><P
 >      
@@ -370,7 +370,7 @@ NAME="BACKEND-FLAG-TABLE"
 ></A
 ><P
 ><B
->表 5-3. バックエンドフラグ</B
+>表 5-2. バックエンドフラグ</B
 ></P
 ><TABLE
 BORDER="1"
@@ -418,7 +418,7 @@ CLASS="PRODUCTNAME"
 ><TD
 ><TT
 CLASS="LITERAL"
->ALWAYS_MASTER</TT
+>ALWAYS_PRIMARY</TT
 ></TD
 ><TD
 >ストリーミングレプリケーションでのみ有効です。
@@ -436,7 +436,7 @@ CLASS="PRODUCTNAME"
 >のような、マスターサーバに固定のホスト名が割り当てられるシステムで有用です。
 	   設定例については<A
 HREF="example-aurora.html"
->項8.5</A
+>項8.4</A
 >をご覧ください。
 	 </TD
 ></TR
@@ -530,7 +530,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->動作モード</TD
+>クラスタリングモード</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

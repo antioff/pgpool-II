@@ -29,6 +29,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
@@ -44,9 +45,11 @@
 #include "auth/md5.h"
 #include "pool_config.h"
 #include "protocol/pool_proto_modules.h"
+#include "protocol/pool_process_query.h"
 #include "parser/parsenodes.h"
 #include "context/pool_session_context.h"
 #include "query_cache/pool_memqcache.h"
+#include "utils/pool_ssl.h"
 #include "utils/pool_relcache.h"
 #include "utils/pool_select_walker.h"
 #include "utils/pool_stream.h"
@@ -54,6 +57,7 @@
 #include "utils/elog.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
+#include "utils/pool_ipc.h"
 
 #ifdef USE_MEMCACHED
 memcached_st *memc;
@@ -797,7 +801,7 @@ pool_fetch_from_memory_cache(POOL_CONNECTION * frontend,
 		/*
 		 * We keep previous transaction state.
 		 */
-		state = MASTER(backend)->tstate;
+		state = MAIN(backend)->tstate;
 		send_message(frontend, 'Z', 5, (char *) &state);
 	}
 
@@ -927,9 +931,9 @@ pool_is_allow_to_cache(Node *node, char *query)
 		return false;
 
 	/*
-	 * Check black table list first.
+	 * Check cache unsafe table list first.
 	 */
-	if (pool_config->num_black_memqcache_table_list > 0)
+	if (pool_config->num_cache_unsafe_memqcache_table_list > 0)
 	{
 		/*
 		 * Extract oids in from clause of SELECT, and check if SELECT to them
@@ -942,7 +946,7 @@ pool_is_allow_to_cache(Node *node, char *query)
 			{
 				ereport(DEBUG1,
 						(errmsg("memcache: checking if node is allowed to cache: check table_names[%d] = \"%s\"", i, ctx.table_names[i])));
-				if (pool_is_table_in_black_list(ctx.table_names[i]) == true)
+				if (pool_is_table_in_unsafe_list(ctx.table_names[i]) == true)
 				{
 					ereport(DEBUG1,
 							(errmsg("memcache: node is not allowed to cache")));
@@ -994,7 +998,7 @@ pool_is_allow_to_cache(Node *node, char *query)
 	 * If the table is in the while list, allow to cache even if it is VIEW or
 	 * unlogged table.
 	 */
-	if (pool_config->num_white_memqcache_table_list > 0)
+	if (pool_config->num_cache_safe_memqcache_table_list > 0)
 	{
 		if (num_oids < 0)
 			num_oids = pool_extract_table_oids_from_select_stmt(node, &ctx);
@@ -1009,7 +1013,7 @@ pool_is_allow_to_cache(Node *node, char *query)
 						(errmsg("memcache: checking if node is allowed to cache: check table_names[%d] = \"%s\"", i, table)));
 				if (is_view(table) || is_unlogged_table(table))
 				{
-					if (pool_is_table_in_white_list(table) == false)
+					if (pool_is_table_in_safe_list(table) == false)
 					{
 						ereport(DEBUG1,
 								(errmsg("memcache: node is not allowed to cache")));
@@ -1062,11 +1066,11 @@ pool_is_allow_to_cache(Node *node, char *query)
  * Return true If the SELECTed table is in back list.
  */
 bool
-pool_is_table_in_black_list(const char *table_name)
+pool_is_table_in_unsafe_list(const char *table_name)
 {
 
-	if (pool_config->num_black_memqcache_table_list > 0 &&
-		pattern_compare((char *) table_name, BLACKLIST, "black_memqcache_table_list") == 1)
+	if (pool_config->num_cache_unsafe_memqcache_table_list > 0 &&
+		pattern_compare((char *) table_name, WRITELIST, "cache_unsafe_memqcache_table_list") == 1)
 	{
 		return true;
 	}
@@ -1075,13 +1079,13 @@ pool_is_table_in_black_list(const char *table_name)
 }
 
 /*
- * Return true If the SELECTed table is in white list.
+ * Return true If the SELECTed table is in cache_safe list.
  */
 bool
-pool_is_table_in_white_list(const char *table_name)
+pool_is_table_in_safe_list(const char *table_name)
 {
-	if (pool_config->num_white_memqcache_table_list > 0 &&
-		pattern_compare((char *) table_name, WHITELIST, "white_memqcache_table_list") == 1)
+	if (pool_config->num_cache_safe_memqcache_table_list > 0 &&
+		pattern_compare((char *) table_name, READONLYLIST, "cache_safe_memqcache_table_list") == 1)
 	{
 		return true;
 	}
@@ -1519,7 +1523,7 @@ pool_get_database_oid(void)
 	 * Search relcache.
 	 */
 	oid = (int) (intptr_t) pool_search_relcache(relcache, backend,
-												MASTER_CONNECTION(backend)->sp->database);
+												MAIN_CONNECTION(backend)->sp->database);
 	return oid;
 }
 
@@ -1539,7 +1543,7 @@ pool_get_database_oid_from_dbname(char *dbname)
 	backend = pool_get_session_context(false)->backend;
 
 	snprintf(query, sizeof(query), DATABASE_TO_OID_QUERY, dbname);
-	do_query(MASTER(backend), query, &res, MAJOR(backend));
+	do_query(MAIN(backend), query, &res, MAJOR(backend));
 
 	if (res->numrows != 1)
 	{
@@ -1583,7 +1587,8 @@ pool_add_table_oid_map(POOL_CACHEKEY * cachekey, int num_table_oids, int *table_
 		if (errno != EEXIST)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: adding table oid maps, failed to create directory:\"%s\". error:\"%s\"", dir, strerror(errno))));
+					(errmsg("memcache: adding table oid maps, failed to create directory:\"%s\"", dir),
+					 errdetail("%m")));
 			return;
 		}
 	}
@@ -1609,7 +1614,8 @@ pool_add_table_oid_map(POOL_CACHEKEY * cachekey, int num_table_oids, int *table_
 		if (errno != EEXIST)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: adding table oid maps, failed to create directory:\"%s\". error:\"%s\"", path, strerror(errno))));
+					(errmsg("memcache: adding table oid maps, failed to create directory:\"%s\"", path),
+					 errdetail("%m")));
 			return;
 		}
 	}
@@ -1637,7 +1643,8 @@ pool_add_table_oid_map(POOL_CACHEKEY * cachekey, int num_table_oids, int *table_
 		if ((fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)) == -1)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: adding table oid maps, failed to open file:\"%s\". error:\"%s\"", path, strerror(errno))));
+					(errmsg("memcache: adding table oid maps, failed to open file:\"%s\"", path),
+					 errdetail("%m")));
 			return;
 		}
 
@@ -1650,7 +1657,8 @@ pool_add_table_oid_map(POOL_CACHEKEY * cachekey, int num_table_oids, int *table_
 		if (sts == -1)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: adding table oid maps, failed to lock file:\"%s\". error:\"%s\"", path, strerror(errno))));
+					(errmsg("memcache: adding table oid maps, failed to lock file:\"%s\"", path),
+					 errdetail("%m")));
 
 			close(fd);
 			return;
@@ -1669,7 +1677,8 @@ pool_add_table_oid_map(POOL_CACHEKEY * cachekey, int num_table_oids, int *table_
 			if (sts == -1)
 			{
 				ereport(WARNING,
-						(errmsg("memcache: adding table oid maps, failed to read file:\"%s\". error:\"%s\"", path, strerror(errno))));
+						(errmsg("memcache: adding table oid maps, failed to read file:\"%s\"", path),
+						 errdetail("%m")));
 				close(fd);
 				return;
 			}
@@ -1701,7 +1710,8 @@ pool_add_table_oid_map(POOL_CACHEKEY * cachekey, int num_table_oids, int *table_
 		if (lseek(fd, 0, SEEK_END) == -1)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: adding table oid maps, failed seek on file:\"%s\". error:\"%s\"", path, strerror(errno))));
+					(errmsg("memcache: adding table oid maps, failed seek on file:\"%s\"", path),
+					 errdetail("%m")));
 			close(fd);
 			return;
 		}
@@ -1713,7 +1723,8 @@ pool_add_table_oid_map(POOL_CACHEKEY * cachekey, int num_table_oids, int *table_
 		if (sts == -1 || sts != len)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: adding table oid maps, failed to write file:\"%s\". error:\"%s\"", path, strerror(errno))));
+					(errmsg("memcache: adding table oid maps, failed to write file:\"%s\"", path),
+					 errdetail("%m")));
 			close(fd);
 			return;
 		}
@@ -1735,7 +1746,7 @@ pool_discard_oid_maps(void)
 	if (system(command) == -1)
 		ereport(WARNING,
 				(errmsg("unable to execute command \"%s\"", command),
-				 errdetail("system() command failed with error \"%s\"", strerror(errno))));
+				 errdetail("system() command failed with error \"%m\"")));
 
 
 }
@@ -1757,7 +1768,7 @@ pool_discard_oid_maps_by_db(int dboid)
 		if (system(command) == -1)
 			ereport(WARNING,
 					(errmsg("unable to execute command \"%s\"", command),
-					 errdetail("system() command failed with error \"%s\"", strerror(errno))));
+					 errdetail("system() command failed with error \"%m\"")));
 	}
 }
 
@@ -1785,7 +1796,8 @@ pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool unlinkp, in
 		if (errno != EEXIST)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: invalidating query cache, failed to create directory:\"%s\". error:\"%s\"", dir, strerror(errno))));
+					(errmsg("memcache: invalidating query cache, failed to create directory:\"%s\"", dir),
+					 errdetail("%m")));
 			return;
 		}
 	}
@@ -1814,7 +1826,8 @@ pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool unlinkp, in
 		if (errno != EEXIST)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: invalidating query cache, failed to create directory:\"%s\". error:\"%s\"", path, strerror(errno))));
+					(errmsg("memcache: invalidating query cache, failed to create directory:\"%s\"", path),
+					 errdetail("%m")));
 			return;
 		}
 	}
@@ -1848,7 +1861,7 @@ pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool unlinkp, in
 			 */
 			ereport(DEBUG1,
 					(errmsg("memcache invalidating query cache"),
-					 errdetail("failed to open \"%s\". reason:\"%s\"", path, strerror(errno))));
+					 errdetail("failed to open \"%s\". reason:\"%m\"", path)));
 			continue;
 		}
 
@@ -1861,7 +1874,8 @@ pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool unlinkp, in
 		if (sts == -1)
 		{
 			ereport(WARNING,
-					(errmsg("memcache: invalidating query cache, failed to lock file:\"%s\". error:\"%s\"", path, strerror(errno))));
+					(errmsg("memcache: invalidating query cache, failed to lock file:\"%s\"", path),
+					 errdetail("%m")));
 			close(fd);
 			return;
 		}
@@ -1871,7 +1885,8 @@ pool_invalidate_query_cache(int num_table_oids, int *table_oid, bool unlinkp, in
 			if (sts == -1)
 			{
 				ereport(WARNING,
-						(errmsg("memcache: invalidating query cache, failed to read file:\"%s\". error:\"%s\"", path, strerror(errno))));
+						(errmsg("memcache: invalidating query cache, failed to read file:\"%s\"", path),
+						 errdetail("%m")));
 
 				close(fd);
 				return;
@@ -4485,4 +4500,22 @@ inject_cached_message(POOL_CONNECTION * backend, char *qcache, int qcachelen)
 	 * Pop data.
 	 */
 	pool_pop(backend, &len);
+}
+
+/*
+ * Public API to invalidate query cache specified by the table/database oids.
+ */
+void
+InvalidateQueryCache(int tableoid, int dboid)
+{
+	pool_sigset_t oldmask;
+
+	POOL_SETMASK2(&BlockSig, &oldmask);
+	pool_shmem_lock();
+
+	/* Invalidate query cache */
+	pool_invalidate_query_cache(1, &tableoid, true, dboid);
+
+	pool_semaphore_unlock(QUERY_CACHE_STATS_SEM);
+	POOL_SETMASK(&oldmask);
 }

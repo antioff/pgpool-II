@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -43,11 +43,13 @@ char	   *last_dir_separator(const char *filename);
 
 static void usage(void);
 static inline bool app_require_nodeID(void);
+static inline bool app_support_cluster_mode(void);
 static void output_watchdog_info_result(PCPResultInfo * pcpResInfo, bool verbose);
 static void output_procinfo_result(PCPResultInfo * pcpResInfo, bool all, bool verbose);
 static void output_proccount_result(PCPResultInfo * pcpResInfo, bool verbose);
 static void output_poolstatus_result(PCPResultInfo * pcpResInfo, bool verbose);
 static void output_nodeinfo_result(PCPResultInfo * pcpResInfo, bool verbose);
+static void output_health_check_stats_result(PCPResultInfo * pcpResInfo, bool verbose);
 static void output_nodecount_result(PCPResultInfo * pcpResInfo, bool verbose);
 static char *backend_status_to_string(BackendInfo * bi);
 static char *format_titles(const char **titles, const char **types, int ntitles);
@@ -58,6 +60,7 @@ typedef enum
 	PCP_DETACH_NODE,
 	PCP_NODE_COUNT,
 	PCP_NODE_INFO,
+	PCP_HEALTH_CHECK_STATS,
 	PCP_POOL_STATUS,
 	PCP_PROC_COUNT,
 	PCP_PROC_INFO,
@@ -65,6 +68,7 @@ typedef enum
 	PCP_RECOVERY_NODE,
 	PCP_STOP_PGPOOL,
 	PCP_WATCHDOG_INFO,
+	PCP_RELOAD_CONFIG,
 	UNKNOWN,
 }			PCP_UTILITIES;
 
@@ -82,13 +86,15 @@ struct AppTypes AllAppTypes[] =
 	{"pcp_detach_node", PCP_DETACH_NODE, "n:h:p:U:gwWvd", "detach a node from pgpool-II"},
 	{"pcp_node_count", PCP_NODE_COUNT, "h:p:U:wWvd", "display the total number of nodes under pgpool-II's control"},
 	{"pcp_node_info", PCP_NODE_INFO, "n:h:p:U:wWvd", "display a pgpool-II node's information"},
+	{"pcp_health_check_stats", PCP_HEALTH_CHECK_STATS, "n:h:p:U:wWvd", "display a pgpool-II health check stats data"},
 	{"pcp_pool_status", PCP_POOL_STATUS, "h:p:U:wWvd", "display pgpool configuration and status"},
 	{"pcp_proc_count", PCP_PROC_COUNT, "h:p:U:wWvd", "display the list of pgpool-II child process PIDs"},
 	{"pcp_proc_info", PCP_PROC_INFO, "h:p:P:U:awWvd", "display a pgpool-II child process' information"},
-	{"pcp_promote_node", PCP_PROMOTE_NODE, "n:h:p:U:gwWvd", "promote a node as new master from pgpool-II"},
+	{"pcp_promote_node", PCP_PROMOTE_NODE, "n:h:p:U:gwWvd", "promote a node as new main from pgpool-II"},
 	{"pcp_recovery_node", PCP_RECOVERY_NODE, "n:h:p:U:wWvd", "recover a node"},
-	{"pcp_stop_pgpool", PCP_STOP_PGPOOL, "m:h:p:U:wWvd", "terminate pgpool-II"},
+	{"pcp_stop_pgpool", PCP_STOP_PGPOOL, "m:h:p:U:s:wWvda", "terminate pgpool-II"},
 	{"pcp_watchdog_info", PCP_WATCHDOG_INFO, "n:h:p:U:wWvd", "display a pgpool-II watchdog's information"},
+	{"pcp_reload_config",PCP_RELOAD_CONFIG,"h:p:U:s:wWvd", "reload a pgpool-II config file"},
 	{NULL, UNKNOWN, NULL, NULL},
 };
 struct AppTypes *current_app_type;
@@ -104,6 +110,7 @@ main(int argc, char **argv)
 	int			processID = 0;
 	int			ch;
 	char		shutdown_mode = 's';
+	char		command_scope = 'l';
 	int			optindex;
 	int			i;
 	bool		all = false;
@@ -126,6 +133,7 @@ main(int argc, char **argv)
 		{"no-password", no_argument, NULL, 'w'},
 		{"password", no_argument, NULL, 'W'},
 		{"mode", required_argument, NULL, 'm'},
+		{"scope", required_argument, NULL, 's'},
 		{"gracefully", no_argument, NULL, 'g'},
 		{"verbose", no_argument, NULL, 'v'},
 		{"all", no_argument, NULL, 'a'},
@@ -188,6 +196,26 @@ main(int argc, char **argv)
 
 			case 'g':
 				gracefully = true;
+				break;
+
+			case 's':
+				if (app_support_cluster_mode())
+				{
+					if (strcmp(optarg, "c") == 0 || strcmp(optarg, "cluster") == 0)
+						command_scope = 'c';
+					else if (strcmp(optarg, "l") == 0 || strcmp(optarg, "local") == 0)
+						command_scope = 'l';
+					else
+					{
+						fprintf(stderr, "%s: Invalid command socpe \"%s\", must be either \"cluster\" or \"local\" \n", progname, optarg);
+						exit(1);
+					}
+				}
+				else
+				{
+					fprintf(stderr, "Invalid argument \"%s\", Try \"%s --help\" for more information.\n", optarg, progname);
+					exit(1);
+				}
 				break;
 
 			case 'm':
@@ -366,6 +394,11 @@ main(int argc, char **argv)
 		pcpResInfo = pcp_node_info(pcpConn, nodeID);
 	}
 
+	else if (current_app_type->app_type == PCP_HEALTH_CHECK_STATS)
+	{
+		pcpResInfo = pcp_health_check_stats(pcpConn, nodeID);
+	}
+
 	else if (current_app_type->app_type == PCP_POOL_STATUS)
 	{
 		pcpResInfo = pcp_pool_status(pcpConn);
@@ -396,12 +429,17 @@ main(int argc, char **argv)
 
 	else if (current_app_type->app_type == PCP_STOP_PGPOOL)
 	{
-		pcpResInfo = pcp_terminate_pgpool(pcpConn, shutdown_mode);
+		pcpResInfo = pcp_terminate_pgpool(pcpConn, shutdown_mode, command_scope);
 	}
 
 	else if (current_app_type->app_type == PCP_WATCHDOG_INFO)
 	{
 		pcpResInfo = pcp_watchdog_info(pcpConn, nodeID);
+	}
+
+	else if (current_app_type->app_type == PCP_RELOAD_CONFIG)
+	{
+		pcpResInfo = pcp_reload_config(pcpConn,command_scope);
 	}
 
 	else
@@ -428,6 +466,9 @@ main(int argc, char **argv)
 
 		if (current_app_type->app_type == PCP_NODE_INFO)
 			output_nodeinfo_result(pcpResInfo, verbose);
+
+		if (current_app_type->app_type == PCP_HEALTH_CHECK_STATS)
+			output_health_check_stats_result(pcpResInfo, verbose);
 
 		if (current_app_type->app_type == PCP_POOL_STATUS)
 			output_poolstatus_result(pcpResInfo, verbose);
@@ -505,6 +546,75 @@ output_nodeinfo_result(PCPResultInfo * pcpResInfo, bool verbose)
 			   backend_info->replication_state,
 			   backend_info->replication_sync_state,
 			   last_status_change);
+	}
+}
+
+/*
+ * Format and output health check stats
+ */
+static void
+output_health_check_stats_result(PCPResultInfo * pcpResInfo, bool verbose)
+{
+	POOL_HEALTH_CHECK_STATS *stats = (POOL_HEALTH_CHECK_STATS *)pcp_get_binary_data(pcpResInfo, 0);
+
+	if (verbose)
+	{
+		const char *titles[] = {"Node Id", "Host Name", "Port", "Status", "Role", "Last Status Change",
+								"Total Count", "Success Count", "Fail Count", "Skip Count", "Retry Count",
+								"Average Retry Count", "Max Retry Count", "Max Health Check Duration",
+								"Minimum Health Check Duration", "Average Health Check Duration",
+								"Last Health Check", "Last Successful Health Check",
+								"Last Skip Health Check", "Last Failed Health Check"};
+		const char *types[] = {"s", "s", "s", "s", "s", "s", "s", "s", "s", "s",
+							   "s", "s", "s", "s", "s", "s", "s", "s", "s", "s"};
+		char *format_string;
+
+		format_string = format_titles(titles, types, sizeof(titles)/sizeof(char *));
+		printf(format_string,
+			   stats->node_id,
+			   stats->hostname,
+			   stats->port,
+			   stats->status,
+			   stats->role,
+			   stats->last_status_change,
+			   stats->total_count,
+			   stats->success_count,
+			   stats->fail_count,
+			   stats->skip_count,
+			   stats->retry_count,
+			   stats->average_retry_count,
+			   stats->max_retry_count,
+			   stats->max_health_check_duration,
+			   stats->min_health_check_duration,
+			   stats->average_health_check_duration,
+			   stats->last_health_check,
+			   stats->last_successful_health_check,
+			   stats->last_skip_health_check,
+			   stats->last_failed_health_check);
+	}
+	else
+	{
+		printf("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n",
+			   stats->node_id,
+			   stats->hostname,
+			   stats->port,
+			   stats->status,
+			   stats->role,
+			   stats->last_status_change,
+			   stats->total_count,
+			   stats->success_count,
+			   stats->fail_count,
+			   stats->skip_count,
+			   stats->retry_count,
+			   stats->average_retry_count,
+			   stats->max_retry_count,
+			   stats->max_health_check_duration,
+			   stats->min_health_check_duration,
+			   stats->average_health_check_duration,
+			   stats->last_health_check,
+			   stats->last_successful_health_check,
+			   stats->last_skip_health_check,
+			   stats->last_failed_health_check);
 	}
 }
 
@@ -643,7 +753,7 @@ output_watchdog_info_result(PCPResultInfo * pcpResInfo, bool verbose)
 		else if (cluster->quorumStatus == -1)
 			quorumStatus = "QUORUM ABSENT";
 		else if (cluster->quorumStatus == -2)
-			quorumStatus = "NO MASTER NODE";
+			quorumStatus = "NO LEADER NODE";
 		else
 			quorumStatus = "UNKNOWN";
 
@@ -653,8 +763,8 @@ output_watchdog_info_result(PCPResultInfo * pcpResInfo, bool verbose)
 		printf("Quorum state         : %s\n", quorumStatus);
 		printf("Alive Remote Nodes   : %d\n", cluster->aliveNodeCount);
 		printf("VIP up on local node : %s\n", cluster->escalated ? "YES" : "NO");
-		printf("Master Node Name     : %s\n", cluster->masterNodeName);
-		printf("Master Host Name     : %s\n\n", cluster->masterHostName);
+		printf("Leader Node Name     : %s\n", cluster->leaderNodeName);
+		printf("Leader Host Name     : %s\n\n", cluster->leaderHostName);
 
 		printf("Watchdog Node Information \n");
 		for (i = 0; i < cluster->nodeCount; i++)
@@ -676,8 +786,8 @@ output_watchdog_info_result(PCPResultInfo * pcpResInfo, bool verbose)
 		printf("%d %s %s %s\n\n",
 			   cluster->remoteNodeCount + 1,
 			   cluster->escalated ? "YES" : "NO",
-			   cluster->masterNodeName,
-			   cluster->masterHostName);
+			   cluster->leaderNodeName,
+			   cluster->leaderHostName);
 
 		for (i = 0; i < cluster->nodeCount; i++)
 		{
@@ -701,10 +811,17 @@ app_require_nodeID(void)
 	return (current_app_type->app_type == PCP_ATTACH_NODE ||
 			current_app_type->app_type == PCP_DETACH_NODE ||
 			current_app_type->app_type == PCP_NODE_INFO ||
+			current_app_type->app_type == PCP_HEALTH_CHECK_STATS ||
 			current_app_type->app_type == PCP_PROMOTE_NODE ||
 			current_app_type->app_type == PCP_RECOVERY_NODE);
 }
 
+static inline bool
+app_support_cluster_mode(void)
+{
+	return (current_app_type->app_type == PCP_STOP_PGPOOL ||
+			current_app_type->app_type == PCP_RELOAD_CONFIG);
+}
 
 static void
 usage(void)
@@ -734,10 +851,16 @@ usage(void)
 	{
 		fprintf(stderr, "  -n, --node-id=NODEID   ID of a backend node\n");
 	}
-
 	if (current_app_type->app_type == PCP_STOP_PGPOOL)
 	{
 		fprintf(stderr, "  -m, --mode=MODE        MODE can be \"smart\", \"fast\", or \"immediate\"\n");
+	}
+
+	if (app_support_cluster_mode())
+	{
+		fprintf(stderr, "  -s, --scope=SCOPE      SCOPE can be \"cluster\", or \"local\"\n");
+		fprintf(stderr, "                         cluster scope do operations on all Pgpool-II nodes\n");
+		fprintf(stderr, "                         part of the watchdog cluster\n");
 	}
 	if (current_app_type->app_type == PCP_PROMOTE_NODE ||
 		current_app_type->app_type == PCP_DETACH_NODE)
@@ -837,9 +960,9 @@ backend_status_to_string(BackendInfo * bi)
 char *
 role_to_str(SERVER_ROLE role)
 {
-	static char *role_str[] = {"master", "slave", "primary", "standby"};
+	static char *role_str[] = {"main", "replica", "primary", "standby"};
 
-	if (role < ROLE_MASTER || role > ROLE_STANDBY)
+	if (role < ROLE_MAIN || role > ROLE_STANDBY)
 		return "unknown";
 	return role_str[role];
 }

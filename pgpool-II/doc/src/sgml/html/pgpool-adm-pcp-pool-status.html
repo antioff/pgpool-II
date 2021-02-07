@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="pgpool_adm extension"
 HREF="pgpool-adm.html"><LINK
 REL="PREVIOUS"
-TITLE="pgpool_adm_pcp_node_info"
-HREF="pgpool-adm-pcp-node-info.html"><LINK
+TITLE="pgpool_adm_pcp_health_check_stats"
+HREF="pgpool-adm-pcp-health-check-stats.html"><LINK
 REL="NEXT"
 TITLE="pgpool_adm_pcp_node_count"
 HREF="pgpool-adm-pcp-node-count.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="pgpool_adm_pcp_node_info"
-HREF="pgpool-adm-pcp-node-info.html"
+TITLE="pgpool_adm_pcp_health_check_stats"
+HREF="pgpool-adm-pcp-health-check-stats.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -95,7 +95,7 @@ NAME="PGPOOL-ADM-PCP-POOL-STATUS"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN8785"
+NAME="AEN9905"
 ></A
 ><H2
 >Name</H2
@@ -103,7 +103,7 @@ NAME="AEN8785"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN8788"
+NAME="AEN9908"
 ></A
 ><H2
 >Synopsis</H2
@@ -112,7 +112,7 @@ CLASS="FUNCSYNOPSIS"
 ><P
 ></P
 ><A
-NAME="AEN8789"
+NAME="AEN9909"
 ></A
 ><P
 ><CODE
@@ -183,7 +183,7 @@ CLASS="FUNCTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8822"
+NAME="AEN9942"
 ></A
 ><H2
 >Arguments</H2
@@ -226,7 +226,7 @@ HREF="pcp-common-options.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8837"
+NAME="AEN9957"
 ></A
 ><H2
 >Example</H2
@@ -234,7 +234,7 @@ NAME="AEN8837"
 >   Here is an example output:
    </P><PRE
 CLASS="PROGRAMLISTING"
->    test=# SELECT * FROM pcp_pool_status('localhost',11001,'t-ishii','t-ishii') WHERE item ~ 'backend.*0';
+>    test=# SELECT * FROM pcp_pool_status(host =&#62; 'localhost', port =&#62; 11001, username =&#62; 't-ishii', password =&#62; 't-ishii') WHERE item ~ 'backend.*0';
     item           |                     value                      |          description
     -------------------------+------------------------------------------------+-------------------------------
     backend_hostname0       | /tmp                                           | backend #0 hostname
@@ -264,7 +264,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="pgpool-adm-pcp-node-info.html"
+HREF="pgpool-adm-pcp-health-check-stats.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -292,7 +292,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->pgpool_adm_pcp_node_info</TD
+>pgpool_adm_pcp_health_check_stats</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

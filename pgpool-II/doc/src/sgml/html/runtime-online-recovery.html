@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -175,7 +175,7 @@ CLASS="PRODUCTNAME"
   stage". You need to provide scripts for each
   stage. Only <A
 HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
->replication_mode</A
+>native_replication_mode</A
 > requires the
    second stage.  For other modes including streaming replication
    mode the second stage is not performed and you don't need to
@@ -187,7 +187,7 @@ HREF="runtime-online-recovery.html#GUC-RECOVERY-2ND-STAGE-COMMAND"
     safely leave it as an empty string. Those scripts example can be found in
     <A
 HREF="example-cluster.html#EXAMPLE-CLUSTER-PGPOOL-CONFIG-ONLINE-RECOVERY"
->Section 8.3.5.3</A
+>Section 8.2.6.8</A
 >.
  </P
 ><P
@@ -218,7 +218,7 @@ CLASS="PRODUCTNAME"
 >    Wait until all client connections have disconnected (only
     in <A
 HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
->replication_mode</A
+>native_replication_mode</A
 >).
    </P
 ></LI
@@ -226,7 +226,7 @@ HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
 ><P
 >    CHECKPOINT (only in <A
 HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
->replication_mode</A
+>native_replication_mode</A
 >).
      specified).
    </P
@@ -236,7 +236,7 @@ HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
 >    Execute second stage of online recovery (only
     in <A
 HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
->replication_mode</A
+>native_replication_mode</A
 >).
    </P
 ></LI
@@ -269,14 +269,14 @@ CLASS="LITERAL"
 ></LI
 ><LI
 ><P
->       Path to the database cluster of the master(primary) node.
+>       Path to the database cluster of the main(primary) node.
       </P
 ></LI
 ></UL
 ><P>
     The script example can be found in <A
 HREF="example-cluster.html#EXAMPLE-CLUSTER-PGPOOL-CONFIG-ONLINE-RECOVERY"
->Section 8.3.5.3</A
+>Section 8.2.6.8</A
 >.
      </P><DIV
 CLASS="NOTE"
@@ -288,7 +288,7 @@ CLASS="NOTE"
 >       The script path and filename are hard coded, <TT
 CLASS="COMMAND"
 >$PGDATA/pgpool_remote_start</TT
-> is executed on master(primary) node.
+> is executed on main(primary) node.
       </P
 ></BLOCKQUOTE
 ></DIV
@@ -311,7 +311,7 @@ CLASS="NOTE"
 >   There is a restriction in the online recovery in
    <A
 HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
->replication_mode</A
+>native_replication_mode</A
 >. If
     <SPAN
 CLASS="PRODUCTNAME"
@@ -498,7 +498,7 @@ CLASS="TYPE"
     </DT
 ><DD
 ><P
->     Specifies a command to be run by master (primary) node at the
+>     Specifies a command to be run by main (primary) node at the
      first stage of online recovery. The command file must be placed in the
      database cluster directory for security reasons.
      For example, if <TT
@@ -531,7 +531,7 @@ CLASS="VARNAME"
 ><UL
 ><LI
 ><P
->       Path to the database cluster of the master (primary) node.
+>       Path to the database cluster of the main (primary) node.
       </P
 ></LI
 ><LI
@@ -546,7 +546,7 @@ CLASS="VARNAME"
 ></LI
 ><LI
 ><P
->       Port number of the master (primary) node (<SPAN
+>       Port number of the main (primary) node (<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > 3.4 or after).
@@ -662,11 +662,11 @@ CLASS="TYPE"
     </DT
 ><DD
 ><P
->     Specifies a command to be run by master node at the second
+>     Specifies a command to be run by main node at the second
      stage of online recovery. This command is required only
      <A
 HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
->replication_mode</A
+>native_replication_mode</A
 >, so for other modes don't need
       to provide a command file. The command file must be placed in the
       database cluster directory for security reasons.
@@ -700,7 +700,7 @@ CLASS="VARNAME"
 ><UL
 ><LI
 ><P
->       Path to the database cluster of the master(primary) node.
+>       Path to the database cluster of the main(primary) node.
       </P
 ></LI
 ><LI
@@ -715,7 +715,7 @@ CLASS="VARNAME"
 ></LI
 ><LI
 ><P
->       Port number of the master (primary) node (<SPAN
+>       Port number of the main (primary) node (<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > 3.4 or after).

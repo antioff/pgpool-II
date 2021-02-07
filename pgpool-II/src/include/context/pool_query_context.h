@@ -63,7 +63,7 @@ typedef struct
 	bool		where_to_send[MAX_NUM_BACKENDS];	/* DB node map to send
 													 * query */
 	int         load_balance_node_id;	/* load balance node id per statement */
-	int			virtual_master_node_id; /* the 1st DB node to send query */
+	int			virtual_main_node_id; /* the 1st DB node to send query */
 	POOL_QUERY_STATE query_state[MAX_NUM_BACKENDS]; /* for extended query
 													 * protocol */
 	bool		is_cache_safe;	/* true if SELECT is safe to cache */
@@ -126,4 +126,5 @@ extern void pool_set_cache_exceeded(void);
 extern void pool_unset_cache_exceeded(void);
 extern bool pool_is_transaction_read_only(Node *node);
 extern void pool_force_query_node_to_backend(POOL_QUERY_CONTEXT * query_context, int backend_id);
+extern void check_object_relationship_list(char *name, bool is_func_name);
 #endif							/* POOL_QUERY_CONTEXT_H */

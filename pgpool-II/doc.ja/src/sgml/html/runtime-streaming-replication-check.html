@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -111,15 +111,12 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >を設定するには、<A
-HREF="runtime-config-running-mode.html#GUC-MASTER-SLAVE-MODE"
->master_slave_mode</A
->を有効にして<A
-HREF="runtime-config-running-mode.html#GUC-MASTER-SLAVE-SUB-MODE"
->master_slave_sub_mode</A
->を<TT
+HREF="runtime-config-running-mode.html#GUC-BACKEND-CLUSTERING-MODE"
+>backend_clustering_mode</A
+>に<TT
 CLASS="LITERAL"
->'stream'</TT
->に設定します。
+>'streaming-replication'</TT
+>を設定します。
  </P
 ><P
 >  
@@ -439,7 +436,6 @@ CLASS="TYPE"
 >     
      レプリケーションの遅延状況をログ出力する条件を指定します。
      以下の表にこのパラメータでとることができる値のリストを示します。
-     'none'を指定すると、ログを出力しません。 'always'ならレプリケーションの遅延チェックを実行するたびに必ず出力します。 'if_over_threshold'を指定すると、delay_thresholdを超えたときだけ ログが出力されます。 デフォルト値は'none'です。
     </P
 ><DIV
 CLASS="TABLE"
@@ -469,7 +465,7 @@ CLASS="LITERAL"
 >'none'</TT
 ></TD
 ><TD
->スタンバイの遅延はログ出力されない</TD
+>スタンバイの遅延はログ出力されない (デフォルト)</TD
 ></TR
 ><TR
 ><TD
@@ -478,7 +474,7 @@ CLASS="LITERAL"
 >'always'</TT
 ></TD
 ><TD
->レプリケーション遅延がチェックされる度に、スタンバイの遅延がログ出力される</TD
+>スタンバイの遅延が0より大きければ、レプリケーション遅延がチェックされる度に、スタンバイの遅延がログ出力される</TD
 ></TR
 ><TR
 ><TD

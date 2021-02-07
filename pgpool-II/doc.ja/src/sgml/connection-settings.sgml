@@ -591,182 +591,76 @@
 </sect1>
 
 <sect1 id="runtime-config-running-mode">
- <!--
- <title>Running mode</title>
- -->
- <title>動作モード</title>
-
- <sect2 id="runtime-config-master-slave-mode">
-  <!--
-  <title>Master slave mode</title>
-  -->
-  <title>マスタースレーブモード</title>
-
-  <para>
-   <!--
-   This mode is used to couple <productname>Pgpool-II</productname>
-   with another master/slave replication software (like <acronym>Slony-I</acronym>
-   and Streaming replication), that is responsible for doing the actual data replication.
-   -->
-   このモードは<productname>Pgpool-II</productname>と（<acronym>Slony-I</acronym>やストリーミングレプリケーションのような）他のマスター/スレーブ型のレプリケーションソフトウェアと組み合わせるのに使用されます。
-   実際にデータレプリケーションを行うのはこれらのソフトウェアに任されます。
-  </para>
-
-  <note>
-   <para>
-    <!--
-    The number of slave nodes are not limited to 1 and
-    <productname>Pgpool-II</productname> can have up to 127 slave nodes.
-    master/slave mode can also work just master node without any slave nodes.
-    -->
-    スレーブノードの数は1つに限定されず、<productname>Pgpool-II</productname>は127個までのスレーブノードを持つことができます。
-    マスタースレーブモードは、スレーブノードが1つも存在しない場合マスターノードのみを動作させることができます。
-   </para>
-  </note>
-
-  <para>
-   <!--
-   Load balancing (see <xref linkend="runtime-config-load-balancing"> ) can
-   also be used with master/slave mode to distribute the read load on the
-   standby backend nodes.
-   -->
-   参照負荷をスタンバイバックエンドノードに振り分ける負荷分散（<xref linkend="runtime-config-load-balancing">を参照）もマスタースレーブモードと共に使用可能です。
-  </para>
-  <para>
-   <!--
-   Following options are required to be specified for master/slave mode.
-   -->
-   マスタースレーブモードでは以下のオプションを設定する必要があります。
-  </para>
+ <title>クラスタリングモード</title>
 
   <variablelist>
-
-   <varlistentry id="guc-master-slave-mode" xreflabel="master_slave_mode">
-    <term><varname>master_slave_mode</varname> (<type>boolean</type>)
+   <varlistentry id="guc-backend-clustering-mode" xreflabel="backend_clustering_mode">
+    <term><varname>backend_clustering_mode</varname> (<type>enum</type>)
      <indexterm>
-      <!--
-      <primary><varname>master_slave_mode</varname> configuration parameter</primary>
-      -->
-      <primary><varname>master_slave_mode</varname> 設定パラメータ</primary>
+      <primary><varname>backend_clustering_mode</varname>設定パラメータ</primary>
      </indexterm>
     </term>
     <listitem>
      <para>
-      <!--
-      Setting to on enables the master/slave mode.
-      Default is off.
-      -->
-      マスタースレーブモードを有効にします。
-      デフォルトはoffです。
-     </para>
-     <note>
-      <para>
-       <!--
-       <xref linkend="guc-master-slave-mode"> and <xref linkend="guc-replication-mode">
-       are mutually exclusive and only one can be enabled at a time.
-       -->
-       <xref linkend="guc-master-slave-mode">と<xref linkend="guc-replication-mode">は相互に排他的で、一度に一方しか有効にすることができません。
-      </para>
-     </note>
-     <para>
-      <!--
-      This parameter can only be set at server start.
-      -->
-      このパラメータはサーバ起動時にのみ設定可能です。
+     クラスタリングモードは<productname>PostgreSQL</productname>の同期を取る方法を指定します。
+     クラスタリングモードの設定には<varname>backend_clustering_mode</varname>を使用します。
+     この節ではクラスタリングモードの設定方法を説明します。
+     詳細は<xref linkend="planning-postgresql">をご覧ください。
      </para>
     </listitem>
    </varlistentry>
-
-   <varlistentry id="guc-master-slave-sub-mode" xreflabel="master_slave_sub_mode">
-    <term><varname>master_slave_sub_mode</varname> (<type>enum</type>)
-     <indexterm>
-      <!--
-      <primary><varname>master_slave_sub_mode</varname> configuration parameter</primary>
-      -->
-      <primary><varname>master_slave_sub_mode</varname> 設定パラメータ</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      <!--
-      Specifies the external replication system used for data replication between
-      <productname>PostgreSQL</> nodes.
-      Below table contains the list of valid values for the parameter.
-      -->
-      <productname>PostgreSQL</>ノード間のデータレプリケーションに用いる外部のレプリケーションシステムを指定します。
-      以下の表にこのパラメータで有効な値のリストを示します。
-
-     </para>
-
-     <table id="master-slave-sub-mode-table">
-      <!--
-      <title>master slave sub mode options</title>
-      -->
-      <title>master_slave_sub_modeオプション</title>
-      <tgroup cols="2">
-       <thead>
-	<row>
-	 <!--
-	 <entry>Value</entry>
-	 <entry>Description</entry>
-	 -->
-	 <entry>値</entry>
-	 <entry>説明</entry>
-	</row>
-       </thead>
-
-       <tbody>
-	<row>
-	 <entry><literal>'stream'</literal></entry>
-	 <!--
-	 <entry>Suitable for <productname>PostgreSQL</>'s built-in replication system (Streaming Replication)</entry>
-	 -->
-	 <entry><productname>PostgreSQL</>の組み込みレプリケーションシステム（ストリーミングレプリケーション）に適合</entry>
-	</row>
-
-	<row>
-	 <entry><literal>'slony'</literal></entry>
-	 <!--
-	 <entry>Suitable for <acronym>Slony-I</acronym></entry>
-	 -->
-	 <entry> <acronym>Slony-I</acronym>に適合</entry>
-	</row>
-
-	<row>
-	 <entry><literal>'logical'</literal></entry>
-	 <!--
-	 <entry>Suitable for <productname>PostgreSQL</>'s built-in replication system (Logical Replication)</entry>
-	 -->
-	 <entry><productname>PostgreSQL</>の組み込みレプリケーションシステム（ロジカルレプリケーション）に適合</entry>
-	</row>
-
-       </tbody>
-      </tgroup>
-     </table>
-
-     <para>
-      <!--
-      Default is <literal>'stream'</literal>.
-      -->
-      デフォルトは<literal>'stream'</literal>です。
-     </para>
-     <para>
-      <!--
-      This parameter can only be set at server start.
-      -->
-      このパラメータはサーバ起動時にのみ設定可能です。
-     </para>
-    </listitem>
-   </varlistentry>
-
   </variablelist>
+
+ <sect2 id="runtime-config-streaming-replication-mode">
+  <title>ストリーミングレプリケーションモード</title>
+
+  <para>
+   このモードはもっともよく使われており、推薦できるクラスタリングモードです。
+   このモードでは<productname>PostgreSQL</productname>が個々のサーバをレプリケーションします。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'streaming_replication'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'streaming_replication'
+    </programlisting>
+   このモードでは127台までのストリーミングレプリケーションスタンバイサーバを使用できます。
+   また、スタンバイサーバをまったく使用しないことも可能です。
+  </para>
+  <para>
+   ストリーミングレプリケーションモードで使用する追加のパラメータについては<xref linkend="runtime-streaming-replication-check">をご覧ください。
+  </para>
+ </sect2>
+ 
+ <sect2 id="runtime-config-logical-replication-mode">
+  <title>ロジカルレプリケーションモード</title>
+
+  <para>
+   このモードは最近追加されました。
+   このモードでは<productname>PostgreSQL</productname>が個々のサーバをレプリケーションします。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'logical_replication'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'logical_replication'
+    </programlisting>
+   このモードでは127台までのロジカルレプリケーションストリーミングレプリケーションスタンバイサーバを使用できます。
+   また、スタンバイサーバをまったく使用しないことも可能です。
+  </para>
  </sect2>
 
- <sect2 id="runtime-config-replication-mode">
-  <!--
-  <title>Replication mode</title>
-  -->
-  <title>レプリケーションモード</title>
+ <sect2 id="runtime-config-slony-mode">
+  <title>Slonyモード</title>
+
+  <para>
+   このモードでは<productname>Pgpool-II</productname>を<acronym>Slony-I</acronym>と組み合わせて使用します。
+   Slony-Iが実際にデータのレプリケーションを行います。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'slony'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'slony'
+    </programlisting>
+   このモードでは127台までのスレーブサーバを使用できます。
+   また、スレーブサーバをまったく使用しないことも可能です。
+  </para>
+ </sect2>
+
+ <sect2 id="guc-replication-mode" xreflabel="native_replication_mode">
+  <title>ネィティブレプリケーションモード</title>
 
   <para>
    <!--
@@ -793,42 +687,6 @@
   </para>
 
   <variablelist>
-
-   <varlistentry id="guc-replication-mode" xreflabel="replication_mode">
-    <term><varname>replication_mode</varname> (<type>boolean</type>)
-     <indexterm>
-      <!--
-      <primary><varname>replication_mode</varname> configuration parameter</primary>
-      -->
-      <primary><varname>replication_mode</varname> 設定パラメータ</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      <!--
-      Setting to on enables the replication mode.
-      Default is off.
-      -->
-      レプリケーションモードを有効にします。
-      デフォルトはoffです。
-     </para>
-     <note>
-      <para>
-       <!--
-       <xref linkend="guc-replication-mode"> and <xref linkend="guc-master-slave-mode">
-       are mutually exclusive and only one can be enabled at a time.
-       -->
-       <xref linkend="guc-replication-mode">と<xref linkend="guc-master-slave-mode">は相互に排他的で、一度に一方しか有効にすることができません。
-      </para>
-     </note>
-     <para>
-      <!--
-      This parameter can only be set at server start.
-      -->
-      このパラメータはサーバ起動時にのみ設定可能です。
-     </para>
-    </listitem>
-   </varlistentry>
 
    <varlistentry id="guc-replication-stop-on-mismatch" xreflabel="replication_stop_on_mismatch">
     <term><varname>replication_stop_on_mismatch</varname> (<type>boolean</type>)
@@ -920,10 +778,10 @@
       <para>
        <!--
        In case of a tie, when two or more groups have the same number of nodes,
-       then the group containing the master node (backend node having
+       then the group containing the main node (backend node having
        the youngest node id) gets the precedence.
        -->
-       もし同票で、2つ以上のグループで同じノード数だった場合は、マスターノード(最も若いDBノード番号のバックエンドノード)を含むグループが優先されます。
+       もし同票で、2つ以上のグループで同じノード数だった場合は、メインノード(最も若いDBノード番号のバックエンドノード)を含むグループが優先されます。
       </para>
      </note>
 
@@ -1025,9 +883,9 @@
 	      <row>
 	       <entry>
 		<!--
-		results(R:replication, M: send only to master, L: load balance)
+		results(R:replication, M: send only to main, L: load balance)
 		-->
-		結果（R:レプリケーション、M:マスターのみに送信、L:負荷分散）
+		結果（R:レプリケーション、M:メインのみに送信、L:負荷分散）
 	       </entry>
 	       <entry align="center">R</entry>
 	       <entry align="center">M</entry>
@@ -1362,6 +1220,83 @@
   </variablelist>
  </sect2>
 
+ <sect2 id="guc-snapshot-isolation-mode" xreflabel="snapshot_isolation_mode">
+  <title>スナップショットアイソレーションモード</title>
+
+  <para>
+   このモードは、ネィティブレプリケーションモードと似ていますが、更にノードをまたがる可視性の一貫性を保証します。
+   実装は研究論文<xref linkend="mishima2009">に基づいています。
+   たとえば、以下のようなノードにまたがる可視性の一貫性がないことからくるノード間のデータ不整合を防ぐことができます。
+   ここで、S1, S2はセッションを表し、N1, N2はPostgreSQLのサーバ1と2を表します。
+   <programlisting>
+S1/N1: BEGIN;
+S1/N2: BEGIN;
+S1/N1: UPDATE t1 SET i = i + 1;	-- i = 1
+S1/N2: UPDATE t1 SET i = i + 1; -- i = 1
+S1/N1: COMMIT;
+S2/N1: BEGIN;
+S2/N2: BEGIN;
+S2/N2: DELETE FROM t1 WHERE i = 1; -- delete 1 row since S1/N2 is not committed yet
+S2/N1: DELETE FROM t1 WHERE i = 1; -- delete no row since S1/N1 is committed and i is not 1 anymore
+S1/N2: COMMIT;
+S2/N1: COMMIT;
+S2/N2: COMMIT;
+   </programlisting>
+   スナップショットアイソレーションモードでは、以下のどちらかとなり、いずれにしてもノード間のデータの一貫性は損なわれません。
+   <programlisting>
+S1/N1: BEGIN;
+S1/N2: BEGIN;
+S1/N1: UPDATE t1 SET i = i + 1;	-- i = 1
+S1/N2: UPDATE t1 SET i = i + 1; -- i = 1
+S2/N1: BEGIN;
+S2/N2: BEGIN;
+S1/N1: COMMIT;
+S1/N2: COMMIT;
+S2/N1: DELETE FROM t1 WHERE i = 1; -- delete no row since S1/N1 is committed and i is not 1 anymore
+S2/N2: DELETE FROM t1 WHERE i = 1; -- delete no row since S1/N2 is committed and i is not 1 anymore
+S2/N1: COMMIT;
+S2/N2: COMMIT;
+   </programlisting>
+
+   <programlisting>
+S1/N1: BEGIN;
+S1/N2: BEGIN;
+S1/N1: UPDATE t1 SET i = i + 1;	-- i = 1
+S1/N2: UPDATE t1 SET i = i + 1; -- i = 1
+S2/N1: BEGIN;
+S2/N2: BEGIN;
+S2/N1: DELETE FROM t1 WHERE i = 1; -- delete 1 row since S1/N1 is not committed yet
+S2/N2: DELETE FROM t1 WHERE i = 1; -- delete 1 row since S1/N2 is not committed yet
+S1/N1: COMMIT;
+S1/N2: COMMIT;
+S2/N1: COMMIT;
+S2/N2: COMMIT;
+   </programlisting>
+
+   ただし、制限事項がいくつかあり、今の所(<productname>Pgpool-II</productname> 4.2)では「実験的な実装」という位置づけです。
+   業務で使用する場合には慎重なテストをお勧めします。
+  </para>
+  <itemizedlist>
+   <listitem>
+    <para>
+     PostgreSQLのトランザクション分離レベルをREPEATABLE READにする必要があります。
+     具体的には、<filename>postgresql.conf</filename>に以下のように記述します。
+     <programlisting>
+      default_transaction_isolation = 'repeatable read'
+     </programlisting>
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     シリアル型やシーケンスに関する一貫した可視性を保証しません。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+
+ </sect2>
+
 </sect1>
 
 <sect1 id="runtime-config-backend-settings">
@@ -1420,16 +1355,16 @@
       end of the parameter name (e.g.backend_hostname0). This
       number is referred to as "DB node ID", and it starts from
       0. The backend which was given the DB node ID of 0 will be
-      called "master node". When multiple backends are defined, the
-      service can be continued even if the master node is down (not
+      called "main node". When multiple backends are defined, the
+      service can be continued even if the main node is down (not
       true in some modes). In this case, the youngest DB node ID
-      alive will be the new master node.
+      alive will be the new main node.
       -->
       パラメータ名の末尾に数字を付加することで複数のバックエンドを指定することができます(たとえばbackend_hostname0)。
       この数字のことを「DBノードID」と呼び、0から開始します。
-      DBノードIDが0のバックエンドは「マスターノード」と呼ばれます。
-      複数のDBノードを定義している場合、条件によってはマスターノードがダウンしても運用を続けることができます（いくつかのモードを除きます）。
-      この場合は、稼働中かつDBノードIDがもっとも若いものが新しいマスターノードになります。
+      DBノードIDが0のバックエンドは「メインノード」と呼ばれます。
+      複数のDBノードを定義している場合、条件によってはメインノードがダウンしても運用を続けることができます（いくつかのモードを除きます）。
+      この場合は、稼働中かつDBノードIDがもっとも若いものが新しいメインノードになります。
      </para>
 
      <para>
@@ -1541,7 +1476,7 @@
       <productname>Pgpool-II</> <emphasis>V2.2.6</>, <emphasis>V2.3</> or later
       allows alllow updating the values by reloading a configuration file.
       This is useful if you want to prevent any query sent to
-      slaves to perform some administrative work in master/slave mode.
+      standbys to perform some administrative work in native replication mode.
       -->
       新しい<varname>backend_weight</>はパラメータ行を追加して、設定ファイル再読み込みすることで追加できます。
       <productname>Pgpool-II</> <emphasis>V2.2.6</>、<emphasis>V2.3</>以降では、設定ファイルの再読込みで値を変更できます。
@@ -1682,7 +1617,7 @@
 
 	<row>
 	 <!--
-	 <entry><literal>ALWAYS_MASTER</literal></entry>
+	 <entry><literal>ALWAYS_PRIMARY</literal></entry>
 	 <entry>This is only useful in streaming replication
 	 mode. See <xref linkend="running-mode"> about
 	 streaming replication mode.  If this flag is set to
@@ -1693,11 +1628,11 @@
 	 flag is set as the primary node. This is useful for
 	 systems including <productname>Amazon Aurora for
 	 PostgreSQL Compatibility</productname> which has
-	 fixed master server name. See <xref linkend="example-Aurora">
+	 fixed primary server name. See <xref linkend="example-Aurora">
 	 for an example settings.
 	</entry>
 	 -->
-	 <entry><literal>ALWAYS_MASTER</literal></entry>
+	 <entry><literal>ALWAYS_PRIMARY</literal></entry>
 	 <entry>ストリーミングレプリケーションでのみ有効です。
 	  ストリーミングレプリケーションモードについては<xref linkend="running-mode">をご覧ください。
 	   このフラグがバックエンドのどれかにセットされていると、<productname>Pgpool-II</productname>はバックエンドにアクセスしてプライマリノードを探すのではなく、このフラグがセットされているノードをプライマリノードと見なします。

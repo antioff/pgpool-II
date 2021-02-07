@@ -34,6 +34,8 @@
 #include "utils/palloc.h"
 #include "utils/memutils.h"
 #include "context/pool_session_context.h"
+#include "protocol/pool_process_query.h"
+#include "protocol/pool_pg_utils.h"
 
 typedef struct
 {
@@ -476,7 +478,7 @@ rewrite_timestamp_walker(Node *node, void *context)
 
 
 /*
- * Get `now()' from MASTER node
+ * Get `now()' from MAIN node
  */
 static char *
 get_current_timestamp(POOL_CONNECTION_POOL * backend)
@@ -484,7 +486,7 @@ get_current_timestamp(POOL_CONNECTION_POOL * backend)
 	POOL_SELECT_RESULT *res;
 	static char timestamp[64];
 
-	do_query(MASTER(backend), "SELECT now()", &res, MAJOR(backend));
+	do_query(MAIN(backend), "SELECT now()", &res, MAJOR(backend));
 
 	if (res->numrows != 1)
 	{
@@ -1225,7 +1227,7 @@ makeStringConstFromQuery(POOL_CONNECTION_POOL * backend, char *expression)
 	char	   *str;
 
 	snprintf(query, sizeof(query), "SELECT %s", expression);
-	do_query(MASTER(backend), query, &res, MAJOR(backend));
+	do_query(MAIN(backend), query, &res, MAJOR(backend));
 
 	if (res->numrows != 1)
 	{

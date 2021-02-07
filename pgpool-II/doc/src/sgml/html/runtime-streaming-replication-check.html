@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -111,16 +111,13 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > with streaming
-  replication, enable <A
-HREF="runtime-config-running-mode.html#GUC-MASTER-SLAVE-MODE"
->master_slave_mode</A
-> and set
+  replication, set
    <A
-HREF="runtime-config-running-mode.html#GUC-MASTER-SLAVE-SUB-MODE"
->master_slave_sub_mode</A
+HREF="runtime-config-running-mode.html#GUC-BACKEND-CLUSTERING-MODE"
+>backend_clustering_mode</A
 > to <TT
 CLASS="LITERAL"
->'stream'</TT
+>'streaming-replication'</TT
 >.
  </P
 ><P
@@ -486,7 +483,7 @@ CLASS="LITERAL"
 >'none'</TT
 ></TD
 ><TD
->Never log the standby delay</TD
+>Never log the standby delay (the default)</TD
 ></TR
 ><TR
 ><TD
@@ -495,7 +492,7 @@ CLASS="LITERAL"
 >'always'</TT
 ></TD
 ><TD
->Log the standby delay, every time the replication delay is checked</TD
+>Log the standby delay if it's greater than 0, every time the replication delay is checked</TD
 ></TR
 ><TR
 ><TD

@@ -30,6 +30,54 @@
      <para>
       This parameter can only be set at server start.
      </para>
+     <para>
+      <productname>Pgpool-II</productname> 4.1 or earlier, because it is required to specify
+      its own pgpool node information and the destination pgpool nodes information, the
+      settings are different per pgpool node.
+      Since <productname>Pgpool-II</productname> 4.2, all configuration parameters are
+      identical on all hosts. If watchdog feature is enabled, to distingusish which host
+      is which, a <filename>pgpool_node_id</filename> file is required.
+      You need to create a <filename>pgpool_node_id</filename> file and specify the
+      pgpool (watchdog) node number (e.g. 0, 1, 2 ...) to identify pgpool (watchdog) host.
+     </para>
+     <example id="example-pgpool-node-id-1">
+      <title>pgpool_node_id configuration</title>
+      <para>
+       If you have 3 pgpool nodes with hostname server1, server2 and server3, create the
+       <filename>pgpool_node_id</filename> file on each host as follows.
+       When installing <productname>Pgpool-II</productname> using RPM,
+       <filename>pgpool.conf</filename> is installed under <filename>/etc/pgpool-II/</filename>.
+      </para>
+      <itemizedlist>
+       <listitem>
+        <para>
+         <literal>server1</literal>
+        </para>
+        <programlisting>
+[server1]# cat /etc/pgpool-II/pgpool_node_id
+0
+        </programlisting>
+       </listitem>
+       <listitem>
+        <para>
+         <literal>server2</literal>
+        </para>
+        <programlisting>
+[server2]# cat /etc/pgpool-II/pgpool_node_id
+1
+        </programlisting>
+       </listitem>
+       <listitem>
+        <para>
+         <literal>server3</literal>
+        </para>
+        <programlisting>
+[server3]# cat /etc/pgpool-II/pgpool_node_id
+2
+        </programlisting>
+       </listitem>
+      </itemizedlist>
+     </example>
     </listitem>
    </varlistentry>
   </variablelist>
@@ -40,10 +88,10 @@
 
   <variablelist>
 
-   <varlistentry id="guc-wd-hostname" xreflabel="wd_hostname">
-    <term><varname>wd_hostname</varname> (<type>string</type>)
+   <varlistentry id="guc-hostname" xreflabel="hostname">
+    <term><varname>hostnameX</varname> (<type>string</type>)
      <indexterm>
-      <primary><varname>wd_hostname</varname> configuration parameter</primary>
+      <primary><varname>hostnameX</varname> configuration parameter</primary>
      </indexterm>
     </term>
     <listitem>
@@ -52,6 +100,8 @@
       <productname>Pgpool-II</productname> server.
       This is used for sending/receiving queries and packets,
       and also as an identifier of the watchdog node.
+      The number at the end of the parameter name is referred
+      as "pgpool node id", and it starts from 0 (e.g. hostname0).
      </para>
      <para>
       This parameter can only be set at server start.
@@ -60,19 +110,62 @@
    </varlistentry>
 
    <varlistentry id="guc-wd-port" xreflabel="wd_port">
-    <term><varname>wd_port</varname> (<type>integer</type>)
+    <term><varname>wd_portX</varname> (<type>integer</type>)
      <indexterm>
-      <primary><varname>wd_port</varname> configuration parameter</primary>
+      <primary><varname>wd_portX</varname> configuration parameter</primary>
      </indexterm>
     </term>
     <listitem>
      <para>
       Specifies the port number to be used by watchdog
       process to listen for connections. Default is 9000.
+      The number at the end of the parameter name is referred
+      as "pgpool node id", and it starts from 0 (e.g. wd_port0).
      </para>
      <para>
       This parameter can only be set at server start.
      </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-pgpool-port" xreflabel="pgpool_port">
+    <term><varname>pgpool_portX</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>pgpool_portX</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Specifies the <productname>Pgpool-II</productname> port number.
+      Default is 9999.
+      The number at the end of the parameter name is referred
+      as "pgpool node id", and it starts from 0 (e.g. pgpool_port0).
+     </para>
+     <para>
+      This parameter can only be set at server start.
+     </para>
+
+     <example id="example-watchdog-1">
+      <title>Watchdog configuration</title>
+      <para>
+       If you have 3 pgpool nodes with hostname server1, server2 and server3,
+       you can configure <xref linkend="guc-hostname">,
+       <xref linkend="guc-wd-port"> and <xref linkend="guc-pgpool-port"> like below:
+    <programlisting>
+hostname0 = 'server1'
+wd_port0 = 9000
+pgpool_port0 = 9999
+
+hostname1 = 'server2'
+wd_port1 = 9000
+pgpool_port1 = 9999
+
+hostname2 = 'server3'
+wd_port2 = 9000
+pgpool_port2 = 9999
+    </programlisting>
+      </para>
+     </example>
     </listitem>
    </varlistentry>
 
@@ -352,7 +445,7 @@
     <listitem>
      <para>
       Watchdog executes this command on the node that is escalated
-      to the master watchdog.
+      to the leader watchdog.
      </para>
      <para>
       This command is executed just before bringing up the
@@ -372,10 +465,10 @@
     </term>
     <listitem>
      <para>
-      Watchdog executes this command on the master <productname>Pgpool-II</productname>
-      watchdog node when that node resigns from the master node responsibilities.
-      A master watchdog node can resign from being a master node,
-      when the master node <productname>Pgpool-II</productname> shuts down, detects a network
+      Watchdog executes this command on the leader <productname>Pgpool-II</productname>
+      watchdog node when that node resigns from the leader node responsibilities.
+      A leader watchdog node can resign from being a leader node,
+      when the leader node <productname>Pgpool-II</productname> shuts down, detects a network
       blackout or detects the lost of <indexterm><primary>quorum</primary></indexterm><firstterm>quorum</firstterm>.
      </para>
      <para>
@@ -475,27 +568,32 @@
      <para>
       Although there are many similarities in quarantine and failover operations, but they both differ in a very
       fundamental way. The quarantine operations does not executes the <xref linkend="guc-failover-command">
-       and silently detaches the problematic node, So in the case when the master backend node is quarantined, the
-       <productname>Pgpool-II</productname> will not promote the standby to take over the master responsibilities
-       and until the master node is quarantined the <productname>Pgpool-II</productname> will not have
-       any usable master backend node.
+       and silently detaches the problematic node, So in the case when the main backend node is quarantined, the
+       <productname>Pgpool-II</productname> will not promote the standby to take over the main node responsibilities
+       and until the main node is quarantined the <productname>Pgpool-II</productname> will not have
+       any usable main backend node.
      </para>
      <para>
-      Moreover, unlike for the failed
-      nodes, <productname>Pgpool-II</productname> keeps the
-      health-check running on the quarantined nodes and as soon as
-      the quarantined node becomes reachable again it gets
-      automatically re-attached.
+      Moreover, unlike for the failed nodes,
+      <productname>Pgpool-II</productname> keeps the health-check
+      running on the quarantined nodes and as soon as the quarantined
+      node becomes reachable again it gets automatically
+      re-attached. Note that this is only applied to
+      <productname>Pgpool-II </productname><emphasis>V4.1</emphasis>
+      or greater. If you are using previous versions you need to
+      re-attach the quarantined node by using <xref
+      linkend="pcp-attach-node"> when the connectivity issue is
+      solved.
      </para>
      <para>
-      From <productname>Pgpool-II </productname><emphasis>V4.1</emphasis> onward, if the watchdog-master node
+      From <productname>Pgpool-II </productname><emphasis>V4.1</emphasis> onward, if the watchdog-leader node
       fails to build the consensus for primary backend node failover and the primary backend node gets into a
-      quarantine state, then it resigns from its master/coordinator responsibilities and lowers its wd_priority
+      quarantine state, then it resigns from its leader/coordinator responsibilities and lowers its wd_priority
       for next leader election and let the cluster elect some different new leader.
       <note>
        <para>
-	When the master node fails to build the consensus for standby backend node failure, it takes no action
-	and similarly quarantined standby backend nodes on watchdog-master do not trigger a new leader election.
+	When the leader node fails to build the consensus for standby backend node failure, it takes no action
+	and similarly quarantined standby backend nodes on watchdog-leader do not trigger a new leader election.
        </para>
       </note>
      </para>
@@ -660,7 +758,7 @@
       cluster goes into two separated networks (A, B) and (C, D). For
       (A, B) and (C, D) the quorum still exist since for both groups
       there are two live nodes out of 4. The two groups choose their
-      own master watchdog, which is a split-brain.
+      own leader watchdog, which is a split-brain.
      </para>
      <para>
       Default is off.
@@ -794,15 +892,15 @@
     <listitem>
      <para>
       This parameter can be used to elevate the local watchdog node priority in the elections
-      to select master watchdog node.
+      to select leader watchdog node.
       The node with the higher <varname>wd_priority</varname> value will get selected
-      as master watchdog node when cluster will be electing its new master node
-      in the event of old master watchdog node failure.
+      as leader watchdog node when cluster will be electing its new leader node
+      in the event of old leader watchdog node failure.
       <varname>wd_priority</varname> is also valid at the time of cluster startup.
       When some watchdog nodes start up at same time,a node with the higher <varname>wd_priority</varname>
-      value is selected as a master node.
+      value is selected as a leader node.
       So we should start watchdog nodes in order of <varname>wd_priority</varname> priority to prevent
-      unintended nodes from being selected as masters.
+      unintended nodes from being selected as leader.
      </para>
      <para>
       <varname>wd_priority</varname> is not available in versions prior to
@@ -845,24 +943,96 @@
 
  <sect2 id="config-watchdog-lifecheck-heartbeat">
   <title>Lifecheck Heartbeat mode configuration</title>
-
   <variablelist>
-   <varlistentry id="guc-wd-heartbeat-port" xreflabel="wd_heartbeat_port">
-    <term><varname>wd_heartbeat_port</varname> (<type>integer</type>)
+   <varlistentry id="guc-heartbeat-hostname" xreflabel="heartbeat_hostname">
+    <term><varname>heartbeat_hostnameX</varname> (<type>string</type>)
      <indexterm>
-      <primary><varname>wd_heartbeat_port</varname> configuration parameter</primary>
+      <primary><varname>heartbeat_hostnameX</varname> configuration parameter</primary>
      </indexterm>
     </term>
     <listitem>
      <para>
-      Specifies the <acronym>UDP</acronym> port number to receive heartbeat signals.
-      Default is 9694.
-      <varname>wd_heartbeat_port</varname> is only applicable if the
+      Specifies the <acronym>IP</acronym> address or <acronym>hostname</acronym>
+	  for sending and receiving the heartbeat signals.
+      The number at the end of the parameter name is referred
+      as "pgpool node id", and it starts from 0 (e.g. heartbeat_hostname0).
+	  You can specify multiple <acronym>IP</acronym> address or <acronym>hostname</acronym>
+      by separating them using semicolon (;).
+     </para>
+     <para>
+      <varname>heartbeat_hostnameX</varname> is only applicable if the
       <xref linkend="guc-wd-lifecheck-method"> is set to <literal>'heartbeat'</literal>
      </para>
      <para>
       This parameter can only be set at server start.
      </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-heartbeat-port" xreflabel="heartbeat_port">
+    <term><varname>heartbeat_portX</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>heartbeat_portX</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Specifies the port number for sending and receiving the heartbeat signals.
+      Specify only one port number here. Default is 9694.
+      The number at the end of the parameter name is referred
+      as "pgpool node id", and it starts from 0 (e.g. heartbeat_port0).
+     </para>
+     <para>
+      <varname>heartbeat_portX</varname> is only applicable if the
+      <xref linkend="guc-wd-lifecheck-method"> is set to <literal>'heartbeat'</literal>
+     </para>
+     <para>
+      This parameter can only be set at server start.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-heartbeat-device" xreflabel="heartbeat_device">
+    <term><varname>heartbeat_deviceX</varname> (<type>string</type>)
+     <indexterm>
+      <primary><varname>heartbeat_deviceX</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Specifies the network device name for sending and receiving the heartbeat signals.
+      The number at the end of the parameter name is referred
+      as "pgpool node id", and it starts from 0 (e.g. heartbeat_device0).
+	  You can specify multiple network devices by separating them using semicolon (;).
+     </para>
+     <para>
+      <varname>heartbeat_deviceX</varname> is only applicable if the
+      <xref linkend="guc-wd-lifecheck-method"> is set to <literal>'heartbeat'</literal>
+     </para>
+     <para>
+      This parameter can only be set at server start.
+     </para>
+     <example id="example-heartbeat-1">
+      <title>Heartbeat configuration</title>
+      <para>
+       If you have 3 pgpool nodes with hostname server1, server2 and server3,
+       you can configure <xref linkend="guc-heartbeat-hostname">,
+       <xref linkend="guc-heartbeat-port"> and <xref linkend="guc-heartbeat-device"> like below:
+	<programlisting>
+     heartbeat_hostname0 = 'server1'
+     heartbeat_port0 = 9694
+     heartbeat_device0 = ''
+
+     heartbeat_hostname1 = 'server2'
+     heartbeat_port1 = 9694
+     heartbeat_device1 = ''
+
+     heartbeat_hostname2 = 'server3'
+     heartbeat_port2 = 9694
+     heartbeat_device2 = ''
+	</programlisting>
+      </para>
+     </example>
     </listitem>
    </varlistentry>
 
@@ -903,81 +1073,8 @@
      <para>
       This parameter can only be set at server start.
      </para>
-
     </listitem>
    </varlistentry>
-   <varlistentry id="guc-heartbeat-destination" xreflabel="heartbeat_destination<emphasis>0</emphasis>">
-    <term><varname>heartbeat_destination0</varname> (<type>string</type>)
-     <indexterm>
-      <primary><varname>heartbeat_destination</varname> configuration parameter</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      Specifies the <acronym>IP</acronym> address or <acronym>hostname</acronym> of destination the remote
-      <productname>Pgpool-II</productname> for sending the heartbeat signals.
-      Multiple destinations can be configured for the heartbeat signals,
-      the number at the end of the parameter name is
-      referred as the "destination number", that starts from 0.
-     </para>
-     <para>
-      <varname>heartbeat_destination</varname> is only applicable if the
-      <xref linkend="guc-wd-lifecheck-method"> is set to <literal>'heartbeat'</literal>
-     </para>
-     <para>
-      This parameter can only be set at server start.
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry id="guc-heartbeat-destination-port" xreflabel="heartbeat_destination_port<emphasis>0</emphasis>">
-    <term><varname>heartbeat_destination_port0</varname> (<type>integer</type>)
-     <indexterm>
-      <primary><varname>heartbeat_destination_port</varname> configuration parameter</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      Specifies the destination port number of the remote
-      <productname>Pgpool-II</productname> for sending the heartbeat signals.
-      Multiple destinations can be configured for the heartbeat signals,
-      the number at the end of the parameter name is
-      referred as the "destination number", that starts from 0.
-     </para>
-     <para>
-      <varname>heartbeat_destination_port</varname> is only applicable if the
-      <xref linkend="guc-wd-lifecheck-method"> is set to <literal>'heartbeat'</literal>
-     </para>
-     <para>
-      This parameter can only be set at server start.
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry id="guc-heartbeat-device" xreflabel="heartbeat_device">
-    <term><varname>heartbeat_device0</varname> (<type>string</type>)
-     <indexterm>
-      <primary><varname>heartbeat_device</varname> configuration parameter</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      Specifies the network device name for sending the heartbeat signals to the destination specified by
-      heartbeat_destinationX:heartbeat_destination_portX
-      Different heartbeat devices can be configured for each heartbeat destination
-      by changing the value of X(destination number).
-      at the end of parameter name. The destination index number starts from 0.
-     </para>
-     <para>
-      <varname>heartbeat_device</varname> is only applicable if the
-      <xref linkend="guc-wd-lifecheck-method"> is set to <literal>'heartbeat'</literal>
-     </para>
-     <para>
-      This parameter can only be set at server start.
-     </para>
-    </listitem>
-   </varlistentry>
-
   </variablelist>
  </sect2>
 
@@ -1121,68 +1218,6 @@
      </para>
      <para>
       Default is <literal>''</literal>(empty).
-     </para>
-    </listitem>
-   </varlistentry>
-
-  </variablelist>
- </sect2>
-
- <sect2 id="config-watchdog-server-configuration">
-  <title>Watchdog servers configurations</title>
-  <variablelist>
-
-   <varlistentry id="guc-other-pgpool-hostname" xreflabel="other_pgpool_hostname">
-    <term><varname>other_pgpool_hostname0</varname> (<type>string</type>)
-     <indexterm>
-      <primary><varname>other_pgpool_hostname</varname> configuration parameter</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      Specifies the hostname of remote <productname>Pgpool-II</productname> server for watchdog node.
-      The number at the end of the parameter name is referred as "server id", and it starts from 0.
-     </para>
-     <para>
-      This parameter can only be set at server start.
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry id="guc-other-pgpool-port" xreflabel="other_pgpool_port">
-    <term><varname>other_pgpool_port0</varname> (<type>integer</type>)
-     <indexterm>
-      <primary><varname>other_pgpool_port</varname> configuration parameter</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      Specifies the port number of the remote <productname>Pgpool-II</productname>
-      server for watchdog node.
-      The number at the end of the parameter name is referred
-      as "server id", and it starts from 0.
-     </para>
-     <para>
-      This parameter can only be set at server start.
-     </para>
-    </listitem>
-   </varlistentry>
-
-   <varlistentry id="guc-other-wd-port" xreflabel="other_wd_port">
-    <term><varname>other_wd_port0</varname> (<type>integer</type>)
-     <indexterm>
-      <primary><varname>other_wd_port0</varname> configuration parameter</primary>
-     </indexterm>
-    </term>
-    <listitem>
-     <para>
-      Specifies the watchdog port number of the remote
-      <productname>Pgpool-II</productname> server for watchdog node.
-      The number at the end of the parameter name is referred
-      as "server id", and it starts from 0.
-     </para>
-     <para>
-      This parameter can only be set at server start.
      </para>
     </listitem>
    </varlistentry>

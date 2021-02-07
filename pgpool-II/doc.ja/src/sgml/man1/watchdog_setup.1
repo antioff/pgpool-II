@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: Pgpool-II 4.1.5 文書
-.\"    Source: Pgpool-II 4.1.5
+.\"    Manual: Pgpool-II 4.2.0 文書
+.\"    Source: Pgpool-II 4.2.0
 .\"  Language: Japanese
 .\"
-.TH "WATCHDOG_SETUP" "1" "2020" "Pgpool-II 4.1.5" "Pgpool-II 4.1.5 文書"
+.TH "WATCHDOG_SETUP" "1" "2020" "Pgpool-II 4.2.0" "Pgpool-II 4.2.0 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -189,7 +189,7 @@ initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\
 
     recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
     done\&.
-    creating follow master script
+    creating follow primary script
     Pager usage is off\&.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
@@ -234,7 +234,7 @@ initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\
 
     recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
     done\&.
-    creating follow master script
+    creating follow primary script
     Pager usage is off\&.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
@@ -279,7 +279,7 @@ initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\
 
     recovery node 1\&.\&.\&.pcp_recovery_node \-\- Command Successful
     done\&.
-    creating follow master script
+    creating follow primary script
     Pager usage is off\&.
     node_id | hostname | port  | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay
     \-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
@@ -329,8 +329,8 @@ initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\
     Quorum state         : QUORUM EXIST
     Alive Remote Nodes   : 2
     VIP up on local node : NO
-    Master Node Name     : Linux_tishii\-CF\-SX3HE4BP_50004
-    Master Host Name     : localhost
+    Leader Node Name     : Linux_tishii\-CF\-SX3HE4BP_50004
+    Leader Host Name     : localhost
 
     Watchdog Node Information
     Node Name      : Linux_tishii\-CF\-SX3HE4BP_50000
@@ -349,7 +349,7 @@ initdb コマンドの引数を指定します。 デフォルトでは "\-\-no\
     Watchdog port  : 50006
     Node priority  : 1
     Status         : 4
-    Status Name    : MASTER
+    Status Name    : LEADER
 
     Node Name      : Linux_tishii\-CF\-SX3HE4BP_50008
     Host Name      : localhost

@@ -24,6 +24,7 @@
 # -m n: create an installation as raw mode.
 # -m l: create an installation as logical replication mode.
 # -m y: create an installation as slony mode.
+# -m i: create an installation as snapshot isolation mode.
 # -n num_clusters: create num_clusters PostgreSQL database cluster nodes
 # -p base_port: specify base port. pgpool port is base_port.
 #  pcp port is base_port + 1. The first PostgreSQL node's port is
@@ -116,7 +117,12 @@ if [ $? = 0 ];then
 else
     vstr=`echo $vstr|sed 's/\./ /g'`
     major1=`echo $vstr|awk '{print $1}'`
-    major2=`echo $vstr|awk '{print $2}'`
+
+    if [ $major1 -ge 10 ];then
+        major2=0
+    else
+        major2=`echo $vstr|awk '{print $2}'`
+    fi
 fi
 major1=`expr $major1 \* 10`
 PGVERSION=`expr $major1 + $major2`
@@ -130,8 +136,8 @@ fi
 CONF=$BASEDIR/etc/pgpool.conf
 # failover script
 FAILOVER_SCRIPT=$BASEDIR/etc/failover.sh
-# follow master script
-FOLLOW_MASTER_SCRIPT=$BASEDIR/etc/follow_master.sh
+# follow primary script
+FOLLOW_PRIMARY_SCRIPT=$BASEDIR/etc/follow_primary.sh
 # pgpool_remote_start
 PGPOOL_REMOTE_START_SCRIPT=pgpool_remote_start
 # Start script name. This will be generated in this script.
@@ -156,23 +162,23 @@ cat >> $FAILOVER_SCRIPT <<'EOF'
 #                  %h = host name
 #                  %p = port number
 #                  %D = database cluster path
-#                  %m = new master node id
-#                  %M = old master node id
-#                  %H = new master node host name
+#                  %m = new main node id
+#                  %M = old main node id
+#                  %H = new main node host name
 #                  %P = old primary node id
-#                  %R = new master database cluster path
-#                  %r = new master port number
+#                  %R = new main database cluster path
+#                  %r = new main port number
 #                  %% = '%' character
 failed_node_id=$1
 failed_host_name=$2
 failed_port=$3
 failed_db_cluster=$4
-new_master_id=$5
-old_master_id=$6
-new_master_host_name=$7
+new_main_id=$5
+old_main_id=$6
+new_main_host_name=$7
 old_primary_node_id=$8
-new_master_port_number=$9
-new_master_db_cluster=${10}
+new_main_port_number=$9
+new_main_db_cluster=${10}
 mydir=__MYDIR__
 log=$mydir/log/failover.log
 pg_ctl=__PGBIN__/pg_ctl
@@ -180,10 +186,10 @@ cluster0=$mydir/data0
 cluster1=$mydir/data1
 
 date >> $log
-echo "failed_node_id $failed_node_id failed_host_name $failed_host_name failed_port $failed_port failed_db_cluster $failed_db_cluster new_master_id $new_master_id old_master_id $old_master_id new_master_host_name $new_master_host_name old_primary_node_id $old_primary_node_id new_master_port_number $new_master_port_number new_master_db_cluster $new_master_db_cluster" >> $log
+echo "failed_node_id $failed_node_id failed_host_name $failed_host_name failed_port $failed_port failed_db_cluster $failed_db_cluster new_main_id $new_main_id old_main_id $old_main_id new_main_host_name $new_main_host_name old_primary_node_id $old_primary_node_id new_main_port_number $new_main_port_number new_main_db_cluster $new_main_db_cluster" >> $log
 
-if [ a"$failed_node_id" = a"$old_primary_node_id" ];then	# master failed
-! 	new_primary_db_cluster=${mydir}/data"$new_master_id"
+if [ a"$failed_node_id" = a"$old_primary_node_id" ];then	# main node failed
+! 	new_primary_db_cluster=${mydir}/data"$new_main_id"
 	echo $pg_ctl -D $new_primary_db_cluster promote >>$log	# let standby take over
 	$pg_ctl -D $new_primary_db_cluster promote >>$log	# let standby take over
 	sleep 2
@@ -202,34 +208,34 @@ chmod 755 $FAILOVER_SCRIPT
 }
 
 #-------------------------------------------
-# create follow master script
+# create follow primary script
 #-------------------------------------------
-function create_follow_master_script()
+function create_follow_primary_script()
 {
-cat >> $FOLLOW_MASTER_SCRIPT <<'EOF'
+cat >> $FOLLOW_PRIMARY_SCRIPT <<'EOF'
 #! /bin/sh
 # Execute command by failover.
 # special values:  %d = node id
 #                  %h = host name
 #                  %p = port number
 #                  %D = database cluster path
-#                  %m = new master node id
-#                  %M = old master node id
-#                  %H = new master node host name
+#                  %m = new main node id
+#                  %M = old main node id
+#                  %H = new main node host name
 #                  %P = old primary node id
-#                  %R = new master database cluster path
-#                  %r = new master port number
+#                  %R = new main database cluster path
+#                  %r = new main port number
 #                  %% = '%' character
 failed_node_id=$1
 failed_host_name=$2
 failed_port=$3
 failed_db_cluster=$4
-new_master_id=$5
-old_master_id=$6
-new_master_host_name=$7
+new_main_id=$5
+old_main_id=$6
+new_main_host_name=$7
 old_primary_node_id=$8
-new_master_port_number=$9
-new_master_db_cluster=${10}
+new_main_port_number=$9
+new_main_db_cluster=${10}
 mydir=__MYDIR__
 log=$mydir/log/failover.log
 pg_ctl=__PGBIN__/pg_ctl
@@ -240,7 +246,7 @@ PCP_PORT=__PCPPORT__
 export PCPPASSFILE=__PCPPASSFILE__
 
 date >> $log
-echo "failed_node_id $failed_node_id failed_host_name $failed_host_name failed_port $failed_port failed_db_cluster $failed_db_cluster new_master_id $new_master_id old_master_id $old_master_id new_master_host_name $new_master_host_name old_primary_node_id $old_primary_node_id new_master_port_number $new_master_port_number new_master_db_cluster $new_master_db_cluster" >> $log
+echo "failed_node_id $failed_node_id failed_host_name $failed_host_name failed_port $failed_port failed_db_cluster $failed_db_cluster new_main_id $new_main_id old_main_id $old_main_id new_main_host_name $new_main_host_name old_primary_node_id $old_primary_node_id new_main_port_number $new_main_port_number new_main_db_cluster $new_main_db_cluster" >> $log
 
 # Stop standby node if it's running
 $pg_ctl -D $failed_db_cluster status >/dev/null 2>&1
@@ -251,7 +257,7 @@ then
 	# recovery the node
 	pcp_recovery_node -w -h localhost -p $PCP_PORT -n $failed_node_id >> $log 2>&1
 else
-	echo "$failed_db_cluster is not running. skipping follow master command." >> $log
+	echo "$failed_db_cluster is not running. skipping follow primary command." >> $log
 fi
 EOF
 
@@ -264,9 +270,9 @@ EOF
 	 -e "/__PGBIN__/s@__PGBIN__@$PGBIN@" \
 	 -e "/__PCPPASSFILE__/s@__PCPPASSFILE__@$PCP_PASS_FILE@" \
 	 -e "/__PCPPORT__/s/__PCPPORT__/$PCP_PORT/" \
-	$FOLLOW_MASTER_SCRIPT
+	$FOLLOW_PRIMARY_SCRIPT
 
-chmod 755 $FOLLOW_MASTER_SCRIPT
+chmod 755 $FOLLOW_PRIMARY_SCRIPT
 }
 
 #-------------------------------------------
@@ -339,13 +345,18 @@ function set_postgresql_conf
 		    echo "max_replication_slots = $num_slots" >> $PGCONF
 		fi
 
-	elif [ $MODE = 'r' -o $MODE = 'l' -o $MODE = 'y' ];then
+	elif [ $MODE = 'r' -o $MODE = 'l' -o $MODE = 'y' -o $MODE = 'i' ];then
 		echo "wal_level = archive" >> $PGCONF
 		echo "archive_mode = on" >> $PGCONF
 		echo "archive_command = 'cp %p $BASEDIR/archivedir/%f </dev/null'" >> $PGCONF
 		if [ $MODE = 'l' ];then
 		    echo "wal_level = logical" >> $PGCONF
 		fi
+	fi
+
+	# Snapshot isolation mode requires REPEATABLE READ transaction isolation mode.
+	if [ $MODE = 'i' ];then
+	    echo "default_transaction_isolation = 'repeatable read'" >> $PGCONF
 	fi
 
     sed -i '/host.*all.*all.*trust$/s/^/#/g' $PGHBACONF
@@ -390,7 +401,7 @@ pg_rewind=__PGBIN__/pg_rewind
 DATADIR_BASE=__DATADIR_BASE__
 PGSUPERUSER=__PGSUPERUSER__
 
-master_db_cluster=$1
+main_db_cluster=$1
 recovery_node_host_name=$2
 DEST_CLUSTER=$3
 PORT=$4
@@ -413,7 +424,7 @@ cat >> $1/$SCRIPT <<'EOF'
 # First try pg_rewind
 
 # Make backup copy of postgresql.conf since pg_rewind blindly copies
-# $master_db_cluster/postgresql.conf.
+# $main_db_cluster/postgresql.conf.
 cp $DEST_CLUSTER/postgresql.conf /tmp/
 echo "pg_rewind starts" >> $log
 $pg_rewind -P -D $DEST_CLUSTER --source-server="port=$PORT user=$PGSUPERUSER dbname=postgres" >> $log 2>&1
@@ -432,13 +443,13 @@ if [ $pg_rewind_failed = "true" ];then
 
 $psql -p $PORT -c "SELECT pg_start_backup('Streaming Replication', true)" postgres
 
-echo "source: $master_db_cluster dest: $DEST_CLUSTER" >> $log
+echo "source: $main_db_cluster dest: $DEST_CLUSTER" >> $log
 
 rsync -C -a -c --delete --exclude postgresql.conf --exclude postmaster.pid \
 --exclude postmaster.opts --exclude pg_log \
 --exclude recovery.conf --exclude recovery.done \
 --exclude pg_xlog pg_wal \
-$master_db_cluster/ $DEST_CLUSTER/
+$main_db_cluster/ $DEST_CLUSTER/
 
 rm -fr $DEST_CLUSTER/pg_xlog 
 mkdir $DEST_CLUSTER/pg_xlog
@@ -526,7 +537,7 @@ EOF
 echo "export PGHOST=$PGSOCKET_DIR" >> $1/$SCRIPT
 
 cat >> $1/$SCRIPT <<'EOF'
-master_db_cluster=$1
+main_db_cluster=$1
 recovery_node_host_name=$2
 DEST_CLUSTER=$3
 PORT=$4
@@ -535,12 +546,12 @@ log=$DATADIR_BASE/log/recovery.log
 
 $psql -p $PORT -c "SELECT pg_start_backup('Native Replication', true)" postgres
 
-echo "source: $master_db_cluster dest: $DEST_CLUSTER" > $log
+echo "source: $main_db_cluster dest: $DEST_CLUSTER" > $log
 EOF
 
 if [ $PGVERSION -ge 120 ];then
     cat >> $1/$SCRIPT <<'EOF'
-cat > $master_db_cluster/myrecovery.conf <<REOF
+cat > $main_db_cluster/myrecovery.conf <<REOF
 restore_command = 'cp __ARCHDIR__/%f %p'
 REOF
 EOF
@@ -548,7 +559,7 @@ EOF
 else
 
     cat >> $1/$SCRIPT <<'EOF'
-cat > $master_db_cluster/recovery.conf <<REOF
+cat > $main_db_cluster/recovery.conf <<REOF
 restore_command = 'cp __ARCHDIR__/%f %p'
 REOF
 EOF
@@ -559,7 +570,7 @@ rsync -C -a -c --delete --exclude postgresql.conf --exclude postmaster.pid \
 --exclude postmaster.opts --exclude pg_log \
 --exclude recovery.done \
 --exclude pg_xlog pg_wal \
-$master_db_cluster/ $DEST_CLUSTER/
+$main_db_cluster/ $DEST_CLUSTER/
 
 rm -fr $DEST_CLUSTER/pg_xlog 
 mkdir $DEST_CLUSTER/pg_xlog
@@ -605,7 +616,7 @@ psql=__PGBIN__/psql
 DATADIR_BASE=__DATADIR_BASE__
 PGSUPERUSER=__PGSUPERUSER__
 
-master_db_cluster=$1
+main_db_cluster=$1
 recovery_node_host_name=$2
 DEST_CLUSTER=$3
 PORT=$4
@@ -703,7 +714,7 @@ function set_pgpool_conf {
 	echo "recovery_password = ''"  >> $CONF
 	echo "recovery_1st_stage_command = 'basebackup.sh'" >> $CONF
 
-	if [ $MODE = "r" ];then
+	if [ $MODE = "r" -o $MODE = "i" ];then
 		echo "recovery_2nd_stage_command = 'pgpool_recovery_pitr'" >> $CONF
 	fi
 
@@ -731,6 +742,7 @@ function set_pgpool_conf {
 
 	echo "socket_dir = '$PGSOCKET_DIR'" >> $CONF
 	echo "pcp_socket_dir = '$PGSOCKET_DIR'" >> $CONF
+	echo "log_line_prefix = '%t: %a pid %p: '" >> $CONF
 }
 
 #-------------------------------------------
@@ -776,7 +788,7 @@ function wait_for_pgpool_reload {
 ################################################################################
 function usage()
 {
-	echo "usage: $0 [-m r|s|n|l|y] [-n num_clusters] [-p base_port] [-pg pg_base_port][--no-stop] [-d] [-s] [-r]";exit 1
+	echo "usage: $0 [-m r|s|n|l|y|i] [-n num_clusters] [-p base_port] [-pg pg_base_port][--no-stop] [-d] [-s] [-r]";exit 1
 }
 
 #-------------------------------------------
@@ -798,6 +810,7 @@ do
 			n ) MODE="n";;
 			l ) MODE="l";;
 			y ) MODE="y";;
+			i ) MODE="i";;
 			* ) usage;;
 		esac
 	elif [ $1 = "-n" ];then
@@ -837,13 +850,16 @@ case $MODE in
 		SAMPLE_CONF=$PGPOOLDIR/pgpool.conf.sample-stream
 		;;
 	n ) MODENAME="raw mode"
-		SAMPLE_CONF=$PGPOOLDIR/pgpool.conf.sample
+		SAMPLE_CONF=$PGPOOLDIR/pgpool.conf.sample-raw
 		;;
 	l ) MODENAME="logical replication mode"
 	    SAMPLE_CONF=$PGPOOLDIR/pgpool.conf.sample-logical
 	    ;;
 	y ) MODENAME="slony mode"
-	    SAMPLE_CONF=$PGPOOLDIR/pgpool.conf.sample-master-slave
+	    SAMPLE_CONF=$PGPOOLDIR/pgpool.conf.sample-slony
+	    ;;
+	i ) MODENAME="snapshot isolation mode"
+	    SAMPLE_CONF=$PGPOOLDIR/pgpool.conf.sample-snapshot
 	    ;;
 esac
 
@@ -939,7 +955,7 @@ do
 	# create basebackup.sh
 	if [ $MODE = 's' ];then
 		create_basebackup_stream $CLUSTERDIR $n >&5 2>&1
-	elif [ $MODE = 'r' ];then
+	elif [ $MODE = 'r' -o $MODE = 'i' ];then
 		create_basebackup_replication $CLUSTERDIR >&5 2>&1
 		create_pgpool_recovery_pitr $CLUSTERDIR >&5 2>&1
 	fi
@@ -1106,7 +1122,7 @@ EOF
 
 		if [ $n -eq 0 -a $MODE = "l" ]
 		then
-		    echo "backend_flag$n = ALWAYS_MASTER" >> $CONF
+		    echo "backend_flag$n = ALWAYS_PRIMARY" >> $CONF
 		fi
 
 		CLUSTER="data"`expr $n`
@@ -1124,7 +1140,7 @@ EOF
 	echo "done."
 fi
 
-if [ $MODE = "r" -o $MODE = "n" ];then
+if [ $MODE = "r" -o $MODE = "n" -o $MODE = "i" ];then
 	echo "create extensions"
 	$PSQL -p $PGPOOL_PORT template1 >&5 2>&1 <<EOF
 CREATE EXTENSION pgpool_regclass;
@@ -1134,12 +1150,12 @@ EOF
 fi
 
 #-------------------------------------------
-# create follow_masterfailover script
+# create follow_primary failover script
 #-------------------------------------------
 if [ $MODE = "s" ];then
-	echo "creating follow master script"
-	create_follow_master_script >&5 2>&1
-	echo "follow_master_command = '$FOLLOW_MASTER_SCRIPT %d %h %p %D %m %M %H %P %r %R'" >> $CONF
+	echo "creating follow primary script"
+	create_follow_primary_script >&5 2>&1
+	echo "follow_primary_command = '$FOLLOW_PRIMARY_SCRIPT %d %h %p %D %m %M %H %P %r %R'" >> $CONF
 fi
 
 $PSQL -p $PGPOOL_PORT test <<EOF

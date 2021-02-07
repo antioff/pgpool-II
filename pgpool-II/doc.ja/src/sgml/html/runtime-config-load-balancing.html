@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -96,21 +96,14 @@ NAME="RUNTIME-CONFIG-LOAD-BALANCING"
 >5.7. 負荷分散</A
 ></H1
 ><P
->  
-  <SPAN
+>  <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->のSELECTクエリの負荷分散はマスタースレーブモード（<A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE"
->項5.3.1</A
->）とレプリケーションモード（<A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
->項5.3.2</A
->）で動作します。
+>のSELECTクエリの負荷分散はrawモードを除くすべてのクラスタリングモードで動作します。
     有効時、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->は更新を伴うクエリを、マスタースレーブモードでは<ACRONYM
+>は更新を伴うクエリを、ストリーミングレプリケーションモード、ロジカルレプリケーションモード、Slonyモードでは<ACRONYM
 CLASS="ACRONYM"
 >プライマリノード</ACRONYM
 >に、レプリケーションモードでは全てのバックエンドノードに対し送信します。
@@ -159,7 +152,7 @@ CLASS="EMPHASIS"
    これにより、そのクエリの負荷分散は無効となり、<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->はこれをマスターノード（マスタースレーブモードではプライマリノード）に送信します。
+>はこれをメインノード（プライマリノード）に送信します。
   </P
 ></BLOCKQUOTE
 ></DIV
@@ -204,7 +197,7 @@ CLASS="PRODUCTNAME"
 ><LI
 ><P
 >      
-      レプリケーションモードまたはマスタースレーブモードである
+      ローモードでない
      </P
 ></LI
 ><LI
@@ -243,14 +236,13 @@ CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >4.1以前</I
 ></SPAN
->のバージョンでは、black/white function list
+>のバージョンでは、write/read_only function list
 	   で指定される更新関数を含むSELECTは更新を伴うクエリとは見なされません。)
 	  </P
 ></LI
 ><LI
 ><P
->	   
-	   もしblack/white function listが空の場合は、関数を持つSELECTは、更新を伴うクエリとは見なされません。
+>	   もしwrite/read_only function listが空の場合は、揮発性ではない関数を持つSELECTは、更新を伴うクエリとは見なされません。
 	  </P
 ></LI
 ></UL
@@ -276,11 +268,11 @@ CLASS="PRODUCTNAME"
 >      
       SELECT または COPY TO STDOUT, EXPLAIN, EXPLAIN ANALYZE SELECT... から始まる。
       (<A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-FUNCTION-LIST"
->black_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-WRITE-FUNCTION-LIST"
+>write_function_list</A
 >または<A
-HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
->white_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-READ-ONLY-FUNCTION-LIST"
+>read_only_function_list</A
 >で指定された書き込み関数を含むSELECTを除く)
 	<A
 HREF="runtime-config-load-balancing.html#GUC-IGNORE-LEADING-WHITE-SPACE"
@@ -294,7 +286,7 @@ CLASS="LITERAL"
 ><LI
 ><P
 >      
-      マスタースレーブモードの場合、更に以下の条件が満たされなければなりません。
+      ネィティブレプリケーションモードの場合、更に以下の条件が満たされなければなりません。
      </P
 ><P
 ></P
@@ -418,7 +410,7 @@ NAME="RUNTIME-CONFIG-WRITING-QUERIES-MAY-AFFECT-LOAD-BALANCING"
    すなわち、<A
 HREF="runtime-config-load-balancing.html#GUC-DISABLE-LOAD-BALANCE-ON-WRITE"
 >disable_load_balance_on_write</A
->の設定に応じて（ストリーミングレプリケーションの）プライマリノードまたは（その他のモードの）マスターノードに送ります。
+>の設定に応じて（ストリーミングレプリケーションの）プライマリノードまたは（その他のモードの）メインノードに送ります。
   </P
 ></DIV
 ><DIV
@@ -736,11 +728,11 @@ CLASS="PRODUCTNAME"
 ></DD
 ><DT
 ><A
-NAME="GUC-WHITE-FUNCTION-LIST"
+NAME="GUC-READ-ONLY-FUNCTION-LIST"
 ></A
 ><TT
 CLASS="VARNAME"
->white_function_list</TT
+>read_only_function_list</TT
 > (<TT
 CLASS="TYPE"
 >string</TT
@@ -779,7 +771,7 @@ CLASS="LITERAL"
 ><DIV
 CLASS="EXAMPLE"
 ><A
-NAME="EXAMPLE-WHITE-FUNCTION-LIST-1"
+NAME="EXAMPLE-READ-ONLY-FUNCTION-LIST-1"
 ></A
 ><P
 ><B
@@ -788,12 +780,12 @@ NAME="EXAMPLE-WHITE-FUNCTION-LIST-1"
 ><P
 >       
        もし読み出しのみを行う関数が"get_"あるいは"select_"で始まるようにしてあるのであれば、<A
-HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
->white_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-READ-ONLY-FUNCTION-LIST"
+>read_only_function_list</A
 >を以下のように設定可能です。
 	</P><PRE
 CLASS="PROGRAMLISTING"
->	 white_function_list = 'get_.*,select_.*'
+>	 read_only_function_list = 'get_.*,select_.*'
 	</PRE
 ><P>
       </P
@@ -805,14 +797,35 @@ CLASS="NOTE"
 ><P
 ><B
 >注意: </B
->       <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->はリストを参照する際に、暗黙のうちに入力SQLの関数名からスキーマ修飾部分を削除するため、<A
-HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
->white_function_list</A
->でスキーマ修飾を使えません。
-	その結果、リスト中のスキーマ修飾された関数名は、決して入力SQLの関数と一致しません。
+>       問い合わせがスキーマ修飾なしあるいはスキーマ修飾ありの両方の関数を参照するなら、その両者をリストに登録しなければなりません。
+       </P><PRE
+CLASS="PROGRAMLISTING"
+>	#たとえば、ある問い合わせが"f1()"を、他の問い合わせが"public.f1()"を関数f1を参照するなら、
+	#write_function_listは以下のように設定されるでしょう。
+
+	write_function_list = "f1,public.f1"
+
+       </PRE
+><P>
+
+      </P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>       このパラメータと<A
+HREF="runtime-config-load-balancing.html#GUC-WRITE-FUNCTION-LIST"
+>write_function_list</A
+>が空文字なら、関数の揮発性属性が検査されます。
+       これが揮発性(volatile)なら、この関数は書き込みを行うと見なされます。
+       これは便利ですし、推奨できる設定です。
+       しかしこれにより初回システムカタログへのアクセスが発生します（次回以降はキャッシュされた結果が使用されるので余計な問い合わせは送信されません。）
+       そのようなクエリの送信を望まないのであれば、このパラメータを使い続けることができます。
       </P
 ></BLOCKQUOTE
 ></DIV
@@ -826,11 +839,11 @@ CLASS="PRODUCTNAME"
 ></DD
 ><DT
 ><A
-NAME="GUC-BLACK-FUNCTION-LIST"
+NAME="GUC-WRITE-FUNCTION-LIST"
 ></A
 ><TT
 CLASS="VARNAME"
->black_function_list</TT
+>write_function_list</TT
 > (<TT
 CLASS="TYPE"
 >string</TT
@@ -869,7 +882,7 @@ CLASS="LITERAL"
 ><DIV
 CLASS="EXAMPLE"
 ><A
-NAME="EXAMPLE-BLACK-FUNCTION-LIST-1"
+NAME="EXAMPLE-WRITE-FUNCTION-LIST-1"
 ></A
 ><P
 ><B
@@ -878,12 +891,12 @@ NAME="EXAMPLE-BLACK-FUNCTION-LIST-1"
 ><P
 >       
        もし更新を行う関数が"set_"、"update_"、"delete_"、あるいは"insert_"で始まるようにしてあるのであれば、<A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-FUNCTION-LIST"
->black_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-WRITE-FUNCTION-LIST"
+>write_function_list</A
 >を以下のように設定可能です。
 	</P><PRE
 CLASS="PROGRAMLISTING"
->	 black_function_list = 'nextval,setval,set_.*,update_.*,delete_.*,insert_.*'
+>	 write_function_list = 'nextval,setval,set_.*,update_.*,delete_.*,insert_.*'
 	</PRE
 ><P>
       </P
@@ -895,14 +908,17 @@ CLASS="NOTE"
 ><P
 ><B
 >注意: </B
->       <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
->はリストを参照する際に、暗黙のうちに入力SQLの関数名からスキーマ修飾部分を削除するため、<A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-FUNCTION-LIST"
->black_function_list</A
->でスキーマ修飾を使えません。
-	その結果、リスト中のスキーマ修飾された関数名は、決して入力SQLの関数と一致しません。
+>       問い合わせがスキーマ修飾なしあるいはスキーマ修飾ありの両方の関数を参照するなら、その両者をリストに登録しなければなりません。
+       </P><PRE
+CLASS="PROGRAMLISTING"
+>	#たとえば、ある問い合わせが"f1()"を、他の問い合わせが"public.f1()"を関数f1を参照するなら、
+	#read_only_function_listは以下のように設定されるでしょう。
+
+	read_only_function_list = "f1,public.f1"
+
+       </PRE
+><P>
+
       </P
 ></BLOCKQUOTE
 ></DIV
@@ -915,11 +931,11 @@ CLASS="NOTE"
 >注意: </B
 >       
        <A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-FUNCTION-LIST"
->black_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-WRITE-FUNCTION-LIST"
+>write_function_list</A
 >と<A
-HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
->white_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-READ-ONLY-FUNCTION-LIST"
+>read_only_function_list</A
 >は互いに排他的で、２つのリストの内、どちらか一方のみ設定することができます。
       </P
 ></BLOCKQUOTE
@@ -927,7 +943,7 @@ HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
 ><DIV
 CLASS="EXAMPLE"
 ><A
-NAME="EXAMPLE-BLACK-FUNCTION-LIST-2"
+NAME="EXAMPLE-WRITE-FUNCTION-LIST-2"
 ></A
 ><P
 ><B
@@ -958,16 +974,16 @@ CLASS="LITERAL"
 >setval()</TT
 >がデータベースに書き込みを行なう関数であると認識されていました。
        以下のように<A
-HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
->white_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-READ-ONLY-FUNCTION-LIST"
+>read_only_function_list</A
 >と<A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-FUNCTION-LIST"
->black_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-WRITE-FUNCTION-LIST"
+>write_function_list</A
 >を設定することで、それと同じように動作させることができます。
 	 </P><PRE
 CLASS="PROGRAMLISTING"
->	  white_function_list = ''
-	  black_function_list = 'nextval,setval,lastval,currval'
+>	  read_only_function_list = ''
+	  write_function_list = 'nextval,setval,lastval,currval'
 	 </PRE
 ><P>
       </P
@@ -1012,6 +1028,24 @@ CLASS="LITERAL"
       </P
 ></BLOCKQUOTE
 ></DIV
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>       このパラメータと<A
+HREF="runtime-config-load-balancing.html#GUC-READ-ONLY-FUNCTION-LIST"
+>read_only_function_list</A
+>が空文字なら、関数の揮発性属性が検査されます。
+       これが揮発性(volatile)なら、この関数は書き込みを行うと見なされます。
+       これは便利ですし、推奨できる設定です。
+       しかしこれにより初回システムカタログへのアクセスが発生します（次回以降はキャッシュされた結果が使用されるので余計な問い合わせは送信されません。）
+       そのようなクエリの送信を望まないのであれば、このパラメータを使い続けることができます。
+      </P
+></BLOCKQUOTE
+></DIV
 ><P
 >      
       このパラメータは<SPAN
@@ -1022,11 +1056,11 @@ CLASS="PRODUCTNAME"
 ></DD
 ><DT
 ><A
-NAME="GUC-BLACK-QUERY-PATTERN-LIST"
+NAME="GUC-PRIMARY-ROUTING-QUERY-PATTERN-LIST"
 ></A
 ><TT
 CLASS="VARNAME"
->black_query_pattern_list</TT
+>primary_routing_query_pattern_list</TT
 > (<TT
 CLASS="TYPE"
 >string</TT
@@ -1036,8 +1070,8 @@ CLASS="TYPE"
 ><P
 >      
       特定の SQL をプライマリノードに送信するように <A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-QUERY-PATTERN-LIST"
->black_query_pattern_list</A
+HREF="runtime-config-load-balancing.html#GUC-PRIMARY-ROUTING-QUERY-PATTERN-LIST"
+>primary_routing_query_pattern_list</A
 >を設定します。
        SQL パターンをセミコロン区切りで指定します。
        マスタースレーブモードのみで動作します。
@@ -1060,7 +1094,7 @@ CLASS="LITERAL"
 ><DIV
 CLASS="EXAMPLE"
 ><A
-NAME="EXAMPLE-BLACK-QUERY-PATTERN-LIST-1"
+NAME="EXAMPLE-PRIMARY-ROUTING-QUERY-PATTERN-LIST-1"
 ></A
 ><P
 ><B
@@ -1069,8 +1103,8 @@ NAME="EXAMPLE-BLACK-QUERY-PATTERN-LIST-1"
 ><P
 >       
        もし以下の SQL をプライマリノードに送信したい場合、<A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-QUERY-PATTERN-LIST"
->black_query_pattern_list</A
+HREF="runtime-config-load-balancing.html#GUC-PRIMARY-ROUTING-QUERY-PATTERN-LIST"
+>primary_routing_query_pattern_list</A
 >を以下のように設定可能です。
 
 	<P
@@ -1098,7 +1132,7 @@ HREF="runtime-config-load-balancing.html#GUC-BLACK-QUERY-PATTERN-LIST"
 ><P
 >       </P><PRE
 CLASS="PROGRAMLISTING"
->	black_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, col2 FROM table_name2 WHERE col1 LIKE \'%a%\'\;;.*table_name3.*'
+>	primary_routing_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, col2 FROM table_name2 WHERE col1 LIKE \'%a%\'\;;.*table_name3.*'
        </PRE
 ><P>
       </P
@@ -1112,15 +1146,15 @@ CLASS="NOTE"
 >注意: </B
 >       
        <A
-HREF="runtime-config-load-balancing.html#GUC-BLACK-QUERY-PATTERN-LIST"
->black_query_pattern_list</A
+HREF="runtime-config-load-balancing.html#GUC-PRIMARY-ROUTING-QUERY-PATTERN-LIST"
+>primary_routing_query_pattern_list</A
 >と<A
-HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
->white_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-READ-ONLY-FUNCTION-LIST"
+>read_only_function_list</A
 >の両方にマッチした場合、
 	 <A
-HREF="runtime-config-load-balancing.html#GUC-WHITE-FUNCTION-LIST"
->white_function_list</A
+HREF="runtime-config-load-balancing.html#GUC-READ-ONLY-FUNCTION-LIST"
+>read_only_function_list</A
 >の設定が無視され、プライマリノードのみに送信されます。
       </P
 ></BLOCKQUOTE
@@ -1692,6 +1726,109 @@ CLASS="VARNAME"
 >always</TT
 >で、writeクエリが来ると、明示的なトランザクション中であるかどうかを問わず、セッションが終了するまで負荷分散が行われません。
       この設定により、クラスタリングについて考慮しないアプリケーションを使った場合最大の互換性が得られますが、性能は最低になります。
+     </P
+><P
+>     このパラメータが<TT
+CLASS="VARNAME"
+>dml_adaptive</TT
+>に設定されると、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は明示的なトランザクション内のWRITE文に含まれる個々のテーブルを追跡し、テーブルが同じトランザクション内で事前に変更されている場合には後続のREADクエリを負荷分散しません。
+     テーブルが依存する関数、トリガ、ビューは<A
+HREF="runtime-config-load-balancing.html#GUC-DML-ADAPTIVE-OBJECT-RELATIONSHIP-LIST"
+>dml_adaptive_object_relationship_list</A
+>で設定できます。
+     </P
+></DD
+><DT
+><A
+NAME="GUC-DML-ADAPTIVE-OBJECT-RELATIONSHIP-LIST"
+></A
+><TT
+CLASS="VARNAME"
+>dml_adaptive_object_relationship_list</TT
+> (<TT
+CLASS="TYPE"
+>string</TT
+>)
+     </DT
+><DD
+><P
+>      オブジェクトに依存しているREAD問い合わせが負荷分散しないようにするために、オブジェクト名の後にコロン(<TT
+CLASS="LITERAL"
+>:</TT
+>)、続いてカンマ(<TT
+CLASS="LITERAL"
+>,</TT
+>)で区切られた依存オブジェクトの名前のリストを指定できます。
+	 <TT
+CLASS="REPLACEABLE"
+><I
+>"[object]:[dependent-object]"</I
+></TT
+>
+      明示的なトランザクションブロックの中でWRITE文が発行された後、依存オブジェクトへの参照を含むREAD文は負荷分散されないようになります。
+	 <DIV
+CLASS="EXAMPLE"
+><A
+NAME="EXAMPLE-DML-ADAPTIVE-OBJECT-RELATIONSHIP-LIST-1"
+></A
+><P
+><B
+>例 5-8. dmlが関与するオブジェクト関係の設定</B
+></P
+><P
+>	<TT
+CLASS="LITERAL"
+>table_1</TT
+>へのINSERTのたびに<TT
+CLASS="LITERAL"
+>table_2</TT
+>にINSERTを行うトリガがtable_1に設定されており、<TT
+CLASS="LITERAL"
+>table_1</TT
+>へのINSERTの後で<TT
+CLASS="LITERAL"
+>table_2</TT
+>からの読み出しが同じトランザクション内で負荷分散されないようにしたいとします。
+	このための設定は以下のようになります。
+		</P><PRE
+CLASS="PROGRAMLISTING"
+>             dml_adaptive_object_relationship_list = 'table_1:table_2'
+		</PRE
+><P>
+	  </P
+></DIV
+>
+
+      
+      このパラメータは<A
+HREF="runtime-config-load-balancing.html#GUC-DISABLE-LOAD-BALANCE-ON-WRITE"
+>disable_load_balance_on_write</A
+>=<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>'dml_adaptive'</I
+></SPAN
+>のときにのみ有効です。
+	  </P><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>関数の依存性を設定するには、関数は<A
+HREF="runtime-config-load-balancing.html#GUC-WRITE-FUNCTION-LIST"
+>write_function_list</A
+>で設定済みでなければなりません。
+	   </P
+></BLOCKQUOTE
+></DIV
+><P>
+
      </P
 ></DD
 ><DT

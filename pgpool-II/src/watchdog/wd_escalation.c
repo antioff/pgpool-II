@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2015	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -31,10 +31,11 @@
 #include <sys/wait.h>
 #endif
 
-#include "pool.h"
+#include "utils/pool_signal.h"
 #include "utils/elog.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
+#include "utils/ps_status.h"
 #include "pool_config.h"
 #include "watchdog/wd_utils.h"
 
@@ -72,7 +73,7 @@ fork_escalation_process(void)
 		return pid;
 	}
 	on_exit_reset();
-	processType = PT_WATCHDOG_UTILITY;
+	SetProcessGlobalVaraibles(PT_WATCHDOG_UTILITY);
 
 	POOL_SETMASK(&UnBlockSig);
 
@@ -160,7 +161,7 @@ fork_plunging_process(void)
 		return pid;
 	}
 	on_exit_reset();
-	processType = PT_WATCHDOG_UTILITY;
+	SetProcessGlobalVaraibles(PT_WATCHDOG_UTILITY);
 
 	POOL_SETMASK(&UnBlockSig);
 

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Installation of Pgpool-II"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -137,7 +137,7 @@ CLASS="SECT2"
 CLASS="SECT2"
 ><A
 NAME="PLANNING-POSTGRESQL"
->2.1.1. Running mode of PostgreSQL</A
+>2.1.1. Clustering mode of PostgreSQL</A
 ></H2
 ><P
 >     It is possible to have more than or equal to one installation of
@@ -156,14 +156,13 @@ CLASS="PRODUCTNAME"
 >PostgreSQL</SPAN
 > servers, it
      is necessary to sync the databases in some way.  We call the
-     methods of syncing databases as "running mode".  The most popular
-     mode ever used is "streaming replication mode".  Unless there's
-     necessity to have special consideration, it is recommended to use
-     the streaming replication mode. See <A
+     methods of syncing databases as "clustering running mode".  The
+     most popular mode ever used is "streaming replication mode".
+     Unless there's necessity to have special consideration, it is
+     recommended to use the streaming replication mode. See <A
 HREF="configuring-pgpool.html#RUNNING-MODE"
 >Section 3.3.2</A
->
-     for more details of running mode.
+> for more details of running mode.
     </P
 ><P
 >     The next thing we need to consider is how many
@@ -230,7 +229,7 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > work together and monitor
-     each other. One of them is called "master" and it has a virtual
+     each other. One of them is called "leader" and it has a virtual
      IP. Clients do not need to aware that there are multiple
      <SPAN
 CLASS="PRODUCTNAME"
@@ -248,16 +247,16 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > takes over the
-     master role.
+     leader role.
     </P
 ><P
->     Since it is not allowed to have multiple master, watchdog votes to
-     decide a new master. If there are even number of
+>     Since it is not allowed to have multiple leader, watchdog votes to
+     decide a new leader. If there are even number of
      <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >, it is impossible to decide
-     the new master by voting. Thus we recommend to deploy
+     the new leader by voting. Thus we recommend to deploy
      <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
@@ -295,7 +294,7 @@ CLASS="PRODUCTNAME"
 > in streaming replication
      mode in <A
 HREF="example-cluster.html"
->Section 8.3</A
+>Section 8.2</A
 > for those who want to
      have a production level <SPAN
 CLASS="PRODUCTNAME"

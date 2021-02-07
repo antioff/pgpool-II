@@ -3,18 +3,21 @@
 #include <stdio.h>
 #include "pool.h"
 #include "pool_config.h"
+#include "utils/palloc.h"
+#include "utils/memutils.h"
+#include "protocol/pool_pg_utils.h"
 #include "utils/pool_relcache.h"
 #include "rewrite/pool_timestamp.h"
 #include "parser/parser.h"
 
-/* for get_current_timestamp() (MASTER() macro) */
+/* for get_current_timestamp() (MAIN() macro) */
 POOL_REQUEST_INFO _req_info;
 POOL_REQUEST_INFO *Req_info = &_req_info;
 
 POOL_CONFIG _pool_config;
 POOL_CONFIG *pool_config = &_pool_config;
 ProcessType processType;
-
+bool redirection_done = false;
 typedef struct
 {
 	char	   *attrname;		/* attribute name */
@@ -45,7 +48,7 @@ TSRel		rc[2] = {
 };
 
 int
-pool_virtual_master_db_node_id(void)
+pool_virtual_main_db_node_id(void)
 {
 	return 0;
 }
@@ -143,7 +146,7 @@ main(int argc, char **argv)
 
 	MemoryContextInit();
 
-	pool_config->replication_mode = 1;
+	pool_config->backend_clustering_mode = CM_NATIVE_REPLICATION;
 
 	if (argc != 2)
 	{

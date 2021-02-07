@@ -9,18 +9,18 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="PREVIOUS"
-TITLE="Release 3.1.21"
-HREF="release-3-1-21.html"><LINK
+TITLE="Bibliography"
+HREF="biblio.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="INDEX"
 ><DIV
@@ -38,7 +38,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -47,8 +47,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="Release 3.1.21"
-HREF="release-3-1-21.html"
+TITLE="Bibliography"
+HREF="biblio.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -86,67 +86,64 @@ NAME="BOOKINDEX"
 ><P
 CLASS="INDEXDIV-QUICKLINKS"
 ><A
-HREF="bookindex.html#AEN15456"
+HREF="bookindex.html#AEN16935"
 >A</A
 > | <A
-HREF="bookindex.html#AEN15489"
+HREF="bookindex.html#AEN16968"
 >B</A
 > | <A
-HREF="bookindex.html#AEN15521"
+HREF="bookindex.html#AEN16994"
 >C</A
 > | <A
-HREF="bookindex.html#AEN15569"
+HREF="bookindex.html#AEN17048"
 >D</A
 > | <A
-HREF="bookindex.html#AEN15586"
+HREF="bookindex.html#AEN17068"
 >E</A
 > | <A
-HREF="bookindex.html#AEN15597"
+HREF="bookindex.html#AEN17079"
 >F</A
 > | <A
-HREF="bookindex.html#AEN15623"
+HREF="bookindex.html#AEN17105"
 >G</A
 > | <A
-HREF="bookindex.html#AEN15628"
+HREF="bookindex.html#AEN17110"
 >H</A
 > | <A
-HREF="bookindex.html#AEN15664"
+HREF="bookindex.html#AEN17149"
 >I</A
 > | <A
-HREF="bookindex.html#AEN15684"
+HREF="bookindex.html#AEN17169"
 >L</A
 > | <A
-HREF="bookindex.html#AEN15737"
+HREF="bookindex.html#AEN17249"
 >M</A
 > | <A
-HREF="bookindex.html#AEN15791"
+HREF="bookindex.html#AEN17297"
 >N</A
 > | <A
-HREF="bookindex.html#AEN15799"
->O</A
-> | <A
-HREF="bookindex.html#AEN15810"
+HREF="bookindex.html#AEN17305"
 >P</A
 > | <A
-HREF="bookindex.html#AEN15927"
+HREF="bookindex.html#AEN17437"
 >Q</A
 > | <A
-HREF="bookindex.html#AEN15936"
+HREF="bookindex.html#AEN17446"
 >R</A
 > | <A
-HREF="bookindex.html#AEN15980"
+HREF="bookindex.html#AEN17490"
 >S</A
 > | <A
-HREF="bookindex.html#AEN16071"
+HREF="bookindex.html#AEN17600"
 >T</A
 > | <A
-HREF="bookindex.html#AEN16076"
+HREF="bookindex.html#AEN17605"
 >U</A
 > | <A
-HREF="bookindex.html#AEN16081"
+HREF="bookindex.html#AEN17610"
 >W</A
 > | <A
-HREF="bookindex.html#AEN16165"
+HREF="bookindex.html#AEN17688"
 >Y</A
 ></P
 ><DIV
@@ -154,7 +151,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15456"
+NAME="AEN16935"
 >A</A
 ></H2
 ><DL
@@ -239,7 +236,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15489"
+NAME="AEN16968"
 >B</A
 ></H2
 ><DL
@@ -248,6 +245,13 @@ NAME="AEN15489"
     <A
 HREF="runtime-config-backend-settings.html#RUNTIME-CONFIG-BACKEND-DATA"
 >Backend Data Settings</A
+>
+  </DT
+><DT
+>backend_clustering_mode configuration parameter,
+    <A
+HREF="runtime-config-running-mode.html"
+>Clustering mode</A
 >
   </DT
 ><DT
@@ -292,27 +296,6 @@ HREF="install-requirements.html"
 >Requirements</A
 >
   </DT
-><DT
->black_function_list configuration parameter,
-    <A
-HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
->Load Balancing Settings</A
->
-  </DT
-><DT
->black_memqcache_table_list configuration parameter,
-    <A
-HREF="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG"
->Common configurations</A
->
-  </DT
-><DT
->black_query_pattern_list configuration parameter,
-    <A
-HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
->Load Balancing Settings</A
->
-  </DT
 ></DL
 ></DIV
 ><DIV
@@ -320,10 +303,24 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15521"
+NAME="AEN16994"
 >C</A
 ></H2
 ><DL
+><DT
+>cache_safe_memqcache_table_list configuration parameter,
+    <A
+HREF="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG"
+>Common configurations</A
+>
+  </DT
+><DT
+>cache_unsafe_memqcache_table_list configuration parameter,
+    <A
+HREF="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG"
+>Common configurations</A
+>
+  </DT
 ><DT
 >Certificate,
     <A
@@ -447,7 +444,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15569"
+NAME="AEN17048"
 >D</A
 ></H2
 ><DL
@@ -486,6 +483,13 @@ HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
 >Load Balancing Settings</A
 >
   </DT
+><DT
+>dml_adaptive_object_relationship_list configuration parameter,
+    <A
+HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
+>Load Balancing Settings</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -493,7 +497,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15586"
+NAME="AEN17068"
 >E</A
 ></H2
 ><DL
@@ -525,7 +529,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15597"
+NAME="AEN17079"
 >F</A
 ></H2
 ><DL
@@ -546,8 +550,8 @@ HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
 ><DT
 >failover_if_affected_tuples_mismatch configuration parameter,
     <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
->Replication mode</A
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
+>Native replication mode</A
 >
   </DT
 ><DT
@@ -579,7 +583,7 @@ HREF="install-requirements.html"
 >
   </DT
 ><DT
->follow_master_command configuration parameter,
+>follow_primary_command configuration parameter,
     <A
 HREF="runtime-config-failover.html#RUNTIME-CONFIG-FAILOVER-SETTINGS"
 >Failover and Failback Settings</A
@@ -592,7 +596,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15623"
+NAME="AEN17105"
 >G</A
 ></H2
 ><DL
@@ -610,7 +614,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15628"
+NAME="AEN17110"
 >H</A
 ></H2
 ><DL
@@ -664,21 +668,21 @@ HREF="runtime-config-health-check.html"
 >
   </DT
 ><DT
->heartbeat_destination configuration parameter,
+>heartbeat_deviceX configuration parameter,
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT"
 >Lifecheck Heartbeat mode configuration</A
 >
   </DT
 ><DT
->heartbeat_destination_port configuration parameter,
+>heartbeat_hostnameX configuration parameter,
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT"
 >Lifecheck Heartbeat mode configuration</A
 >
   </DT
 ><DT
->heartbeat_device configuration parameter,
+>heartbeat_portX configuration parameter,
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT"
 >Lifecheck Heartbeat mode configuration</A
@@ -702,6 +706,13 @@ HREF="history.html"
 ></DD
 ></DL
 ></DD
+><DT
+>hostnameX configuration parameter,
+    <A
+HREF="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG"
+>Watchdog communication</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -709,7 +720,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15664"
+NAME="AEN17149"
 >I</A
 ></H2
 ><DL
@@ -744,8 +755,8 @@ HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
 ><DT
 >insert_lock configuration parameter,
     <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
->Replication mode</A
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
+>Native replication mode</A
 >
   </DT
 ><DT
@@ -762,10 +773,17 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15684"
+NAME="AEN17169"
 >L</A
 ></H2
 ><DL
+><DT
+>LDAP,
+    <A
+HREF="auth-methods.html#AUTH-LDAP"
+>LDAP Authentication</A
+>
+  </DT
 ><DT
 >lex,
     <A
@@ -797,8 +815,8 @@ HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
 ><DT
 >lobj_lock_table configuration parameter,
     <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
->Replication mode</A
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
+>Native replication mode</A
 >
   </DT
 ><DT
@@ -806,6 +824,13 @@ HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
     <A
 HREF="runtime-misc.html"
 >Misc Configuration Parameters</A
+>
+  </DT
+><DT
+>logging_collector configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
+>Where To Log</A
 >
   </DT
 ><DT
@@ -837,10 +862,38 @@ HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
 >
   </DT
 ><DT
+>log_directory configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
+>Where To Log</A
+>
+  </DT
+><DT
+>log_disconnections configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG"
+>What To Log</A
+>
+  </DT
+><DT
 >log_error_verbosity configuration parameter,
     <A
 HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG"
 >What To Log</A
+>
+  </DT
+><DT
+>log_filename configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
+>Where To Log</A
+>
+  </DT
+><DT
+>log_file_mode configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
+>Where To Log</A
 >
   </DT
 ><DT
@@ -872,6 +925,20 @@ HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG"
 >
   </DT
 ><DT
+>log_rotation_age configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
+>Where To Log</A
+>
+  </DT
+><DT
+>log_rotation_size configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
+>Where To Log</A
+>
+  </DT
+><DT
 >log_standby_delay configuration parameter,
     <A
 HREF="runtime-streaming-replication-check.html"
@@ -885,6 +952,13 @@ HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT-TO-LOG"
 >What To Log</A
 >
   </DT
+><DT
+>log_truncate_on_rotation configuration parameter,
+    <A
+HREF="runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHERE-TO-LOG"
+>Where To Log</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -892,36 +966,22 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15737"
+NAME="AEN17249"
 >M</A
 ></H2
 ><DL
 ><DT
->make,
-    <A
-HREF="install-requirements.html"
->Requirements</A
->
-  </DT
-><DT
->master slave mode,
+>main replica mode,
     <A
 HREF="configuring-pgpool.html#RUNNING-MODE"
 >Running mode of Pgpool-II</A
 >
   </DT
 ><DT
->master_slave_mode configuration parameter,
+>make,
     <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE"
->Master slave mode</A
->
-  </DT
-><DT
->master_slave_sub_mode configuration parameter,
-    <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-MASTER-SLAVE-MODE"
->Master slave mode</A
+HREF="install-requirements.html"
+>Requirements</A
 >
   </DT
 ><DT
@@ -1026,7 +1086,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15791"
+NAME="AEN17297"
 >N</A
 ></H2
 ><DL
@@ -1051,39 +1111,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15799"
->O</A
-></H2
-><DL
-><DT
->other_pgpool_hostname configuration parameter,
-    <A
-HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION"
->Watchdog servers configurations</A
->
-  </DT
-><DT
->other_pgpool_port configuration parameter,
-    <A
-HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION"
->Watchdog servers configurations</A
->
-  </DT
-><DT
->other_wd_port0 configuration parameter,
-    <A
-HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-SERVER-CONFIGURATION"
->Watchdog servers configurations</A
->
-  </DT
-></DL
-></DIV
-><DIV
-CLASS="INDEXDIV"
-><H2
-CLASS="INDEXDIV"
-><A
-NAME="AEN15810"
+NAME="AEN17305"
 >P</A
 ></H2
 ><DL
@@ -1120,6 +1148,13 @@ HREF="pcp-common-options.html"
     <A
 HREF="pcp-detach-node.html"
 >pcp_detach_node</A
+>
+  </DT
+><DT
+>pcp_health_check_stats,
+    <A
+HREF="pcp-health-check-stats.html"
+>pcp_health_check_stats</A
 >
   </DT
 ><DT
@@ -1183,6 +1218,13 @@ HREF="pcp-promote-node.html"
     <A
 HREF="pcp-recovery-node.html"
 >pcp_recovery_node</A
+>
+  </DT
+><DT
+>pcp_reload_config,
+    <A
+HREF="pcp-reload-config.html"
+>pcp_reload_config</A
 >
   </DT
 ><DT
@@ -1281,6 +1323,13 @@ HREF="pgpool-adm-pcp-detach-node.html"
 >
   </DT
 ><DT
+>pgpool_adm_pcp_health_check_stats,
+    <A
+HREF="pgpool-adm-pcp-health-check-stats.html"
+>pgpool_adm_pcp_health_check_stats</A
+>
+  </DT
+><DT
 >pgpool_adm_pcp_node_count,
     <A
 HREF="pgpool-adm-pcp-node-count.html"
@@ -1299,6 +1348,13 @@ HREF="pgpool-adm-pcp-node-info.html"
     <A
 HREF="pgpool-adm-pcp-pool-status.html"
 >pgpool_adm_pcp_pool_status</A
+>
+  </DT
+><DT
+>pgpool_portX configuration parameter,
+    <A
+HREF="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG"
+>Watchdog communication</A
 >
   </DT
 ><DT
@@ -1364,6 +1420,13 @@ HREF="runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS"
 >Connection Settings</A
 >
   </DT
+><DT
+>primary_routing_query_pattern_list configuration parameter,
+    <A
+HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
+>Load Balancing Settings</A
+>
+  </DT
 ></DL
 ></DIV
 ><DIV
@@ -1371,7 +1434,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15927"
+NAME="AEN17437"
 >Q</A
 ></H2
 ><DL
@@ -1400,10 +1463,17 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15936"
+NAME="AEN17446"
 >R</A
 ></H2
 ><DL
+><DT
+>read_only_function_list configuration parameter,
+    <A
+HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
+>Load Balancing Settings</A
+>
+  </DT
 ><DT
 >recovery_1st_stage_command configuration parameter,
     <A
@@ -1463,22 +1533,15 @@ HREF="runtime-misc.html"
 ><DT
 >replicate_select configuration parameter,
     <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
->Replication mode</A
->
-  </DT
-><DT
->replication_mode configuration parameter,
-    <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
->Replication mode</A
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
+>Native replication mode</A
 >
   </DT
 ><DT
 >replication_stop_on_mismatch configuration parameter,
     <A
-HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-REPLICATION-MODE"
->Replication mode</A
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
+>Native replication mode</A
 >
   </DT
 ><DT
@@ -1509,7 +1572,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN15980"
+NAME="AEN17490"
 >S</A
 ></H2
 ><DL
@@ -1557,6 +1620,20 @@ HREF="sql-show-pool-cache.html"
 >
   </DT
 ><DT
+>SHOW POOL_BACKEND_STATS,
+    <A
+HREF="sql-show-pool-backend-stats.html"
+>SHOW POOL_BACKEND_STATS</A
+>
+  </DT
+><DT
+>SHOW POOL_HEALTH_CHECK_STATS,
+    <A
+HREF="sql-show-pool-health-check-stats.html"
+>SHOW POOL_HEALTH_CHECK_STATS</A
+>
+  </DT
+><DT
 >SHOW POOL_NODES,
     <A
 HREF="sql-show-pool-nodes.html"
@@ -1592,10 +1669,28 @@ HREF="sql-show-pool-version.html"
 >
   </DT
 ><DT
+>shutdown,
+    <A
+HREF="server-stop.html"
+>Stopping Pgpool-II and PostgreSQL</A
+>,
+    <A
+HREF="server-temporarily-shutdown.html"
+>Temporarily Shutting Down PostgreSQL</A
+>
+  </DT
+><DT
 >SIGHUP,
     <A
 HREF="config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE"
 >Parameter Interaction via the Configuration File</A
+>
+  </DT
+><DT
+>snapshot isolation mode,
+    <A
+HREF="configuring-pgpool.html#RUNNING-MODE"
+>Running mode of Pgpool-II</A
 >
   </DT
 ><DT
@@ -1669,6 +1764,13 @@ HREF="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS"
 >
   </DT
 ><DT
+>ssl_crl_file configuration parameter,
+    <A
+HREF="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS"
+>SSL Settings</A
+>
+  </DT
+><DT
 >ssl_dh_params_file configuration parameter,
     <A
 HREF="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS"
@@ -1684,6 +1786,13 @@ HREF="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS"
   </DT
 ><DT
 >ssl_key configuration parameter,
+    <A
+HREF="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS"
+>SSL Settings</A
+>
+  </DT
+><DT
+>ssl_passphrase_command configuration parameter,
     <A
 HREF="runtime-ssl.html#RUNTIME-CONFIG-SSL-SETTINGS"
 >SSL Settings</A
@@ -1731,7 +1840,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN16071"
+NAME="AEN17600"
 >T</A
 ></H2
 ><DL
@@ -1749,7 +1858,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN16076"
+NAME="AEN17605"
 >U</A
 ></H2
 ><DL
@@ -1767,7 +1876,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN16081"
+NAME="AEN17610"
 >W</A
 ></H2
 ><DL
@@ -1857,6 +1966,13 @@ HREF="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG"
 >
   </DT
 ><DT
+>wd_cli,
+    <A
+HREF="wd-cli.html"
+>wd_cli</A
+>
+  </DT
+><DT
 >wd_de_escalation_command configuration parameter,
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-ESCALATION-DE-ESCALATION"
@@ -1882,20 +1998,6 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT"
     <A
 HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT"
 >Lifecheck Heartbeat mode configuration</A
->
-  </DT
-><DT
->wd_heartbeat_port configuration parameter,
-    <A
-HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK-HEARTBEAT"
->Lifecheck Heartbeat mode configuration</A
->
-  </DT
-><DT
->wd_hostname configuration parameter,
-    <A
-HREF="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG"
->Watchdog communication</A
 >
   </DT
 ><DT
@@ -1962,7 +2064,7 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK"
 >
   </DT
 ><DT
->wd_port configuration parameter,
+>wd_portX configuration parameter,
     <A
 HREF="runtime-watchdog-config.html#CONFIG-COMMUNICATION-WATCHDOG"
 >Watchdog communication</A
@@ -1976,17 +2078,10 @@ HREF="runtime-watchdog-config.html#CONFIG-WATCHDOG-LIFECHECK"
 >
   </DT
 ><DT
->white_function_list configuration parameter,
+>write_function_list configuration parameter,
     <A
 HREF="runtime-config-load-balancing.html#RUNTIME-CONFIG-LOAD-BALANCING-SETTINGS"
 >Load Balancing Settings</A
->
-  </DT
-><DT
->white_memqcache_table_list configuration parameter,
-    <A
-HREF="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-CONFIG"
->Common configurations</A
 >
   </DT
 ></DL
@@ -1996,7 +2091,7 @@ CLASS="INDEXDIV"
 ><H2
 CLASS="INDEXDIV"
 ><A
-NAME="AEN16165"
+NAME="AEN17688"
 >Y</A
 ></H2
 ><DL
@@ -2026,7 +2121,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="release-3-1-21.html"
+HREF="biblio.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -2050,7 +2145,7 @@ VALIGN="top"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->Release 3.1.21</TD
+>Bibliography</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.1.5 文書"
+TITLE="Pgpool-II 4.2.0 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="PCP コマンド"
@@ -18,15 +18,15 @@ REL="PREVIOUS"
 TITLE="pcp_promote_node"
 HREF="pcp-promote-node.html"><LINK
 REL="NEXT"
-TITLE="pcp_recovery_node"
-HREF="pcp-recovery-node.html"><LINK
+TITLE="pcp_reload_config"
+HREF="pcp-reload-config.html"><LINK
 REL="STYLESHEET"
 TYPE="text/css"
 HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:57"></HEAD
+CONTENT="2020-11-26T01:26:33"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.1.5 文書</A
+>Pgpool-II 4.2.0 文書</A
 ></TH
 ></TR
 ><TR
@@ -77,8 +77,8 @@ WIDTH="20%"
 ALIGN="right"
 VALIGN="top"
 ><A
-TITLE="pcp_recovery_node"
-HREF="pcp-recovery-node.html"
+TITLE="pcp_reload_config"
+HREF="pcp-reload-config.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -95,7 +95,7 @@ NAME="PCP-STOP-PGPOOL"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN7652"
+NAME="AEN8273"
 ></A
 ><H2
 >名前</H2
@@ -107,7 +107,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN7656"
+NAME="AEN8277"
 ></A
 ><H2
 >概要</H2
@@ -143,13 +143,13 @@ CLASS="COMMAND"
    は <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> を指定されたモードでシャットダウンします。
+> を指定されたモードで停止します。
   </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN7668"
+NAME="AEN8289"
 ></A
 ><H2
 >オプション</H2
@@ -180,11 +180,12 @@ CLASS="REPLACEABLE"
 ><DD
 ><P
 >       
-       シャットダウンモードを指定します。
+       停止モードを指定します。
       </P
 ><P
 >       
        指定できるモードは以下のとおりです。
+       デフォルトは"smart"です。
        <P
 ></P
 ></P><UL
@@ -205,6 +206,46 @@ CLASS="REPLACEABLE"
       </P
 ><P
 >       ※ 現在は fast モードと immediate シャットダウンの処理に区別はありません。 命令を送った時点でクライアントがいる・いないに関わらずシャットダウン処理を即座に行います。
+      </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-s <TT
+CLASS="REPLACEABLE"
+><I
+>scope</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--scope=<TT
+CLASS="REPLACEABLE"
+><I
+>scope</I
+></TT
+></TT
+></DT
+><DD
+><P
+>       コマンドの与える影響範囲を指定します。
+      </P
+><P
+>　　　　サポートされているコマンドスコープは以下です。
+       デフォルトは"local"です。
+       <P
+></P
+></P><UL
+><LI
+><P
+>c, cluster : クラスタを構成するすべてのPgpool-IIノードを停止します。</P
+></LI
+><LI
+><P
+>l, local : ローカルPgpool-IIノードのみを停止します。</P
+></LI
+></UL
+><P>
       </P
 ></DD
 ><DT
@@ -260,7 +301,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="pcp-recovery-node.html"
+HREF="pcp-reload-config.html"
 ACCESSKEY="N"
 >次のページ</A
 ></TD
@@ -284,7 +325,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->pcp_recovery_node</TD
+>pcp_reload_config</TD
 ></TR
 ></TABLE
 ></DIV

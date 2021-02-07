@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -21,10 +21,8 @@
  *
  */
 
+
 #include "config.h"
-#include "pool.h"
-#include "utils/palloc.h"
-#include "utils/memutils.h"
 
 #include <arpa/inet.h>
 #include <signal.h>
@@ -40,15 +38,24 @@
 #include <fcntl.h>
 #endif
 
+#include "pool.h"
+#include "pool_config.h"
+
 #include "pcp/pcp_stream.h"
 #include "pcp/pcp.h"
+#include "pcp/pcp_worker.h"
+#include "pcp/recovery.h"
 #include "auth/md5.h"
-#include "pool_config.h"
+#include "auth/pool_auth.h"
 #include "context/pool_process_context.h"
 #include "utils/pool_process_reporting.h"
-#include "watchdog/wd_json_data.h"
-#include "watchdog/wd_ipc_commands.h"
+#include "utils/palloc.h"
+#include "utils/memutils.h"
+#include "utils/ps_status.h"
 #include "utils/elog.h"
+#include "watchdog/wd_json_data.h"
+#include "watchdog/wd_internal_commands.h"
+#include "main/pool_internal_comms.h"
 
 #define MAX_FILE_LINE_LEN    512
 
@@ -74,12 +81,14 @@ static void inform_process_info(PCP_CONNECTION * frontend, char *buf);
 static void inform_watchdog_info(PCP_CONNECTION * frontend, char *buf);
 static void inform_node_info(PCP_CONNECTION * frontend, char *buf);
 static void inform_node_count(PCP_CONNECTION * frontend);
+static void process_reload_config(PCP_CONNECTION * frontend,char scope);
+static void inform_health_check_stats(PCP_CONNECTION *frontend, char *buf);
 static void process_detach_node(PCP_CONNECTION * frontend, char *buf, char tos);
 static void process_attach_node(PCP_CONNECTION * frontend, char *buf);
 static void process_recovery_request(PCP_CONNECTION * frontend, char *buf);
 static void process_status_request(PCP_CONNECTION * frontend);
 static void process_promote_node(PCP_CONNECTION * frontend, char *buf, char tos);
-static void process_shutown_request(PCP_CONNECTION * frontend, char mode);
+static void process_shutown_request(PCP_CONNECTION * frontend, char mode, char tos);
 static void process_set_configration_parameter(PCP_CONNECTION * frontend, char *buf, int len);
 
 static void pcp_worker_will_go_down(int code, Datum arg);
@@ -217,7 +226,6 @@ pcp_worker_main(int port)
 static void
 pcp_process_command(char tos, char *buf, int buf_len)
 {
-
 	if (tos == 'O' || tos == 'T')
 	{
 		if (Req_info->switching)
@@ -260,6 +268,11 @@ pcp_process_command(char tos, char *buf, int buf_len)
 			inform_node_count(pcp_frontend);
 			break;
 
+		case 'H':				/* health check stats */
+			set_ps_display("PCP: processing health check stats request", false);
+			inform_health_check_stats(pcp_frontend, buf);
+			break;
+
 		case 'I':				/* node info */
 			set_ps_display("PCP: processing node info request", false);
 			inform_node_info(pcp_frontend, buf);
@@ -292,8 +305,9 @@ pcp_process_command(char tos, char *buf, int buf_len)
 			break;
 
 		case 'T':
+		case 't':
 			set_ps_display("PCP: processing shutdown request", false);
-			process_shutown_request(pcp_frontend, buf[0]);
+			process_shutown_request(pcp_frontend, buf[0], tos);
 			break;
 
 		case 'O':				/* recovery request */
@@ -304,6 +318,11 @@ pcp_process_command(char tos, char *buf, int buf_len)
 		case 'B':				/* status request */
 			set_ps_display("PCP: processing status request request", false);
 			process_status_request(pcp_frontend);
+			break;
+
+		case 'Z':				/*reload config file */
+			set_ps_display("PCP: processing reload config request", false);
+			process_reload_config(pcp_frontend, buf[0]);
 			break;
 
 		case 'J':				/* promote node */
@@ -382,14 +401,14 @@ unset_nonblock(int fd)
 	{
 		ereport(FATAL,
 				(errmsg("unable to connect"),
-				 errdetail("fcntl system call failed with error : \"%s\"", strerror(errno))));
+				 errdetail("fcntl system call failed with error : \"%m\"")));
 
 	}
 	if (fcntl(fd, F_SETFL, var & ~O_NONBLOCK) == -1)
 	{
 		ereport(FATAL,
 				(errmsg("unable to connect"),
-				 errdetail("fcntl system call failed with error : \"%s\"", strerror(errno))));
+				 errdetail("fcntl system call failed with error : \"%m\"")));
 	}
 }
 
@@ -427,7 +446,7 @@ user_authenticate(char *buf, char *passwd_file, char *salt, int salt_len)
 	{
 		ereport(FATAL,
 				(errmsg("failed to authenticate PCP user"),
-				 errdetail("could not open %s. reason: %s", passwd_file, strerror(errno))));
+				 errdetail("could not open %s. reason: %m", passwd_file)));
 		return 0;
 	}
 
@@ -783,7 +802,7 @@ inform_watchdog_info(PCP_CONNECTION * frontend, char *buf)
 
 	wd_index = atoi(buf);
 
-	json_data = wd_get_watchdog_nodes(wd_index);
+	json_data = wd_internal_get_watchdog_nodes_json(wd_index);
 	if (json_data == NULL)
 		ereport(ERROR,
 				(errmsg("PCP: informing watchdog info failed"),
@@ -853,10 +872,10 @@ inform_node_info(PCP_CONNECTION * frontend, char *buf)
 	}
 	else
 	{
-		if (Req_info->master_node_id == node_id)
-			role = ROLE_MASTER;
+		if (Req_info->main_node_id == node_id)
+			role = ROLE_MAIN;
 		else
-			role = ROLE_SLAVE;
+			role = ROLE_REPLICA;
 	}
 	snprintf(role_str, sizeof(role_str), "%d", role);
 
@@ -891,6 +910,84 @@ inform_node_info(PCP_CONNECTION * frontend, char *buf)
 	do_pcp_flush(frontend);
 }
 
+/*
+ * Send out health check stats data to pcp client.  node id is provided as a
+ * string in buf parameter.
+ *
+ * The protocol starts with 'h', followed by 4-byte packet length integer in
+ * network byte order including self.  Each data is represented as a null
+ * terminted string. The order of each data is defined in
+ * POOL_HEALTH_CHECK_STATS struct.
+ */
+static void
+inform_health_check_stats(PCP_CONNECTION *frontend, char *buf)
+{
+	POOL_HEALTH_CHECK_STATS *stats;
+	POOL_HEALTH_CHECK_STATS *s;
+	int		*offsets;
+	int		n;
+	int		nrows;
+	int		i;
+	int		node_id;
+	bool	node_id_ok = false;
+	int		wsize;
+	char	code[] = "CommandComplete";
+
+	node_id = atoi(buf);
+
+	if (node_id < 0 || node_id > NUM_BACKENDS)
+	{
+		ereport(ERROR,
+				(errmsg("informing health check stats info failed"),
+				 errdetail("invalid node ID %d", node_id)));
+	}
+	
+	stats = get_health_check_stats(&nrows);
+
+	for (i = 0; i < nrows; i++)
+	{
+		if (atoi(stats[i].node_id) == node_id)
+		{
+			node_id_ok = true;
+			s = &stats[i];
+			break;
+		}
+	}
+
+	if (!node_id_ok)
+	{
+		ereport(ERROR,
+				(errmsg("informing health check stats info failed"),
+				 errdetail("stats data for node ID %d does not exist", node_id)));
+	}
+
+	pcp_write(frontend, "h", 1);	/* indicate that this is a reply to health check stats request */
+
+	wsize = sizeof(code) + sizeof(int);
+
+	/* Calculate total packet length */
+	offsets = pool_health_check_stats_offsets(&n);
+
+	for (i = 0; i < n; i++)
+	{
+		wsize += strlen((char *)s + offsets[i]) + 1;
+	}
+	wsize = htonl(wsize);	/* convert to network byte order */
+
+	/* send packet length to frontend */
+	pcp_write(frontend, &wsize, sizeof(int));
+	/* send "Command Complete" to frontend */
+	pcp_write(frontend, code, sizeof(code));
+
+	/* send each health check stats data to frontend */
+	for (i = 0; i < n; i++)
+	{
+		pcp_write(frontend, (char *)s + offsets[i], strlen((char *)s + offsets[i]) + 1);
+	}
+	pfree(stats);
+	do_pcp_flush(frontend);
+}
+
 static void
 inform_node_count(PCP_CONNECTION * frontend)
 {
@@ -913,6 +1010,36 @@ inform_node_count(PCP_CONNECTION * frontend)
 	ereport(DEBUG1,
 			(errmsg("PCP: informing node count"),
 			 errdetail("%d node(s) found", node_count)));
+}
+static void
+process_reload_config(PCP_CONNECTION * frontend, char scope)
+{
+	char            code[] = "CommandComplete";
+	int wsize;
+
+	if (scope == 'c' && pool_config->use_watchdog)
+	{
+		ereport(LOG,
+				(errmsg("PCP: sending command to watchdog to reload config cluster")));
+
+		if (wd_execute_cluster_command(WD_COMMAND_RELOAD_CONFIG_CLUSTER,0, NULL) != COMMAND_OK)
+			ereport(ERROR,
+					(errmsg("PCP: error while processing reload config request for cluster"),
+					 errdetail("failed to propogate reload config command through watchdog")));
+	}
+
+	if(pool_signal_parent(SIGHUP) == -1)
+	{
+	   ereport(ERROR,
+			   (errmsg("process reload config request failed"),
+				errdetail("failed to signal pgpool parent process")));
+	}
+
+	pcp_write(frontend, "z", 1);
+	wsize = htonl(sizeof(code) + sizeof(int));
+	pcp_write(frontend, &wsize, sizeof(int));
+	pcp_write(frontend, code, sizeof(code));
+	do_pcp_flush(frontend);
 }
 
 static void
@@ -977,13 +1104,11 @@ process_recovery_request(PCP_CONNECTION * frontend, char *buf)
 				 errdetail("node id %d is not valid", node_id)));
 
 	if ((!REPLICATION &&
-		 !(MASTER_SLAVE &&
-		   pool_config->master_slave_sub_mode == STREAM_MODE)) ||
-		(MASTER_SLAVE &&
-		 pool_config->master_slave_sub_mode == STREAM_MODE &&
+		 !(STREAM)) ||
+		(STREAM &&
 		 node_id == PRIMARY_NODE_ID))
 	{
-		if (MASTER_SLAVE && pool_config->master_slave_sub_mode == STREAM_MODE)
+		if (STREAM)
 			ereport(ERROR,
 					(errmsg("process recovery request failed"),
 					 errdetail("primary server cannot be recovered by online recovery.")));
@@ -1097,7 +1222,7 @@ process_promote_node(PCP_CONNECTION * frontend, char *buf, char tos)
 				(errmsg("could not process recovery request"),
 				 errdetail("node id %d is not valid", node_id)));
 	/* promoting node is reserved to Streaming Replication */
-	if (!MASTER_SLAVE || pool_config->master_slave_sub_mode != STREAM_MODE)
+	if (!STREAM)
 	{
 		ereport(FATAL,
 				(errmsg("invalid pgpool mode for process recovery request"),
@@ -1177,39 +1302,39 @@ send_md5salt(PCP_CONNECTION * frontend, char *salt)
 }
 
 static void
-process_shutown_request(PCP_CONNECTION * frontend, char mode)
+process_shutown_request(PCP_CONNECTION * frontend, char mode, char tos)
 {
 	char		code[] = "CommandComplete";
-	pid_t		ppid = getppid();
-	int			sig,
-				len;
+	int			len;
 
-	if (mode == 's')
-	{
-		ereport(DEBUG1,
-				(errmsg("PCP: processing shutdown request"),
-				 errdetail("sending SIGTERM to the parent process with PID:%d", ppid)));
-		sig = SIGTERM;
-	}
-	else if (mode == 'f')
-	{
-		ereport(DEBUG1,
-				(errmsg("PCP: processing shutdown request"),
-				 errdetail("sending SIGINT to the parent process with PID:%d", ppid)));
-		sig = SIGINT;
-	}
-	else if (mode == 'i')
-	{
-		ereport(DEBUG1,
-				(errmsg("PCP: processing shutdown request"),
-				 errdetail("sending SIGQUIT to the parent process with PID:%d", ppid)));
-		sig = SIGQUIT;
-	}
-	else
+	ereport(DEBUG1,
+			(errmsg("PCP: processing shutdown request"),
+			 errdetail("shutdown mode \"%c\"", mode)));
+
+	/* quickly bail out if invalid mode is specified
+	 * because we do not want to propogate the command
+	 * with invalid mode over the watchdog network */
+	if (mode != 's' && mode != 'i' && mode != 'f' )
 	{
 		ereport(ERROR,
 				(errmsg("PCP: error while processing shutdown request"),
 				 errdetail("invalid shutdown mode \"%c\"", mode)));
+	}
+
+	if (tos == 't' && pool_config->use_watchdog)
+	{
+		WDExecCommandArg wdExecCommandArg;
+
+		strncpy(wdExecCommandArg.arg_name, "mode", sizeof(wdExecCommandArg.arg_name) - 1);
+		snprintf(wdExecCommandArg.arg_value, sizeof(wdExecCommandArg.arg_name) - 1, "%c",mode);
+
+		ereport(LOG,
+				(errmsg("PCP: sending command to watchdog to shutdown cluster")));
+
+		if (wd_execute_cluster_command(WD_COMMAND_SHUTDOWN_CLUSTER,1, &wdExecCommandArg) != COMMAND_OK)
+			ereport(ERROR,
+					(errmsg("PCP: error while processing shutdown cluster request"),
+					 errdetail("failed to propogate shutdown command through watchdog")));
 	}
 
 	pcp_write(frontend, "t", 1);
@@ -1218,7 +1343,7 @@ process_shutown_request(PCP_CONNECTION * frontend, char mode)
 	pcp_write(frontend, code, sizeof(code));
 	do_pcp_flush(frontend);
 
-	pool_signal_parent(sig);
+	terminate_pgpool(mode, true);
 }
 
 static void
@@ -1293,7 +1418,7 @@ do_pcp_flush(PCP_CONNECTION * frontend)
 	if (pcp_flush(frontend) < 0)
 		ereport(FATAL,
 				(errmsg("failed to flush data to client"),
-				 errdetail("pcp_flush failed with error : \"%s\"", strerror(errno))));
+				 errdetail("pcp_flush failed with error : \"%m\"")));
 }
 
 /*
@@ -1305,7 +1430,7 @@ do_pcp_read(PCP_CONNECTION * pc, void *buf, int len)
 	if (pcp_read(pc, buf, len))
 		ereport(FATAL,
 				(errmsg("unable to read from client"),
-				 errdetail("pcp_read failed with error : \"%s\"", strerror(errno))));
+				 errdetail("pcp_read failed with error : \"%m\"")));
 }
 
 int

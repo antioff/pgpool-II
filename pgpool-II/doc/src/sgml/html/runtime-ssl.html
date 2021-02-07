@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -190,9 +190,12 @@ CLASS="TYPE"
      </DT
 ><DD
 ><P
->      Specifies the path to the private key file to be used for
-      incoming frontend connections. If specifies relative path, it is based
-      on the directory where pgpool is starting up.
+>      Specifies the private key file to be used for
+      incoming frontend connections. Relative paths are relative to
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> configuration directory.
       There is no default value for this option, and if left unset
       <ACRONYM
 CLASS="ACRONYM"
@@ -217,9 +220,12 @@ CLASS="TYPE"
      </DT
 ><DD
 ><P
->      Specifies the path to the public x509 certificate file to be used
-      for the incoming frontend connections. If specifies relative path, based
-      path is Pgpool-II is run directory.
+>      Specifies the public x509 certificate file to be used
+      for the incoming frontend connections. Relative paths are relative to
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> configuration directory.
       There is no default value for this option, and if left unset
       <ACRONYM
 CLASS="ACRONYM"
@@ -244,16 +250,20 @@ CLASS="TYPE"
      </DT
 ><DD
 ><P
->      Specifies the path to a <ACRONYM
+>      Specifies a <ACRONYM
 CLASS="ACRONYM"
 >PEM</ACRONYM
->
-      format <ACRONYM
+> format <ACRONYM
 CLASS="ACRONYM"
 >CA</ACRONYM
-> certificate files, which can be used
-      to verify the backend server certificates. This is analogous to
-      the <TT
+>
+      certificate file, which can be used to verify the backend server
+      certificates. Relative paths are relative to
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> configuration directory. This is
+      analogous to the <TT
 CLASS="COMMAND"
 >-CApath</TT
 > option of the
@@ -306,6 +316,35 @@ CLASS="COMMAND"
 HREF="runtime-ssl.html#GUC-SSL-CA-CERT"
 >ssl_ca_cert</A
 >.
+     </P
+><P
+>      This parameter can only be set at server start.
+     </P
+></DD
+><DT
+><A
+NAME="GUC-SSL-CRL-FILE"
+></A
+><TT
+CLASS="VARNAME"
+>ssl_crl_file</TT
+> (<TT
+CLASS="TYPE"
+>string</TT
+>)
+     </DT
+><DD
+><P
+>      Specifies the file containing the SSL server certificate
+      revocation list (CRL). Relative paths are relative to
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> configuration directory.
+      The default is empty, meaning no <ACRONYM
+CLASS="ACRONYM"
+>CRL</ACRONYM
+> file is loaded.
      </P
 ><P
 >      This parameter can only be set at server start.
@@ -465,6 +504,40 @@ CLASS="TYPE"
 CLASS="COMMAND"
 >openssl -out dhparams.pem 2048</TT
 >.
+     </P
+><P
+>      This parameter can only be set at server start.
+     </P
+></DD
+><DT
+><A
+NAME="GUC-SSL-PASSPHRASE-COMMAND"
+></A
+><TT
+CLASS="VARNAME"
+>ssl_passphrase_command</TT
+> (<TT
+CLASS="TYPE"
+>string</TT
+>)
+     </DT
+><DD
+><P
+>      Sets an external command to be invoked when a passphrase for decrypting
+      an SSL file such as a private key needs to be obtained. By default,
+      this parameter is empty, which means SSL file will not be loaded if passphrase is required.
+     </P
+><P
+>      The command must print the passphrase to the standard output and
+      exit with code 0. In the parameter value, %p is replaced by a prompt
+      string. (Write %% for a literal %.) Note that the prompt string will probably
+      contain whitespace, so be sure to quote adequately. A single newline is stripped
+      from the end of the output if present.
+     </P
+><P
+>      The command does not actually have to prompt the user for a passphrase.
+      It can read it from a file, obtain it from a keychain facility, or similar.
+      It is up to the user to make sure the chosen mechanism is adequately secure.
      </P
 ><P
 >      This parameter can only be set at server start.

@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  */
 /*--------------------------------------------------------------------
@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "pool.h"
+#include "utils/statistics.h"
 #include "parser/nodes.h"
 
 /*
@@ -33,6 +34,9 @@ typedef struct
 	uint64		delete_cnt;		/* number of DELETE queries issued */
 	uint64		ddl_cnt;		/* number of DDL queries issued */
 	uint64		other_cnt;		/* number of any other queries issued */
+	uint64		panic_cnt;		/* number of PANIC messages */
+	uint64		fatal_cnt;		/* number of FATAL messages */
+	uint64		error_cnt;		/* number of ERROR messages */
 }			PER_NODE_STAT;
 
 static volatile PER_NODE_STAT *per_node_stat;
@@ -91,6 +95,62 @@ stat_count_up(int backend_node_id, Node *parse_tree)
 	{
 		per_node_stat[backend_node_id].select_cnt++;
 	}
+
+	else if (IsA(parse_tree, InsertStmt))
+	{
+		per_node_stat[backend_node_id].insert_cnt++;
+	}
+
+	else if (IsA(parse_tree, UpdateStmt))
+	{
+		per_node_stat[backend_node_id].update_cnt++;
+	}
+
+	else if (IsA(parse_tree, DeleteStmt))
+	{
+		per_node_stat[backend_node_id].delete_cnt++;
+	}
+
+	else
+	{
+		switch(nodeTag(parse_tree))
+		{
+			case(T_CheckPointStmt):
+			case(T_DeallocateStmt):
+			case(T_DiscardStmt):
+			case(T_ExecuteStmt):
+			case(T_ExplainStmt):
+			case(T_ListenStmt):
+			case(T_LoadStmt):
+			case(T_LockStmt):
+			case(T_NotifyStmt):
+			case(T_PrepareStmt):
+			case(T_TransactionStmt):
+			case(T_UnlistenStmt):
+			case(T_VacuumStmt):
+			case(T_VariableSetStmt):
+			case(T_VariableShowStmt):
+				per_node_stat[backend_node_id].other_cnt++;
+				break;
+
+			default:
+				per_node_stat[backend_node_id].ddl_cnt++;
+		}
+	}
+}
+
+/*
+ * Update error stat counter
+ */
+void
+error_stat_count_up(int backend_node_id, char *str)
+{
+	if (strcasecmp(str, "PANIC") == 0)
+		per_node_stat[backend_node_id].panic_cnt++;
+	else if (strcasecmp(str, "FATAL") == 0)
+		per_node_stat[backend_node_id].fatal_cnt++;
+	else if (strcasecmp(str, "ERROR") == 0)
+		per_node_stat[backend_node_id].error_cnt++;
 }
 
 /*
@@ -100,4 +160,52 @@ uint64
 stat_get_select_count(int backend_node_id)
 {
 	return per_node_stat[backend_node_id].select_cnt;
+}
+
+uint64
+stat_get_insert_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].insert_cnt;
+}
+
+uint64
+stat_get_update_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].update_cnt;
+}
+
+uint64
+stat_get_delete_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].delete_cnt;
+}
+
+uint64
+stat_get_ddl_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].ddl_cnt;
+}
+
+uint64
+stat_get_other_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].other_cnt;
+}
+
+uint64
+stat_get_panic_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].panic_cnt;
+}
+
+uint64
+stat_get_fatal_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].fatal_cnt;
+}
+
+uint64
+stat_get_error_count(int backend_node_id)
+{
+	return per_node_stat[backend_node_id].error_cnt;
 }

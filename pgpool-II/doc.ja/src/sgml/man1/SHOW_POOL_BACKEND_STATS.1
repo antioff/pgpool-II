@@ -1,0 +1,62 @@
+'\" t
+.\"     Title: SHOW POOL_BACKEND_STATS
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 2020
+.\"    Manual: Pgpool-II 4.2.0 文書
+.\"    Source: Pgpool-II 4.2.0
+.\"  Language: Japanese
+.\"
+.TH "SHOW POOL_BACKEND_STATS" "1" "2020" "Pgpool-II 4.2.0" "Pgpool-II 4.2.0 文書"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "名前"
+SHOW_POOL_BACKEND_STATS \- SQLコマンドの統計情報を表示する
+.SH "概要"
+.sp
+.nf
+   SHOW POOL_BACKEND_STATS
+  
+.fi
+.SH "説明"
+.PP
+\fBSHOW POOL_BACKEND_STATS\fRはノードID、ホスト名、ポート番号、状態、ノードの役割、SELECT/INSERT/UPDATE/DELETE/DDL/それ以外のコマンドがそれぞれのノードに発行された数を表示します。 また、バックエンドが返したエラーの数を深刻度に分類して表示します。 ノードID、ホスト名、ポート番号、状態、ノードの役割はSHOW POOL_NODES (\fBSHOW_POOL_NODES\fR(1))と同じです。
+.PP
+select_cnt、insert_cnt、update_cnt、delete_cnt、ddl_cnt、other_cntはPgpool\-IIが起動してからのSQLコマンド: SELECT、INSERT、UPDATE、DELETE、DDL、そして他のコマンドの数です。 失敗したコマンド（たとえば存在しないテーブルからのSELECT）は数えられます。 ロールバックされたコマンドも数えられます。 今の所SELECT/WITH/INSERT/UPDATE/DELETE/CHECKPOINT/DEALLOCATE/DISCARD/EXECUTE/EXPLAIN/LISTEN/LOAD/LOCK/NOTIFY/PREPARE/SET/SHOW/トランザクションコマンド/UNLISTEN以外のコマンドがDDLであると見なされます。
+.PP
+例をここに示します。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+test=# show pool_backend_stats;
+ node_id | hostname | port  | status |  role   | select_cnt | insert_cnt | update_cnt | delete_cnt | ddl_cnt | other_cnt | panic_cnt | fatal_cnt | error_cnt 
+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-
+ 0       | /tmp     | 11002 | up     | primary | 12         | 10         | 30         | 0          | 2       | 30        | 0         | 0         | 1
+ 1       | /tmp     | 11003 | up     | standby | 12         | 0          | 0          | 0          | 0       | 23        | 0         | 0         | 1
+(2 rows)
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -29,6 +29,16 @@
 #include "parser/parsenodes.h"
 #include "context/pool_session_context.h"
 #include "rewrite/pool_timestamp.h"
+#include "protocol/pool_pg_utils.h"
+
+/*
+ * Possible argument (property) values for function_volatile_property
+ */
+typedef enum {
+	FUNC_VOLATILE,
+	FUNC_STABLE,
+	FUNC_IMMUTABLE
+} FUNC_VOLATILE_PROPERTY;
 
 static bool function_call_walker(Node *node, void *context);
 static bool system_catalog_walker(Node *node, void *context);
@@ -42,10 +52,11 @@ static bool is_immutable_function(char *fname);
 static bool select_table_walker(Node *node, void *context);
 static bool non_immutable_function_call_walker(Node *node, void *context);
 static char *strip_quote(char *str);
+static bool function_volatile_property(char *fname, FUNC_VOLATILE_PROPERTY property);
 
 /*
  * Return true if this SELECT has function calls *and* supposed to
- * modify database.  We check black/white function list to determine
+ * modify database.  We check write/read_only function list to determine
  * whether the function modifies database.
  */
 bool
@@ -183,11 +194,11 @@ pool_has_insertinto_or_locking_clause(Node *node)
 }
 
 /*
- * Search function name in whilelist or blacklist regex array
+ * Search function name in readonlylist or writelist regex array
  * Return 1 on success (found in list)
  * Return 0 when not found in list
  * Return -1 if the given search type doesn't exist.
- * Search type supported are: WHITELIST and BLACKLIST
+ * Search type supported are: READONLYLIST and WRITELIST
  */
 int
 pattern_compare(char *str, const int type, const char *param_name)
@@ -199,21 +210,21 @@ pattern_compare(char *str, const int type, const char *param_name)
 	RegPattern *lists_patterns;
 	int		   *pattc;
 
-	if (strcmp(param_name, "white_function_list") == 0 ||
-		strcmp(param_name, "black_function_list") == 0)
+	if (strcmp(param_name, "read_only_function_list") == 0 ||
+		strcmp(param_name, "write_function_list") == 0)
 	{
 		lists_patterns = pool_config->lists_patterns;
 		pattc = &pool_config->pattc;
 
 	}
-	else if (strcmp(param_name, "white_memqcache_table_list") == 0 ||
-			 strcmp(param_name, "black_memqcache_table_list") == 0)
+	else if (strcmp(param_name, "cache_safe_memqcache_table_list") == 0 ||
+			 strcmp(param_name, "cache_unsafe_memqcache_table_list") == 0)
 	{
 		lists_patterns = pool_config->lists_memqcache_table_patterns;
 		pattc = &pool_config->memqcache_table_pattc;
 
 	}
-	else if (strcmp(param_name, "black_query_pattern_list") == 0)
+	else if (strcmp(param_name, "primary_routing_query_pattern_list") == 0)
 	{
 		lists_patterns = pool_config->lists_query_patterns;
 		pattc = &pool_config->query_pattc;
@@ -242,18 +253,18 @@ pattern_compare(char *str, const int type, const char *param_name)
 		{
 			switch (type)
 			{
-					/* return 1 if string matches whitelist pattern */
-				case WHITELIST:
+					/* return 1 if string matches readonly list pattern */
+				case READONLYLIST:
 					ereport(DEBUG2,
-							(errmsg("comparing function name in whitelist regex array"),
+							(errmsg("comparing function name in readonly list regex array"),
 							 errdetail("pattern_compare: %s (%s) matched: %s",
 									   param_name, lists_patterns[i].pattern, s)));
 					result = 1;
 					break;
-					/* return 1 if string matches blacklist pattern */
-				case BLACKLIST:
+					/* return 1 if string matches writelist pattern */
+				case WRITELIST:
 					ereport(DEBUG2,
-							(errmsg("comparing function name in blacklist regex array"),
+							(errmsg("comparing function name in writelist regex array"),
 							 errdetail("pattern_compare: %s (%s) matched: %s",
 									   param_name, lists_patterns[i].pattern, s)));
 					result = 1;
@@ -268,7 +279,7 @@ pattern_compare(char *str, const int type, const char *param_name)
 			break;
 		}
 		ereport(DEBUG2,
-				(errmsg("comparing function name in blacklist/whitelist regex array"),
+				(errmsg("comparing function name in write/readonly list regex array"),
 				 errdetail("pattern_compare: %s (%s) not matched: %s",
 						   param_name, lists_patterns[i].pattern, s)));
 	}
@@ -338,20 +349,14 @@ function_call_walker(Node *node, void *context)
 
 		if (length > 0)
 		{
-			if (length == 1)	/* no schema qualification? */
-			{
-				fname = strVal(linitial(fcall->funcname));
-			}
-			else
-			{
-				fname = strVal(lsecond(fcall->funcname));	/* with schema
-															 * qualification */
-			}
+			fname = make_function_name_from_funccall(fcall);
 
 			ereport(DEBUG1,
 					(errmsg("function call walker, function name: \"%s\"", fname)));
 
-			if (ctx->pg_terminate_backend_pid == 0 && strcmp("pg_terminate_backend", fname) == 0)
+			check_object_relationship_list(strVal(llast(fcall->funcname)), true);
+
+			if (ctx->pg_terminate_backend_pid == 0 && strcmp("pg_terminate_backend", strVal(llast(fcall->funcname))) == 0)
 			{
 				if (list_length(fcall->args) == 1)
 				{
@@ -368,22 +373,37 @@ function_call_walker(Node *node, void *context)
 			}
 
 			/*
-			 * Check white list if any.
+			 * If both read_only_function_list and write_function_list is empty,
+			 * check volatile property of the function in the system catalog.
 			 */
-			if (pool_config->num_white_function_list > 0)
+			if (pool_config->num_read_only_function_list == 0 &&
+				pool_config->num_write_function_list == 0)
 			{
-				/* Search function in the white list regex patterns */
-				if (pattern_compare(fname, WHITELIST, "white_function_list") == 1)
+				if (function_volatile_property(fname, FUNC_VOLATILE))
+				{
+					ctx->has_function_call = true;
+					return false;
+				}
+				return raw_expression_tree_walker(node, function_call_walker, context);
+			}
+
+			/*
+			 * Check read_only list if any.
+			 */
+			if (pool_config->num_read_only_function_list > 0)
+			{
+				/* Search function in the read_only list regex patterns */
+				if (pattern_compare(fname, READONLYLIST, "read_only_function_list") == 1)
 				{
 					/*
-					 * If the function is found in the white list, we can
+					 * If the function is found in the read_only list, we can
 					 * ignore it
 					 */
 					return raw_expression_tree_walker(node, function_call_walker, context);
 				}
 
 				/*
-				 * Since the function was not found in white list, we have
+				 * Since the function was not found in read_only list, we have
 				 * found a writing function.
 				 */
 				ctx->has_function_call = true;
@@ -391,12 +411,12 @@ function_call_walker(Node *node, void *context)
 			}
 
 			/*
-			 * Check black list if any.
+			 * Check write list if any.
 			 */
-			if (pool_config->num_black_function_list > 0)
+			if (pool_config->num_write_function_list > 0)
 			{
-				/* Search function in the black list regex patterns */
-				if (pattern_compare(fname, BLACKLIST, "black_function_list") == 1)
+				/* Search function in the write list regex patterns */
+				if (pattern_compare(fname, WRITELIST, "write_function_list") == 1)
 				{
 					/* Found. */
 					ctx->has_function_call = true;
@@ -896,7 +916,7 @@ pool_has_pgpool_regclass(void)
 	char	   *user;
 
 	backend = pool_get_session_context(false)->backend;
-	user = MASTER_CONNECTION(backend)->sp->user;
+	user = MAIN_CONNECTION(backend)->sp->user;
 
 	if (!relcache)
 	{
@@ -994,15 +1014,7 @@ non_immutable_function_call_walker(Node *node, void *context)
 
 		if (length > 0)
 		{
-			if (length == 1)	/* no schema qualification? */
-			{
-				fname = strVal(linitial(fcall->funcname));
-			}
-			else
-			{
-				fname = strVal(lsecond(fcall->funcname));	/* with schema
-															 * qualification */
-			}
+			fname = make_function_name_from_funccall(fcall);
 
 			ereport(DEBUG1,
 					(errmsg("non immutable function walker. checking function \"%s\"", fname)));
@@ -1041,37 +1053,112 @@ non_immutable_function_call_walker(Node *node, void *context)
 static bool
 is_immutable_function(char *fname)
 {
+	return function_volatile_property(fname, FUNC_IMMUTABLE);
+}
+
 /*
- * Query to know if the function is IMMUTABLE
+ * Check volatile property of function specified by the name.
+ * If the function property is match with "property" argument, returns true.
+ * Note that "fname" can be schema qualified.
  */
-#define IS_STABLE_FUNCTION_QUERY "SELECT count(*) FROM pg_catalog.pg_proc AS p WHERE p.proname = '%s' AND p.provolatile = 'i'"
+static
+bool function_volatile_property(char *fname, FUNC_VOLATILE_PROPERTY property)
+{
+/*
+ * Query to know if function's volatile property.
+ */
+#define VOLATILE_FUNCTION_QUERY "SELECT count(*) FROM pg_catalog.pg_proc AS p, pg_catalog.pg_namespace AS n WHERE p.proname = '%s' AND n.oid = p.pronamespace AND n.nspname %s '%s' AND p.provolatile = '%c'"
 	bool		result;
-	static POOL_RELCACHE * relcache;
-	POOL_CONNECTION_POOL *backend;
+	char		query[1024];
+	char	   *rawstring = NULL;
+	List	   *names = NIL;
+	POOL_CONNECTION_POOL   *backend;
+	static POOL_RELCACHE   *relcache;
+	char	prop_volatile;
+
+	/* We need a modifiable copy of the input string. */
+	rawstring = pstrdup(fname);
+
+	/* split "schemaname.funcname" */
+	if(!SplitIdentifierString(rawstring, '.', (Node **) &names) ||
+		names == NIL)
+	{
+		pfree(rawstring);
+		list_free(names);
+
+		ereport(WARNING,
+				(errmsg("invalid function name %s", fname)));
+
+		return false;
+	}
+
+	/*
+	 * Get volatile property character.
+	 */
+	switch (property)
+	{
+		case FUNC_STABLE:
+			prop_volatile = 's';
+			break;
+
+		case FUNC_IMMUTABLE:
+			prop_volatile = 'i';
+			break;
+
+		default:
+			prop_volatile = 'v';
+			break;
+	}
+
+	/* with schema qualification */
+	if(list_length(names) == 2)
+	{
+		snprintf(query, sizeof(query), VOLATILE_FUNCTION_QUERY, (char *) llast(names),
+				 "=", (char *) linitial(names), prop_volatile);
+	}
+	else
+	{
+		snprintf(query, sizeof(query), VOLATILE_FUNCTION_QUERY, (char *) llast(names),
+				 "~", ".*", prop_volatile);
+	}
 
 	backend = pool_get_session_context(false)->backend;
 
 	if (!relcache)
 	{
-		relcache = pool_create_relcache(pool_config->relcache_size, IS_STABLE_FUNCTION_QUERY,
+		/*
+		 * We pass "%s" as a template query so that pool_search_relcache
+		 * passes whole query.
+		 */
+		relcache = pool_create_relcache(pool_config->relcache_size, "%s",
 										int_register_func, int_unregister_func,
 										false);
 		if (relcache == NULL)
 		{
+			pfree(rawstring);
+			list_free(names);
+
 			ereport(WARNING,
-					(errmsg("unable to create relcache, while checking if the function is immutable")));
+					(errmsg("unable to create relcache, while checking the function volatile property")));
 			return false;
 		}
 		ereport(DEBUG1,
-				(errmsg("checking if the function is IMMUTABLE"),
+				(errmsg("checking the function volatile property"),
 				 errdetail("relcache created")));
 	}
 
-	result = (pool_search_relcache(relcache, backend, fname) == 0) ? 0 : 1;
+	/*
+	 * We pass whole query as "table" parameter of pool_search_relcache so
+	 * that each relcache entry is distinguished by actual query string.
+	 */
+	result = (pool_search_relcache(relcache, backend, query) == 0) ? 0 : 1;
+
+	pfree(rawstring);
+	list_free(names);
 
 	ereport(DEBUG1,
-			(errmsg("checking if the function is IMMUTABLE"),
-			 errdetail("search result = %d", result)));
+			(errmsg("checking the function volatile property"),
+			 errdetail("search result = %d (%c)", result, prop_volatile)));
 	return result;
 }
 
@@ -1251,6 +1338,75 @@ makeRangeVarFromNameList(List *names)
 	}
 
 	return rel;
+}
+
+/*
+ * Extract function name from FuncCall.  Make schema qualification name if
+ * necessary.  The returned function name is in static area. So next
+ * call to this function will break previous result.
+ */
+char *
+make_function_name_from_funccall(FuncCall *fcall)
+{
+	/*
+	 * Function name. Max size is calculated as follows: schema
+	 * name(POOL_NAMEDATALEN byte) + quotation marks for schmea name(2 byte) +
+	 * period(1 byte) + table name (POOL_NAMEDATALEN byte) + quotation marks
+	 * for table name(2 byte) + NULL(1 byte)
+	 */
+	static char funcname[POOL_NAMEDATALEN * 2 + 1 + 2 * 2 + 1];
+	List 	   *names;
+
+	if(fcall == NULL)
+	{
+		ereport(WARNING,
+				(errmsg("FuncCall argument is NULL, while getting function name from FuncCall")));
+		return "";
+	}
+
+	*funcname = '\0';
+	names = fcall->funcname;
+
+	switch (list_length(names))
+	{
+		case 1:
+			strcat(funcname, "\"");
+			strncat(funcname, strVal(linitial(names)), POOL_NAMEDATALEN);
+			strcat(funcname, "\"");
+			break;
+		case 2:
+			strcat(funcname, "\"");
+			strncat(funcname, strVal(linitial(names)), POOL_NAMEDATALEN);
+			strcat(funcname, "\"");
+
+			strcat(funcname, ".");
+
+			strcat(funcname, "\"");
+			strncat(funcname, strVal(lsecond(names)), POOL_NAMEDATALEN);
+			strcat(funcname, "\"");
+			break;
+		case 3:
+			strcat(funcname, "\"");
+			strncat(funcname, strVal(lsecond(names)), POOL_NAMEDATALEN);
+			strcat(funcname, "\"");
+
+			strcat(funcname, ".");
+
+			strcat(funcname, "\"");
+			strncat(funcname, strVal(lthird(names)), POOL_NAMEDATALEN);
+			strcat(funcname, "\"");
+
+			break;
+		default:
+			ereport(WARNING,
+					(errmsg("invalid function name, too many indirections, while getting function name from FuncCall")));
+			break;
+	}
+
+	ereport(DEBUG1,
+			(errmsg("make function name from funccall: funcname:\"%s\"", funcname)));
+
+	return funcname;
 }
 
 /*

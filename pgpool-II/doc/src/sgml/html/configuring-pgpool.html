@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.5 Documentation"
+TITLE="pgpool-II 4.2.0 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Setup and Operation"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-11-18T06:04:37"></HEAD
+CONTENT="2020-11-26T01:26:12"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.5 Documentation</A
+>pgpool-II 4.2.0 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -135,7 +135,7 @@ CLASS="FILENAME"
 >    For each <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> operation mode,
+> clustering mode,
     there are sample configurations.
    </P
 ><DIV
@@ -153,7 +153,7 @@ CLASS="CALSTABLE"
 ><COL><COL><THEAD
 ><TR
 ><TH
->Operation mode</TH
+>Clustering mode</TH
 ><TH
 >Configuration file name</TH
 ></TR
@@ -163,7 +163,10 @@ CLASS="CALSTABLE"
 ><TD
 >Streaming replication mode</TD
 ><TD
->&nbsp;</TD
+><TT
+CLASS="LITERAL"
+>pgpool.conf.sample-stream</TT
+></TD
 ></TR
 ><TR
 ><TD
@@ -176,9 +179,30 @@ CLASS="LITERAL"
 ></TR
 ><TR
 ><TD
->Master slave mode</TD
+>Logical replication mode</TD
 ><TD
->&nbsp;</TD
+><TT
+CLASS="LITERAL"
+>pgpool.conf.sample-logical</TT
+> </TD
+></TR
+><TR
+><TD
+>Slony mode</TD
+><TD
+><TT
+CLASS="LITERAL"
+>pgpool.conf.sample-slony</TT
+></TD
+></TR
+><TR
+><TD
+>Snapshot isolation mode</TD
+><TD
+><TT
+CLASS="LITERAL"
+>pgpool.conf.sample-snapshot</TT
+></TD
 ></TR
 ><TR
 ><TD
@@ -186,16 +210,7 @@ CLASS="LITERAL"
 ><TD
 ><TT
 CLASS="LITERAL"
->pgpool.conf.sample</TT
-> </TD
-></TR
-><TR
-><TD
->Logical replication mode</TD
-><TD
-><TT
-CLASS="LITERAL"
->pgpool.conf.sample-logical</TT
+>pgpool.conf.sample-raw</TT
 > </TD
 ></TR
 ></TBODY
@@ -226,17 +241,17 @@ NAME="RUNNING-MODE"
 >3.3.2. Running mode of Pgpool-II</A
 ></H2
 ><P
->    There are four different running modes
-    in <SPAN
+>    There are six different running modes in
+    <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->: streaming replication mode,
-    logical replication mode, master slave mode (slony mode), native
-    replication mode and raw mode. In any
+>: streaming replication mode, logical
+    replication mode, main replica mode (slony mode), native
+    replication mode, raw mode and snapshot isolaton mode. In any
     mode, <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
-> provides connection pooling
+> provides connection pooling,
     and automatic fail over.
     Online recovery can be used only with streaming replication mode and native replication mode.
    </P
@@ -264,66 +279,6 @@ CLASS="PRODUCTNAME"
     use <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->. Load balancing is possible in the
-    mode.
-   </P
-><P
->    The <I
-CLASS="FIRSTTERM"
->logical replication mode</I
-> can be used
-    with <SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
-> servers operating logical
-    replication. In this mode, <SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
-> is
-    responsible for synchronizing tables. Load balancing is possible
-    in the mode. Since logical replication does not replicate all
-    tables, it's user's responsibility to replicate the table which
-    could be load balanced. <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
-> load balances
-    all tables. This means that if a table is not
-    replicated, <SPAN
-CLASS="PRODUCTNAME"
->Pgpool-II</SPAN
-> may lookup outdated tables
-    in the subscriber side.
-   </P
-><P
->    The <I
-CLASS="FIRSTTERM"
->master slave mode</I
-> mode (slony mode)
-    can be used with <SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
-> servers
-    operating <SPAN
-CLASS="PRODUCTNAME"
->Slony</SPAN
->. In this
-    mode, <SPAN
-CLASS="PRODUCTNAME"
->Slony</SPAN
->/<SPAN
-CLASS="PRODUCTNAME"
->PostgreSQL</SPAN
-> is
-    responsible for synchronizing
-    databases. Since <SPAN
-CLASS="PRODUCTNAME"
->Slony-I</SPAN
-> is being obsoleted by
-    streaming replication, we do not recommend to use this mode
-    unless you have specific reason to
-    use <SPAN
-CLASS="PRODUCTNAME"
->Slony</SPAN
 >. Load balancing is possible in the
     mode.
    </P
@@ -376,6 +331,106 @@ CLASS="LITERAL"
 ><P
 >    Load balancing is possible in the mode.
    </P
+><P
+>    The <I
+CLASS="FIRSTTERM"
+>logical replication mode</I
+> can be used
+    with <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> servers operating logical
+    replication. In this mode, <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> is
+    responsible for synchronizing tables. Load balancing is possible
+    in the mode. Since logical replication does not replicate all
+    tables, it's user's responsibility to replicate the table which
+    could be load balanced. <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> load balances
+    all tables. This means that if a table is not
+    replicated, <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> may lookup outdated tables
+    in the subscriber side.
+   </P
+><P
+>    The <I
+CLASS="FIRSTTERM"
+>main replica mode</I
+> mode (slony mode)
+    can be used with <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> servers
+    operating <SPAN
+CLASS="PRODUCTNAME"
+>Slony</SPAN
+>. In this
+    mode, <SPAN
+CLASS="PRODUCTNAME"
+>Slony</SPAN
+>/<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> is
+    responsible for synchronizing
+    databases. Since <SPAN
+CLASS="PRODUCTNAME"
+>Slony-I</SPAN
+> is being obsoleted by
+    streaming replication, we do not recommend to use this mode
+    unless you have specific reason to
+    use <SPAN
+CLASS="PRODUCTNAME"
+>Slony</SPAN
+>. Load balancing is possible in the
+    mode.
+   </P
+><P
+>    The <I
+CLASS="FIRSTTERM"
+>snapshot isolation mode</I
+> is similar to
+    the native replication mode and it adds the visibility consistency
+    among nodes.  Please note that there are some limitations in this
+    mode and currently (in <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.2)
+    this mode is regarded as "experimental" implementation. Be warned
+    that careful testings are required before you implement this in a
+    production system.
+   </P
+><P
+></P
+><UL
+><LI
+><P
+>      It is necessary to set the transaction isolation level to
+      REPEATABLE READ.  That means you need to set it in
+      <TT
+CLASS="FILENAME"
+>postgresql.conf</TT
+> like this:
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       default_transaction_isolation = 'repeatable read'
+      </PRE
+><P>
+     </P
+></LI
+><LI
+><P
+>      Consistent visibility in SERIAL data type and sequences are not
+      guaranteed.
+     </P
+></LI
+></UL
 ><P
 >    In the <I
 CLASS="FIRSTTERM"
