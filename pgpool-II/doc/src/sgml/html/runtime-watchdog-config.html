@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.1.2 Documentation"
+TITLE="pgpool-II 4.1.3 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Server Configuration"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2020-05-19T10:04:50"></HEAD
+CONTENT="2020-08-20T00:48:13"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.1.2 Documentation</A
+>pgpool-II 4.1.3 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -1569,7 +1569,21 @@ CLASS="VARNAME"
 >wd_priority</TT
 > value will get selected
       as master watchdog node when cluster will be electing its new master node
-      at the time of cluster startup or in the event of old master watchdog node failure
+      in the event of old master watchdog node failure.
+      <TT
+CLASS="VARNAME"
+>wd_priority</TT
+> is also valid at the time of cluster startup.
+      When some watchdog nodes start up at same time,a node with the higher <TT
+CLASS="VARNAME"
+>wd_priority</TT
+>
+      value is selected as a master node.
+      So we should start watchdog nodes in order of <TT
+CLASS="VARNAME"
+>wd_priority</TT
+> priority to prevent
+      unintended nodes from being selected as masters.
      </P
 ><P
 >      <TT

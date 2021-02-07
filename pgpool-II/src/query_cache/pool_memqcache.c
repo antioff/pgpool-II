@@ -1033,6 +1033,27 @@ pool_is_allow_to_cache(Node *node, char *query)
 		if (pool_has_unlogged_table(node))
 			return false;
 	}
+
+	/*
+	 * If Data-modifying statements in WITH clause, it's not allowed to cache.
+	 */
+	if(IsA(node, SelectStmt) && ((SelectStmt *) node)->withClause)
+	{
+		ListCell	*lc;
+		WithClause	*withClause = ((SelectStmt *) node)->withClause;
+
+		foreach(lc, withClause->ctes)
+		{
+			CommonTableExpr *cte = (CommonTableExpr *)lfirst(lc);
+			if(IsA(cte->ctequery, InsertStmt) ||
+			   IsA(cte->ctequery, DeleteStmt) ||
+			   IsA(cte->ctequery, UpdateStmt))
+			{
+				return false;
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -1071,6 +1092,8 @@ pool_is_table_in_white_list(const char *table_name)
 /*
  * Extract table oid from INSERT/UPDATE/DELETE/TRUNCATE/
  * DROP TABLE/ALTER TABLE/COPY FROM statement.
+ * For SELECT, if Data-modifying statements in its WITH clause,
+ * extract table oid from Data-modifying statements too.
  * Returns number of oids.
  * In case of error, returns 0 (InvalidOid).
  * oids buffer (oidsp) will be discarded by subsequent call.
@@ -1098,21 +1121,29 @@ pool_extract_table_oids(Node *node, int **oidsp)
 	{
 		InsertStmt *stmt = (InsertStmt *) node;
 
+		num_oids = pool_extract_withclause_oids((Node *) stmt->withClause, *oidsp);
 		table = make_table_name_from_rangevar(stmt->relation);
 	}
 	else if (IsA(node, UpdateStmt))
 	{
 		UpdateStmt *stmt = (UpdateStmt *) node;
 
+		num_oids = pool_extract_withclause_oids((Node *) stmt->withClause, *oidsp);
 		table = make_table_name_from_rangevar(stmt->relation);
 	}
 	else if (IsA(node, DeleteStmt))
 	{
 		DeleteStmt *stmt = (DeleteStmt *) node;
 
+		num_oids = pool_extract_withclause_oids((Node *) stmt->withClause, *oidsp);
 		table = make_table_name_from_rangevar(stmt->relation);
 	}
-
+	else if(IsA(node, SelectStmt))
+	{
+		SelectStmt *stmt = (SelectStmt *) node;
+		num_oids = pool_extract_withclause_oids((Node *) stmt->withClause, *oidsp);
+		table = NULL;
+	}
 #ifdef NOT_USED
 
 	/*
@@ -1213,6 +1244,23 @@ pool_extract_table_oids(Node *node, int **oidsp)
 		}
 		return num_oids;
 	}
+	else if (IsA(node, ExplainStmt))
+	{
+		ListCell	*cell;
+		DefElem		*def;
+		ExplainStmt *stmt = (ExplainStmt *) node;
+
+		foreach(cell, stmt->options)
+		{
+			def = lfirst(cell);
+			if (strncmp("analyze", def->defname, 7) == 0)
+			{
+				return pool_extract_table_oids(stmt->query, oidsp);
+			}
+		}
+
+		table = NULL;
+	}
 	else
 	{
 		ereport(DEBUG1,
@@ -1234,6 +1282,73 @@ pool_extract_table_oids(Node *node, int **oidsp)
 		ereport(DEBUG1,
 				(errmsg("memcache: extracting table oids: table: \"%s\" oid:%d", table, oid)));
 	}
+	return num_oids;
+}
+
+/*
+ * Extract table oid from INSERT/UPDATE/DELETE
+ * FROM statement in WITH clause.
+ * Returns number of oids.
+ * oids buffer (oidsp) will be discarded by subsequent call.
+ */
+int
+pool_extract_withclause_oids(Node *node, int *oidsp)
+{
+	int			num_oids = 0;
+	int			oid;
+	char	   *table;
+	ListCell   *lc;
+	WithClause *with;
+
+	if(oidsp == NULL)
+	{
+		return 0;
+	}
+
+	if(!node || !IsA(node, WithClause))
+	{
+		return 0;
+	}
+
+	with = (WithClause *) node;
+	foreach(lc, with->ctes)
+	{
+		CommonTableExpr *cte = (CommonTableExpr *)lfirst(lc);
+		if(IsA(cte->ctequery, InsertStmt))
+		{
+			InsertStmt *stmt = (InsertStmt *) cte->ctequery;
+			table = make_table_name_from_rangevar(stmt->relation);
+		}
+		else if(IsA(cte->ctequery, DeleteStmt))
+		{
+			DeleteStmt *stmt = (DeleteStmt *) cte->ctequery;
+			table = make_table_name_from_rangevar(stmt->relation);
+		}
+		else if(IsA(cte->ctequery, UpdateStmt))
+		{
+			UpdateStmt *stmt = (UpdateStmt *) cte->ctequery;
+			table = make_table_name_from_rangevar(stmt->relation);
+		}
+		else
+		{
+			/* only check INSERT/DELETE/UPDATE in WITH clause */
+			table = NULL;
+		}
+
+		oid = pool_table_name_to_oid(table);
+		if (oid > 0)
+		{
+			if (num_oids >= POOL_MAX_DML_OIDS)
+			{
+				break;
+			}
+
+			oidsp[num_oids++] = pool_table_name_to_oid(table);
+			ereport(DEBUG1,
+					(errmsg("memcache: extracting table oids: table: \"%s\" oid:%d", table, oidsp[num_oids - 1])));
+		}
+	}
+
 	return num_oids;
 }
 
@@ -3523,14 +3638,41 @@ pool_handle_query_cache(POOL_CONNECTION_POOL * backend, char *query, Node *node,
 		/* Non cachable SELECT */
 		if (node && IsA(node, SelectStmt))
 		{
+			/* Extract table oids from buffer */
+			num_oids = pool_get_dml_table_oid(&oids);
+
 			if (state == 'I')
 			{
+				/*
+				 * If Data-modifying statements in SELECT's WITH clause,
+				 * invalidate query cache.
+				 */
+				if (num_oids > 0 && pool_config->memqcache_auto_cache_invalidation)
+				{
+					POOL_SETMASK2(&BlockSig, &oldmask);
+					pool_shmem_lock();
+					pool_invalidate_query_cache(num_oids, oids, true, 0);
+					pool_shmem_unlock();
+					POOL_SETMASK(&oldmask);
+				}
+
 				/* Count up SELECT stats */
 				pool_stats_count_up_num_selects(1);
 				pool_reset_memqcache_buffer(true);
 			}
 			else
 			{
+				/*
+				 * If we are inside a transaction, we cannot invalidate
+				 * query cache yet. However we can clear cache buffer, if
+				 * DML/DDL modifies the TABLE which SELECT uses.
+				 */
+				if (num_oids > 0 && pool_config->memqcache_auto_cache_invalidation)
+				{
+					pool_check_and_discard_cache_buffer(num_oids, oids);
+					pool_reset_memqcache_buffer(false);
+				}
+
 				/* Count up temporary SELECT stats */
 				pool_tmp_stats_count_up_num_selects();
 			}
@@ -3995,7 +4137,7 @@ pool_hash_insert(POOL_QUERY_HASH * key, POOL_CACHEID * cacheid, bool update)
 }
 
 /*
- * Delete MD5 key and associated cache id into shmem hash table.
+ * Delete MD5 key and associated cache id from shmem hash table.
  */
 int
 pool_hash_delete(POOL_QUERY_HASH * key)
@@ -4054,7 +4196,7 @@ pool_hash_delete(POOL_QUERY_HASH * key)
 }
 
 /*
- * Calculate 32bit binary hash key(i.e. location in hash header) from MD5
+ * Calculate 32bit binary hash key (i.e. location in hash header) from MD5
  * string. We use top most 8 characters of MD5 string for calculation.
 */
 static uint32
@@ -4149,7 +4291,7 @@ pool_get_shmem_storage_stats(void)
 		return &mystats;
 
 	/*
-	 * Cop cache hit data
+	 * Copy cache hit data
 	 */
 	mystats.cache_stats.num_selects = stats->num_selects;
 	mystats.cache_stats.num_cache_hits = stats->num_cache_hits;

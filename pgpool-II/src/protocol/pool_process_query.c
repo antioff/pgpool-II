@@ -4114,6 +4114,10 @@ is_panic_or_fatal_error(const char *message, int major)
 			if (id == '\0')
 				break;
 
+			/* V is never localized. Only available 9.6 or later. */
+			if (id == 'V' && (strcasecmp("PANIC", message) == 0 || strcasecmp("FATAL", message) == 0))
+				return true;
+
 			if (id == 'S' && (strcasecmp("PANIC", message) == 0 || strcasecmp("FATAL", message) == 0))
 				return true;
 			else
@@ -4815,8 +4819,17 @@ SELECT_RETRY:
 						was_error = 1;
 						if (!VALID_BACKEND(i))
 							break;
-						notice_backend_error(i, REQ_DETAIL_SWITCHOVER);
-						sleep(5);
+						if (CONNECTION(backend, i)->con_info->swallow_termination == 1)
+						{
+							ereport(FATAL,
+									(errmsg("connection to postmaster on DB node %d was lost due to pg_terminate_backend", i),
+									 errdetail("pg_terminate_backend was called on the backend")));
+						}
+						else
+						{
+							notice_backend_error(i, REQ_DETAIL_SWITCHOVER);
+							sleep(5);
+						}
 					}
 
 					/*

@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.1.2 Documentation
-.\"    Source: pgpool-II 4.1.2
+.\"    Manual: pgpool-II 4.1.3 Documentation
+.\"    Source: pgpool-II 4.1.3
 .\"  Language: English
 .\"
-.TH "PCP_PROMOTE_NODE" "1" "2020" "pgpool-II 4.1.2" "pgpool-II 4.1.2 Documentation"
+.TH "PCP_PROMOTE_NODE" "1" "2020" "pgpool-II 4.1.3" "pgpool-II 4.1.3 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,6 +36,60 @@ pcp_promote_node \- promotes the given node as new master to Pgpool\-II
 .PP
 \fBpcp_promote_node\fR
 promotes the given node as new master to Pgpool\-II\&. In master/slave streaming replication only\&. Please note that this command does not actually promote standby PostgreSQL backend: it just changes the internal status of Pgpool\-II and trigger failover and users have to promote standby PostgreSQL outside Pgpool\-II\&.
+.PP
+\fBpcp_promote_node\fR
+executes followings\&. Please be warned that if
+follow_master_command
+is set, the command will be executed\&. It is a standard advice that you disable
+follow_master_command
+before executing this command\&.
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 1.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  1." 4.2
+.\}
+Change the status of standby
+PostgreSQL
+from standby to primary\&. It just changes the internal status of Pgpool\-II and it does not actually promote
+PostgreSQL
+standby server\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 2.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  2." 4.2
+.\}
+Change the status of
+PostgreSQL
+node which is not specified by this command\*(Aqs argument to down\&. It just changes the internal status of Pgpool\-II and it does not actually make
+PostgreSQL
+standby server down\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 3.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  3." 4.2
+.\}
+If
+follow_master_command
+is set, execute
+follow_master_command
+against
+PostgreSQL\&.
+.RE
+.sp
 .SH "OPTIONS"
 .PP
 .PP
