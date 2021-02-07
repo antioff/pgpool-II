@@ -5,6 +5,7 @@
 %define pgpool_piddir %_var/run/pgpool
 %define pgpool_logdir %_logdir/pgpool
 %define PGSQL pgsql
+%define sname pgpool
 
 Name: pgpool-II
 Version: 4.0.2
@@ -78,7 +79,8 @@ Postgresql extensions libraries and sql files for pgpool-II.
     --with-pam \
     --with-openssl \
     --disable-rpath \
-    --with-memcached=%_includedir/libmemcached
+    --with-memcached=%_includedir/libmemcached \
+    --sysconfdir=%_sysconfdir/%sname
 
 %make_build
 %make_build -C src/sql/pgpool-recovery
@@ -95,10 +97,10 @@ install -p -m644 %SOURCE1 %buildroot%_unitdir/pgpool.service
 install -p -m644 %SOURCE2 %buildroot%_tmpfilesdir/pgpool.conf
 install -p -m755 %SOURCE3 %buildroot%_initdir/pgpool
 
-mv %buildroot%_sysconfdir/pcp.conf.sample %buildroot%_sysconfdir/pcp.conf
-mv %buildroot%_sysconfdir/pgpool.conf.sample %buildroot%_sysconfdir/pgpool.conf
-mv %buildroot%_sysconfdir/pool_hba.conf.sample  %buildroot%_sysconfdir/pool_hba.conf
-rm -f %buildroot%_sysconfdir/pgpool.conf.sample-*
+mv %buildroot%_sysconfdir/%sname/pcp.conf.sample %buildroot%_sysconfdir/%sname/pcp.conf
+mv %buildroot%_sysconfdir/%sname/pgpool.conf.sample %buildroot%_sysconfdir/%sname/pgpool.conf
+mv %buildroot%_sysconfdir/%sname/pool_hba.conf.sample  %buildroot%_sysconfdir/%sname/pool_hba.conf
+rm -f %buildroot%_sysconfdir/%sname/pgpool.conf.sample-*
 
 # Copy man pages
 cp doc/src/sgml/man1/* %buildroot%_man1dir/
@@ -117,9 +119,7 @@ cp doc/src/sgml/man8/* %buildroot%_man8dir/
 %_initdir/pgpool
 %_unitdir/pgpool.service
 %_tmpfilesdir/pgpool.conf
-%config(noreplace) %_sysconfdir/pgpool.conf
-%config(noreplace) %_sysconfdir/pcp.conf
-%config(noreplace) %_sysconfdir/pool_hba.conf
+%config(noreplace) %_sysconfdir/%sname/*
 %_man1dir/*
 %_man8dir/*
 

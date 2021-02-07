@@ -7,7 +7,7 @@ After=network.target
 User=pgpool
 Group=pgpoll
 EnvironmentFile=-/etc/sysconfig/pgpool
-ExecStart=/usr/bin/pgpool -n
+ExecStart=/usr/bin/pgpool -n -f /etc/pgpool/pgpool.conf $OPTS
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
