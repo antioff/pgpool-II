@@ -1,0 +1,3 @@
+# Options for pgpool
+# -d: debug mode. lots of debug information will be printed
+#OPTS=" -d"
