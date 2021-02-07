@@ -1302,14 +1302,8 @@ wd_create_command_server_socket(void)
 	ereport(INFO,
 			(errmsg("IPC socket path: \"%s\"", get_watchdog_ipc_address())));
 
-	if (get_watchdog_process_needs_cleanup())
-	{
-		/*
-		 * If we are recovering from crash or abnormal termination of watchdog
-		 * process. Unlink the old socket file
-		 */
-		unlink(addr.sun_path);
-	}
+	/* Delete any pre-existing socket file to avoid failure at bind() time */
+	unlink(addr.sun_path);
 
 	if (bind(sock, (struct sockaddr *) &addr, len) == -1)
 	{
@@ -2241,7 +2235,7 @@ fire_node_status_event(int nodeID, int nodeStatus)
 {
 	WatchdogNode *wdNode = NULL;
 
-	if (nodeID == 0)			/* this is reserved for local node */
+	if (g_cluster.localNode->pgpool_node_id == nodeID)
 	{
 		wdNode = g_cluster.localNode;
 	}
@@ -3641,7 +3635,7 @@ static JsonNode * get_node_list_json(int id)
 		/* add the array */
 		jw_start_array(jNode, "WatchdogNodes");
 
-		if (id == 0)
+		if (id == g_cluster.localNode->pgpool_node_id)
 		{
 			/* add the local node info */
 			add_nodeinfo_to_json(jNode, g_cluster.localNode);

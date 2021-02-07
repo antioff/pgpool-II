@@ -654,13 +654,13 @@ backend_clustering_mode = 'logical_replication'
     <programlisting>
 backend_clustering_mode = 'slony'
     </programlisting>
-   このモードでは127台までのスレーブサーバを使用できます。
-   また、スレーブサーバをまったく使用しないことも可能です。
+   このモードでは127台までのレプリカサーバを使用できます。
+   また、レプリカサーバをまったく使用しないことも可能です。
   </para>
  </sect2>
 
  <sect2 id="guc-replication-mode" xreflabel="native_replication_mode">
-  <title>ネィティブレプリケーションモード</title>
+  <title>ネイティブレプリケーションモード</title>
 
   <para>
    <!--
@@ -668,6 +668,10 @@ backend_clustering_mode = 'slony'
    between <productname>PostgreSQL</> backends.
    -->
    このモードでは<productname>PostgreSQL</>間のデータレプリケーションを<productname>Pgpool-II</productname>に行わせます。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'native_replication'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'native_replication'
+    </programlisting>
   </para>
 
   <para>
@@ -1224,8 +1228,12 @@ backend_clustering_mode = 'slony'
   <title>スナップショットアイソレーションモード</title>
 
   <para>
-   このモードは、ネィティブレプリケーションモードと似ていますが、更にノードをまたがる可視性の一貫性を保証します。
+   このモードは、ネイティブレプリケーションモードと似ていますが、更にノードをまたがる可視性の一貫性を保証します。
    実装は研究論文<xref linkend="mishima2009">に基づいています。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'snapshot_isolation'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'snapshot_isolation'
+    </programlisting>
    たとえば、以下のようなノードにまたがる可視性の一貫性がないことからくるノード間のデータ不整合を防ぐことができます。
    ここで、S1, S2はセッションを表し、N1, N2はPostgreSQLのサーバ1と2を表します。
    <programlisting>
@@ -1292,9 +1300,20 @@ S2/N2: COMMIT;
      シリアル型やシーケンスに関する一貫した可視性を保証しません。
     </para>
    </listitem>
-
   </itemizedlist>
+ </sect2>
 
+ <sect2 id="guc-raw-mode" xreflabel="raw_mode">
+  <title>rawモード</title>
+  <para>
+   このモードでは、<productname>Pgpool-II</>はデータベースの同期に関しては関与しません。
+   システム全体に意味の有る動作をさせるのはユーザの責任となります。
+   このモードでは負荷分散は<emphasis>できません</emphasis>。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'raw'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'raw'
+    </programlisting>
+  </para>
  </sect2>
 
 </sect1>
@@ -1481,7 +1500,7 @@ S2/N2: COMMIT;
       新しい<varname>backend_weight</>はパラメータ行を追加して、設定ファイル再読み込みすることで追加できます。
       <productname>Pgpool-II</> <emphasis>V2.2.6</>、<emphasis>V2.3</>以降では、設定ファイルの再読込みで値を変更できます。
       ただし、この効果が反映されるのは新しく確立されたクライアントセッションからです。
-      マスタースレーブモードにおいて、スレーブに対して管理業務を実施する都合上、問い合わせがそのスレーブに送られるのを防ぎたい場合に有用です。
+      ストリーミングレプリケーションモード、ロジカルレプリケーションモード、slonyモードにおいて、スタンバイに対して管理業務を実施する都合上、問い合わせがそのスタンバイに送られるのを防ぎたい場合に有用です。
      </para>
     </listitem>
    </varlistentry>

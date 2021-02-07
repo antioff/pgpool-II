@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.0 文書"
+TITLE="Pgpool-II 4.2.1 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-26T01:26:33"></HEAD
+CONTENT="2020-12-23T06:30:24"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.0 文書</A
+>Pgpool-II 4.2.1 文書</A
 ></TH
 ></TR
 ><TR
@@ -197,7 +197,7 @@ CLASS="PRODUCTNAME"
 ><LI
 ><P
 >      
-      ローモードでない
+      rawモードでない
      </P
 ></LI
 ><LI
@@ -755,7 +755,7 @@ CLASS="EMPHASIS"
 >指定されていない</I
 ></SPAN
 >関数呼び出しを含むSELECTは負荷分散されません。
-      これらのクエリはレプリケーションモードにおいてはすべてのDBノードで複製され、マスタースレーブモードにおいてはプライマリノードにのみ送信されます。
+      これらのクエリはレプリケーションモードにおいてはすべてのDBノードで複製され、それ以外のモードにおいてはプライマリノードにのみ送信されます。
      </P
 ><P
 >      
@@ -866,7 +866,7 @@ CLASS="EMPHASIS"
 >指定された</I
 ></SPAN
 >関数呼び出しを含むSELECTは負荷分散されません。
-      これらのクエリはレプリケーションモードにおいてはすべてのDBノードで複製され、マスタースレーブモードにおいてはプライマリノードにのみ送信されます。
+      これらのクエリはレプリケーションモードにおいてはすべてのDBノードで複製され、それ以外のモードにおいてはプライマリノードにのみ送信されます。
      </P
 ><P
 >      
@@ -1074,7 +1074,7 @@ HREF="runtime-config-load-balancing.html#GUC-PRIMARY-ROUTING-QUERY-PATTERN-LIST"
 >primary_routing_query_pattern_list</A
 >を設定します。
        SQL パターンをセミコロン区切りで指定します。
-       マスタースレーブモードのみで動作します。
+       ネイティブレプリケーションモード以外でのみで動作します。
      </P
 ><P
 >      

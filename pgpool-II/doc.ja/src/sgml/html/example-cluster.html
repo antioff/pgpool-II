@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.0 文書"
+TITLE="Pgpool-II 4.2.1 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="設定の例"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-11-26T01:26:33"></HEAD
+CONTENT="2020-12-23T06:30:24"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.0 文書</A
+>Pgpool-II 4.2.1 文書</A
 ></TH
 ></TR
 ><TR
@@ -164,7 +164,7 @@ CLASS="PRODUCTNAME"
 >   <DIV
 CLASS="FIGURE"
 ><A
-NAME="AEN6488"
+NAME="AEN6503"
 ></A
 ><P
 ><B
@@ -547,8 +547,8 @@ CLASS="PRODUCTNAME"
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->   # yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-   # yum install -y postgresql13-server
+># yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+# yum install -y postgresql13-server
   </PRE
 ><P
 >   <SPAN
@@ -561,8 +561,8 @@ CLASS="PRODUCTNAME"
   </P
 ><PRE
 CLASS="PROGRAMLISTING"
->   # yum install http://www.pgpool.net/yum/rpms/4.2/redhat/rhel-7-x86_64/pgpool-II-release-4.2-1.noarch.rpm
-   # yum install pgpool-II-pg13-*
+># yum install http://www.pgpool.net/yum/rpms/4.2/redhat/rhel-7-x86_64/pgpool-II-release-4.2-1.noarch.rpm
+# yum install pgpool-II-pg13-*
   </PRE
 ></DIV
 ><DIV
@@ -605,8 +605,8 @@ CLASS="ACRONYM"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     [全サーバ]# su - postgres
-     [全サーバ]$ mkdir /var/lib/pgsql/archivedir
+>[全サーバ]# su - postgres
+[全サーバ]$ mkdir /var/lib/pgsql/archivedir
     </PRE
 ><P
 >     次に<TT
@@ -631,14 +631,14 @@ CLASS="VARNAME"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     listen_addresses = '*'
-     archive_mode = on
-     archive_command = 'cp "%p" "/var/lib/pgsql/archivedir/%f"'
-     max_wal_senders = 10
-     max_replication_slots = 10
-     wal_level = replica
-     hot_standby = on
-     wal_log_hints = on 
+>listen_addresses = '*'
+archive_mode = on
+archive_command = 'cp "%p" "/var/lib/pgsql/archivedir/%f"'
+max_wal_senders = 10
+max_replication_slots = 10
+wal_level = replica
+hot_standby = on
+wal_log_hints = on
     </PRE
 ></LI
 ><LI
@@ -731,13 +731,13 @@ HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
 ></DIV
 ><PRE
 CLASS="PROGRAMLISTING"
->     [server1]# psql -U postgres -p 5432
-     postgres=# SET password_encryption = 'scram-sha-256';
-     postgres=# CREATE ROLE pgpool WITH LOGIN;
-     postgres=# CREATE ROLE repl WITH REPLICATION LOGIN;
-     postgres=# \password pgpool
-     postgres=# \password repl
-     postgres=# \password postgres
+>[server1]# psql -U postgres -p 5432
+postgres=# SET password_encryption = 'scram-sha-256';
+postgres=# CREATE ROLE pgpool WITH LOGIN;
+postgres=# CREATE ROLE repl WITH REPLICATION LOGIN;
+postgres=# \password pgpool
+postgres=# \password repl
+postgres=# \password postgres
     </PRE
 ><P
 >     <A
@@ -760,7 +760,7 @@ CLASS="LITERAL"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     GRANT pg_monitor TO pgpool;
+>GRANT pg_monitor TO pgpool;
     </PRE
 ><DIV
 CLASS="NOTE"
@@ -802,8 +802,8 @@ CLASS="FILENAME"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     host    all             all             samenet                 scram-sha-256
-     host    replication     all             samenet                 scram-sha-256
+>host    all             all             samenet                 scram-sha-256
+host    replication     all             samenet                 scram-sha-256
     </PRE
 ></LI
 ><LI
@@ -842,18 +842,18 @@ CLASS="LITERAL"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     [全サーバ]# cd ~/.ssh
-     [全サーバ]# ssh-keygen -t rsa -f id_rsa_pgpool
-     [全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server1
-     [全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server2
-     [全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server3
+>[全サーバ]# cd ~/.ssh
+[全サーバ]# ssh-keygen -t rsa -f id_rsa_pgpool
+[全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server1
+[全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server2
+[全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server3
 
-     [全サーバ]# su - postgres
-     [全サーバ]$ cd ~/.ssh
-     [全サーバ]$ ssh-keygen -t rsa -f id_rsa_pgpool
-     [全サーバ]$ ssh-copy-id -i id_rsa_pgpool.pub postgres@server1
-     [全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server2
-     [全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server3
+[全サーバ]# su - postgres
+[全サーバ]$ cd ~/.ssh
+[全サーバ]$ ssh-keygen -t rsa -f id_rsa_pgpool
+[全サーバ]$ ssh-copy-id -i id_rsa_pgpool.pub postgres@server1
+[全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server2
+[全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server3
     </PRE
 ><P
 >     設定後、<TT
@@ -896,16 +896,16 @@ CLASS="FILENAME"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     [全サーバ]# su - postgres
-     [全サーバ]$ vi /var/lib/pgsql/.pgpass
-     (以下を追加)
-     server1:5432:replication:repl:&lt;replユーザのパスワード&gt;
-     server2:5432:replication:repl:&lt;replユーザのパスワード&gt;
-     server3:5432:replication:repl:&lt;replユーザのパスワード&gt;
-     server1:5432:postgres:postgres:&lt;postgresユーザのパスワード&gt;
-     server2:5432:postgres:postgres:&lt;postgresユーザのパスワード&gt;
-     server3:5432:postgres:postgres:&lt;postgresユーザのパスワード&gt;
-     [全サーバ]$ chmod 600  /var/lib/pgsql/.pgpass
+>[全サーバ]# su - postgres
+[全サーバ]$ vi /var/lib/pgsql/.pgpass
+(以下を追加)
+server1:5432:replication:repl:&lt;replユーザのパスワード&gt;
+server2:5432:replication:repl:&lt;replユーザのパスワード&gt;
+server3:5432:replication:repl:&lt;replユーザのパスワード&gt;
+server1:5432:postgres:postgres:&lt;postgresユーザのパスワード&gt;
+server2:5432:postgres:postgres:&lt;postgresユーザのパスワード&gt;
+server3:5432:postgres:postgres:&lt;postgresユーザのパスワード&gt;
+[全サーバ]$ chmod 600  /var/lib/pgsql/.pgpass
     </PRE
 ></LI
 ><LI
@@ -923,9 +923,9 @@ CLASS="SYSTEMITEM"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     [全サーバ]# firewall-cmd --permanent --zone=public --add-service=postgresql
-     [全サーバ]# firewall-cmd --permanent --zone=public --add-port=9999/tcp --add-port=9898/tcp --add-port=9000/tcp  --add-port=9694/udp
-     [全サーバ]# firewall-cmd --reload
+>[全サーバ]# firewall-cmd --permanent --zone=public --add-service=postgresql
+[全サーバ]# firewall-cmd --permanent --zone=public --add-port=9999/tcp --add-port=9898/tcp --add-port=9000/tcp  --add-port=9694/udp
+[全サーバ]# firewall-cmd --reload
     </PRE
 ></LI
 ><LI
@@ -937,7 +937,7 @@ CLASS="PRODUCTNAME"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     [全サーバ]# systemctl enable pgpool.service
+>[全サーバ]# systemctl enable pgpool.service
     </PRE
 ><DIV
 CLASS="NOTE"
@@ -1102,7 +1102,7 @@ CLASS="FILENAME"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    [全サーバ]# cp -p /etc/pgpool-II/pgpool.conf.sample-stream /etc/pgpool-II/pgpool.conf
+>[全サーバ]# cp -p /etc/pgpool-II/pgpool.conf.sample-stream /etc/pgpool-II/pgpool.conf
    </PRE
 ></DIV
 ><DIV
@@ -1127,7 +1127,7 @@ CLASS="LITERAL"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    listen_addresses = '*'
+>listen_addresses = '*'
    </PRE
 ></DIV
 ><DIV
@@ -1194,8 +1194,8 @@ HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    sr_check_user = 'pgpool'
-    sr_check_password = ''
+>sr_check_user = 'pgpool'
+sr_check_password = ''
    </PRE
 ></DIV
 ><DIV
@@ -1231,16 +1231,16 @@ HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-PASSWORD"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    health_check_period = 5
+>health_check_period = 5
                                             # Health check period
                                             # Disabled (0) by default
-    health_check_timeout = 30
+health_check_timeout = 30
                                             # Health check timeout
                                             # 0 means no timeout
-    health_check_user = 'pgpool'
-    health_check_password = ''
+health_check_user = 'pgpool'
+health_check_password = ''
 
-    health_check_max_retries = 3
+health_check_max_retries = 3
    </PRE
 ></DIV
 ><DIV
@@ -1265,30 +1265,30 @@ CLASS="LITERAL"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # - Backend Connection Settings -
+># - Backend Connection Settings -
 
-    backend_hostname0 = 'server1'
+backend_hostname0 = 'server1'
                                                         # Host name or IP address to connect to for backend 0
-    backend_port0 = 5432
+backend_port0 = 5432
                                                         # Port number for backend 0
-    backend_weight0 = 1
+backend_weight0 = 1
                                                         # Weight for backend 0 (only in load balancing mode)
-    backend_data_directory0 = '/var/lib/pgsql/13/data'
+backend_data_directory0 = '/var/lib/pgsql/13/data'
                                                         # Data directory for backend 0
-    backend_flag0 = 'ALLOW_TO_FAILOVER'
+backend_flag0 = 'ALLOW_TO_FAILOVER'
                                                         # Controls various backend behavior
                                                         # ALLOW_TO_FAILOVER or DISALLOW_TO_FAILOVER
-    backend_hostname1 = 'server2'
-    backend_port1 = 5432
-    backend_weight1 = 1
-    backend_data_directory1 = '/var/lib/pgsql/13/data'
-    backend_flag1 = 'ALLOW_TO_FAILOVER'
+backend_hostname1 = 'server2'
+backend_port1 = 5432
+backend_weight1 = 1
+backend_data_directory1 = '/var/lib/pgsql/13/data'
+backend_flag1 = 'ALLOW_TO_FAILOVER'
 
-    backend_hostname2 = 'server3'
-    backend_port2 = 5432
-    backend_weight2 = 1
-    backend_data_directory2 = '/var/lib/pgsql/13/data'
-    backend_flag2 = 'ALLOW_TO_FAILOVER'
+backend_hostname2 = 'server3'
+backend_port2 = 5432
+backend_weight2 = 1
+backend_data_directory2 = '/var/lib/pgsql/13/data'
+backend_flag2 = 'ALLOW_TO_FAILOVER'
    </PRE
 ><P
 >    <A
@@ -1303,12 +1303,12 @@ CLASS="PRODUCTNAME"
 > 4.1以降)
       </P><PRE
 CLASS="PROGRAMLISTING"
->       ...
-       backend_application_name0 = 'server1'
-       ...
-       backend_application_name1 = 'server2'
-       ...
-       backend_application_name2 = 'server3'
+>...
+backend_application_name0 = 'server1'
+...
+backend_application_name1 = 'server2'
+...
+backend_application_name2 = 'server3'
       </PRE
 ><P>
    </P
@@ -2300,7 +2300,7 @@ CLASS="PRODUCTNAME"
     </P
 ><PRE
 CLASS="PROGRAMLISTING"
->     # systemctl start pgpool.service
+># systemctl start pgpool.service
     </PRE
 ></LI
 ><LI
@@ -2375,13 +2375,13 @@ CLASS="LITERAL"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # pcp_recovery_node -h 192.168.137.150 -p 9898 -U pgpool -n 1
-    Password: 
-    pcp_recovery_node -- Command Successful
+># pcp_recovery_node -h 192.168.137.150 -p 9898 -U pgpool -n 1
+Password:
+pcp_recovery_node -- Command Successful
 
-    # pcp_recovery_node -h 192.168.137.150 -p 9898 -U pgpool -n 2
-    Password: 
-    pcp_recovery_node -- Command Successful
+# pcp_recovery_node -h 192.168.137.150 -p 9898 -U pgpool -n 2
+Password:
+pcp_recovery_node -- Command Successful
    </PRE
 ><P
 >    <TT
@@ -2397,14 +2397,14 @@ CLASS="PRODUCTNAME"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
-    Password for user pgpool:
-    node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
-    ---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
-    0       | server1  | 5432 | up     | 0.333333  | primary | 0          | false             | 0                 |                   |                        | 2019-08-06 11:13:17
-    1       | server2  | 5432 | up     | 0.333333  | standby | 0          | true              | 0                 | streaming         | async                  | 2019-08-06 11:13:25
-    2       | server3  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:14:20
-    (3 rows)
+># psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
+Password for user pgpool:
+node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
+---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
+0       | server1  | 5432 | up     | 0.333333  | primary | 0          | false             | 0                 |                   |                        | 2019-08-06 11:13:17
+1       | server2  | 5432 | up     | 0.333333  | standby | 0          | true              | 0                 | streaming         | async                  | 2019-08-06 11:13:25
+2       | server3  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:14:20
+(3 rows)
    </PRE
 ></DIV
 ><DIV
@@ -2432,13 +2432,13 @@ CLASS="PRODUCTNAME"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # pcp_watchdog_info -h 192.168.137.150 -p 9898 -U pgpool
-    Password: 
-    3 YES server1:9999 Linux server1 server1
+># pcp_watchdog_info -h 192.168.137.150 -p 9898 -U pgpool
+Password:
+3 YES server1:9999 Linux server1 server1
 
-    server1:9999 Linux server1 server1 9999 9000 4 LEADER  #最初に起動されたサーバがLEADERになる
-    server2:9999 Linux server2 server2 9999 9000 7 STANDBY #スタンバイとして稼働
-    server3:9999 Linux server3 server3 9999 9000 7 STANDBY #スタンバイとして稼働
+server1:9999 Linux server1 server1 9999 9000 4 LEADER  #最初に起動されたサーバがLEADERになる
+server2:9999 Linux server2 server2 9999 9000 7 STANDBY #スタンバイとして稼働
+server3:9999 Linux server3 server3 9999 9000 7 STANDBY #スタンバイとして稼働
    </PRE
 ><P
 >    アクティブである<TT
@@ -2466,15 +2466,15 @@ CLASS="PRODUCTNAME"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    [server1]# systemctl stop pgpool.service
+>[server1]# systemctl stop pgpool.service
 
-    # pcp_watchdog_info -p 9898 -h 192.168.137.150 -U pgpool
-    Password: 
-    3 YES server2:9999 Linux server2 server2
+# pcp_watchdog_info -p 9898 -h 192.168.137.150 -U pgpool
+Password:
+3 YES server2:9999 Linux server2 server2
 
-    server2:9999 Linux server2 server2 9999 9000 4 LEADER     #server2がアクティブに昇格
-    server1:9999 Linux server1 server1 9999 9000 10 SHUTDOWN  #server1が停止された
-    server3:9999 Linux server3 server3 9999 9000 7 STANDBY    #スタンバイとして稼働
+server2:9999 Linux server2 server2 9999 9000 4 LEADER     #server2がアクティブに昇格
+server1:9999 Linux server1 server1 9999 9000 10 SHUTDOWN  #server1が停止された
+server3:9999 Linux server3 server3 9999 9000 7 STANDBY    #スタンバイとして稼働
    </PRE
 ><P
 >    先ほど停止した<SPAN
@@ -2484,15 +2484,15 @@ CLASS="PRODUCTNAME"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    [server1]# systemctl start pgpool.service
+>[server1]# systemctl start pgpool.service
 
-    [server1]# pcp_watchdog_info -p 9898 -h 192.168.137.150 -U pgpool
-    Password: 
-    3 YES server2:9999 Linux server2 server2
+[server1]# pcp_watchdog_info -p 9898 -h 192.168.137.150 -U pgpool
+Password:
+3 YES server2:9999 Linux server2 server2
 
-    server2:9999 Linux server2 server2 9999 9000 4 LEADER
-    server1:9999 Linux server1 server1 9999 9000 7 STANDBY
-    server3:9999 Linux server3 server3 9999 9000 7 STANDBY
+server2:9999 Linux server2 server2 9999 9000 4 LEADER
+server1:9999 Linux server1 server1 9999 9000 7 STANDBY
+server3:9999 Linux server3 server3 9999 9000 7 STANDBY
    </PRE
 ></DIV
 ><DIV
@@ -2511,14 +2511,14 @@ CLASS="COMMAND"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
-    Password for user pgpool:
-    node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
-    ---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
-    0       | server1  | 5432 | up     | 0.333333  | primary | 0          | false             | 0                 |                   |                        | 2019-08-06 11:13:17
-    1       | server2  | 5432 | up     | 0.333333  | standby | 0          | true              | 0                 | streaming         | async                  | 2019-08-06 11:13:25
-    2       | server3  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:14:20
-    (3 rows)
+># psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
+Password for user pgpool:
+node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
+---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
+0       | server1  | 5432 | up     | 0.333333  | primary | 0          | false             | 0                 |                   |                        | 2019-08-06 11:13:17
+1       | server2  | 5432 | up     | 0.333333  | standby | 0          | true              | 0                 | streaming         | async                  | 2019-08-06 11:13:25
+2       | server3  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:14:20
+(3 rows)
    </PRE
 ><P
 >    次にプライマリである<TT
@@ -2531,7 +2531,7 @@ CLASS="PRODUCTNAME"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    [server1]$ pg_ctl -D /var/lib/pgsql/13/data -m immediate stop
+>[server1]$ pg_ctl -D /var/lib/pgsql/13/data -m immediate stop
    </PRE
 ><P
 >    <TT
@@ -2544,14 +2544,14 @@ CLASS="LITERAL"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
-    Password for user pgpool:
-    node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
-    ---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
-    0       | server1  | 5432 | down   | 0.333333  | standby | 0          | false             | 0                 |                   |                        | 2019-08-06 11:36:03
-    1       | server2  | 5432 | up     | 0.333333  | primary | 0          | true              | 0                 |                   |                        | 2019-08-06 11:36:03
-    2       | server3  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:36:15
-    (3 rows)
+># psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
+Password for user pgpool:
+node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
+---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
+0       | server1  | 5432 | down   | 0.333333  | standby | 0          | false             | 0                 |                   |                        | 2019-08-06 11:36:03
+1       | server2  | 5432 | up     | 0.333333  | primary | 0          | true              | 0                 |                   |                        | 2019-08-06 11:36:03
+2       | server3  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:36:15
+(3 rows)
    </PRE
 ><P
 >    <TT
@@ -2564,38 +2564,38 @@ CLASS="LITERAL"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    [server3]# psql -h server3 -p 5432 -U pgpool postgres -c "select pg_is_in_recovery()"
-    pg_is_in_recovery 
-    -------------------
-    t
+>[server3]# psql -h server3 -p 5432 -U pgpool postgres -c "select pg_is_in_recovery()"
+pg_is_in_recovery 
+-------------------
+t
 
-    [server2]# psql -h server2 -p 5432 -U pgpool postgres -c "select pg_is_in_recovery()"
-    pg_is_in_recovery 
-    -------------------
-    f
+[server2]# psql -h server2 -p 5432 -U pgpool postgres -c "select pg_is_in_recovery()"
+pg_is_in_recovery 
+-------------------
+f
 
-    [server2]# psql -h server2 -p 5432 -U pgpool postgres -c "select * from pg_stat_replication" -x
-    -[ RECORD 1 ]----+------------------------------
-    pid              | 11059
-    usesysid         | 16392
-    usename          | repl
-    application_name | server3
-    client_addr      | 192.168.137.103
-    client_hostname  | 
-    client_port      | 48694
-    backend_start    | 2019-08-06 11:36:07.479161+09
-    backend_xmin     | 
-    state            | streaming
-    sent_lsn         | 0/75000148
-    write_lsn        | 0/75000148
-    flush_lsn        | 0/75000148
-    replay_lsn       | 0/75000148
-    write_lag        | 
-    flush_lag        | 
-    replay_lag       | 
-    sync_priority    | 0
-    sync_state       | async
-    reply_time       | 2019-08-06 11:42:59.823961+09
+[server2]# psql -h server2 -p 5432 -U pgpool postgres -c "select * from pg_stat_replication" -x
+-[ RECORD 1 ]----+------------------------------
+pid              | 11059
+usesysid         | 16392
+usename          | repl
+application_name | server3
+client_addr      | 192.168.137.103
+client_hostname  |
+client_port      | 48694
+backend_start    | 2019-08-06 11:36:07.479161+09
+backend_xmin     |
+state            | streaming
+sent_lsn         | 0/75000148
+write_lsn        | 0/75000148
+flush_lsn        | 0/75000148
+replay_lsn       | 0/75000148
+write_lag        |
+flush_lag        |
+replay_lag       |
+sync_priority    | 0
+sync_state       | async
+reply_time       | 2019-08-06 11:42:59.823961+09
    </PRE
 ></DIV
 ><DIV
@@ -2629,9 +2629,9 @@ CLASS="LITERAL"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # pcp_recovery_node -h 192.168.137.150 -p 9898 -U pgpool -n 0
-    Password: 
-    pcp_recovery_node -- Command Successful
+># pcp_recovery_node -h 192.168.137.150 -p 9898 -U pgpool -n 0
+Password:
+pcp_recovery_node -- Command Successful
    </PRE
 ><P
 >    <TT
@@ -2641,14 +2641,14 @@ CLASS="LITERAL"
    </P
 ><PRE
 CLASS="PROGRAMLISTING"
->    # psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
-    Password for user pgpool:
-    node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change  
-    ---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
-    0       | server1  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:48:05
-    1       | server2  | 5432 | up     | 0.333333  | primary | 0          | false             | 0                 |                   |                        | 2019-08-06 11:36:03
-    2       | server3  | 5432 | up     | 0.333333  | standby | 0          | true              | 0                 | streaming         | async                  | 2019-08-06 11:36:15
-    (3 rows)
+># psql -h 192.168.137.150 -p 9999 -U pgpool postgres -c "show pool_nodes"
+Password for user pgpool:
+node_id | hostname | port | status | lb_weight |  role   | select_cnt | load_balance_node | replication_delay | replication_state | replication_sync_state | last_status_change
+---------+----------+------+--------+-----------+---------+------------+-------------------+-------------------+-------------------+------------------------+---------------------
+0       | server1  | 5432 | up     | 0.333333  | standby | 0          | false             | 0                 | streaming         | async                  | 2019-08-06 11:48:05
+1       | server2  | 5432 | up     | 0.333333  | primary | 0          | false             | 0                 |                   |                        | 2019-08-06 11:36:03
+2       | server3  | 5432 | up     | 0.333333  | standby | 0          | true              | 0                 | streaming         | async                  | 2019-08-06 11:36:15
+(3 rows)
    </PRE
 ><P
 >    以上で、動作確認が完了です。
