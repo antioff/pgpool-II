@@ -19,7 +19,7 @@ Source1: pgpool.service
 Source2: pgpool.tmpfiles
 Source3: pgpool.init
 
-Patch: 0001-pgpool-alt-config.patch
+Patch: 0001-Update-path-fo~ocket-and-log.patch
 
 BuildRequires: flex
 BuildRequires: postgresql-devel
