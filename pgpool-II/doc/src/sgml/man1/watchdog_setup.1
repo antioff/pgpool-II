@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: pgpool-II 4.2.1 Documentation
-.\"    Source: pgpool-II 4.2.1
+.\"    Manual: pgpool-II 4.2.2 Documentation
+.\"    Source: pgpool-II 4.2.2
 .\"  Language: English
 .\"
-.TH "WATCHDOG_SETUP" "1" "2020" "pgpool-II 4.2.1" "pgpool-II 4.2.1 Documentation"
+.TH "WATCHDOG_SETUP" "1" "2020" "pgpool-II 4.2.2" "pgpool-II 4.2.2 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -54,7 +54,7 @@ as a workhorse\&.
 .PP
 Currently
 watchdog_setup
-supports streaming replication mode, native replication mode, logical replication mode and raw mode\&.
+supports streaming replication mode, snapshot isolation mode, native replication mode, logical replication mode and raw mode\&.
 .SH "OPTIONS"
 .PP
 watchdog_setup
@@ -83,8 +83,12 @@ Specifies the running mode\&.
 can be
 r
 (native replication mode),
+i
+(snapshot isolation mode),
 s
-(streaming replication mode), or
+(streaming replication mode),
+l
+(logical replication mode) or
 n
 (raw mode)\&. If this is omitted,
 s

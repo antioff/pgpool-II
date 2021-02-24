@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2020
-.\"    Manual: Pgpool-II 4.2.1 文書
-.\"    Source: Pgpool-II 4.2.1
+.\"    Manual: Pgpool-II 4.2.2 文書
+.\"    Source: Pgpool-II 4.2.2
 .\"  Language: Japanese
 .\"
-.TH "WATCHDOG_SETUP" "1" "2020" "Pgpool-II 4.2.1" "Pgpool-II 4.2.1 文書"
+.TH "WATCHDOG_SETUP" "1" "2020" "Pgpool-II 4.2.2" "Pgpool-II 4.2.2 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -50,7 +50,7 @@ watchdog_setup
 をベースとしたツールです。
 .PP
 現在、watchdog_setup
-は「ストリーミングレプリケーションモード」、「ネイティブレプリケーションモード」、「ロジカルレプリケーションモード」及び「raw モード」に対応しています。
+は「ストリーミングレプリケーションモード」、「スナップショットアイソレーションモード」、「ネイティブレプリケーションモード」、「ロジカルレプリケーションモード」、及び「raw モード」に対応しています。
 .SH "オプション"
 .PP
 watchdog_setup
@@ -77,10 +77,10 @@ PostgreSQL
 .RS 4
 動作モードを指定します。\fImode\fRは
 r
-(ネイティブレプリケーションモード),
-s
-(ストリーミングレプリケーションモード)、または
-n
+(ネイティブレプリケーションモード)、i
+(スナップショットアイソレーションモード)、s
+(ストリーミングレプリケーションモード)、l
+(ロジカルレプリケーションモード)またはn
 (raw モード)を指定できます。 指定しない場合は、s
 (ストリーミングレプリケーションモード) が使われます。
 .RE

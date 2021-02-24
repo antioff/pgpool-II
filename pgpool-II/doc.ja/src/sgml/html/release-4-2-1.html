@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.1 文書"
+TITLE="Pgpool-II 4.2.2 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
 HREF="release.html"><LINK
 REL="PREVIOUS"
-TITLE="リリースノート"
-HREF="release.html"><LINK
+TITLE="リリース 4.2.2"
+HREF="release-4-2-2.html"><LINK
 REL="NEXT"
 TITLE="リリース 4.2.0"
 HREF="release-4-2-0.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-12-23T06:30:24"></HEAD
+CONTENT="2021-02-17T09:38:45"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.1 文書</A
+>Pgpool-II 4.2.2 文書</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="リリースノート"
-HREF="release.html"
+TITLE="リリース 4.2.2"
+HREF="release-4-2-2.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-4-2-1"
->A.1. リリース 4.2.1</A
+>A.2. リリース 4.2.1</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN10307"
->A.1.1. 変更点</A
+NAME="AEN10369"
+>A.2.1. 変更点</A
 ></H2
 ><P
 ></P
@@ -129,7 +129,7 @@ CLASS="FILENAME"
 >     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->親プロセスのすべての共有変数に単一の共有メモリセグメントを使用するとうに修正しました。(Muhammad Usama)
+>親プロセスのすべての共有変数に単一の共有メモリセグメントを使用するように修正しました。(Muhammad Usama)
     </P
 ><P
 >     共有メモリセグメントは限られたリソースであるため、多くのセグメントを開くことは避けるべきです。
@@ -153,8 +153,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN10321"
->A.1.2. 不具合修正</A
+NAME="AEN10383"
+>A.2.2. 不具合修正</A
 ></H2
 ><P
 ></P
@@ -207,7 +207,7 @@ HREF="wd-cli.html"
 >およびwatchdogライフチェックメカニズムの一貫性のないpgpool node_idの問題を修正しました。(Muhammad Usama)
     </P
 ><P
->     pgpoolノード0（マスターwatchdog）がシャットダウンされると、すべてのpgpoolノードが異常終了する問題を修正しました。
+>     pgpoolノード0（リーダーwatchdog）がシャットダウンされると、すべてのpgpoolノードが異常終了する問題を修正しました。
     </P
 ></LI
 ><LI
@@ -261,7 +261,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="release.html"
+HREF="release-4-2-2.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -289,7 +289,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->リリースノート</TD
+>リリース 4.2.2</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

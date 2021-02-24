@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2021	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -713,6 +713,9 @@ worker_fork_a_child(ProcessType type, void (*func) (), void *params)
 		}
 
 		SetProcessGlobalVaraibles(type);
+
+		ereport(LOG,
+				(errmsg("process started")));
 
 		/* call child main */
 		POOL_SETMASK(&UnBlockSig);
@@ -1997,8 +2000,8 @@ failover(void)
 				{
 					ereport(LOG,
 							(errmsg("start health check process for host %s(%d)",
-									BACKEND_INFO(node_id).backend_hostname,
-									BACKEND_INFO(node_id).backend_port)));
+									BACKEND_INFO(i).backend_hostname,
+									BACKEND_INFO(i).backend_port)));
 
 					health_check_pids[i] = worker_fork_a_child(PT_HEALTH_CHECK, do_health_check_child, &i);
 				}
@@ -2289,6 +2292,7 @@ reaper(void)
 		bool		restart_child = true;
 		bool		found = false;
 		char	   *exiting_process_name = process_name_from_pid(pid);
+		bool		process_health_check = false;
 
 		/*
 		 * Check if the terminating child wants pgpool main to go down with it
@@ -2424,6 +2428,8 @@ reaper(void)
 		/* Check health check process */
 		if (found == false)
 		{
+			process_health_check = true;
+
 			for (i = 0; i < NUM_BACKENDS; i++)
 			{
 				if (pid == health_check_pids[i])
@@ -2453,9 +2459,12 @@ reaper(void)
 		}
 		else
 		{
-			/* And the child was not restarted */
-			ereport(LOG,
-					(errmsg("%s process with pid: %d exited with success and will not be restarted", exiting_process_name, pid)));
+			if (process_health_check == false)
+			{
+				/* And the child was not restarted */
+				ereport(LOG,
+						(errmsg("%s process with pid: %d exited with success and will not be restarted", exiting_process_name, pid)));
+			}
 		}
 
 	}
@@ -4000,7 +4009,7 @@ sync_backend_from_watchdog(void)
 		 * processes
 		 */
 		ereport(LOG,
-				(errmsg("node status was chenged after the sync from \"%s\"", backendStatus->nodeName),
+				(errmsg("node status was changed after the sync from \"%s\"", backendStatus->nodeName),
 				 errdetail("all children needs to be restarted as we are not in streaming replication mode")));
 		need_to_restart_children = true;
 		partial_restart = false;
@@ -4013,7 +4022,7 @@ sync_backend_from_watchdog(void)
 		need_to_restart_children = true;
 		partial_restart = false;
 		ereport(LOG,
-				(errmsg("primary node was chenged after the sync from \"%s\"", backendStatus->nodeName),
+				(errmsg("primary node was changed after the sync from \"%s\"", backendStatus->nodeName),
 				 errdetail("all children needs to be restarted")));
 
 	}
@@ -4114,6 +4123,20 @@ sync_backend_from_watchdog(void)
 	 * Send restart request to worker child.
 	 */
 	kill(worker_pid, SIGUSR1);
+
+	/* Fork health check process if needed */
+	for (i = 0; i < NUM_BACKENDS; i++)
+	{
+		if (health_check_pids[i] == 0)
+		{
+			ereport(LOG,
+					(errmsg("start health check process for host %s(%d)",
+							BACKEND_INFO(i).backend_hostname,
+							BACKEND_INFO(i).backend_port)));
+
+			health_check_pids[i] = worker_fork_a_child(PT_HEALTH_CHECK, do_health_check_child, &i);
+		}
+	}
 }
 
 /*

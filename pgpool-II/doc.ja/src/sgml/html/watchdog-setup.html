@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.1 文書"
+TITLE="Pgpool-II 4.2.2 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="他のコマンド"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2020-12-23T06:30:24"></HEAD
+CONTENT="2021-02-17T09:38:45"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.1 文書</A
+>Pgpool-II 4.2.2 文書</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="WATCHDOG-SETUP"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN8942"
+NAME="AEN8943"
 ></A
 ><H2
 >名前</H2
@@ -107,7 +107,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN8946"
+NAME="AEN8947"
 ></A
 ><H2
 >概要</H2
@@ -169,13 +169,13 @@ HREF="pgpool-setup.html"
    現在、<SPAN
 CLASS="APPLICATION"
 >watchdog_setup</SPAN
-> は「ストリーミングレプリケーションモード」、「ネイティブレプリケーションモード」、「ロジカルレプリケーションモード」及び「raw モード」に対応しています。
+> は「ストリーミングレプリケーションモード」、「スナップショットアイソレーションモード」、「ネイティブレプリケーションモード」、「ロジカルレプリケーションモード」、及び「raw モード」に対応しています。
   </P
 ></DIV
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN8964"
+NAME="AEN8965"
 ></A
 ><H2
 >オプション</H2
@@ -265,11 +265,16 @@ CLASS="REPLACEABLE"
        <TT
 CLASS="LITERAL"
 >r</TT
-> (ネイティブレプリケーションモード), <TT
+> (ネイティブレプリケーションモード)、<TT
+CLASS="LITERAL"
+>i</TT
+> (スナップショットアイソレーションモード)、<TT
 CLASS="LITERAL"
 >s</TT
-> (ストリーミングレプリケーションモード)、または
-       <TT
+> (ストリーミングレプリケーションモード)、<TT
+CLASS="LITERAL"
+>l</TT
+> (ロジカルレプリケーションモード)または<TT
 CLASS="LITERAL"
 >n</TT
 > (raw モード)を指定できます。
@@ -334,7 +339,7 @@ CLASS="PRODUCTNAME"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN9016"
+NAME="AEN9019"
 ></A
 ><H2
 >環境変数</H2
@@ -474,7 +479,7 @@ CLASS="OPTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN9065"
+NAME="AEN9068"
 ></A
 ><H2
 >出力例</H2
