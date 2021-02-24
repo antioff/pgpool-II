@@ -4,8 +4,8 @@ Documentation=man:pgpool(8)
 After=network.target
 
 [Service]
-User=pgpool
-Group=pgpoll
+User=postgres
+Group=postgres
 EnvironmentFile=-/etc/sysconfig/pgpool
 ExecStart=/usr/bin/pgpool -n -f /etc/pgpool/pgpool.conf $OPTS
 ExecReload=/bin/kill -HUP $MAINPID

@@ -8,7 +8,7 @@ WITHOUT_RC_COMPAT=1
 # Source function library.
 . /etc/init.d/functions
 
-PGUSER=pgpool
+PGUSER=postgres
 BINARY="/usr/bin/pgpool"
 #OPTIONS="-f /etc/pgpool.conf"
 STOP_OPTIONS="-m fast stop"
