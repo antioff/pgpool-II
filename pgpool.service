@@ -8,7 +8,8 @@ User=postgres
 Group=postgres
 EnvironmentFile=-/etc/sysconfig/pgpool
 ExecStart=/usr/bin/pgpool -n -f /etc/pgpool/pgpool.conf $OPTS
-ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/usr/bin/pgpool -f /etc/pgpool/pgpool.conf $STOP_OPTS stop
+ExecReload=/usr/bin/pgpool -f /etc/pgpool/pgpool.conf reload
 
 [Install]
 WantedBy=multi-user.target
