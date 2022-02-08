@@ -539,11 +539,6 @@ pgpool_port2 = 9999
        If <literal>Quorum state</literal> is <literal>QUORUM ABSENT</literal>, then the quorum does not exist.
      </para>
      <para>
-      Please note that if the number of watchdog nodes is even, we
-      regard that quorum exists when the number of live nodes is
-      greater than or equal to half of total watchdog nodes.
-     </para>
-     <para>
       In the absence of the
       quorum, <productname>Pgpool-II</productname> node that
       detects the backend failure will quarantine the failed
@@ -727,6 +722,13 @@ pgpool_port2 = 9999
       is made by <productname>Pgpool-II</productname> for calculating
       the quorum and resolving the consensus for failover.
      </para>
+     <note>
+      <para>
+       This parameter affects not only the failover behavior of the
+       backend but the quorum and the failover behavior of
+       <productname>Pgpool-II</productname> itself.
+      </para>
+     </note>
      <para>
       When enabled the existence of quorum and consensus on failover requires only half of
       the total number of votes configured in the cluster. Otherwise, both of these
@@ -1004,6 +1006,11 @@ pgpool_port2 = 9999
       The number at the end of the parameter name is referred
       as "pgpool node id", and it starts from 0 (e.g. heartbeat_device0).
 	  You can specify multiple network devices by separating them using semicolon (;).
+     </para>
+     <para>
+      <varname>heartbeat_deviceX</varname> is only applicable if
+      <productname>Pgpool-II</productname> is started with root
+      privilege. If not, leave it as an empty string ('').
      </para>
      <para>
       <varname>heartbeat_deviceX</varname> is only applicable if the

@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.2 文書"
+TITLE="Pgpool-II 4.2.3 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2021-02-17T09:38:45"></HEAD
+CONTENT="2021-05-19T13:56:22"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.2 文書</A
+>Pgpool-II 4.2.3 文書</A
 ></TH
 ></TR
 ><TR
@@ -320,7 +320,7 @@ CLASS="PRODUCTNAME"
 >プロセスのうちひとつだけが起こされて<TT
 CLASS="LITERAL"
 >accept()</TT
->を実行ようになるためです。
+>を実行するようになるためです。
      </P
 ><P
 >      
@@ -371,7 +371,7 @@ CLASS="COMMAND"
 >を実行します。
        </P><PRE
 CLASS="PROGRAMLISTING"
->	pgbench -n -S -p 9999 -c 32 -C -S -T 300 test
+>pgbench -n -S -p 9999 -c 32 -C -S -T 300 test
        </PRE
 ><P>
        
@@ -534,7 +534,8 @@ CLASS="TYPE"
       これは、だらしないクライアントや<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->の間のTCP/IPコネクションの不調によって、<SPAN
+>とクライアントの間のTCP/IPコネクションの不調によって、
+      <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 >の子プロセスが占有されてしまうのを回避するのに役立ちます。

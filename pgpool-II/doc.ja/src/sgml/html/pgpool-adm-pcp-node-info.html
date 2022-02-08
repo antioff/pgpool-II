@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.2 文書"
+TITLE="Pgpool-II 4.2.3 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="pgpool_admエクステンション"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2021-02-17T09:38:45"></HEAD
+CONTENT="2021-05-19T13:56:22"></HEAD
 ><BODY
 CLASS="REFENTRY"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.2 文書</A
+>Pgpool-II 4.2.3 文書</A
 ></TH
 ></TR
 ><TR
@@ -95,7 +95,7 @@ NAME="PGPOOL-ADM-PCP-NODE-INFO"
 ><DIV
 CLASS="REFNAMEDIV"
 ><A
-NAME="AEN9802"
+NAME="AEN9838"
 ></A
 ><H2
 >名前</H2
@@ -105,7 +105,7 @@ NAME="AEN9802"
 ><DIV
 CLASS="REFSYNOPSISDIV"
 ><A
-NAME="AEN9805"
+NAME="AEN9841"
 ></A
 ><H2
 >概要</H2
@@ -114,7 +114,7 @@ CLASS="FUNCSYNOPSIS"
 ><P
 ></P
 ><A
-NAME="AEN9806"
+NAME="AEN9842"
 ></A
 ><P
 ><CODE
@@ -215,7 +215,7 @@ CLASS="FUNCTION"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN9859"
+NAME="AEN9895"
 ></A
 ><H2
 >引数</H2
@@ -273,7 +273,7 @@ HREF="pcp-common-options.html"
 ><DIV
 CLASS="REFSECT1"
 ><A
-NAME="AEN9879"
+NAME="AEN9915"
 ></A
 ><H2
 >使用例</H2
@@ -329,18 +329,15 @@ CLASS="NOTE"
 >注意: </B
 >    <TT
 CLASS="PARAMETER"
->role</TT
+>replication_state</TT
 >, <TT
 CLASS="PARAMETER"
->replication_delay</TT
->, <TT
-CLASS="PARAMETER"
->last_status_change</TT
+>replication_sync_state</TT
 >出力パラメータは<SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > 4.1で追加されました。
-    すでに4.0以前のpgpool_adm拡張をインストールしている場合は、ALTER EXTENSION SQLコマンドを使って更新が可能です。
+    すでに4.1以前のpgpool_adm拡張をインストールしている場合は、ALTER EXTENSION SQLコマンドを使って更新が可能です。
     </P><PRE
 CLASS="PROGRAMLISTING"
 >     ALTER EXTENSION pgpool_adm UPDATE;

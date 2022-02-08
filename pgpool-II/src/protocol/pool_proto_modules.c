@@ -1329,9 +1329,9 @@ Parse(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend,
 	}
 
 	/*
-	 * If in replication mode, send "SYNC" message if not in a transaction.
+	 * If not in streaming or logical replication mode, send "SYNC" message if not in a transaction.
 	 */
-	if (REPLICATION)
+	if (!SL_MODE)
 	{
 		char		kind;
 
@@ -2349,7 +2349,13 @@ CloseComplete(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 						kind, name)));
 		if (pool_config->memory_cache_enabled)
 		{
-			pool_discard_temp_query_cache(pool_get_current_cache());
+			/*
+			 * Discard current temp query cache.  This is necessary for the
+			 * case of clustering mode is not either streaming or logical
+			 * replication. Because in the cases the cache has been already
+			 * discarded upon receiving CommandComplete.
+			 */
+			pool_discard_current_temp_query_cache();
 		}
 	}
 

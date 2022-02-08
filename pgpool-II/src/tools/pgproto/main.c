@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2017-2019	Tatsuo Ishii
+ * Copyright (c) 2017-2018	Tatsuo Ishii
+ * Copyright (c) 2018-2021	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -200,6 +201,7 @@ connect_db(char *host, char *port, char *user, char *database)
 	char		conninfo[1024];
 	PGconn	   *conn;
 	size_t		n;
+	char	*app_name_str = " application_name=pgproto";
 
 	conninfo[0] = '\0';
 	n = sizeof(conninfo);
@@ -225,7 +227,7 @@ connect_db(char *host, char *port, char *user, char *database)
 		n -= sizeof("user=");
 		strncat(conninfo, " user=", n);
 		n -= strlen(user) + 1;
-		strcat(conninfo, user);
+		strncat(conninfo, user, n);
 	}
 
 	if (database && database[0] != '\0')
@@ -235,6 +237,9 @@ connect_db(char *host, char *port, char *user, char *database)
 		n -= strlen(database) + 1;
 		strncat(conninfo, database, n);
 	}
+
+	n -= strlen(app_name_str);
+	strncat(conninfo, app_name_str, n);
 
 	conn = PQconnectdb(conninfo);
 

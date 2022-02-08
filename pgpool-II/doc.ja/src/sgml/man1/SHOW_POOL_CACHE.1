@@ -2,12 +2,12 @@
 .\"     Title: SHOW POOL_CACHE
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2020
-.\"    Manual: Pgpool-II 4.2.2 文書
-.\"    Source: Pgpool-II 4.2.2
+.\"      Date: 2021
+.\"    Manual: Pgpool-II 4.2.3 文書
+.\"    Source: Pgpool-II 4.2.3
 .\"  Language: Japanese
 .\"
-.TH "SHOW POOL_CACHE" "1" "2020" "Pgpool-II 4.2.2" "Pgpool-II 4.2.2 文書"
+.TH "SHOW POOL_CACHE" "1" "2021" "Pgpool-II 4.2.3" "Pgpool-II 4.2.3 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -67,4 +67,19 @@ SHOW_POOL_CACHE \- クエリキャッシュのヒット率や、キャッシュ�
 .RE
 .\}
 .sp
-
+.if n \{\
+.sp
+.\}
+.RS 4
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fB注記\fR
+.ps -1
+.br
+.PP
+キャッシュストレージがmemcachedのときは、num_cache_hits, num_selects and cache_hit_ratio以外の列の値は0になります。
+.sp .5v
+.RE

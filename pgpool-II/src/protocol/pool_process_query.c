@@ -768,7 +768,8 @@ SimpleForwardToFrontend(char kind, POOL_CONNECTION * frontend,
 
 	/*
 	 * Optimization for other than "Command Complete", "Ready For query",
-	 * "Error response" ,"Notice message" and "Notification response"
+	 * "Error response" ,"Notice message", "Notification response" and
+	 * "Row description"
 	 * messages.  Especially, since it is too often to receive and forward
 	 * "Data Row" message, we do not flush the message to frontend now. We
 	 * expect that "Command Complete" message (or "Error response" or "Notice
@@ -779,7 +780,7 @@ SimpleForwardToFrontend(char kind, POOL_CONNECTION * frontend,
 	 * CopyData messages are sent to frontend (typical use case is pg_dump).
 	 * So eliminating per CopyData flush significantly enhances performance.
 	 */
-	if (kind == 'C' || kind == 'Z' || kind == 'E' || kind == 'N' || kind == 'A')
+	if (kind == 'C' || kind == 'Z' || kind == 'E' || kind == 'N' || kind == 'A' || kind == 'T')
 	{
 		pool_write_and_flush(frontend, p1, len1);
 	}
@@ -986,7 +987,6 @@ reset_backend(POOL_CONNECTION_POOL * backend, int qcnt)
 	int			i;
 	bool		need_to_abort;
 	POOL_SESSION_CONTEXT *session_context;
-	POOL_TEMP_QUERY_CACHE *cache;
 
 	/* Get session context */
 	session_context = pool_get_session_context(false);
@@ -1045,16 +1045,9 @@ reset_backend(POOL_CONNECTION_POOL * backend, int qcnt)
 
 	pool_set_timeout(-1);
 
-	cache = pool_get_current_cache();
-	if (cache)
+	if (pool_config->memory_cache_enabled)
 	{
-		pool_discard_temp_query_cache(cache);
-
-		/*
-		 * Reset temp_cache pointer in the current query context so that we
-		 * don't double free memory.
-		 */
-		session_context->query_context->temp_cache = NULL;
+		pool_discard_current_temp_query_cache();
 	}
 
 	return 1;

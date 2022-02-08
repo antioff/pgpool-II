@@ -2,12 +2,12 @@
 .\"     Title: pcp_detach_node
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2020
-.\"    Manual: pgpool-II 4.2.2 Documentation
-.\"    Source: pgpool-II 4.2.2
+.\"      Date: 2021
+.\"    Manual: pgpool-II 4.2.3 Documentation
+.\"    Source: pgpool-II 4.2.3
 .\"  Language: English
 .\"
-.TH "PCP_DETACH_NODE" "1" "2020" "pgpool-II 4.2.2" "pgpool-II 4.2.2 Documentation"
+.TH "PCP_DETACH_NODE" "1" "2021" "pgpool-II 4.2.3" "pgpool-II 4.2.3 Documentation"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,14 +28,30 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-pcp_detach_node \- detaches the given node from Pgpool\-II\&. Existing connections to Pgpool\-II are forced to be disconnected\&.
+pcp_detach_node \- detaches the given node from Pgpool\-II\&. Exisiting connections to Pgpool\-II are forced to be disconnected\&.
 .SH "SYNOPSIS"
 .HP \w'\fBpcp_detach_node\fR\ 'u
 \fBpcp_detach_node\fR [\fIoptions\fR...] [\fInode_id\fR] [\fIgracefully\fR]
 .SH "DESCRIPTION"
 .PP
 \fBpcp_detach_node\fR
-detaches the given node from Pgpool\-II\&. Existing connections to Pgpool\-II are forced to be disconnected\&.
+detaches the given node from
+Pgpool\-II\&. If
+failover_command
+and/or
+follow_primary_command
+are specified, they are executed too\&. Existing connections to
+Pgpool\-II
+are forced to be disconnected\&.
+.PP
+\fBpcp_detach_node\fR
+just detaches the node, and does not touch running backend behind the node\&. This command is useful when admin needs to maintain the
+PostgreSQL
+node\&. He/she can shutdown or stop the backend as many times as he/she wants\&.
+.PP
+The safest way to re\-attach the detached node is, stopping the backend and apply
+\fBpcp_recovery_node\fR(1)\&. However if you are sure that there\*(Aqs no replication delay (or the delay will be recovered later on) and the role of the node (primary/standby) will not be changed, you can use
+\fBpcp_attach_node\fR(1)\&.
 .SH "OPTIONS"
 .PP
 .PP
