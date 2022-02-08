@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.6 文書"
+TITLE="Pgpool-II 4.2.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
 HREF="release.html"><LINK
 REL="PREVIOUS"
-TITLE="リリース 4.2.0"
-HREF="release-4-2-0.html"><LINK
+TITLE="リリース 4.1.10"
+HREF="release-4-1-10.html"><LINK
 REL="NEXT"
 TITLE="リリース 4.1.8"
 HREF="release-4-1-8.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2021-11-18T03:25:04"></HEAD
+CONTENT="2021-12-22T09:19:47"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.6 文書</A
+>Pgpool-II 4.2.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="リリース 4.2.0"
-HREF="release-4-2-0.html"
+TITLE="リリース 4.1.10"
+HREF="release-4-1-10.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-4-1-9"
->A.8. リリース 4.1.9</A
+>A.10. リリース 4.1.9</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11240"
->A.8.1. セキュリティリリース</A
+NAME="AEN11272"
+>A.10.1. セキュリティリリース</A
 ></H2
 ><P
 ></P
@@ -139,8 +139,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11247"
->A.8.2. 変更点</A
+NAME="AEN11279"
+>A.10.2. 変更点</A
 ></H2
 ><P
 ></P
@@ -161,13 +161,13 @@ CLASS="PRODUCTNAME"
 >     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->メインプロセスのSIGHLDハンドラを改良しました。(Tatsuo Ishii)
+>メインプロセスのSIGCHLDハンドラを改良しました。(Tatsuo Ishii)
     </P
 ><P
 >     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->の子プロセスがSIGKILLシグナルでkillされたとき、SIGHLDハンドラは他のシグナルと同じようにLOGレベルメッセージを発していました。
+>の子プロセスがSIGKILLシグナルでkillされたとき、SIGCHLDハンドラは他のシグナルと同じようにLOGレベルメッセージを発していました。
      しかし、SIGKILLシグナルはOMM killerによるkillなど重要なイベントなので、WARNINGレベルのメッセージを発するようにしました。
      Michail Alexakisから提案されました。
      Discussion: <A
@@ -184,8 +184,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11260"
->A.8.3. 不具合修正</A
+NAME="AEN11292"
+>A.10.3. 不具合修正</A
 ></H2
 ><P
 ></P
@@ -270,8 +270,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11287"
->A.8.4. ドキュメント修正</A
+NAME="AEN11319"
+>A.10.4. ドキュメント修正</A
 ></H2
 ><P
 ></P
@@ -305,8 +305,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11298"
->A.8.5. テストツール修正</A
+NAME="AEN11330"
+>A.10.5. テストツール修正</A
 ></H2
 ><P
 ></P
@@ -326,8 +326,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11304"
->A.8.6. 回帰テスト修正</A
+NAME="AEN11336"
+>A.10.6. 回帰テスト修正</A
 ></H2
 ><P
 ></P
@@ -366,7 +366,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="release-4-2-0.html"
+HREF="release-4-1-10.html"
 ACCESSKEY="P"
 >前のページ</A
 ></TD
@@ -394,7 +394,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->リリース 4.2.0</TD
+>リリース 4.1.10</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

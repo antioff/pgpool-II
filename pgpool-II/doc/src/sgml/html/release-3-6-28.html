@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.2.6 Documentation"
+TITLE="pgpool-II 4.2.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Release Notes"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2021-11-18T03:24:35"></HEAD
+CONTENT="2021-12-22T09:19:28"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.2.6 Documentation</A
+>pgpool-II 4.2.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-6-28"
->A.57. Release 3.6.28</A
+>A.61. Release 3.6.28</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14436"
->A.57.1. Security release</A
+NAME="AEN14492"
+>A.61.1. Security release</A
 ></H2
 ><P
 ></P
@@ -142,8 +142,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14443"
->A.57.2. Changes</A
+NAME="AEN14499"
+>A.61.2. Changes</A
 ></H2
 ><P
 ></P
@@ -162,7 +162,7 @@ CLASS="COMMAND"
 ></LI
 ><LI
 ><P
->     Enhance SIGHLD handler of <SPAN
+>     Enhance SIGCHLD handler of <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > main process. (Tatsuo Ishii)
@@ -172,7 +172,7 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > child is killed by SIGKILL signal,
-     the SIGHLD handler just emitted LOG level message as other signals. But
+     the SIGCHLD handler just emitted LOG level message as other signals. But
      SIGKILL is an important event, for example killed by OOM killer. So emit a
      WARNING level message instead.
      Per suggestion from Michail Alexakis.
@@ -191,8 +191,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14456"
->A.57.3. Bug fixes</A
+NAME="AEN14512"
+>A.61.3. Bug fixes</A
 ></H2
 ><P
 ></P
@@ -239,8 +239,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14470"
->A.57.4. Documents</A
+NAME="AEN14526"
+>A.61.4. Documents</A
 ></H2
 ><P
 ></P
@@ -269,8 +269,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14479"
->A.57.5. Test tools</A
+NAME="AEN14535"
+>A.61.5. Test tools</A
 ></H2
 ><P
 ></P
@@ -290,8 +290,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14485"
->A.57.6. Regression tests</A
+NAME="AEN14541"
+>A.61.6. Regression tests</A
 ></H2
 ><P
 ></P

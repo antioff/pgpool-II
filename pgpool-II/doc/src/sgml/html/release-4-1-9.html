@@ -9,14 +9,14 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="pgpool-II 4.2.6 Documentation"
+TITLE="pgpool-II 4.2.7 Documentation"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Release Notes"
 HREF="release.html"><LINK
 REL="PREVIOUS"
-TITLE="Release 4.2.0"
-HREF="release-4-2-0.html"><LINK
+TITLE="Release 4.1.10"
+HREF="release-4-1-10.html"><LINK
 REL="NEXT"
 TITLE="Release 4.1.8"
 HREF="release-4-1-8.html"><LINK
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=ISO-8859-1"><META
 NAME="creation"
-CONTENT="2021-11-18T03:24:35"></HEAD
+CONTENT="2021-12-22T09:19:28"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->pgpool-II 4.2.6 Documentation</A
+>pgpool-II 4.2.7 Documentation</A
 ></TH
 ></TR
 ><TR
@@ -53,8 +53,8 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="top"
 ><A
-TITLE="Release 4.2.0"
-HREF="release-4-2-0.html"
+TITLE="Release 4.1.10"
+HREF="release-4-1-10.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-4-1-9"
->A.8. Release 4.1.9</A
+>A.10. Release 4.1.9</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11113"
->A.8.1. Security release</A
+NAME="AEN11143"
+>A.10.1. Security release</A
 ></H2
 ><P
 ></P
@@ -142,8 +142,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11120"
->A.8.2. Changes</A
+NAME="AEN11150"
+>A.10.2. Changes</A
 ></H2
 ><P
 ></P
@@ -162,7 +162,7 @@ CLASS="COMMAND"
 ></LI
 ><LI
 ><P
->     Enhance SIGHLD handler of <SPAN
+>     Enhance SIGCHLD handler of <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > main process. (Tatsuo Ishii)
@@ -172,7 +172,7 @@ CLASS="PRODUCTNAME"
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
 > child is killed by SIGKILL signal,
-     the SIGHLD handler just emitted LOG level message as other signals. But
+     the SIGCHLD handler just emitted LOG level message as other signals. But
      SIGKILL is an important event, for example killed by OOM killer. So emit a
      WARNING level message instead.
      Per suggestion from Michail Alexakis.
@@ -190,8 +190,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11133"
->A.8.3. Bug fixes</A
+NAME="AEN11163"
+>A.10.3. Bug fixes</A
 ></H2
 ><P
 ></P
@@ -279,8 +279,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11160"
->A.8.4. Documents</A
+NAME="AEN11190"
+>A.10.4. Documents</A
 ></H2
 ><P
 ></P
@@ -314,8 +314,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11171"
->A.8.5. Test tools</A
+NAME="AEN11201"
+>A.10.5. Test tools</A
 ></H2
 ><P
 ></P
@@ -335,8 +335,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN11177"
->A.8.6. Regression tests</A
+NAME="AEN11207"
+>A.10.6. Regression tests</A
 ></H2
 ><P
 ></P
@@ -375,7 +375,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="release-4-2-0.html"
+HREF="release-4-1-10.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -403,7 +403,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->Release 4.2.0</TD
+>Release 4.1.10</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"

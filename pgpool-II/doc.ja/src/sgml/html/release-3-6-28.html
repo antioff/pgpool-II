@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.6 文書"
+TITLE="Pgpool-II 4.2.7 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="リリースノート"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2021-11-18T03:25:04"></HEAD
+CONTENT="2021-12-22T09:19:47"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.6 文書</A
+>Pgpool-II 4.2.7 文書</A
 ></TH
 ></TR
 ><TR
@@ -93,7 +93,7 @@ CLASS="SECT1"
 CLASS="SECT1"
 ><A
 NAME="RELEASE-3-6-28"
->A.57. リリース 3.6.28</A
+>A.61. リリース 3.6.28</A
 ></H1
 ><DIV
 CLASS="NOTE"
@@ -110,8 +110,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14683"
->A.57.1. セキュリティリリース</A
+NAME="AEN14741"
+>A.61.1. セキュリティリリース</A
 ></H2
 ><P
 ></P
@@ -139,8 +139,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14690"
->A.57.2. 変更点</A
+NAME="AEN14748"
+>A.61.2. 変更点</A
 ></H2
 ><P
 ></P
@@ -161,13 +161,13 @@ CLASS="PRODUCTNAME"
 >     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->メインプロセスのSIGHLDハンドラを改良しました。(Tatsuo Ishii)
+>メインプロセスのSIGCHLDハンドラを改良しました。(Tatsuo Ishii)
     </P
 ><P
 >     <SPAN
 CLASS="PRODUCTNAME"
 >Pgpool-II</SPAN
->の子プロセスがSIGKILLシグナルでkillされたとき、SIGHLDハンドラは他のシグナルと同じようにLOGレベルメッセージを発していました。
+>の子プロセスがSIGKILLシグナルでkillされたとき、SIGCHLDハンドラは他のシグナルと同じようにLOGレベルメッセージを発していました。
      しかし、SIGKILLシグナルはOMM killerによるkillなど重要なイベントなので、WARNINGレベルのメッセージを発するようにしました。
      Michail Alexakisから提案されました。
      Discussion: <A
@@ -184,8 +184,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14703"
->A.57.3. 不具合修正</A
+NAME="AEN14761"
+>A.61.3. 不具合修正</A
 ></H2
 ><P
 ></P
@@ -230,8 +230,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14717"
->A.57.4. ドキュメント修正</A
+NAME="AEN14775"
+>A.61.4. ドキュメント修正</A
 ></H2
 ><P
 ></P
@@ -260,8 +260,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14726"
->A.57.5. テストツール修正</A
+NAME="AEN14784"
+>A.61.5. テストツール修正</A
 ></H2
 ><P
 ></P
@@ -281,8 +281,8 @@ CLASS="SECT2"
 ><H2
 CLASS="SECT2"
 ><A
-NAME="AEN14732"
->A.57.6. 回帰テスト修正</A
+NAME="AEN14790"
+>A.61.6. 回帰テスト修正</A
 ></H2
 ><P
 ></P
