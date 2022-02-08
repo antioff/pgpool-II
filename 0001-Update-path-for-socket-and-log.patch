@@ -1,6 +1,6 @@
-From 991749057b57ac81ff0c10002891851fd8cdd668 Mon Sep 17 00:00:00 2001
+From a865636f3ae129a5388b40680262a481107852f0 Mon Sep 17 00:00:00 2001
 From: Alexey Shabalin <shaba@altlinux.org>
-Date: Sun, 7 Feb 2021 18:08:25 +0300
+Date: Tue, 8 Feb 2022 16:20:26 +0300
 Subject: [PATCH] Update path for socket and log
 
 ---
@@ -14,7 +14,7 @@ Subject: [PATCH] Update path for socket and log
  7 files changed, 29 insertions(+), 29 deletions(-)
 
 diff --git a/src/include/pool.h b/src/include/pool.h
-index 23599eb..875ea32 100644
+index ff47184c..1cd96be4 100644
 --- a/src/include/pool.h
 +++ b/src/include/pool.h
 @@ -69,13 +69,13 @@
@@ -35,7 +35,7 @@ index 23599eb..875ea32 100644
  /* pid file name */
  #define DEFAULT_PID_FILE_NAME "/var/run/pgpool/pgpool.pid"
 diff --git a/src/sample/pgpool.conf.sample-logical b/src/sample/pgpool.conf.sample-logical
-index ba3a0a3..d9aaf3f 100644
+index b156250a..eacbce92 100644
 --- a/src/sample/pgpool.conf.sample-logical
 +++ b/src/sample/pgpool.conf.sample-logical
 @@ -35,10 +35,10 @@ listen_addresses = 'localhost'
@@ -60,16 +60,16 @@ index ba3a0a3..d9aaf3f 100644
                                     # Unix domain socket path for pcp
                                     # The Debian package defaults to
                                     # /var/run/postgresql
-@@ -257,7 +257,7 @@ syslog_ident = 'pgpool'
+@@ -258,7 +258,7 @@ syslog_ident = 'pgpool'
  
  # -- Only used if logging_collector is on ---
  
--#log_directory = '/tmp/pgpool_log'      # directory where log files are written,
-+#log_directory = '/var/log/pgpool'      # directory where log files are written,
+-#log_directory = '/tmp/pgpool_logs'
++#log_directory = '/var/log/pgpool'
+                                         # directory where log files are written,
                                          # can be absolute
  #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
-                                         # log file name pattern,
-@@ -292,7 +292,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
+@@ -298,7 +298,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
                                     # location of pgpool.conf file or
                                     # as an absolute path
                                     # (change requires restart)
@@ -78,7 +78,7 @@ index ba3a0a3..d9aaf3f 100644
                                     # Directory of pgPool status file
                                     # (change requires restart)
  
-@@ -621,7 +621,7 @@ wd_authkey = ''
+@@ -627,7 +627,7 @@ wd_authkey = ''
                                      # Authentication key for watchdog communication
                                      # (change requires restart)
  
@@ -88,7 +88,7 @@ index ba3a0a3..d9aaf3f 100644
                                      # The Debian package defaults to
                                      # /var/run/postgresql
 diff --git a/src/sample/pgpool.conf.sample-raw b/src/sample/pgpool.conf.sample-raw
-index 6d3cf52..554ac16 100644
+index 76846f8e..4dca897b 100644
 --- a/src/sample/pgpool.conf.sample-raw
 +++ b/src/sample/pgpool.conf.sample-raw
 @@ -39,7 +39,7 @@ listen_addresses = 'localhost'
@@ -109,16 +109,16 @@ index 6d3cf52..554ac16 100644
                                     # Unix domain socket path for pcp
                                     # The Debian package defaults to
                                     # /var/run/postgresql
-@@ -258,7 +258,7 @@ syslog_ident = 'pgpool'
+@@ -259,7 +259,7 @@ syslog_ident = 'pgpool'
  
  # -- Only used if logging_collector is on ---
  
--#log_directory = '/tmp/pgpool_log'      # directory where log files are written,
-+#log_directory = '/var/log/pgpool'      # directory where log files are written,
+-#log_directory = '/tmp/pgpool_logs'
++#log_directory = '/var/log/pgpool'
+                                         # directory where log files are written,
                                          # can be absolute
  #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
-                                         # log file name pattern,
-@@ -293,7 +293,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
+@@ -299,7 +299,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
                                     # location of pgpool.conf file or
                                     # as an absolute path
                                     # (change requires restart)
@@ -128,49 +128,9 @@ index 6d3cf52..554ac16 100644
                                     # (change requires restart)
  
 diff --git a/src/sample/pgpool.conf.sample-replication b/src/sample/pgpool.conf.sample-replication
-index 08d11ec..b28b03a 100644
+index b4b41a67..b86d1cd8 100644
 --- a/src/sample/pgpool.conf.sample-replication
 +++ b/src/sample/pgpool.conf.sample-replication
-@@ -39,7 +39,7 @@ listen_addresses = 'localhost'
- port = 9999
-                                    # Port number
-                                    # (change requires restart)
--socket_dir = '/tmp'
-+socket_dir = '/var/run/pgpool'
-                                    # Unix domain socket path
-                                    # The Debian package defaults to
-                                    # /var/run/postgresql
-@@ -65,7 +65,7 @@ pcp_listen_addresses = '*'
- pcp_port = 9898
-                                    # Port number for pcp
-                                    # (change requires restart)
--pcp_socket_dir = '/tmp'
-+pcp_socket_dir = '/var/run/pgpool'
-                                    # Unix domain socket path for pcp
-                                    # The Debian package defaults to
-                                    # /var/run/postgresql
-@@ -253,7 +253,7 @@ syslog_ident = 'pgpool'
- 
- # -- Only used if logging_collector is on ---
- 
--#log_directory = '/tmp/pgpool_log'      # directory where log files are written,
-+#log_directory = '/var/log/pgpool'      # directory where log files are written,
-                                         # can be absolute
- #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
-                                         # log file name pattern,
-@@ -288,7 +288,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
-                                    # location of pgpool.conf file or
-                                    # as an absolute path
-                                    # (change requires restart)
--logdir = '/tmp'
-+logdir = '/var/log/pgpool'
-                                    # Directory of pgPool status file
-                                    # (change requires restart)
- 
-diff --git a/src/sample/pgpool.conf.sample-slony b/src/sample/pgpool.conf.sample-slony
-index 004bdac..71ef8b5 100644
---- a/src/sample/pgpool.conf.sample-slony
-+++ b/src/sample/pgpool.conf.sample-slony
 @@ -39,7 +39,7 @@ listen_addresses = 'localhost'
  port = 9999
                                     # Port number
@@ -193,12 +153,52 @@ index 004bdac..71ef8b5 100644
  
  # -- Only used if logging_collector is on ---
  
--#log_directory = '/tmp/pgpool_log'      # directory where log files are written,
-+#log_directory = '/var/log/pgpool'      # directory where log files are written,
+-#log_directory = '/tmp/pgpool_logs'
++#log_directory = '/var/log/pgpool'
+                                         # directory where log files are written,
                                          # can be absolute
  #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
-                                         # log file name pattern,
-@@ -289,7 +289,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
+@@ -294,7 +294,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
+                                    # location of pgpool.conf file or
+                                    # as an absolute path
+                                    # (change requires restart)
+-logdir = '/tmp'
++logdir = '/var/log/pgpool'
+                                    # Directory of pgPool status file
+                                    # (change requires restart)
+ 
+diff --git a/src/sample/pgpool.conf.sample-slony b/src/sample/pgpool.conf.sample-slony
+index fd4e09df..464c4845 100644
+--- a/src/sample/pgpool.conf.sample-slony
++++ b/src/sample/pgpool.conf.sample-slony
+@@ -39,7 +39,7 @@ listen_addresses = 'localhost'
+ port = 9999
+                                    # Port number
+                                    # (change requires restart)
+-socket_dir = '/tmp'
++socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+@@ -65,7 +65,7 @@ pcp_listen_addresses = '*'
+ pcp_port = 9898
+                                    # Port number for pcp
+                                    # (change requires restart)
+-pcp_socket_dir = '/tmp'
++pcp_socket_dir = '/var/run/pgpool'
+                                    # Unix domain socket path for pcp
+                                    # The Debian package defaults to
+                                    # /var/run/postgresql
+@@ -255,7 +255,7 @@ syslog_ident = 'pgpool'
+ 
+ # -- Only used if logging_collector is on ---
+ 
+-#log_directory = '/tmp/pgpool_logs'
++#log_directory = '/var/log/pgpool'
+                                         # directory where log files are written,
+                                         # can be absolute
+ #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
+@@ -295,7 +295,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
                                     # location of pgpool.conf file or
                                     # as an absolute path
                                     # (change requires restart)
@@ -208,7 +208,7 @@ index 004bdac..71ef8b5 100644
                                     # (change requires restart)
  
 diff --git a/src/sample/pgpool.conf.sample-snapshot b/src/sample/pgpool.conf.sample-snapshot
-index 8cf4123..da4b824 100644
+index 9d2ddc2d..15439188 100644
 --- a/src/sample/pgpool.conf.sample-snapshot
 +++ b/src/sample/pgpool.conf.sample-snapshot
 @@ -39,7 +39,7 @@ listen_addresses = 'localhost'
@@ -229,16 +229,16 @@ index 8cf4123..da4b824 100644
                                     # Unix domain socket path for pcp
                                     # The Debian package defaults to
                                     # /var/run/postgresql
-@@ -251,7 +251,7 @@ syslog_ident = 'pgpool'
+@@ -252,7 +252,7 @@ syslog_ident = 'pgpool'
  
  # -- Only used if logging_collector is on ---
  
--#log_directory = '/tmp/pgpool_log'      # directory where log files are written,
-+#log_directory = '/var/log/pgpool'      # directory where log files are written,
+-#log_directory = '/tmp/pgpool_logs'
++#log_directory = '/var/log/pgpool'
+                                         # directory where log files are written,
                                          # can be absolute
  #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
-                                         # log file name pattern,
-@@ -286,7 +286,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
+@@ -292,7 +292,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
                                     # location of pgpool.conf file or
                                     # as an absolute path
                                     # (change requires restart)
@@ -248,7 +248,7 @@ index 8cf4123..da4b824 100644
                                     # (change requires restart)
  
 diff --git a/src/sample/pgpool.conf.sample-stream b/src/sample/pgpool.conf.sample-stream
-index 96630d5..172a6f6 100644
+index bb8d9fe1..3c10c230 100644
 --- a/src/sample/pgpool.conf.sample-stream
 +++ b/src/sample/pgpool.conf.sample-stream
 @@ -39,7 +39,7 @@ listen_addresses = 'localhost'
@@ -269,16 +269,16 @@ index 96630d5..172a6f6 100644
                                     # Unix domain socket path for pcp
                                     # The Debian package defaults to
                                     # /var/run/postgresql
-@@ -258,7 +258,7 @@ syslog_ident = 'pgpool'
+@@ -259,7 +259,7 @@ syslog_ident = 'pgpool'
  
  # -- Only used if logging_collector is on ---
  
--#log_directory = '/tmp/pgpool_log'      # directory where log files are written,
-+#log_directory = '/var/log/pgpool'      # directory where log files are written,
+-#log_directory = '/tmp/pgpool_logs'
++#log_directory = '/var/log/pgpool'
+                                         # directory where log files are written,
                                          # can be absolute
  #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
-                                         # log file name pattern,
-@@ -292,7 +292,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
+@@ -298,7 +298,7 @@ pid_file_name = '/var/run/pgpool/pgpool.pid'
                                     # location of pgpool.conf file or
                                     # as an absolute path
                                     # (change requires restart)
@@ -287,6 +287,6 @@ index 96630d5..172a6f6 100644
                                     # Directory of pgPool status file
                                     # (change requires restart)
  
---
-libgit2 1.1.0
+-- 
+2.33.0
 
