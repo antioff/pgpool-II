@@ -3,11 +3,11 @@
 .\"    Author: The Pgpool Global Development Group
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
 .\"      Date: 2021
-.\"    Manual: Pgpool-II 4.2.4 文書
-.\"    Source: Pgpool-II 4.2.4
+.\"    Manual: Pgpool-II 4.2.5 文書
+.\"    Source: Pgpool-II 4.2.5
 .\"  Language: Japanese
 .\"
-.TH "PGPOOL SHOW" "1" "2021" "Pgpool-II 4.2.4" "Pgpool-II 4.2.4 文書"
+.TH "PGPOOL SHOW" "1" "2021" "Pgpool-II 4.2.5" "Pgpool-II 4.2.5 文書"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -59,6 +59,21 @@ Pgpool\-II
 の設定パラメータ名です。指定可能なパラメータ名は
 5章サーバの設定
 をご参照ください。
+.if n \{\
+.sp
+.\}
+.RS 4
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fB注記\fR
+.ps -1
+.br
+大文字を含むパラメータ名（例えば、delegate_IP）の場合には、 パラメータ名をダブルクォートで囲んで実行してください。
+.sp .5v
+.RE
 .RE
 .PP
 \fIconfiguration_parameter_group\fR
@@ -71,14 +86,14 @@ backend
 すべてのバックエンドグループのパラメータの設定値。
 .RE
 .PP
-other_pgpool
+watchdog
 .RS 4
-すべての watchdog ノードのパラメータの設定値。
+すべてのwatchdogノードのパラメータの設定値。
 .RE
 .PP
 heartbeat
 .RS 4
-すべての watchdog heartbeat ノードのパラメータの設定値。
+すべてのwatchdog heartbeatパラメータの設定値。
 .RE
 .PP
 health_check
@@ -101,11 +116,11 @@ port
 .RS 4
 .\}
 .nf
-     PGPOOL SHOW port;
-     port
-     \-\-\-\-\-\-
-     9999
-     (1 row)
+PGPOOL SHOW port;
+port
+\-\-\-\-\-\-
+9999
+(1 row)
     
 .fi
 .if n \{\
@@ -120,11 +135,11 @@ write_function_list
 .RS 4
 .\}
 .nf
-     PGPOOL SHOW write_function_list;
-     write_function_list
-     \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
-     nextval,setval
-     (1 row)
+PGPOOL SHOW write_function_list;
+write_function_list
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+nextval,setval
+(1 row)
     
 .fi
 .if n \{\
@@ -137,20 +152,20 @@ write_function_list
 .RS 4
 .\}
 .nf
-    PGPOOL SHOW backend;
-    item                     |          value          |              description
-    \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
-    backend_hostname0        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
-    backend_port0            | 5434                    | port number of PostgreSQL backend\&.
-    backend_weight0          | 0                       | load balance weight of backend\&.
-    backend_data_directory0  | /var/lib/pgsql/data     | data directory of the backend\&.
-    backend_flag0            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
-    backend_hostname1        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
-    backend_port1            | 5432                    | port number of PostgreSQL backend\&.
-    backend_weight1          | 1                       | load balance weight of backend\&.
-    backend_data_directory1  | /home/work/installed/pg | data directory of the backend\&.
-    backend_flag1            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
-    (10 rows)
+PGPOOL SHOW backend;
+item                     |          value          |              description
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+backend_hostname0        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
+backend_port0            | 5434                    | port number of PostgreSQL backend\&.
+backend_weight0          | 0                       | load balance weight of backend\&.
+backend_data_directory0  | /var/lib/pgsql/data     | data directory of the backend\&.
+backend_flag0            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
+backend_hostname1        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
+backend_port1            | 5432                    | port number of PostgreSQL backend\&.
+backend_weight1          | 1                       | load balance weight of backend\&.
+backend_data_directory1  | /home/work/installed/pg | data directory of the backend\&.
+backend_flag1            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
+(10 rows)
    
 .fi
 .if n \{\
@@ -163,26 +178,25 @@ write_function_list
 .RS 4
 .\}
 .nf
-    PGPOOL SHOW ALL;
-    item                     |          value          |              description
-    \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
-    backend_hostname0        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
-    backend_port0            | 5434                    | port number of PostgreSQL backend\&.
-    backend_weight0          | 0                       | load balance weight of backend\&.
-    backend_data_directory0  | /var/lib/pgsql/data     | data directory of the backend\&.
-    backend_flag0            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
-    backend_hostname1        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
-    backend_port1            | 5432                    | port number of PostgreSQL backend\&.
-    backend_weight1          | 1                       | load balance weight of backend\&.
-    backend_data_directory1  | /home/work/installed/pg | data directory of the backend\&.
-    backend_flag1            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
-    other_pgpool_hostname0   | localhost               | Hostname of other pgpool node for watchdog connection\&.
-    \&.
-    \&.
-    \&.
-    ssl                      | off                     | Enables SSL support for frontend and backend connections
-    (138 rows)
-
+PGPOOL SHOW ALL;
+item                     |          value          |              description
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+backend_hostname0        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
+backend_port0            | 5434                    | port number of PostgreSQL backend\&.
+backend_weight0          | 0                       | load balance weight of backend\&.
+backend_data_directory0  | /var/lib/pgsql/data     | data directory of the backend\&.
+backend_flag0            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
+backend_hostname1        | 127\&.0\&.0\&.1               | hostname or IP address of PostgreSQL backend\&.
+backend_port1            | 5432                    | port number of PostgreSQL backend\&.
+backend_weight1          | 1                       | load balance weight of backend\&.
+backend_data_directory1  | /home/work/installed/pg | data directory of the backend\&.
+backend_flag1            | ALLOW_TO_FAILOVER       | Controls various backend behavior\&.
+hostname0                | localhost               | Hostname of pgpool node for watchdog connection\&.
+\&.
+\&.
+\&.
+ssl                      | off                     | Enables SSL support for frontend and backend connections
+(138 rows)
    
 .fi
 .if n \{\

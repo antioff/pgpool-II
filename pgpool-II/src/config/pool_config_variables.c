@@ -1650,9 +1650,25 @@ static struct config_string_array ConfigureNamesStringArray[] =
 	},
 
 	{
+		/*
+		 * There are two entries of "backend_flag" for "ALLOW_TO_FAILOVER" and
+		 * "ALWAYS_PRIMARY". This is mostly ok but "pgpool show all" command
+		 * displayed both backend_flag entries, which looks redundant. The
+		 * reason for this is, report_all_variables() shows grouped variables
+		 * first then other variables except already shown as grouped
+		 * variables.  Unfortunately build_variable groups() is not smart
+		 * enough to build grouped variable data: it only registers the first
+		 * backend_flag entry and leaves the second entry. since the second
+		 * entry is not a grouped variable, backend_flag is shown firstly as a
+		 * grouped variable and then is show as a non grouped variable in
+		 * report_all_variables(). To fix this, mark that the second variable
+		 * is also a grouped variable (the flag is set by
+		 * build_config_variables()). See bug 728 for the report of the
+		 * problem.
+		 */
 		{"backend_flag", CFGCXT_RELOAD, CONNECTION_CONFIG,
 			"Controls various backend behavior.",
-			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, MAX_NUM_BACKENDS
+			CONFIG_VAR_TYPE_STRING_ARRAY, true, VAR_PART_OF_GROUP, MAX_NUM_BACKENDS
 		},
 		NULL,
 		"",	/* for ALWAYS_PRIMARY */
@@ -1683,7 +1699,7 @@ static struct config_string_array ConfigureNamesStringArray[] =
 	},
 
 	{
-		{"hostname", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
+		{"hostname", CFGCXT_RELOAD, WATCHDOG_CONFIG,
 			"Hostname of pgpool node for watchdog connection.",
 			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, MAX_WATCHDOG_NUM
 		},
@@ -2063,7 +2079,7 @@ static struct config_int ConfigureNamesInt[] =
 		},
 		&g_pool_config.log_rotation_age,
 		1440,/*1 day*/
-		10, INT_MAX,
+		0, INT_MAX,
 		NULL, NULL, NULL
 	},
 	{
@@ -2234,7 +2250,7 @@ static struct config_grouped_array_var ConfigureVarGroups[] =
 		NULL
 	},
 	{
-		{"other_pgpool", CFGCXT_BOOT, WATCHDOG_CONFIG,
+		{"watchdog", CFGCXT_BOOT, WATCHDOG_CONFIG,
 			"watchdog nodes configuration group.",
 			CONFIG_VAR_TYPE_GROUP, false, 0
 		},
@@ -4285,8 +4301,7 @@ WdSlotEmptyCheckFunc(int index)
 static bool
 WdIFSlotEmptyCheckFunc(int index)
 {
-
-	return (index >= g_pool_config.num_hb_dest_if);
+	return (g_pool_config.hb_ifs[index].dest_port  == 0);
 }
 
 static const char *
@@ -5643,6 +5658,9 @@ reset_all_variables(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 	return true;
 }
 
+/*
+ * Handle "pgpool show all" command.
+*/
 bool
 report_all_variables(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 {
@@ -5698,7 +5716,9 @@ report_all_variables(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 	return true;
 }
 
-
+/*
+ * Handle "pgpool show" command.
+*/
 bool
 report_config_variable(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, const char *var_name)
 {
@@ -5748,7 +5768,7 @@ report_config_variable(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backen
 			 * value config variable
 			 */
 			ereport(DEBUG3,
-					(errmsg("show parameter \"%s\" with out index", var_name)));
+					(errmsg("show parameter \"%s\" without index", var_name)));
 			send_row_description_for_detail_view(frontend, backend);
 			num_rows = send_array_type_variable_to_frontend(record, frontend, backend);
 			if (num_rows < 0)

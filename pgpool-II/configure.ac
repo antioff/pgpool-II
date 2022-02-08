@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [4.2.4], [pgpool-hackers@pgpool.net], [pgpool-II])
+AC_INIT([pgpool-II], [4.2.5], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -17,6 +17,8 @@ dnl Disallow to rebuild configure.
 AM_MAINTAINER_MODE(disable)
 
 # AC_PROG_RANLIB
+AR_FLAGS="cr"
+AC_SUBST(AR_FLAGS)
 AC_PROG_LIBTOOL
 
 AM_PROG_LEX
@@ -180,7 +182,10 @@ PGAC_PROG_CC_VAR_OPT(NOT_THE_CFLAGS, [-Wformat-truncation])
 if test -n "$NOT_THE_CFLAGS"; then
   CFLAGS="$CFLAGS -Wno-format-truncation"
 fi
-
+PGAC_PROG_CC_VAR_OPT(NOT_THE_CFLAGS, [-Wstringop-truncation])
+if test -n "$NOT_THE_CFLAGS"; then
+  CFLAGS="$CFLAGS -Wno-stringop-truncation"
+fi
 AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE",
                    [Name of package])
 
