@@ -231,7 +231,7 @@
    <productname>Pgpool-II</productname>のインストールは<productname>Pgpool-II</productname>開発コミュニティが提供するYumリポジトリを用いてインストールします。
   </para>
   <programlisting>
-# yum install http://www.pgpool.net/yum/rpms/4.2/redhat/rhel-7-x86_64/pgpool-II-release-4.2-1.noarch.rpm
+# yum install -y https://www.pgpool.net/yum/rpms/4.2/redhat/rhel-7-x86_64/pgpool-II-release-4.2-1.noarch.rpm
 # yum install pgpool-II-pg13-*
   </programlisting>
  </sect2>
@@ -363,8 +363,8 @@ host    replication     all             samenet                 scram-sha-256
 [全サーバ]$ cd ~/.ssh
 [全サーバ]$ ssh-keygen -t rsa -f id_rsa_pgpool
 [全サーバ]$ ssh-copy-id -i id_rsa_pgpool.pub postgres@server1
-[全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server2
-[全サーバ]# ssh-copy-id -i id_rsa_pgpool.pub postgres@server3
+[全サーバ]$ ssh-copy-id -i id_rsa_pgpool.pub postgres@server2
+[全サーバ]$ ssh-copy-id -i id_rsa_pgpool.pub postgres@server3
     </programlisting>
     <para>
      設定後、<literal>root</literal>ユーザ及び<literal>postgres</literal>ユーザから<command>ssh postgres@serverX -i ~/.ssh/id_rsa_pgpool</command>コマンドを実行し、パスワード入力せずログインできることを確認してください。
@@ -374,7 +374,7 @@ host    replication     all             samenet                 scram-sha-256
 
    <listitem>
     <para>
-     <literal>repl</literal>ユーザのパスワード入力なしで、ストリーミングレプリケーションとオンラインリカバリを行うために、または<literal>postgres</literal>ユーザで<application>pg_rewind</application>を実行するために、すべてのサーバにて<literal>postgres</literal>ユーザのホームディレクト<filename>/var/lib/pgsql</filename> に<filename>.pgpass</filename>を作成・配置し、パーミッションを 600 に設定しておきます。
+     <literal>repl</literal>ユーザのパスワード入力なしで、ストリーミングレプリケーションとオンラインリカバリを行うために、または<literal>postgres</literal>ユーザで<application>pg_rewind</application>を実行するために、すべてのサーバにて<literal>postgres</literal>ユーザのホームディレクトリ<filename>/var/lib/pgsql</filename> に<filename>.pgpass</filename>を作成・配置し、パーミッションを 600 に設定しておきます。
     </para>
     <programlisting>
 [全サーバ]# su - postgres

@@ -2354,10 +2354,13 @@ reaper(void)
 		}
 		if (WIFSIGNALED(status))
 		{
-			/* Child terminated by segmentation fault. Report it */
+			/* Child terminated by segmentation fault or sigkill. Report it */
 			if (WTERMSIG(status) == SIGSEGV)
 				ereport(WARNING,
 						(errmsg("%s process with pid: %d was terminated by segmentation fault", exiting_process_name, pid)));
+			else if (WTERMSIG(status) == SIGKILL)
+				ereport(WARNING,
+						(errmsg("%s process with pid: %d was terminated by sigkill", exiting_process_name, pid)));
 			else
 				ereport(LOG,
 						(errmsg("%s process with pid: %d exits with status %d by signal %d", exiting_process_name, pid, status, WTERMSIG(status))));
@@ -2833,13 +2836,23 @@ trigger_failover_command(int node, const char *command_line,
 
 					case 'N':	/* old primary host name */
 						oldprimary = pool_get_node_info(old_primary);
-						string_append_char(exec_cmd, oldprimary->backend_hostname);
+						if (oldprimary)
+							string_append_char(exec_cmd, oldprimary->backend_hostname);
+						else
+							/* no valid old primary */
+							string_append_char(exec_cmd, "\"\"");
 						break;
 
 					case 'S':	/* old primary port */
 						oldprimary = pool_get_node_info(old_primary);
-						snprintf(port_buf, sizeof(port_buf), "%d", oldprimary->backend_port);
-						string_append_char(exec_cmd, port_buf);
+						if (oldprimary)
+						{
+							snprintf(port_buf, sizeof(port_buf), "%d", oldprimary->backend_port);
+							string_append_char(exec_cmd, port_buf);
+						}
+						else
+							/* no valid old primary */
+							string_append_char(exec_cmd, "\"\"");
 						break;
 
 					case '%':	/* escape */
