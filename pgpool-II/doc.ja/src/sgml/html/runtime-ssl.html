@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.3 文書"
+TITLE="Pgpool-II 4.2.4 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2021-05-19T13:56:22"></HEAD
+CONTENT="2021-08-03T04:23:38"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.3 文書</A
+>Pgpool-II 4.2.4 文書</A
 ></TH
 ></TR
 ><TR
@@ -446,10 +446,6 @@ CLASS="ACRONYM"
 >キー交換で使われる曲線の名前を指定します。
       接続する全てのクライアントがこの設定をサポートしている必要があります。
       サーバの楕円曲線キーで使用されるのと同じ曲線である必要はありません。
-      クライアントではなく、サーバ指定の<ACRONYM
-CLASS="ACRONYM"
->SSL</ACRONYM
->暗号を選択します。
       デフォルト値は<TT
 CLASS="LITERAL"
 >prime256v1</TT
@@ -457,7 +453,7 @@ CLASS="LITERAL"
      </P
 ><P
 >      
-      OpenSSLはよく使われる曲線に名前を付けています。
+      よく使われる曲線の OpenSSL 名は、
       <TT
 CLASS="LITERAL"
 >prime256v1</TT
@@ -469,7 +465,7 @@ CLASS="LITERAL"
       <TT
 CLASS="LITERAL"
 >secp521r1</TT
-> (NIST P-521)。
+> (NIST P-521) です。
       
       利用できる曲線の完全なリストは<TT
 CLASS="COMMAND"

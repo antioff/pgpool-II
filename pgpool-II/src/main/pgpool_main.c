@@ -97,8 +97,10 @@ typedef struct User1SignalSlot
 		} \
 		if (sigusr1_request) \
 		{ \
-			sigusr1_interupt_processor(); \
-			sigusr1_request = 0; \
+			do {\
+				sigusr1_request = 0; \
+				sigusr1_interupt_processor(); \
+			} while (sigusr1_request == 1); \
 		} \
 		if (sigchld_request) \
 		{ \
@@ -149,7 +151,7 @@ static char *process_name_from_pid(pid_t pid);
 static void sync_backend_from_watchdog(void);
 static void update_backend_quarantine_status(void);
 static int	get_server_version(POOL_CONNECTION_POOL_SLOT * *slots, int node_id);
-static void get_info_from_conninfo(char *conninfo, char *host, char *port);
+static void get_info_from_conninfo(char *conninfo, char *host, int hostlen, char *port, int portlen);
 
 static struct sockaddr_un un_addr;	/* unix domain socket path */
 static struct sockaddr_un pcp_un_addr;	/* unix domain socket path for PCP */
@@ -350,8 +352,10 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 
 		if (sigusr1_request)
 		{
-			sigusr1_interupt_processor();
-			sigusr1_request = 0;
+			do {
+				sigusr1_request = 0;
+				sigusr1_interupt_processor();
+			} while (sigusr1_request == 1);
 		}
 	}
 
@@ -600,6 +604,9 @@ register_inform_quarantine_nodes_req(void)
 static void
 signal_user1_to_parent_with_reason(User1SignalReason reason)
 {
+	ereport(LOG,
+			(errmsg("signal_user1_to_parent_with_reason(%d)", reason)));
+
 	user1SignalSlot->signalFlags[reason] = true;
 	pool_signal_parent(SIGUSR1);
 }
@@ -617,7 +624,7 @@ pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 	if (pid == 0)
 	{
 		on_exit_reset();
-		SetProcessGlobalVaraibles(PT_PCP);
+		SetProcessGlobalVariables(PT_PCP);
 
 		close(pipe_fds[0]);
 		close(pipe_fds[1]);
@@ -665,7 +672,7 @@ fork_a_child(int *fds, int id)
 			close(pipe_fds[1]);
 		}
 
-		SetProcessGlobalVaraibles(PT_CHILD);
+		SetProcessGlobalVariables(PT_CHILD);
 
 		/* call child main */
 		POOL_SETMASK(&UnBlockSig);
@@ -712,7 +719,7 @@ worker_fork_a_child(ProcessType type, void (*func) (), void *params)
 			close(pipe_fds[1]);
 		}
 
-		SetProcessGlobalVaraibles(type);
+		SetProcessGlobalVariables(type);
 
 		ereport(LOG,
 				(errmsg("process started")));
@@ -1150,6 +1157,28 @@ static RETSIGTYPE exit_handler(int sig)
 			(errmsg("terminating all child processes")));
 	terminate_all_childrens(sig);
 
+	/*
+	 * Send signal to follow child process and it's children.
+	 */
+	if (follow_pid > 0)
+	{
+		ereport(LOG, 
+				(errmsg("terminating all child processes of follow child")));
+		kill(follow_pid, sig);
+		switch (sig)
+		{
+			case SIGINT:
+			case SIGTERM:
+			case SIGQUIT:
+			case SIGSTOP:
+			case SIGKILL:
+				if (kill(-follow_pid, sig) < 0)
+					elog(LOG, "kill(%ld,%d) failed: %m", (long) (-follow_pid), sig);
+				break;
+			default:
+				break;
+		}
+	}
 
 	POOL_SETMASK(&UnBlockSig);
 	ereport(LOG,
@@ -1222,7 +1251,7 @@ static RETSIGTYPE sigusr1_handler(int sig)
 static void
 sigusr1_interupt_processor(void)
 {
-	ereport(DEBUG1,
+	ereport(LOG,
 			(errmsg("Pgpool-II parent process received SIGUSR1")));
 
 	if (user1SignalSlot->signalFlags[SIG_WATCHDOG_QUORUM_CHANGED])
@@ -1266,7 +1295,7 @@ sigusr1_interupt_processor(void)
 
 	if (user1SignalSlot->signalFlags[SIG_WATCHDOG_STATE_CHANGED])
 	{
-		ereport(DEBUG1,
+		ereport(LOG,
 				(errmsg("Pgpool-II parent process received watchdog state change signal from watchdog")));
 
 		user1SignalSlot->signalFlags[SIG_WATCHDOG_STATE_CHANGED] = false;
@@ -1276,6 +1305,13 @@ sigusr1_interupt_processor(void)
 					(errmsg("we have joined the watchdog cluster as STANDBY node"),
 					 errdetail("syncing the backend states from the LEADER watchdog node")));
 			sync_backend_from_watchdog();
+			/*
+			 * we also want to release the follow_primary lock if it was held
+			 * by the remote node.
+			 * because the change of watchdog coordinator would lead to forever stuck
+			 * in the the locked state
+			 */
+			pool_release_follow_primary_lock(true);
 		}
 	}
 	if (user1SignalSlot->signalFlags[SIG_FAILOVER_INTERRUPT])
@@ -2033,8 +2069,11 @@ failover(void)
 		}
 		need_to_restart_pcp = true;
 	}
+
+	pool_semaphore_lock(REQUEST_INFO_SEM);
 	switching = 0;
 	Req_info->switching = false;
+	pool_semaphore_unlock(REQUEST_INFO_SEM);
 
 	/*
 	 * kick wakeup_handler in pcp_child to notice that failover/failback done
@@ -2370,6 +2409,12 @@ reaper(void)
 			}
 			else
 				pgpool_logger_pid = 0;
+		}
+
+		/* exiting process was follow child process */
+		else if (pid == follow_pid)
+		{
+			follow_pid = 0;
 		}
 
 		/* exiting process was watchdog process */
@@ -2944,7 +2989,7 @@ verify_backend_node_status(POOL_CONNECTION_POOL_SLOT * *slots)
 		bool		check_connectivity = false;
 		int			wal_receiver_status = 0;
 		int			wal_receiver_conninfo = 1;
-		char		host[1024];
+		char		host[MAX_DB_HOST_NAMELEN];
 		char		port[1024];
 		int			primary[MAX_NUM_BACKENDS];
 		int			true_primary = -1;
@@ -3038,7 +3083,7 @@ verify_backend_node_status(POOL_CONNECTION_POOL_SLOT * *slots)
 									(errmsg("verify_backend_node_status: pg_stat_wal_receiver conninfo for standby %d is NULL", j)));
 							continue;
 						}
-						get_info_from_conninfo(res->data[wal_receiver_conninfo], host, port);
+						get_info_from_conninfo(res->data[wal_receiver_conninfo], host, sizeof(host), port, sizeof(port));
 						ereport(DEBUG1,
 								(errmsg("verify_backend_node_status: conninfo for standby %d is === %s ===. host:%s port:%s", j, res->data[wal_receiver_conninfo], host, port)));
 						free_select_result(res);
@@ -3185,9 +3230,9 @@ find_primary_node(void)
 		pfree(password);
 
 	/* Verify backend status */
-	pool_acquire_follow_primary_lock(true);
+	pool_acquire_follow_primary_lock(true, false);
 	status = verify_backend_node_status(slots);
-	pool_release_follow_primary_lock();
+	pool_release_follow_primary_lock(false);
 
 	for (i = 0; i < NUM_BACKENDS; i++)
 	{
@@ -3240,6 +3285,20 @@ find_primary_node_repeatedly(void)
 	}
 
 	/*
+	 * If follow primary command is ongoing, skip primary node check.  Just
+	 * return current primary node to avoid deadlock between pgpool main
+	 * failover() and follow primary process.
+	 */
+	if (Req_info->follow_primary_ongoing)
+	{
+		ereport(LOG,
+				(errmsg("find_primary_node_repeatedly: follow primary is ongoing. return current primary: %d",
+						Req_info->primary_node_id)));
+
+		return Req_info->primary_node_id;
+	}
+
+	/*
 	 * If all of the backends are down, there's no point to keep on searching
 	 * primary node.
 	 */
@@ -3286,9 +3345,42 @@ fork_follow_child(int old_main_node, int new_primary, int old_primary)
 
 	if (pid == 0)
 	{
+		POOL_SETMASK(&UnBlockSig);
+
+		pool_signal(SIGCHLD, SIG_DFL);
+		pool_signal(SIGUSR1, SIG_DFL);
+		pool_signal(SIGUSR2, SIG_DFL);
+		pool_signal(SIGTERM, SIG_DFL);
+		pool_signal(SIGINT, SIG_DFL);
+		pool_signal(SIGQUIT, SIG_DFL);
+		pool_signal(SIGHUP, SIG_DFL);
+
 		on_exit_reset();
-		SetProcessGlobalVaraibles(PT_FOLLOWCHILD);
-		pool_acquire_follow_primary_lock(true);
+
+		/*
+		 * Set session id if possible
+		 */
+#ifdef HAVE_SETSID
+		if (setsid() < 0)
+		{
+			ereport(FATAL,
+					(errmsg("could not set session id in the fork_follow_child"),
+					 errdetail("setsid() system call failed with reason: \"%m\"")));
+		}
+#endif
+
+		SetProcessGlobalVariables(PT_FOLLOWCHILD);
+		/*
+		 * when the watchdog is enabled, we would come here
+		 * only on the coordinator node.
+		 * so before acquiring the local lock, Lock all the
+		 * standby nodes so that they should stop false primary
+		 * detection until we are finished with the follow primary
+		 * command.
+		 */
+		wd_lock_standby(WD_FOLLOW_PRIMARY_LOCK);
+		pool_acquire_follow_primary_lock(true, false);
+		Req_info->follow_primary_ongoing = true;
 		ereport(LOG,
 				(errmsg("start triggering follow command.")));
 		for (i = 0; i < pool_config->backend_desc->num_backends; i++)
@@ -3300,7 +3392,10 @@ fork_follow_child(int old_main_node, int new_primary, int old_primary)
 				trigger_failover_command(i, pool_config->follow_primary_command,
 										 old_main_node, new_primary, old_primary);
 		}
-		pool_release_follow_primary_lock();
+		Req_info->follow_primary_ongoing = false;
+		pool_release_follow_primary_lock(false);
+		/* inform standby watchdog nodes to release the lock aswell*/
+		wd_unlock_standby(WD_FOLLOW_PRIMARY_LOCK);
 		exit(0);
 	}
 	else if (pid == -1)
@@ -3312,8 +3407,6 @@ fork_follow_child(int old_main_node, int new_primary, int old_primary)
 	}
 	return pid;
 }
-
-
 
 static void
 initialize_shared_mem_objects(bool clear_memcache_oidmaps)
@@ -3799,9 +3892,20 @@ system_will_go_down(int code, Datum arg)
 				(errmsg("shutting down")));
 		terminate_all_childrens(SIGINT);
 	}
+
+	/*
+	 * Send signal to follow child process and it's children.
+	 */
+	if (follow_pid > 0)
+	{
+		ereport(LOG, 
+				(errmsg("terminating all child processes of follow child")));
+		kill(follow_pid, SIGTERM);
+		kill(-follow_pid, SIGTERM);
+	}
+
 	processState = EXITING;
 	POOL_SETMASK(&UnBlockSig);
-
 }
 
 int
@@ -4182,7 +4286,7 @@ get_server_version(POOL_CONNECTION_POOL_SLOT * *slots, int node_id)
  * Get info from conninfo string.
  */
 static void
-get_info_from_conninfo(char *conninfo, char *host, char *port)
+get_info_from_conninfo(char *conninfo, char *host, int hostlen, char *port, int portlen)
 {
 	char	   *p;
 
@@ -4196,7 +4300,7 @@ get_info_from_conninfo(char *conninfo, char *host, char *port)
 		while (*p && *p++ != '=')
 			;
 
-		while (*p && *p != ' ')
+		while (*p && hostlen-- && *p != ' ')
 			*host++ = *p++;
 		*host = '\0';
 	}
@@ -4208,7 +4312,7 @@ get_info_from_conninfo(char *conninfo, char *host, char *port)
 		while (*p && *p++ != '=')
 			;
 
-		while (*p && *p != ' ')
+		while (*p && portlen-- && *p != ' ')
 			*port++ = *p++;
 		*port = '\0';
 	}
@@ -4232,9 +4336,11 @@ pool_set_backend_status_changed_time(int backend_id)
  * they are conflicting each other.  If argument "block" is true, this
  * function will not return until it succeeds in acquiring the lock.  This
  * function returns true if succeeded in acquiring the lock.
+ *
+ * first arg:block is ignored when remote_request is set
  */
 bool
-pool_acquire_follow_primary_lock(bool block)
+pool_acquire_follow_primary_lock(bool block, bool remote_request)
 {
 	pool_sigset_t oldmask;
 	volatile int	follow_primary_count;
@@ -4251,6 +4357,29 @@ pool_acquire_follow_primary_lock(bool block)
 			ereport(DEBUG1,
 					(errmsg("pool_acquire_follow_primary_lock: lock was not held by anyone")));
 			break;
+		}
+		else if (follow_primary_count > 0 && remote_request)
+		{
+			if (Req_info->follow_primary_lock_held_remotely)
+			{
+				/* The lock was already held by remote node and we only
+				 * support one remote lock
+				 */
+				ereport(LOG,
+						(errmsg("pool_acquire_follow_primary_lock: received remote locking request while lock is already held by the remote node")));
+
+			}
+			else
+			{
+				/* set the flag that watchdog has requested the lock */
+				Req_info->follow_primary_lock_pending = true;
+			}
+			pool_semaphore_unlock(FOLLOW_PRIMARY_SEM);
+			POOL_SETMASK(&oldmask);
+			/* return and inform that the lock was held by someone */
+			ereport(DEBUG1,
+					(errmsg("pool_acquire_follow_primary_lock: lock was held by someone %d", follow_primary_count)));
+			return false;
 		}
 
 		else if (follow_primary_count > 0 && !block)
@@ -4271,6 +4400,8 @@ pool_acquire_follow_primary_lock(bool block)
 	}
 
 	/* acquire lock */
+	Req_info->follow_primary_lock_held_remotely = remote_request;
+
 	Req_info->follow_primary_count = 1;
 	pool_semaphore_unlock(FOLLOW_PRIMARY_SEM);
 	POOL_SETMASK(&oldmask);
@@ -4285,13 +4416,71 @@ pool_acquire_follow_primary_lock(bool block)
  * Release lock on follow primary command execution.
  */
 void
-pool_release_follow_primary_lock(void)
+pool_release_follow_primary_lock(bool remote_request)
 {
 	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
 	pool_semaphore_lock(FOLLOW_PRIMARY_SEM);
-	Req_info->follow_primary_count = 0;
+	if (remote_request)
+	{
+		if (Req_info->follow_primary_lock_held_remotely)
+		{
+			/* remote request can only release locks held by remote nodes */
+			Req_info->follow_primary_count = 0;
+			Req_info->follow_primary_lock_held_remotely = false;
+			ereport(DEBUG1,
+					(errmsg("pool_release_follow_primary_lock relased the remote lock")));
+		}
+		else if (Req_info->follow_primary_count)
+		{
+			/*
+			 * we have received the release lock request from remote
+			 * but the lock is not held by remote node.
+			 * Just ignore the request
+			 */
+			ereport(DEBUG1,
+					(errmsg("pool_release_follow_primary_lock is not relasing the lock since it was not held by remote node")));
+		}
+		/*
+		 * Silently ignore, if we received the release request from remote while no lock was held.
+		 * Also clear the pending lock request, As we only support single remote lock
+		 */
+		Req_info->follow_primary_lock_pending = false;
+
+	}
+	else /*local request */
+	{
+		/*
+		 * if we have a pending lock request from watchdog
+		 * do not remove the actual lock, Just clear the pending flag
+		 */
+		if (Req_info->follow_primary_lock_pending)
+		{
+			Req_info->follow_primary_lock_held_remotely = true;
+			Req_info->follow_primary_count = 1;
+			/* also clear the pending lock flag */
+			Req_info->follow_primary_lock_pending = false;
+			ereport(DEBUG1,
+					(errmsg("pool_release_follow_primary_lock is not relasing the lock and shifting it to coordinator watchdog node")));
+		}
+		else
+		{
+			if (Req_info->follow_primary_lock_held_remotely)
+			{
+				/*
+				 * Ideally this should not happen.
+				 * yet if for some reason our local node is trying to release a lock
+				 * that is heald by remote node. Just produce a LOG message and release
+				 * the lock
+				 */
+				ereport(LOG,
+						(errmsg("pool_release_follow_primary_lock is relasing the remote lock by local request")));
+			}
+			Req_info->follow_primary_count = 0;
+			Req_info->follow_primary_lock_held_remotely = false;
+		}
+	}
 	pool_semaphore_unlock(FOLLOW_PRIMARY_SEM);
 	POOL_SETMASK(&oldmask);
 

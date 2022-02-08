@@ -9,7 +9,7 @@ CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
 REV="MADE"
 HREF="mailto:pgsql-docs@postgresql.org"><LINK
 REL="HOME"
-TITLE="Pgpool-II 4.2.3 文書"
+TITLE="Pgpool-II 4.2.4 文書"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="サーバの設定"
@@ -26,7 +26,7 @@ HREF="stylesheet.css"><META
 HTTP-EQUIV="Content-Type"
 CONTENT="text/html; charset=utf-8"><META
 NAME="creation"
-CONTENT="2021-05-19T13:56:22"></HEAD
+CONTENT="2021-08-03T04:23:38"></HEAD
 ><BODY
 CLASS="SECT1"
 ><DIV
@@ -44,7 +44,7 @@ ALIGN="center"
 VALIGN="bottom"
 ><A
 HREF="index.html"
->Pgpool-II 4.2.3 文書</A
+>Pgpool-II 4.2.4 文書</A
 ></TH
 ></TR
 ><TR
@@ -620,7 +620,7 @@ CLASS="TYPE"
 CLASS="COMMAND"
 >"ip addr add $_IP_$/24 dev eth0 label eth0:0"</TT
 >のようにコマンドとパラメータを指定します。
-      こをコマンドを実行するには<TT
+      このコマンドを実行するには<TT
 CLASS="LITERAL"
 >root</TT
 >権限が必要となりますので、一般ユーザが実行できるように
@@ -680,7 +680,7 @@ CLASS="TYPE"
 CLASS="LITERAL"
 >"ip addr del $_IP_$/24 dev eth0"</TT
 >のようにコマンドとパラメータを指定します。
-      こをコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
+      このコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
       <TT
 CLASS="COMMAND"
 >ip</TT
@@ -775,7 +775,7 @@ CLASS="TYPE"
 CLASS="LITERAL"
 >"arping -U $_IP_$ -w 1 -I eth0"</TT
 >のようにコマンドとパラメータを指定します。
-      こをコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
+      このコマンドを実行するにはroot権限が必要となりますので、一般ユーザが実行できるように
       <TT
 CLASS="COMMAND"
 >arping</TT
@@ -2071,6 +2071,7 @@ CLASS="TYPE"
 >      
       監視クエリの応答が得られなかった場合のリトライ回数を指定します。
       有効な値は1以上の整数です。
+      デフォルトは3です。
      </P
 ><P
 >      
@@ -2124,7 +2125,7 @@ CLASS="LITERAL"
 >'query'</TT
 >の場合のみ、<TT
 CLASS="VARNAME"
->wd_life_check_query</TT
+>wd_lifecheck_query</TT
 >は有効です。
      </P
 ><P
@@ -2166,7 +2167,7 @@ CLASS="LITERAL"
 >'query'</TT
 >の場合のみ、<TT
 CLASS="VARNAME"
->wd_life_check_dbname</TT
+>wd_lifecheck_dbname</TT
 >は有効です。
      </P
 ><P
@@ -2208,7 +2209,7 @@ CLASS="LITERAL"
 >'query'</TT
 >の場合のみ、<TT
 CLASS="VARNAME"
->wd_life_check_user</TT
+>wd_lifecheck_user</TT
 >は有効です。
      </P
 ><P
@@ -2327,7 +2328,7 @@ CLASS="LITERAL"
 >'query'</TT
 >の場合のみ、<TT
 CLASS="VARNAME"
->wd_life_check_password</TT
+>wd_lifecheck_password</TT
 >は有効です。
      </P
 ><P

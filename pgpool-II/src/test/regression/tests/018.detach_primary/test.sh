@@ -102,7 +102,10 @@ cd pgpool2
 ./startall
 cd ..
 sleep 10
-$PGPOOL_INSTALL_DIR/bin/pcp_watchdog_info -v -w -p $PCP_PORT
+date
+wait_for_pgpool_startup
+date
+$PGPOOL_INSTALL_DIR/bin/pcp_watchdog_info -v -w -h localhost -p $PCP_PORT
 
 $PSQL -c "show pool_nodes" postgres
 
