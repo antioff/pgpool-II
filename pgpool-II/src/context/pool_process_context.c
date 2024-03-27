@@ -91,7 +91,7 @@ pool_get_my_process_info(void)
  * Increment local session id
  */
 void
-pool_incremnet_local_session_id(void)
+pool_increment_local_session_id(void)
 {
 	POOL_PROCESS_CONTEXT *p = pool_get_process_context();
 
@@ -230,25 +230,30 @@ pool_coninfo_backend_pid(int backend_pid, int *backend_node_id)
 	for (child = 0; child < pool_config->num_init_children; child++)
 	{
 		int			pool;
-		ProcessInfo *pi = pool_get_process_info(process_info[child].pid);
 
-		for (pool = 0; pool < pool_config->max_pool; pool++)
+		if (process_info[child].pid)
 		{
-			int			backend_id;
+			ProcessInfo *pi = pool_get_process_info(process_info[child].pid);
 
-			for (backend_id = 0; backend_id < NUM_BACKENDS; backend_id++)
+			for (pool = 0; pool < pool_config->max_pool; pool++)
 			{
-				int			poolBE = pool * MAX_NUM_BACKENDS + backend_id;
+				int			backend_id;
 
-				if (ntohl(pi->connection_info[poolBE].pid) == backend_pid)
+				for (backend_id = 0; backend_id < NUM_BACKENDS; backend_id++)
 				{
-					ereport(DEBUG1,
-							(errmsg("found for the connection with backend pid:%d on backend node %d", backend_pid, backend_id)));
-					*backend_node_id = backend_id;
-					return &pi->connection_info[poolBE];
+					int			poolBE = pool * MAX_NUM_BACKENDS + backend_id;
+
+					if (ntohl(pi->connection_info[poolBE].pid) == backend_pid)
+					{
+						ereport(DEBUG1,
+								(errmsg("found the connection with backend pid:%d on backend node %d", backend_pid, backend_id)));
+						*backend_node_id = backend_id;
+						return &pi->connection_info[poolBE];
+					}
 				}
 			}
 		}
+
 	}
 	return NULL;
 }
@@ -292,6 +297,7 @@ pool_coninfo_set_frontend_connected(int proc_id, int pool_index)
 			return;
 		}
 		con->connected = true;
+		con->client_connection_time = time(NULL);
 	}
 }
 
@@ -317,6 +323,7 @@ pool_coninfo_unset_frontend_connected(int proc_id, int pool_index)
 			return;
 		}
 		con->connected = false;
+		con->client_disconnection_time = time(NULL);
 	}
 }
 

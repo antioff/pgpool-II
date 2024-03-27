@@ -20,22 +20,7 @@
    Queries which are sent to primary node or all backend nodes because they cannot be balanced are
    also accounted for in the load balancing algorithm.
    -->
-   負荷分散ができないためにプライマリノードまたは全バックエンドノードに送られるクエリもまた、
-   負荷分散アルゴリズムの考慮に入れられます。
-  </para>
- </note>
- <note>
-  <para>
-   <!--
-   If you don't want a query that qualifies for the load balancing to be
-   load balanced by <productname>Pgpool-II</productname>, you can put
-   arbitrary comment(<emphasis>/*NO LOAD BALANCE*/</emphasis> is usually used)
-   before the <acronym>SELECT</acronym> statement. This will disable the
-   load balance of the particular query and <productname>Pgpool-II</productname>
-   will send it to the main node (the primary node in Native Replication mode).
-   -->
-   もし負荷分散対象のクエリを<productname>Pgpool-II</productname>に負荷分散してほしくない場合には、<acronym>SELECT</acronym>文の前の任意のコメント（<emphasis>/*NO LOAD BALANCE*/</emphasis>がよく使われます）を付与することができます。
-   これにより、そのクエリの負荷分散は無効となり、<productname>Pgpool-II</productname>はこれをメインノード（プライマリノード）に送信します。
+   負荷分散ができないためにプライマリノードまたは全バックエンドノードに送られるクエリもまた、   負荷分散アルゴリズムの考慮に入れられます。
   </para>
  </note>
 
@@ -73,9 +58,12 @@
     <listitem>
      <para>
       <!--
-      either in replication mode or native replication mode
+      either
+      in <xref linkend="runtime-config-streaming-replication-mode">,
+      <xref linkend="guc-replication-mode">
+      or <xref linkend="guc-snapshot-isolation-mode">
       -->
-      rawモードでない
+      <xref linkend="runtime-config-streaming-replication-mode">、<xref linkend="guc-replication-mode">、<xref linkend="guc-snapshot-isolation-mode">のどれかである。
      </para>
     </listitem>
     <listitem>
@@ -163,33 +151,34 @@
     <listitem>
      <para>
       <!--
-      in native replication mode, in addition to above, following conditions must be met:
+      in <xref linkend="runtime-config-streaming-replication-mode"> in addition to above, following conditions must be met:
       -->
-      ネィティブレプリケーションモードの場合、更に以下の条件が満たされなければなりません。
+      <xref linkend="runtime-config-streaming-replication-mode">の場合、更に以下の条件が満たされなければなりません。
      </para>
      <itemizedlist>
       <listitem>
        <para>
 	<!--
-	does not use temporary tables
+	temporary tables are not used (temporary tables are not replicated)
 	-->
-	一時テーブルを使っていない
+	一時テーブルを使っていない (一時テーブルはレプリケーションされません）
        </para>
       </listitem>
       <listitem>
        <para>
 	<!--
-	does not use unlogged tables
+	unlogged tables are not used (unlogged tables are not replicated)
 	-->
-	unloggedテーブルを使っていない
+	unloggedテーブルを使っていない (一時テーブルはレプリケーションされません）
        </para>
       </listitem>
       <listitem>
        <para>
 	<!--
-	does not use system catalogs
+	system catalogs are not used (system catalog information is
+	important and it is desirable to avoid replication delay)
 	-->
-	システムカタログを使っていない
+	システムカタログを使っていない（システムカタログは重要なので、レプリケーション遅延を避けることが望まれます）
        </para>
       </listitem>
      </itemizedlist>
@@ -210,7 +199,7 @@
    </programlisting>
    <para>
     <!--
-    If you want to use comments without supressing load balancing, you can set
+    If you want to use comments without suppressing load balancing, you can set
     <xref linkend="guc-allow-sql-comments"> to on.
     Please refer to <xref linkend="guc-replicate-select"> as well.
     -->
@@ -224,7 +213,7 @@
     <!--
     The JDBC driver has an autocommit option. If the autocommit is false,
     the JDBC driver sends "BEGIN" and "COMMIT" by itself, and an explicit
-    tranasacttion starts. In this case the same restriction above regarding
+    transaction starts. In this case the same restriction above regarding
     load balancing will be applied.
     -->
     JDBC ドライバにはautocommitオプションがあります。
@@ -296,7 +285,7 @@
 
   <para>
    <!--
-   If writing queires appear, succeeding read queries may not be
+   If writing queries appear, succeeding read queries may not be
    load balanced. i.e. sent to primary node (in streaming
    replication mode) or main node (in other mode) depending on the
    setting of <xref linkend="guc-disable-load-balance-on-write">.
@@ -306,7 +295,7 @@
   </para>
  </sect2>
 
- <sect2 id="runtime-config-load-balancing-in-streaming-raplication">
+ <sect2 id="runtime-config-load-balancing-in-streaming-replication">
 
   <!--
   <title>Load Balancing in Streaming Replication</title>
@@ -490,6 +479,11 @@
 	 DEALLOCATE ALL
 	</para>
        </listitem>
+       <listitem>
+	<para>
+	 SAVEPOINT (そしてRELEASE SAVEPOINTのような関連コマンド)
+	</para>
+       </listitem>
       </itemizedlist>
      </para>
     </listitem>
@@ -604,7 +598,7 @@
       -->
       onに設定すると、<productname>Pgpool-II</productname>は入ってきた<acronym>SELECT</acronym>クエリに対する負荷分散を有効にします。
       すなわち、クライアントからの<acronym>SELECT</acronym>クエリは設定された<productname>PostgreSQL</>バックエンドに振り分けます。
-      デフォルトはoffです。
+      デフォルトはonです。
      </para>
      <para>
       <!--
@@ -633,7 +627,7 @@
       white spaces against the user's intention.
       -->
       onに設定すると、負荷分散の際にSQL文行頭の空白を無視します(全角スペースは無視されません)。
-      これは、DBI/DBD:Pgのように、ユーザの意図に反してに空白を追加するようなAPIを使っているときに有用です。
+      これは、DBI/DBD:Pgのように、ユーザの意図に反して空白を追加するようなAPIを使っているときに有用です。
      </para>
      <para>
       <!--
@@ -892,7 +886,7 @@ write_function_list = 'nextval,setval,lastval,currval'
       正規表現には自動的に<literal>^</literal>と<literal>$</literal>が付与されます。
       "'"、";" あるいは "*" などの文字を SQL パターンの中で利用する場合、"\" でエスケープする必要があります。
       SQL パターンの中で正規表現の特殊文字を使用する場合、"\" でエスケープする必要があります。
-      例えば、"'"、";"、"*"、"("、")"、"|"、"+"、"."、"\"、"?"、"^"、"$"、"{","}"、"{"、"}" などの特殊文字の場合、"\" でエスケープする必要があります。
+      例えば、"'"、";"、"*"、"("、")"、"|"、"+"、"."、"\"、"?"、"^"、"$"、"{"、"}"、"{"、"}" などの特殊文字の場合、"\" でエスケープする必要があります。
       また、指定される SQL パターンでは大文字と小文字を区別しません。
      </para>
 
@@ -963,6 +957,120 @@ primary_routing_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, 
     </listitem>
    </varlistentry>
 
+   <varlistentry id="guc-user-redirect-preference-list" xreflabel="user_redirect_preference_list">
+    <term><varname>user_redirect_preference_list</varname> (<type>string</type>)
+     <indexterm>
+      <!--
+      <primary><varname>user_redirect_preference_list</varname> configuration parameter</primary>
+      -->
+      <primary><varname>user_redirect_preference_list</varname> 設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Specifies the list of <replaceable>"user-name:node id(ratio)"</replaceable> pairs
+      to send <acronym>SELECT</acronym> queries to a particular backend
+      node for a particular user connection at a specified load balance ratio.
+      The load balance ratio specifies a value between 0 and 1. The default is 1.0.
+      -->
+      特定のユーザの接続で<acronym>SELECT</acronym>クエリが指定したロードバランス比率で特定のバックエンドノードに送信されるように、"<replaceable>ユーザ名:ノードID(比率)</replaceable>"ペアのリストを指定します。ロードバランス比率は0-1の間の値を指定します。
+      比率の指定を省略した場合は、デフォルトの1.0となります。
+     </para>
+     <para>
+      <!--
+      For example, by specifying "user1:1(0.5)", <productname>Pgpool-II</productname>
+      will redirect 50% <acronym>SELECT</acronym> queries to the backend node of ID 1 for
+      the connection of user <literal>user1</literal>.
+      -->
+      たとえば"user1:1(0.5)"とした場合、<literal>user1</literal>ユーザからの接続においては、<productname>Pgpool-II</productname>は50%の<acronym>SELECT</acronym>クエリをIDが1のバックエンドノードに送信します。
+     </para>
+     <para>
+      <!--
+      You can specify multiple <replaceable>"user-name:node id"</replaceable> pairs
+      by separating them using comma (,).
+      -->
+      複数の"<replaceable>ユーザ名:ノードID(比率)</replaceable>"のペアをカンマ(,)で区切って指定することができます。
+     </para>
+     <para>
+      <!--
+      Regular expressions are also accepted for user name.
+      You can use special keywords as <replaceable>node id</replaceable>.
+      If <emphasis>"primary"</emphasis> is specified, queries are sent to the primary node, and
+      if <emphasis>"standby"</emphasis> is specified, one of the standby nodes are selected randomly
+      based on weights (<xref linkend="guc-backend-weight">).
+      -->
+      ユーザ名には正規表現を指定することができます。
+      <replaceable>ノードID</replaceable>には特別なキーワードを使うことができます。
+      "<emphasis>primary</emphasis>"が指定された場合にはクエリはプライマリノードに送られます。
+      また、"<emphasis>standby</emphasis>"が指定された場合はスタンバイノードのうちどれかをロードバランス比率に応じてランダムに選択します。
+     </para>
+
+     <example id="example-user-redirect-list">
+      <!--
+      <title>Using user_redirect_preference_list</title>
+      -->
+      <title>user_redirect_preference_listの利用</title>
+      <para>
+       <!--
+       If you want to configure the following <acronym>SELECT</acronym> query routing rules:
+       -->
+       <acronym>SELECT</acronym>クエリのルーティングルールを以下のように設定したい場合：
+      </para>
+
+      <itemizedlist>
+       <listitem>
+        <para>
+         <!--
+         Route all <acronym>SELECT</acronym> queries from the connections
+         using user <literal>postgres</literal> to the primary backend node.
+         -->
+         全ての<literal>postgres</literal>ユーザからの<acronym>SELECT</acronym>クエリはプライマリバックエンドノードに送る。
+        </para>
+       </listitem>
+       <listitem>
+        <para>
+         <!--
+         Route 30% <acronym>SELECT</acronym> queries from the connections
+         using user <literal>user0</literal> or <literal>user1</literal>
+         to backend node of ID 1.
+         The other 70% <acronym>SELECT</acronym> queries will be sent to other backend nodes.
+         -->
+         <literal>user0</literal>または<literal>user1</literal>ユーザからの30%の<acronym>SELECT</acronym>クエリはIDが1のバックエンドノードに送る。
+         残りの70%のSELECTクエリは他のバックエンドノードに送る。
+        </para>
+       </listitem>
+       <listitem>
+        <para>
+         <!--
+         Route all <acronym>SELECT</acronym> queries from the connections
+         using user <literal>user2</literal> to standby backend nodes.
+         -->
+         全ての<literal>user2</literal>ユーザからの<acronym>SELECT</acronym>クエリはスタンバイバックエンドノードに送る。
+        </para>
+       </listitem>
+
+      </itemizedlist>
+      <para>
+       <!--
+       then the <xref linkend="guc-user-redirect-preference-list"> will be configured as follows:
+       -->
+       <xref linkend="guc-user-redirect-preference-list">は以下のように設定します。
+       <programlisting>
+user_redirect_preference_list = 'postgres:primary,user[01]:1(0.3),user2:standby'
+       </programlisting>
+      </para>
+     </example>
+
+     <para>
+      <!--
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+      -->
+      このパラメータは<productname>Pgpool-II</>の設定を再読み込みすることで変更可能です。
+     </para>
+    </listitem>
+   </varlistentry>
+
    <varlistentry id="guc-database-redirect-preference-list" xreflabel="database_redirect_preference_list">
     <term><varname>database_redirect_preference_list</varname> (<type>string</type>)
      <indexterm>
@@ -978,6 +1086,7 @@ primary_routing_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, 
       Specifies the list of <replaceable>"database-name:node id"</replaceable> pairs
       to send <acronym>SELECT</acronym> queries to a particular backend
       node for a particular database connection.
+      The load balance ratio specifies a value between 0 and 1. The default is 1.0.
       -->
       特定のデータベース接続で<acronym>SELECT</acronym>クエリが指定したロードバランス比率で特定のバックエンドノードに送信されるように、"<replaceable>データベース名:ノードID(比率)</replaceable>"ペアのリストを指定します。ロードバランス比率は0-1の間の値を指定します。
       比率の指定を省略した場合は、デフォルトの1.0となります。
@@ -986,12 +1095,16 @@ primary_routing_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, 
       <!--
       For example, by specifying "test:1", <productname>Pgpool-II</productname>
       will redirect all <acronym>SELECT</acronym> queries to the backend node of ID 1 for
-      the connection to "test" database.
+      the connection to <literal>test</literal> database.
+      -->
+      たとえば"test:1(0.5)"とした場合、<literal>test</literal>データベースへの接続においては、<productname>Pgpool-II</productname>は50%の<acronym>SELECT</acronym>クエリをIDが1のバックエンドノードに送信します。
+     </para>
+     <para>
+      <!--
       You can specify multiple <replaceable>"database name:node id"</replaceable> pair by separating them
       using comma (,).
       -->
-      たとえば"test:1(0.5)"とした場合、"test"データベースへの接続においては、<productname>Pgpool-II</productname>は50%の<acronym>SELECT</acronym>クエリをIDが1のバックエンドノードに送信します。
-      複数の"<replaceable>データベース名:ノードID</replaceable>"のペアを カンマ(,)で区切って指定することができます。
+      複数の"<replaceable>データベース名:ノードID(比率)</replaceable>"のペアをカンマ(,)で区切って指定することができます。
      </para>
      <para>
       <!--
@@ -1004,7 +1117,7 @@ primary_routing_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, 
       データベース名には正規表現を指定することができます。
       <replaceable>ノードID</replaceable>には特別なキーワードを使うことができます。
       "<emphasis>primary</emphasis>"が指定された場合にはクエリはプライマリノードに送られます。
-      また、"<emphasis>standby</emphasis>"が指定された場合はスタンバイノードのうちどれかをウェイト(<xref linkend="guc-backend-weight">)に応じてランダムに選択します。
+      また、"<emphasis>standby</emphasis>"が指定された場合はスタンバイノードのうちどれかをロードバランス比率に応じてランダムに選択します。
      </para>
 
      <example id="example-database-redirect-list">
@@ -1021,31 +1134,33 @@ primary_routing_query_pattern_list = 'SELECT \* FROM table_name1\;;SELECT col1, 
 
       <itemizedlist>
        <listitem>
-	<para>
-	 <!--
-	 Route all <acronym>SELECT</acronym> queries on <literal>postgres</literal>
-	 database to the primary backend node.
-	 -->
-	 全ての<literal>postgres</literal>データベースにおける<acronym>SELECT</acronym>クエリはプライマリバックエンドノードに送る。
-	</para>
+        <para>
+         <!--
+         Route all <acronym>SELECT</acronym> queries on <literal>postgres</literal>
+         database to the primary backend node.
+         -->
+         全ての<literal>postgres</literal>データベースにおける<acronym>SELECT</acronym>クエリはプライマリバックエンドノードに送る。
+        </para>
        </listitem>
        <listitem>
-	<para>
-	 <!--
-	 Route all <acronym>SELECT</acronym> queries on <literal>mydb0</literal> or on
-	 <literal>mydb1</literal> databases to backend node of ID 1.
-	 -->
-	 全ての<literal>mydb0</literal>または<literal>mydb1</literal>データベースにおける30%の<acronym>SELECT</acronym>クエリはIDが1のバックエンドノードに送る。
-	</para>
+        <para>
+         <!--
+         Route 30% <acronym>SELECT</acronym> queries on <literal>mydb0</literal> or on
+         <literal>mydb1</literal> databases to backend node of ID 1.
+         The other 70% <acronym>SELECT</acronym> queries will be sent to other backend nodes.
+         -->
+         <literal>mydb0</literal>または<literal>mydb1</literal>データベースにおける30%の<acronym>SELECT</acronym>クエリはIDが1のバックエンドノードに送る。
+         残りの70%のSELECTクエリは他のバックエンドノードに送る。
+        </para>
        </listitem>
        <listitem>
-	<para>
-	 <!--
-	 Route all <acronym>SELECT</acronym> queries on <literal>mydb2</literal>
-	 database to standby backend nodes.
-	 -->
-	 全ての<literal>mydb2</literal>データベースにおける<acronym>SELECT</acronym>クエリはスタンバイバックエンドノードに送る。
-	</para>
+        <para>
+         <!--
+         Route all <acronym>SELECT</acronym> queries on <literal>mydb2</literal>
+         database to standby backend nodes.
+         -->
+         全ての<literal>mydb2</literal>データベースにおける<acronym>SELECT</acronym>クエリはスタンバイバックエンドノードに送る。
+        </para>
        </listitem>
 
       </itemizedlist>
@@ -1082,18 +1197,24 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1(0.3),mydb2:stan
 
      <para>
       <!--
-      Specifies the list of <replaceable>"application-name:node id"</replaceable> pairs
+      Specifies the list of <replaceable>"application-name:node id(ratio)"</replaceable> pairs
       to send <acronym>SELECT</acronym> queries to a particular backend
-      node for a particular client application connection.
+      node for a particular client application connection at a specified load balance ratio.
+      The load balance ratio specifies a value between 0 and 1. The default is 1.0.
+      You can specify multiple <replaceable>"application-name:node id(ratio)"</replaceable> pairs
+      by separating them using comma (,).
       -->
       特定のクライアントアプリケーションの接続で<acronym>SELECT</acronym>クエリが指定したロードバランス比率で特定のバックエンドノードに送信されるように、"<replaceable>アプリケーション名:ノードID(比率)</replaceable>"ペアのリストを指定します。
+      ロードバランス比率は0-1の間の値を指定します。
+      比率の指定を省略した場合は、デフォルトの1.0となります。
+      複数の"<replaceable>アプリケーション名:ノードID(比率)</replaceable>"のペアを カンマ(,)で区切って指定することができます。
      </para>
 
      <note>
       <para>
        <!--
        The "Application name" is a name specified by a client when it connects to database,
-       and is avalable in <productname>PostgreSQL</> <emphasis>V9.0</> or later.
+       and is available in <productname>PostgreSQL</> <emphasis>V9.0</> or later.
        -->
        「アプリケーション名」とはクライアントがデータベースに接続する時に指定する名称で、<productname>PostgreSQL</> <emphasis>V9.0</>以降で利用可能です。
       </para>
@@ -1123,15 +1244,16 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1(0.3),mydb2:stan
 
      <para>
       <!--
-      The notion of <xref linkend="guc-app-name-redirect-preference-list">
-      is same as the <xref linkend="guc-database-redirect-preference-list">
-      thus you can also use the regular expressions for application names.
-      Similarly special keyword <emphasis>"primary"</emphasis> indicates the primary node and
-      <emphasis>"standby"</emphasis> indicates one of standby nodes.
+      Regular expressions are also accepted for application name.
+      You can use special keywords as <replaceable>node id</replaceable>.
+      If <emphasis>"primary"</emphasis> is specified, queries are sent to the primary node, and
+      if <emphasis>"standby"</emphasis> is specified, one of the standby nodes are selected randomly
+      based on weights.
       -->
-      <xref linkend="guc-app-name-redirect-preference-list">の記法は<xref linkend="guc-database-redirect-preference-list">と同じですので、アプリケーション名には正規表現も使用できます。
-	同様に特別なキーワード"<emphasis>primary</emphasis>"はプライマリノードを、"<emphasis>standby</emphasis>"はスタンバイサーバのいずれかを意味します。
-	ロードバランス比率は0-1の間の値を指定します。ロードバランス比率の指定を省略した場合は、デフォルトの1.0となります。
+      アプリケーション名には正規表現を指定することができます。
+      <replaceable>ノードID</replaceable>には特別なキーワードを使うことができます。
+      "<emphasis>primary</emphasis>"が指定された場合にはクエリはプライマリノードに送られます。
+      また、"<emphasis>standby</emphasis>"が指定された場合はスタンバイノードのうちどれかをロードバランス比率に応じてランダムに選択します。
      </para>
 
      <example id="example-app-name-redirect-list">
@@ -1159,10 +1281,11 @@ database_redirect_preference_list = 'postgres:primary,mydb[01]:1(0.3),mydb2:stan
        <listitem>
 	<para>
 	 <!--
-	 Route all <acronym>SELECT</acronym> queries from <literal>myapp1</literal>
-	 client to backend node of ID 1.
+     Route 30% <acronym>SELECT</acronym> queries from <literal>myapp1</literal>
+     client to backend node of ID 1. The other 70% SELECT queries will be sent to other backend nodes.
 	 -->
-	 全ての<literal>myapp1</literal>クライアントからの30%の<acronym>SELECT</acronym>クエリはIDが1のバックエンドノードに送る。
+	 <literal>myapp1</literal>クライアントからの30%の<acronym>SELECT</acronym>クエリはIDが1のバックエンドノードに送る。
+     残りの70%のSELECTクエリは他のバックエンドノードに送る。
 	</para>
        </listitem>
        <listitem>
@@ -1190,10 +1313,14 @@ app_name_redirect_preference_list = 'psql:primary,myapp1:1(0.3),myapp2:standby'
      <note>
       <para>
        <!--
-       <xref linkend="guc-app-name-redirect-preference-list"> takes precedence
-       over the <xref linkend="guc-database-redirect-preference-list">.
+       The priority of <xref linkend="guc-user-redirect-preference-list">,
+       <xref linkend="guc-database-redirect-preference-list"> and
+       <xref linkend="guc-app-name-redirect-preference-list"> are:
        -->
-       <xref linkend="guc-app-name-redirect-preference-list">は、<xref linkend="guc-database-redirect-preference-list">よりも優先されます。
+       <xref linkend="guc-user-redirect-preference-list">、<xref linkend="guc-database-redirect-preference-list">および<xref linkend="guc-app-name-redirect-preference-list">の優先順位は以下の通りです。
+       <programlisting>
+app_name_redirect_preference_list &gt; database_redirect_preference_list &gt; user_redirect_preference_list
+       </programlisting>
       </para>
       <para>
        <!--
@@ -1212,11 +1339,13 @@ app_name_redirect_preference_list = 'psql:primary,myapp1:1(0.3),myapp2:standby'
      <note>
       <para>
        <!--
-       In the settings of <xref linkend="guc-app-name-redirect-preference-list"> and
-       <xref linkend="guc-database-redirect-preference-list">, when multiple database
-       names and application names are matched, the first setting will be used.
+       In the settings of <xref linkend="guc-user-redirect-preference-list">,
+       <xref linkend="guc-database-redirect-preference-list"> and
+       <xref linkend="guc-app-name-redirect-preference-list">,
+       when multiple database names and application names are matched,
+       the first setting will be used.
        -->
-       <xref linkend="guc-app-name-redirect-preference-list">及び<xref linkend="guc-database-redirect-preference-list">の設定では、複数のデータベース名やアプリケーション名にマッチした場合、最初の設定が反映されます。
+       <xref linkend="guc-user-redirect-preference-list">、<xref linkend="guc-database-redirect-preference-list">および<xref linkend="guc-app-name-redirect-preference-list">の設定では、複数のユーザ名やデータベース名、アプリケーション名にマッチした場合、最初の設定が反映されます。
       </para>
       <para>
        <!--
@@ -1415,7 +1544,7 @@ app_name_redirect_preference_list = 'psql:primary,myapp1:1(0.3),myapp2:standby'
 
      <para>
 <!--
-	 To prevent load balancing of READ dependent objects, you may specificy the object name
+	 To prevent load balancing of READ dependent objects, you may specify the object name
 	 followed by a colon(<literal>:</>) and then a comma(<literal>,</>) separated list of dependent object names.
 	 <replaceable>"[object]:[dependent-object]"</replaceable>
      In an explicit transaction block after a WRITE statement has been issues, this will prevent
@@ -1479,7 +1608,7 @@ dml_adaptive_object_relationship_list = 'table_1:table_2'
     <listitem>
      <para>
       <!--
-      When set to on, the load balancing node is decided for each read query.
+      When set to on and <xref linkend="guc-load-balance-mode"> is set to on, the load balancing node is decided for each read query.
       When set to off, load balancing node is decided at the session start time
       and will not be changed until the session ends.
       For example, in applications that use connection pooling remain connections
@@ -1489,13 +1618,32 @@ dml_adaptive_object_relationship_list = 'table_1:table_2'
       it is possible to decide load balancing node per query, not per session.
       The default is off.
       -->
-      onに設定すると、参照クエリごとに負荷分散先を決めます。
+      onに設定し、<xref linkend="guc-load-balance-mode">がonに設定されていると、参照クエリごとに負荷分散先を決めます。
       offに設定すると、セッションが始まるときに決められた負荷分散先がセッションが終了するまで変更されません。
       例えば、コネクションプールを利用し、バックエンドサーバに接続したままのようなアプリケーションの場合、
       セッションが長い間保持される可能性があるので、セッションが終了するまで負荷分散先のノードが変わりません。
       このようなアプリケーションでは、<varname>statement_level_load_balance</varname>を有効にすると、
       セッションごとではなく、クエリごとに負荷分散先を決めることが可能です。デフォルトはoffです。
      </para>
+     <note>
+      <para>
+<!--
+       In streaming replication mode, certain kind of queries such as
+       BEGIN/END/COMMIT/ABORT/SET/SAVEPOINT/RELEASE
+       SAVEPOINT/DEALLOCATE ALL/DISCARD are sent to primary node and
+       load balance node. If
+       <xref linkend="guc-statement-level-load-balance"> is on, such
+       queries are sent to all standby nodes as well. This is not
+       usually a problem. But when one of standbys are in remote
+       network, the network latency may cause significant slow down in
+       case of such queries.
+-->
+       streaming replication modeでは、BEGIN/END/COMMIT/ABORT/SET/SAVEPOINT/RELEASE SAVEPOINT/DEALLOCATE ALL/DISCARDのようなクエリはプライマリノードとロードバランスノードに送られます。
+       <xref linkend="guc-statement-level-load-balance">がonなら、そうしたクエリはすべてのスタンバイノードにも送られます
+       これは通常問題になりません。
+       しかしスタンバイノードの一つが遠隔ネットワークにあると、ネットワーク遅延のためにこうしたクエリで大きな速度低下を起こすことがあります。
+      </para>
+     </note>
      <para>
       <!--
       This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.

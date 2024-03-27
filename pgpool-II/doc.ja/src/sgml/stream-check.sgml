@@ -47,7 +47,7 @@
      Default is 0, which means the check is disabled.
      -->
      ストリーミングレプリケーションの遅延チェックの間隔を秒単位で指定します。
-     デフォルト値は0で、これはチェックを行わないことを意味します
+     デフォルト値は10です。
     </para>
 
     <para>
@@ -80,6 +80,13 @@
      ストリーミングレプリケーションのチェックを行う<productname>PostgreSQL</>ユーザ名を指定します。
      このユーザはLOGIN権限を持ち、すべてのバックエンドに存在しなければなりません。
     </para>
+    <para>
+     <!--
+     If <link linkend="runtime-ssl">SSL</link> is enabled, the
+     streaming replication check process may use SSL connection.
+     -->
+     <link linkend="runtime-ssl">SSL</link>が有効なら、ストリーミングレプリケーションチェックプロセスはSSL接続を使うかもしれません。
+    </para> 
     <note>
      <para>
       <xref linkend="guc-sr-check-user">と<xref
@@ -159,7 +166,7 @@
         <term>平文パスワード</term>
         <listitem>
          <para>
-          暗号化されていない平分のパスワードです。
+          暗号化されていない平文のパスワードです。
           可能ならば使用を避けるべきです。
           パスワード文字列は<literal>TEXT</literal>で始まっていなければなりません。
           例えば、パスワードとして<literal>mypass</literal>を設定したい場合、パスワードフィールドに<literal>TEXTmypass</literal>と指定します。
@@ -247,9 +254,126 @@
      -->
      このパラメータは<productname>Pgpool-II</>の設定を再読み込みすることで変更可能です。
     </para>
+   </listitem>
+  </varlistentry>
+
+  <varlistentry id="guc-delay-threshold-by-time" xreflabel="delay_threshold_by_time">
+   <term><varname>delay_threshold_by_time</varname> (<type>integer</type>)
+    <indexterm>
+     <!--
+     <primary><varname>delay_threshold</varname> configuration parameter</primary>
+     -->
+     <primary><varname>delay_threshold_by_time</varname> 設定パラメータ</primary>
+    </indexterm>
+   </term>
+   <listitem>
+
+    <para>
+     <!--
+     Specifies the maximum tolerance level of replication delay 
+     on the standby server against the primary server.
+     If this value is specified without units, it is taken as milliseconds.
+     If the specified value is greater than
+     0, <xref linkend="guc-delay-threshold"> is ignored.  If the delay
+     exceeds this configured level,
+     <productname>Pgpool-II</productname> stops sending the <acronym>
+      SELECT</acronym> queries to the standby server and starts routing
+     everything to the primary server even if <xref linkend="guc-load-balance-mode">
+      is enabled, until the standby catches-up with the primary.
+      Setting this parameter to 0 disables the delay checking.
+      This delay threshold check is performed every <xref linkend="guc-sr-check-period">.
+       Default is 0.
+     -->
+     プライマリサーバに対するスタンバイサーバのレプリケーション遅延の許容時間を指定します。
+     この値が単位無しで指定された場合は、ミリ秒単位であると見なします。
+       0よりも大きい値が指定されると、<xref linkend="guc-delay-threshold">は無視されます。
+     <productname>Pgpool-II</productname>は、スタンバイサーバの遅延がこの設定レベルを超えた場合には、 <xref linkend="guc-load-balance-mode">が有効であっても、プライマリに追いつくまでそのスタンバイノードには<acronym>SELECT</acronym>クエリを送信せず、全てプライマリサーバに送るようにします。
+      このパラメータが0の場合は、遅延のチェックを行ないません。
+      この遅延閾値のチェックは<xref linkend="guc-sr-check-period">毎に行われます。
+       デフォルト値は0です。
+    </para>
+
+    <para>
+      <!--
+      Replication delay is taken
+      from <productname>PostgreSQL</productname>'s system
+      view <structname>pg_stat_replication</structname>.<structfield>replay_lag</structfield>. The
+      view is available <productname>PostgreSQL</productname> 10 or
+      later. If earlier version
+      of <productname>PostgreSQL</productname> is
+      used, <productname>Pgpool-II</productname> automatically falls
+      back to <xref linkend="guc-delay-threshold">
+      and <xref linkend="guc-delay-threshold-by-time"> is ignored.
+	-->
+     レプリケーション遅延は<productname>PostgreSQL</productname>のシステムビューである<structname>pg_stat_replication</structname>.<structfield>replay_lag</structfield>から取得します。
+     このビューは<productname>PostgreSQL</productname> 10以降でサポートされています。
+     もしそれ以前のバージョンの<productname>PostgreSQL</productname>を使用すると、<productname>Pgpool-II</productname>は自動的に<xref linkend="guc-delay-threshold">を使用するようになり、<xref linkend="guc-delay-threshold-by-time">は無視されます。
+    </para>
+
+    <para>
+<!--
+     This parameter relies
+     on <xref linkend="guc-backend-application-name"> being correctly
+     set and matching <varname>application_name</varname> in
+     your <productname>PostgreSQL</productname> standby's
+     primary_conninfo.
+-->
+     このパラメータは、<xref linkend="guc-backend-application-name">が正しく設定され、<productname>PostgreSQL</productname>のスタンバイのprimary_conninfoの<varname>application_name</varname>と一致していることに依存しています。
+    </para>
+
+    <para>
+      <!-- If this parameter is
+      enabled, <xref linkend="sql-show-pool-nodes">
+      and <xref linkend="pcp-node-info"> show replication delay in
+      seconds, rather than bytes.
+	-->
+      もしこのパラメータが指定されていると、<xref linkend="sql-show-pool-nodes">と<xref linkend="pcp-node-info">はレプリケーション遅延をバイト単位ではなく、秒単位で表示します。
+    </para>
+
+    <para>
+     <!--
+     This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+     -->
+     このパラメータは<productname>Pgpool-II</>の設定を再読み込みすることで変更可能です。
+    </para>
 
    </listitem>
   </varlistentry>
+
+  <varlistentry id="guc-prefer-lower-delay-standby" xreflabel="prefer_lower_delay_standby">
+    <term><varname>prefer_lower_delay_standby</varname> (<type>boolean</type>)
+     <indexterm>
+      <!--
+      <primary><varname>prefer_lower_delay_standby</varname> configuration parameter</primary>
+      -->
+      <primary><varname>prefer_lower_delay_standby</varname> 設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      This parameter is valid only when delay_threshold is set to greater than 0.
+      When set to on, if the delay of the load balancing node is greater than delay_threshold,
+      <productname>Pgpool-II</productname> does not send read queries to the primary node but
+      the least delay standby with backend_weight to greater than 0. If delay of all standby
+      nodes are greater than delay_threshold or the primary selected as the load balancing node
+      first, <productname>Pgpool-II<productname> sends to the primary.
+      Default is off.
+      -->
+      このパラメータは<xref linkend="guc-delay-threshold">あるいは<xref linkend="guc-delay-threshold-by-time">を使用しているときに有効です。
+      onに設定すると、負荷分散先のスタンバイサーバが<varname>delay_threshold</varname>を超えて遅延したときに、プライマリサーバでなく、
+      <xref linkend="guc-backend-weight">が0より大きくて1番遅延の少ないスタンバイサーバを負荷分散ノードにします。
+      全てのスタンバイサーバが<xref linkend="guc-delay-threshold">あるいは<xref linkend="guc-delay-threshold-by-time">を超えて遅延しているか、負荷分散先として最初からプライマリが選ばれた場合はプライマリサーバに送ります。
+      デフォルトはoffです。
+     </para>
+     <para>
+      <!--
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+      -->
+      このパラメータはPgpool-IIの設定を再読み込みすることで変更可能です。
+     </para>
+    </listitem>
+   </varlistentry>
 
   <varlistentry id="guc-log-standby-delay" xreflabel="log_standby_delay">
    <term><varname>log_standby_delay</varname> (<type>string</type>)
@@ -294,7 +418,7 @@
 	<!--
 	<entry>Never log the standby delay</entry>
 	-->
-	<entry>スタンバイの遅延はログ出力されない (デフォルト)</entry>
+	<entry>スタンバイの遅延はログ出力されない</entry>
        </row>
 
        <row>
@@ -310,7 +434,7 @@
 	<!--
 	<entry>Only log the standby delay, when it exceeds <xref linkend="guc-delay-threshold"> value</entry>
 	-->
-	<entry><xref linkend="guc-delay-threshold">の値を超えた時だけ、スタンバイの遅延がログ出力される</entry>
+	<entry><xref linkend="guc-delay-threshold">あるいは<xref linkend="guc-delay-threshold-by-time">の値を超えた時だけ、スタンバイの遅延がログ出力される(デフォルト)</entry>
        </row>
       </tbody>
      </tgroup>

@@ -48,8 +48,6 @@ get_pool_config_from_json(char *json_data, int data_len)
 	if (root == NULL || root->type != json_object)
 		goto ERROR_EXIT;
 
-	if (json_get_int_value_for_key(root, "num_init_children", &config->num_init_children))
-		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "listen_backlog_multiplier", &config->listen_backlog_multiplier))
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "child_life_time", &config->child_life_time))
@@ -61,6 +59,16 @@ get_pool_config_from_json(char *json_data, int data_len)
 	if (json_get_int_value_for_key(root, "client_idle_limit", &config->client_idle_limit))
 		goto ERROR_EXIT;
 	if (json_get_int_value_for_key(root, "max_pool", &config->max_pool))
+		goto ERROR_EXIT;
+	if (json_get_int_value_for_key(root, "num_init_children", &config->num_init_children))
+		goto ERROR_EXIT;
+	if (json_get_int_value_for_key(root, "min_spare_children", &config->min_spare_children))
+		goto ERROR_EXIT;
+	if (json_get_int_value_for_key(root, "max_spare_children", &config->max_spare_children))
+		goto ERROR_EXIT;
+	if (json_get_int_value_for_key(root, "process_management_mode", (int*)&config->process_management))
+		goto ERROR_EXIT;
+	if (json_get_int_value_for_key(root, "process_management_strategy", (int*)&config->process_management_strategy))
 		goto ERROR_EXIT;
 	if (json_get_bool_value_for_key(root, "replication_mode", &config->replication_mode))
 		goto ERROR_EXIT;
@@ -133,6 +141,43 @@ get_pool_config_from_json(char *json_data, int data_len)
 		strncpy(config->backend_desc->backend_info[i].backend_hostname, ptr, sizeof(config->backend_desc->backend_info[i].backend_hostname) - 1);
 	}
 
+	value = json_get_value_for_key(root, "health_check_params");
+	/* We don't get seperate health check params from older version
+	 * so be kind if the JSON does not contain one
+	 */
+	if (value != NULL && value->type == json_array)
+	{
+		int health_check_params_count = value->u.array.length;
+		if (health_check_params_count != config->backend_desc->num_backends)
+		{
+			ereport(LOG,
+				(errmsg("unexpected number of health check parameters received"),
+				errdetail("expected:%d got %d",config->backend_desc->num_backends,health_check_params_count)));
+		}
+		config->health_check_params = palloc0(sizeof(HealthCheckParams) * config->backend_desc->num_backends);
+
+		if (health_check_params_count > config->backend_desc->num_backends)
+			health_check_params_count = config->backend_desc->num_backends;
+
+		for (i = 0; i < health_check_params_count; i++)
+		{
+			json_value *arr_value = value->u.array.values[i];
+
+			if (json_get_int_value_for_key(arr_value, "health_check_timeout", &config->health_check_params[i].health_check_timeout))
+				config->health_check_params[i].health_check_timeout = 0;
+			if (json_get_int_value_for_key(arr_value, "health_check_period", &config->health_check_params[i].health_check_period))
+				config->health_check_params[i].health_check_period = 0;
+			if (json_get_int_value_for_key(arr_value, "health_check_max_retries", &config->health_check_params[i].health_check_max_retries))
+				config->health_check_params[i].health_check_max_retries = 0;
+			if (json_get_int_value_for_key(arr_value, "health_check_retry_delay", &config->health_check_params[i].health_check_retry_delay))
+				config->health_check_params[i].health_check_retry_delay = 0;
+			if (json_get_int_value_for_key(arr_value, "connect_timeout", &config->health_check_params[i].connect_timeout))
+				config->health_check_params[i].connect_timeout = 0;
+		}
+	}
+	else
+			config->health_check_params = NULL;
+
 	/* wd_nodes array */
 	value = json_get_value_for_key(root, "wd_nodes");
 	if (value == NULL || value->type != json_array)
@@ -174,13 +219,17 @@ get_pool_config_json(void)
 
 	JsonNode   *jNode = jw_create_with_object(true);
 
-	jw_put_int(jNode, "num_init_children", pool_config->num_init_children);
 	jw_put_int(jNode, "listen_backlog_multiplier", pool_config->listen_backlog_multiplier);
 	jw_put_int(jNode, "child_life_time", pool_config->child_life_time);
 	jw_put_int(jNode, "connection_life_time", pool_config->connection_life_time);
 	jw_put_int(jNode, "child_max_connections", pool_config->child_max_connections);
 	jw_put_int(jNode, "client_idle_limit", pool_config->client_idle_limit);
 	jw_put_int(jNode, "max_pool", pool_config->max_pool);
+	jw_put_int(jNode, "num_init_children", pool_config->num_init_children);
+	jw_put_int(jNode, "min_spare_children", pool_config->min_spare_children);
+	jw_put_int(jNode, "max_spare_children", pool_config->max_spare_children);
+	jw_put_int(jNode, "process_management_mode", pool_config->process_management);
+	jw_put_int(jNode, "process_management_strategy", pool_config->process_management_strategy);
 	jw_put_bool(jNode, "replication_mode", pool_config->replication_mode);
 	jw_put_bool(jNode, "enable_pool_hba", pool_config->enable_pool_hba);
 	jw_put_bool(jNode, "load_balance_mode", pool_config->load_balance_mode);
@@ -207,6 +256,23 @@ get_pool_config_json(void)
 	jw_put_bool(jNode, "failover_when_quorum_exists", pool_config->failover_when_quorum_exists);
 	jw_put_bool(jNode, "failover_require_consensus", pool_config->failover_require_consensus);
 	jw_put_bool(jNode, "allow_multiple_failover_requests_from_node", pool_config->allow_multiple_failover_requests_from_node);
+
+	/* Array of health_check params
+	 * We transport num_backend at max
+	 */
+	jw_start_array(jNode, "health_check_params");
+	for (i = 0; i < pool_config->backend_desc->num_backends; i++)
+	{
+		jw_start_object(jNode, "HealthCheckParams");
+
+		jw_put_int(jNode, "health_check_timeout", pool_config->health_check_params[i].health_check_timeout);
+		jw_put_int(jNode, "health_check_period", pool_config->health_check_params[i].health_check_period);
+		jw_put_int(jNode, "health_check_max_retries", pool_config->health_check_params[i].health_check_max_retries);
+		jw_put_int(jNode, "health_check_retry_delay", pool_config->health_check_params[i].health_check_retry_delay);
+		jw_put_int(jNode, "connect_timeout", pool_config->health_check_params[i].connect_timeout);
+		jw_end_element(jNode);
+	}
+	jw_end_element(jNode);		/* backend_desc array End */
 
 	/* Array of backends */
 	jw_start_array(jNode, "backend_desc");

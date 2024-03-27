@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([pgpool-II], [4.2.7], [pgpool-hackers@pgpool.net], [pgpool-II])
+AC_INIT([pgpool-II], [4.5.1], [pgpool-hackers@pgpool.net], [pgpool-II])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -434,6 +434,7 @@ LDFLAGS="-L$PGSQL_LIB_DIR $LDFLAGS"
 OLD_LIBS="$LIBS"
 AC_CHECK_LIB(pq, PQexecPrepared, [], [AC_MSG_ERROR(libpq is not installed or libpq is old)])
 AC_CHECK_FUNCS(PQprepare)
+AC_CHECK_FUNCS(PQpingParams)
 LDFLAGS="$OLD_LDFLAGS"
 LIBS="$OLD_LIBS"
 

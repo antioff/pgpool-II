@@ -101,8 +101,8 @@ Pgpool-II documentation
        omitted, <literal>s</literal> is assumed.
        -->
        動作モードを指定します。<replaceable>mode</replaceable>は
-       <literal>r</literal> (ネイティブレプリケーションモード), <literal>s</literal> (ストリーミングレプリケーションモード)、<literal>n</literal> (raw モード)、<literal>l</literal> (ロジカルレプリケーションモード)、<literal>l</literal>（slonyモード）及び<literal>i</literal>（スナップショットアイソレーションモード）を指定できます。
-       指定しない場合は、<literal>s</literal> (ストリーミングレプリケーションモード) を指定した見なされます。
+       <literal>r</literal> (ネイティブレプリケーションモード), <literal>s</literal> (ストリーミングレプリケーションモード)、<literal>n</literal> (raw モード)、<literal>l</literal> (ロジカルレプリケーションモード)、<literal>y</literal>（slonyモード）及び<literal>i</literal>（スナップショットアイソレーションモード）を指定できます。
+       指定しない場合は、<literal>s</literal> (ストリーミングレプリケーションモード) を指定したと見なされます。
       </para>
      </listitem>
     </varlistentry>
@@ -223,7 +223,7 @@ Pgpool-II documentation
        -->
        ストリーミングレプリケーションモードの時に、アーカイブの代わりにレプリケーションスロットを使います。
        アーカイブディレクトリは<productname>PostgreSQL</productname>クラスタに共有されているので、スタンバイが昇格すると、アーカイアブディレクトリ内のタイムラインが変わり、他のスタンバイが停止してしまいます。
-       レプリケーションスロットを使うとこの問題が起きないので、レプリケーションスロットをサポートしている<productname>PostgreSQL</productname> 9.4以降が使えるのであれば、常にレプリケーションスロットを使うのが常にお勧めです。
+       レプリケーションスロットを使うとこの問題が起きないので、レプリケーションスロットをサポートしている<productname>PostgreSQL</productname> 9.4以降が使えるのであれば、常にレプリケーションスロットを使うのがお勧めです。
        <application>pgpool_setup</application>が使うレプリケーションスロット名は、<literal>pgpool_setup_slot</literal>です。
       </para>
      </listitem>
@@ -243,6 +243,60 @@ Pgpool-II documentation
        リカバリスクリプト(basebackup.sh)中で<command>pg_rewind</command>を使います。
        このコマンドが失敗すると、通常のrsyncを使います。
        <command>pg_rewind</command>は、データベースクラスタのすべてをコピーしないので、rsyncに比べてずっと高速になることがあります。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>-e</option></term>
+     <listitem>
+      <para>
+<!--
+       Omit to create <productname>PostgreSQL</productname> database
+       clusters. This option is intended to be used by
+       <command>watchdog_setup</command> and probably useless for
+       other purposes.
+-->
+       <productname>PostgreSQL</productname>データベースクラスタの作成を省略します。このオプションは<command>watchdog_setup</command>で使われることを想定しており、おそらく他の目的の役には立たないでしょう。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>-t</option></term>
+     <listitem>
+      <para>
+<!--
+       Set some additional parameters to pgpool.conf so that the
+       regression test can performs tests against existing
+       installation.  Currently the parameter is
+       <xref linkend="guc-health-check-test">.
+-->
+       regression testが既存のインストールに対して実行できるように、pgpool.confに追加のパラメータを設定します。
+       今の所、そのようなパラメータとしては<xref linkend="guc-health-check-test">があります。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>-c</option></term>
+     <listitem>
+      <para>
+<!--
+       Use the sample scripts and configuration files installed in
+       <filename>/etc/pgpool-II/</filename> directory.
+-->
+       <filename>/etc/pgpool-II/</filename>ディレクトリにインストールされているサンプルスクリプトと設定ファイルを使います。
+      </para>
+      <para>
+<!--
+       This option was added for the purpose of testing the sample scripts and
+       configuration files contained in <productname>Pgpool-II</productname> RPM packages.
+       Make sure you have installed the sample scripts and configuration files in
+       <filename>/etc/pgpool-II/</filename> directory before you specify this option.
+-->
+       このオプションは、<productname>Pgpool-II</productname>のRPMパッケージに含まれているサンプルスクリプトと設定ファイルをテストする目的で追加されたオプションです。
+       このオプションを指定する前に、サンプルスクリプトと設定ファイルが<filename>/etc/pgpool-II/</filename>ディレクトリにインストールされていることを確認してください。
       </para>
      </listitem>
     </varlistentry>
@@ -376,6 +430,30 @@ Pgpool-II documentation
        -->
        ストリーミングレプリケーション環境において、この環境変数が"true"に指定されると、basebackup.sh中で<command>pg_rewind</command>を使います。
        これは、"-r"オプションを使ったのと同じ効果をもたらします。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>ENABLE_TEST</option></term>
+     <listitem>
+      <para>
+<!--
+       If "true", act as if "-t" option is specified.
+-->
+       "true"ならあたかも"-t"オプションが与えられたかのように振る舞います。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>TEST_SAMPLES</option></term>
+     <listitem>
+      <para>
+<!--
+       If "true", act as if "-c" option is specified.
+-->
+       "true"ならあたかも"-c"オプションが与えられたかのように振る舞います。
       </para>
      </listitem>
     </varlistentry>

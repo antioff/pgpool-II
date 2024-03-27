@@ -1,12 +1,12 @@
 # How to build RPM:
 #
-#   rpmbuild -ba pgpool.spec --define="pgpool_version 3.4.0" --define="pg_version 93" --define="pghome /usr/pgsql-9.3" --define="dist .rhel6" --define="pgsql_ver 93"
+#   rpmbuild -ba pgpool.spec --define="pgpool_version 3.4.0" --define="pg_version 93" --define="pghome /usr/pgsql-9.3" --define="dist .rhel7" --define="pgsql_ver 93"
 #
 # OR
 #
-#   rpmbuild -ba pgpool.spec --define="pgpool_version 3.4.0" --define="pg_version 11" --define="pghome /usr/pgsql-11" --define="dist .rhel6" --define="pgsql_ver 110"
+#   rpmbuild -ba pgpool.spec --define="pgpool_version 3.4.0" --define="pg_version 11" --define="pghome /usr/pgsql-11" --define="dist .rhel7" --define="pgsql_ver 110"
 #
-# expecting RPM name are:
+# RPM names are:
 #   pgpool-II-pg{pg_version}-{pgpool_version}-{rel}pgdg.rhel{v}.{arch}.rpm
 #   pgpool-II-pg{pg_version}-devel-{pgpool_version}-{rel}pgdg.rhel{v}.{arch}.rpm
 #   pgpool-II-pg{pg_version}-extensions-{pgpool_version}-{rel}pgdg.rhel{v}.{arch}.rpm
@@ -21,6 +21,7 @@
 %endif
 
 %global _varrundir %{_localstatedir}/run/pgpool
+%global _varlogdir %{_localstatedir}/log/pgpool_log
 
 Summary:        Pgpool is a connection pooling/replication server for PostgreSQL
 Name:           pgpool-II-pg%{pg_version}
@@ -29,7 +30,7 @@ Release:        1pgdg%{?dist}
 License:        BSD
 Group:          Applications/Databases
 Vendor:         Pgpool Global Development Group
-URL:            http://www.pgppol.net/
+URL:            http://www.pgpool.net/
 Source0:        pgpool-II-%{version}.tar.gz
 Source1:        pgpool.init
 Source2:        pgpool_rhel6.sysconfig
@@ -37,13 +38,20 @@ Source2:        pgpool_rhel6.sysconfig
 Source3:        pgpool.service
 %endif
 Source4:        pgpool_rhel.sysconfig
-Patch1:         pgpool-II-head.patch
+Source5:        pgpool_tmpfiles.d
+Source6:        pgpool_sudoers.d
 %if %{pgsql_ver} >=94 && %{rhel} >= 7
-Patch2:         pgpool_socket_dir.patch
-Patch3:         pcp_unix_domain_path.patch
+Patch1:         pgpool_socket_dir.patch
+Patch2:         pcp_unix_domain_path.patch
 %endif
+Patch3:         pgpool_log.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel libmemcached-devel jade libxslt docbook-dtds docbook-style-xsl docbook-style-dsssl openldap-devel
+BuildRequires:  postgresql%{pg_version}-devel pam-devel openssl-devel jade libxslt docbook-dtds docbook-style-xsl docbook-style-dsssl openldap-devel
+%if %{rhel} >= 9
+BuildRequires:  libmemcached-awesome-devel
+%else
+BuildRequires:  libmemcached-devel
+%endif
 %if %{pgsql_ver} >= 110 && %{rhel} == 7
 BuildRequires:  llvm-toolset-7 llvm-toolset-7-llvm-devel llvm5.0
 %endif
@@ -87,18 +95,18 @@ Requires:    %{name} = %{version}
 Development headers and libraries for pgpool-II.
 
 %package extensions
-Summary:     Postgersql extensions for pgpool-II
+Summary:     PostgreSQL extensions for pgpool-II
 Group:       Applications/Databases
 %description extensions
-Postgresql extensions libraries and sql files for pgpool-II.
+PostgreSQL extensions libraries and sql files for pgpool-II.
 
 %prep
 %setup -q -n %{archive_name}
-%patch1 -p1
 %if %{pgsql_ver} >=94 && %{rhel} >= 7
+%patch1 -p0
 %patch2 -p0
-%patch3 -p0
 %endif
+%patch3 -p0
 
 %build
 %configure --with-pgsql=%{pghome} \
@@ -131,6 +139,25 @@ make %{?_smp_mflags} DESTDIR=%{buildroot} install -C src/sql/pgpool_adm
 
 install -d %{buildroot}%{_datadir}/%{short_name}
 install -d %{buildroot}%{_sysconfdir}/%{short_name}
+install -d %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts
+mv %{buildroot}%{_sysconfdir}/%{short_name}/failover.sh.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/failover.sh.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/follow_primary.sh.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/follow_primary.sh.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/pgpool_remote_start.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/pgpool_remote_start.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/recovery_1st_stage.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/recovery_1st_stage.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/replication_mode_recovery_1st_stage.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/replication_mode_recovery_1st_stage.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/replication_mode_recovery_2nd_stage.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/replication_mode_recovery_2nd_stage.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/escalation.sh.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/escalation.sh.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/aws_eip_if_cmd.sh.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/aws_eip_if_cmd.sh.sample
+mv %{buildroot}%{_sysconfdir}/%{short_name}/aws_rtb_if_cmd.sh.sample \
+        %{buildroot}%{_sysconfdir}/%{short_name}/sample_scripts/aws_rtb_if_cmd.sh.sample
 cp %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pcp.conf
 cp %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pgpool.conf
 cp %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf.sample %{buildroot}%{_sysconfdir}/%{short_name}/pool_hba.conf
@@ -141,14 +168,15 @@ touch %{buildroot}%{_sysconfdir}/%{short_name}/pgpool_node_id
 install -d %{buildroot}%{_unitdir}
 install -m 644 %{SOURCE3} %{buildroot}%{_unitdir}/pgpool.service
 
+install -d -m 755 %{buildroot}%{_varrundir}
 mkdir -p %{buildroot}%{_tmpfilesdir}
-cat > %{buildroot}%{_tmpfilesdir}/%{name}.conf <<EOF
-d %{_varrundir} 0755 postgres postgres -
-EOF
+install -m 0644 %{SOURCE5} %{buildroot}%{_tmpfilesdir}/%{name}.conf
 %else
 install -d %{buildroot}%{_initrddir}
 install -m 755 %{SOURCE1} %{buildroot}%{_initrddir}/pgpool
 %endif
+
+mkdir -p %{buildroot}%{_varlogdir} 
 
 install -d %{buildroot}%{_sysconfdir}/sysconfig
 %if 0%{rhel} && 0%{rhel} <= 6
@@ -156,6 +184,10 @@ install -d %{buildroot}%{_sysconfdir}/sysconfig
 %else
     install -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/pgpool
 %endif
+
+# install sudoers.d to allow postgres user to run ip and arping with root privileges without a password
+install -d %{buildroot}%{_sysconfdir}/sudoers.d
+install -m 0644 %{SOURCE6} %{buildroot}%{_sysconfdir}/sudoers.d/pgpool
 
 # nuke libtool archive and static lib
 rm -f %{buildroot}%{_libdir}/libpcp.{a,la}
@@ -179,12 +211,9 @@ useradd -M -g postgres -o -r -d /var/lib/pgsql -s /bin/bash \
 
 %post
 /sbin/ldconfig
-echo 'postgres ALL=NOPASSWD: /sbin/ip' | sudo EDITOR='tee -a' visudo >/dev/null 2>&1 || :
-echo 'postgres ALL=NOPASSWD: /usr/sbin/arping' | sudo EDITOR='tee -a' visudo >/dev/null 2>&1 || :
 
 %if %{systemd_enabled}
 %systemd_post pgpool.service
-%tmpfiles_create
 %else
 /sbin/chkconfig --add pgpool
 %endif
@@ -251,29 +280,28 @@ fi
 %{_datadir}/%{short_name}/pgpool.pam
 %{_libdir}/libpcp.so.*
 %if %{systemd_enabled}
-%ghost %{_varrundir}
+%attr(755,postgres,postgres) %dir %{_varrundir}
 %{_tmpfilesdir}/%{name}.conf
+%{_sysconfdir}/sudoers.d/pgpool
 %{_unitdir}/pgpool.service
 %else
 %{_initrddir}/pgpool
 %endif
+%attr(0755,postgres,postgres) %dir %{_varlogdir}
 %defattr(600,postgres,postgres,-)
 %{_sysconfdir}/%{short_name}/pgpool.conf.sample
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-logical
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-raw
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-replication
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-slony
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-snapshot
-%{_sysconfdir}/%{short_name}/pgpool.conf.sample-stream
 %{_sysconfdir}/%{short_name}/pcp.conf.sample
 %{_sysconfdir}/%{short_name}/pool_hba.conf.sample
 %defattr(755,postgres,postgres,-)
-%{_sysconfdir}/%{short_name}/failover.sh.sample
-%{_sysconfdir}/%{short_name}/follow_primary.sh.sample
-%{_sysconfdir}/%{short_name}/pgpool_remote_start.sample
-%{_sysconfdir}/%{short_name}/recovery_1st_stage.sample
-%{_sysconfdir}/%{short_name}/recovery_2nd_stage.sample
-%{_sysconfdir}/%{short_name}/escalation.sh.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/failover.sh.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/follow_primary.sh.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/pgpool_remote_start.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/recovery_1st_stage.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/replication_mode_recovery_1st_stage.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/replication_mode_recovery_2nd_stage.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/escalation.sh.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/aws_eip_if_cmd.sh.sample
+%{_sysconfdir}/%{short_name}/sample_scripts/aws_rtb_if_cmd.sh.sample
 %attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/*.conf
 %attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/pool_passwd
 %attr(600,postgres,postgres) %config(noreplace) %{_sysconfdir}/%{short_name}/pgpool_node_id
@@ -295,6 +323,8 @@ fi
 %{pghome}/share/extension/pgpool_recovery--1.1--1.2.sql
 %{pghome}/share/extension/pgpool_recovery--1.3.sql
 %{pghome}/share/extension/pgpool_recovery--1.2--1.3.sql
+%{pghome}/share/extension/pgpool_recovery--1.4.sql
+%{pghome}/share/extension/pgpool_recovery--1.3--1.4.sql
 %{pghome}/share/extension/pgpool_recovery.control
 %{pghome}/lib/pgpool-recovery.so
 %{pghome}/share/extension/pgpool_adm--1.0.sql
@@ -302,8 +332,12 @@ fi
 %{pghome}/share/extension/pgpool_adm--1.0--1.1.sql
 %{pghome}/share/extension/pgpool_adm--1.2.sql
 %{pghome}/share/extension/pgpool_adm--1.1--1.2.sql
-%{pghome}/share/extension/pgpool_adm--1.2--1.3.sql
 %{pghome}/share/extension/pgpool_adm--1.3.sql
+%{pghome}/share/extension/pgpool_adm--1.2--1.3.sql
+%{pghome}/share/extension/pgpool_adm--1.4.sql
+%{pghome}/share/extension/pgpool_adm--1.3--1.4.sql
+%{pghome}/share/extension/pgpool_adm--1.5.sql
+%{pghome}/share/extension/pgpool_adm--1.4--1.5.sql
 %{pghome}/share/extension/pgpool_adm.control
 %{pghome}/lib/pgpool_adm.so
 # From PostgreSQL 9.4 pgpool-regclass.so is not needed anymore
@@ -314,7 +348,7 @@ fi
   %{pghome}/share/extension/pgpool-regclass.sql
   %{pghome}/lib/pgpool-regclass.so
 %endif
-# From PostgerSQL 11 the relevant files have to be installed 
+# From PostgreSQL 11 the relevant files have to be installed 
 # into $pkglibdir/bitcode/
 %if %{pgsql_ver} >= 110 && %{rhel} >= 7
   %{pghome}/lib/bitcode/pgpool-recovery.index.bc
@@ -324,6 +358,11 @@ fi
 %endif
 
 %changelog
+* Wed Nov 2 2022 Bo Peng <pengbo@sraoss.co.jp> 4.4.0
+- Change /lib/tmpfiles.d/ file from /var/run to /run
+- Install /etc/sudoers.d/pgpool
+- Add scripts aws_eip_if_cmd.sh.sample and aws_rtb_if_cmd.sh.sample
+
 * Thu Sep 10 2020 Bo Peng <pengbo@sraoss.co.jp> 4.2.0
 - Update to 4.2
 
@@ -374,7 +413,7 @@ fi
 - Adopt to PostgreSQL 9.4
 
 * Thu Sep 25 2014 Tatsuo Ishii <ishii@sraoss.co.jp> 3.3.4-2
-- Split pgpool_regclass and pgpool_recovery as a separate extention package.
+- Split pgpool_regclass and pgpool_recovery as a separate extension package.
 - Fix wrong OpenSSL build option.
 
 * Fri Sep 5 2014 Yugo Nagata <nagata@sraoss.co.jp> 3.3.4-1
@@ -392,7 +431,7 @@ fi
 - Add openssl support
 
 * Tue Nov 26 2013 Nozomi Anzai <anzai@sraoss.co.jp> 3.3.1-1
-- Improved to specify the versions of pgool-II and PostgreSQL
+- Improved to specify the versions of pgpool-II and PostgreSQL
 
 * Mon May 13 2013 Nozomi Anzai <anzai@sraoss.co.jp> 3.3.0-1
 - Update to 3.3.0

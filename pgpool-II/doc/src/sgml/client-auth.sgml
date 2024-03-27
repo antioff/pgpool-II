@@ -580,7 +580,7 @@
    <para>
     You can avoid maintaining <filename>pool_passwd</filename> by
     using <xref linkend="guc-allow-clear-text-frontend-auth"> as well
-    but it does not enfornce to use SSL encryption because
+    but it does not enforce to use SSL encryption because
     <filename>pool_hba.conf</filename> cannot be used with the
     parameter.
    </para>
@@ -822,7 +822,7 @@
    </indexterm>
 
    <para>
-    This authentication method uses LDAP as the password cerification method.
+    This authentication method uses LDAP as the password certification method.
     LDAP is used only to validate the user name/password pairs. Therefore the user must
     already exist in the database before LDAP can be used for authentication.
    </para>
@@ -1020,8 +1020,8 @@ ldap[s]://<replaceable>host</replaceable>[:<replaceable>port</replaceable>]/<rep
       <term><literal>backend_use_passwd</literal></term>
       <listitem>
        <para>
-        Set to 1 to make the password used for LDAP authentication use authetication
-        between <productname>Pgpool-II</productname> and backendd.
+        Set to 1 to make the password used for LDAP authentication use authentication
+        between <productname>Pgpool-II</productname> and backend.
        </para>
       </listitem>
      </varlistentry>
@@ -1182,7 +1182,7 @@ host ... ldap ldapbasedn="dc=example,dc=net"
    is not a good idea.
   </para>
   <para>
-   You can instead store AES256 encrypted passwords, which will be used for authentication.
+   You can instead store <indexterm><primary>AES256</primary></indexterm> AES256 encrypted passwords, which will be used for authentication.
    The password is first encrypted using the AES256 encryption with the user provided key
    and then the encrypted password is <literal>base64</literal> encoded and
    an <literal>AES</literal> prefix is added to the encoded string.

@@ -1,12 +1,634 @@
 <!-- doc/src/sgml/release-3.7.sgml -->
 <!-- See header comment in release.sgml about typical markup -->
 
+<sect1 id="release-3-7-26">
+ <title>Release 3.7.26</title>
+  <note>
+   <title>Release Date</title>
+   <simpara>2022-12-22</simpara>
+  </note>
+
+ <sect2>
+  <title>Changes</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-12-03 [bcea238]
+    -->
+    <para>
+     Downgrade LOG messages "new IPC connection received" to DEBUG1.
+     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=775">bug 775</ulink>) (Bo Peng)
+    </para>
+    <para>
+     It is a normal messages and should not be logged as LOG.
+     Patch is created by pstef and reviewed by Bo Peng.
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Bug fixes</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-09-23 [50f0285]
+    -->
+    <para>
+     Fix rare segfaults in <command>pcp_proc_info</command>, <command>SHOW pool_pools</command>
+     and <command>SHOW pool_processes</command>. (Tatsuo Ishii)
+    </para>
+    <para>
+     The segfaults were in get_pools() and get_processes(). They first
+     extracted pid of particular process info slot on shared memory then
+     searched the slot again by using pid as the key. Because these steps
+     were not protected by any locking, it was possible that the search
+     using the pid failed and returned NULL if the process id is
+     overwritten by pgpool parent which is responsible for forking new
+     child process after the process exiting. As a result any subsequent
+     reference to the NULL pointer generated segfaults.
+    </para>
+    <para>
+     Solution is, first get the pointer to the process info slot then
+     extract the process id member from the pointer. This way, still
+     concurrent updating to the shared memory info by the parent process is
+     possible (which may lead to strange results in the output) but at
+     least we can avoid segfaults.
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-09-12 [7b288c6]
+    -->
+    <para>
+     Fix to not allow Unix-domain socket path with invalid length. (Masaya Kawamoto)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Documents</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-10-07 [0acb52b]
+    -->
+    <para>
+     Doc: enhance description about memqcache_method. (Tatsuo Ishii)
+    </para>
+    <para>
+     Add explanation which method should be used.
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-08-28 [4551ef6]
+    -->
+    <para>
+     Doc: mention that health check process may use SSL. (Tatsuo Ishii)
+    </para>
+    <para>
+     Also mention that streaming replication check may use SSL too.
+     This should have been added since 2010.
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-August/004188.html">[pgpool-hackers: 4187]</ulink>
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Regression Tests</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-12-17 [2985853]
+    -->
+    <para>
+     Allow to define PGPOOLDIR using environment variable.
+     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=766">bug 766</ulink>) (Bo Peng)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-3-7-25">
+ <title>Release 3.7.25</title>
+  <note>
+   <title>Release Date</title>
+   <simpara>2022-08-18</simpara>
+  </note>
+
+ <sect2>
+  <title>Bug fixes</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-07-05 [2a6a7218]
+    2022-07-04 [9a523e02]
+    -->
+    <para>
+     Fix bug in query cache. (Tatsuo Ishii)
+    </para>
+    <para>
+     Pgpool-II did not cache the query like "Select '2022-02-18 07:00:00.006547'::timestamp".
+     SELECTs include TIMESTAMP, TIME and DATE are cached, and SELECTs include TIMESTAMPZ
+     and TIMEZ are not cached because the result can be changed by SET TIME ZONE command etc.
+     Furthermore, SELECTs having functions with return types are timestamptz or timetz are
+     not cached too as same reason.
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-July/008344.html">[pgpool-general: 8285]</ulink>
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Documents</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-07-19 [a173986d]
+    -->
+    <para>
+     Doc: mention that certain SELECTs are not cached. (Tatsuo Ishii)
+    </para>
+    <para>
+     certain SELECTs are follows.
+     <itemizedlist>
+      <listitem>
+       <para>
+        SELECTs including TIMESTAMP WITH TIMEZONE or TIME WITH TIMEZONE
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        SELECTs including CAST to TIMESTAMP WITH TIMEZONE or TIME WITH TIMEZONE
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        SELECTs including SQLValueFunction (CURRENT_TIME, CURRENT_USER etc.)
+       </para>
+      </listitem>
+     </itemizedlist>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-06-30 [c68eb619]
+    -->
+    <para>
+     Doc: fix description about using PCP password file when connect to Unix domain socket (Masaya Kawamoto)
+    </para>
+    <para>
+     The localhost entry in pcppass matches only for the default PCP socket
+     directory path, not all Unix socket connections. This behavior is the
+     same as pgpass.
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-06-02 [24ceef98]
+    -->
+    <para>
+     Doc: fix wrong explanation on <xref linkend="guc-memqcache-maxcache">, <xref linkend="guc-memqcacheexpire">. (Tatsuo Ishii)
+    </para>
+    <para>
+     Those parameters cannot be changed by reloading config file. Restarting
+     pgpool is required.
+
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-June/008254.html">[pgpool-general: 8195]</ulink>
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Regression Tests</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-07-10 [8c747408]
+    -->
+    <para>
+     Test: print <productname>Pgpool-II</productname> version in the regression test. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-07-09 [8d21c1e2]
+    -->
+    <para>
+     Test: Fix regression test script to look for pgpool.conf in the proper install directory. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+
+<sect1 id="release-3-7-24">
+ <title>Release 3.7.24</title>
+  <note>
+   <title>Release Date</title>
+   <simpara>2022-05-19</simpara>
+  </note>
+
+ <sect2>
+  <title>Changes</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-05-16 [4d224d9]
+    -->
+    <para>
+     Enhance in stopping pgpool main process. (Tatsuo Ishii)
+    </para>
+    <para>
+     If "pgpool stop" couldn't terminate the main process within certain period (currently 5 seconds), send the signal again.
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-05-02 [a9389b9]
+    -->
+    <para>
+     Change the PID length of pcp_proc_count command to 7 characters long. (Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-12 [dd502b6]
+    -->
+    <para>
+     Enhance error message to include the message kind returned and the backend node id while processing parse message. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-11 [a44d364]
+    -->
+    <para>
+     Downgrade log level of ParameterStatus message from LOG to DEBUG5. (Tatsuo Ishii)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-March/008101.html">[pgpool-general: 8042]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-28 [fbe2f31]
+    2022-02-28 [2bbc376]
+    -->
+    <para>
+     Change the default value of <xref linkend="guc-pcp-listen-addresses"> from '*' to 'localhost'. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-01 [50425a7]
+    -->
+    <para>
+     Adjust the field name in <xref linkend="pcp-watchdog-info">. (Muhammad Usama)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Bug fixes</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-04-27 [3337aa8]
+    -->
+    <para>
+     Fix issue that watchdog cluster keeps rejecting the restarted remote node which is lost previously. (Muhammad Usama)
+    </para>
+    <para>
+     Issue report: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2021-November/007954.html">[pgpool-general: 7896]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-04 [6416f43]
+    -->
+    <para>
+     Fix main process exiting if a backend is failing or shutting down while performing finding primary. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-03 [507feea]
+    -->
+    <para>
+     Fix segfaults in watchdog. (Muhammad Usama)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-March/008089.html">[pgpool-general: 8030]</ulink>
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Documents</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-04-28 [d5b2555]
+    2022-04-28 [4feedf0]
+    -->
+    <para>
+     Doc: update the example output of <xref linkend="pcp-watchdog-info">. (Bo Peng)
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+
+ <sect2>
+  <title>Regression Tests</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-04-19 [7aed95e]
+    -->
+    <para>
+     Improve regression test to detect segmentation fault. (Bo Peng)
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-3-7-23">
+ <title>Release 3.7.23</title>
+  <note>
+   <title>Release Date</title>
+   <simpara>2022-02-17</simpara>
+  </note>
+
+ <sect2>
+  <title>Changes</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-01-06 [6ccbbee4]
+    -->
+    <para>
+     Suppress message length log for <varname>in_hot_standby</varname>. (Tatsuo Ishii)
+    </para>
+    <para>
+     <productname>PostgreSQL 14</productname> introduced new config parameter <ulink url="https://www.postgresql.org/docs/14/runtime-config-preset.html">in_hot_standby</ulink>.
+    </para>
+    <para>
+     The value is either "on" for standby servers or "off" for primary
+     servers. As a result pgpool log is flooded by the messages:
+    </para>
+
+    <programlisting>
+     LOG:  reading message length
+     DETAIL:  message length (22) in slot 1 does not match with slot 0(23)
+    </programlisting>
+
+    <para>
+     To avoid this, only complain if the parameter name is not <varname>in_hot_standby</varname>.
+    </para>
+    <para>
+     Also the message is enhanced to show the parameter name. For example:
+    </para>
+
+    <programlisting>
+     LOG:  ParameterStatus "TimeZone": node 1 message length 30 is different from main node message length 24
+    </programlisting>
+
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2021-December/004077.html">[pgpool-hackers: 4076]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-13 [fd8b0fb2]
+    -->
+    <para>
+     Enhance parameter status handling. (Tatsuo Ishii)
+    </para>
+    <para>
+     When a parameter status message arrives from backend <productname>Pgpool-II</productname>
+     forwards it to frontend not just memorize.
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Bug fixes</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-01-31 [3f3c8ade]
+    -->
+    <para>
+     Fix long standing bug with <command>pcp_node_info</command>. (Tatsuo Ishii)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-January/004110.html">[pgpool-hackers: 4109]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-02 [0ef11f32]
+    -->
+    <para>
+     Fix health check process issues pointed out by <productname>Coverity</productname>. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-02 [9c663530]
+    -->
+    <para>
+     Fix memory leak pointed out by <productname>Coverity</productname>. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-06 [04679cb6]
+    -->
+    <para>
+     Fix <function>failover()</function> to deal with the case when no former primary node exists. (Tatsuo Ishii)
+    </para>
+    <para>
+     In case <varname>Req_info->primary_node_id</varname> is -1 like no primary
+     node exists when <productname>Pgpool-II</productname> starts up,
+     <function>failover()</function> skipped to call
+     <function>find_primary_node_repeatedly()</function>. Also
+     <varname>follow_master_command</varname> was not executed.
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-February/004114.html">[pgpool-hackers: 4113]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-10 [81cb3ccd]
+    -->
+    <para>
+     Fixed the streaming replication check process not to retry if it cannot connect to the backend.(<ulink url="https://www.pgpool.net/mantisbt/view.php?id=742">bug 742</ulink>) (Bo Peng)
+    </para>
+    <para>
+     This retry caused a long time failover.
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Documents</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-01-07 [3a01e9ff]
+    -->
+    <para>
+     Add restriction regarding <varname>ParameterStatus</varname> and <varname>in_hot_standby</varname> parameter. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-02 [285669de]
+    -->
+    <para>
+     Add restriction about <varname>set_config</varname>. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Test tools</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-02-07 [422d3541]
+    2022-02-06 [00cf7715]
+    -->
+    <para>
+     Fix <command>pgpool_setup</command> in failover script creation. (Tatsuo Ishii)
+    </para>
+    <para>
+     When <command>pgpool_setup</command> creates <filename>failover.sh</filename>,
+     it did not consider the case when no primary server existed.
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>Regression tests</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2021-12-22 [be947277]
+    -->
+    <para>
+     Allow to run regression test against existing installation without recompiling. (Tatsuo Ishii)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2021-December/004078.html">[pgpool-hackers: 4077]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-01-13 [20b9a031]
+    -->
+    <para>
+     Fix <command>pgpool_setup</command> and <command>watchdog_setup</command> binary PATH in noinstall mode. (Bo Peng)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+</sect1>
+
 <sect1 id="release-3-7-22">
  <title>Release 3.7.22</title>
   <note>
    <title>Release Date</title>
    <simpara>2021-12-23</simpara>
   </note>
+
+ <sect2>
+  <title>Changes</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2021-12-03 [1a05ad8c]
+    -->
+    <para>
+     Suppress bison warnings regarding yacc incompatibility. (Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2021-11-22 [082fb960]
+    -->
+    <para>
+     Fix redundant code. (Tatsuo Ishii)
+    </para>
+    <para>
+     Patch contributed by Lu Chenyang.
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
 
  <sect2>
   <title>Documents</title>

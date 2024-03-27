@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -53,16 +53,24 @@ static bool select_table_walker(Node *node, void *context);
 static bool non_immutable_function_call_walker(Node *node, void *context);
 static char *strip_quote(char *str);
 static bool function_volatile_property(char *fname, FUNC_VOLATILE_PROPERTY property);
+static bool function_has_return_type(char *fname, char *typename);
 
 /*
  * Return true if this SELECT has function calls *and* supposed to
  * modify database.  We check write/read_only function list to determine
  * whether the function modifies database.
+ * If node is PrepareStmt, we look into PrepareStmt->query instead.
  */
 bool
 pool_has_function_call(Node *node)
 {
 	SelectContext ctx;
+
+	if (IsA(node, PrepareStmt))
+	{
+		PrepareStmt *prepare_statement = (PrepareStmt *) node;
+		node = (Node *) (prepare_statement->query);
+	}
 
 	if (!IsA(node, SelectStmt))
 		return false;
@@ -365,9 +373,9 @@ function_call_walker(Node *node, void *context)
 					Node	   *arg = linitial(fcall->args);
 
 					if (IsA(arg, A_Const) &&
-						((A_Const *) arg)->val.type == T_Integer)
+						IsA(&((A_Const *) arg)->val, Integer))
 					{
-						ctx->pg_terminate_backend_pid = ((A_Const *) arg)->val.val.ival;
+						ctx->pg_terminate_backend_pid = ((A_Const *) arg)->val.ival.ival;
 						ereport(DEBUG1,
 								(errmsg("pg_terminate_backend pid = %d", ctx->pg_terminate_backend_pid)));
 					}
@@ -558,11 +566,11 @@ is_system_catalog(char *table_name)
 /*
  * Query to know if the target table belongs pg_catalog schema.
  */
-#define ISBELONGTOPGCATALOGQUERY "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
+#define ISBELONGTOPGCATALOGQUERY "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_catalog.pg_namespace AS n WHERE c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
 
-#define ISBELONGTOPGCATALOGQUERY2 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.oid = pgpool_regclass('\"%s\"') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
+#define ISBELONGTOPGCATALOGQUERY2 "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_catalog.pg_namespace AS n WHERE c.oid = pgpool_regclass('\"%s\"') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
 
-#define ISBELONGTOPGCATALOGQUERY3 "SELECT count(*) FROM pg_class AS c, pg_namespace AS n WHERE c.oid = pg_catalog.to_regclass('\"%s\"') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
+#define ISBELONGTOPGCATALOGQUERY3 "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_catalog.pg_namespace AS n WHERE c.oid = pg_catalog.to_regclass('\"%s\"') AND c.relnamespace = n.oid AND n.nspname = 'pg_catalog'"
 
 	bool		result;
 	static POOL_RELCACHE * relcache;
@@ -649,7 +657,7 @@ is_temp_table(char *table_name)
  * regclass (or its variant) here, because temporary tables never have
  * schema qualified name.
  */
-#define ISTEMPQUERY83 "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_namespace AS n WHERE c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname ~ '^pg_temp_'"
+#define ISTEMPQUERY83 "SELECT count(*) FROM pg_catalog.pg_class AS c, pg_catalog.pg_namespace AS n WHERE c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname ~ '^pg_temp_'"
 
 /*
  * Query to know if the target table is a temporary one.  This query
@@ -910,7 +918,7 @@ pool_has_pgpool_regclass(void)
 /*
  * Query to know if pgpool_regclass exists.
  */
-#define HASPGPOOL_REGCLASSQUERY "SELECT count(*) from (SELECT has_function_privilege('%s', 'pgpool_regclass(cstring)', 'execute') WHERE EXISTS(SELECT * FROM pg_catalog.pg_proc AS p WHERE p.proname = 'pgpool_regclass')) AS s"
+#define HASPGPOOL_REGCLASSQUERY "SELECT count(*) from (SELECT pg_catalog.has_function_privilege('%s', 'pgpool_regclass(cstring)', 'execute') WHERE EXISTS(SELECT * FROM pg_catalog.pg_proc AS p WHERE p.proname = 'pgpool_regclass')) AS s"
 
 	bool		result;
 	static POOL_RELCACHE * relcache;
@@ -1028,18 +1036,33 @@ non_immutable_function_call_walker(Node *node, void *context)
 				ctx->has_non_immutable_function_call = true;
 				return false;
 			}
+
+			/* check return type is timestamptz */
+			if (function_has_return_type(fname, "timestamptz"))
+			{
+				/* timestamptz should not be cached */
+				ctx->has_non_immutable_function_call = true;
+				return false;
+			}
+
+			/* return type is timetz */
+			if (function_has_return_type(fname, "timetz"))
+			{
+				/* timetz should not be cached */
+				ctx->has_non_immutable_function_call = true;
+				return false;
+			}
 		}
 	}
+
+	/* Check type cast */
 	else if (IsA(node, TypeCast))
 	{
-		/* CURRENT_DATE, CURRENT_TIME, LOCALTIMESTAMP, LOCALTIME etc. */
+		/* TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE should not be cached. */
 		TypeCast   *tc = (TypeCast *) node;
 
-		if ((isSystemType((Node *) tc->typeName, "date") ||
-			 isSystemType((Node *) tc->typeName, "timestamp") ||
-			 isSystemType((Node *) tc->typeName, "timestamptz") ||
-			 isSystemType((Node *) tc->typeName, "time") ||
-			 isSystemType((Node *) tc->typeName, "timetz")))
+		if (isSystemType((Node *) tc->typeName, "timestamptz") ||
+			isSystemType((Node *) tc->typeName, "timetz"))
 		{
 			ctx->has_non_immutable_function_call = true;
 			return false;
@@ -1183,7 +1206,7 @@ pool_table_name_to_oid(char *table_name)
  * Query to convert table name to oid
  */
 #define TABLE_TO_OID_QUERY "SELECT pgpool_regclass('%s')"
-#define TABLE_TO_OID_QUERY2 "SELECT oid FROM pg_class WHERE relname = '%s'"
+#define TABLE_TO_OID_QUERY2 "SELECT oid FROM pg_catalog.pg_class WHERE relname = '%s'"
 #define TABLE_TO_OID_QUERY3 "SELECT COALESCE(pg_catalog.to_regclass('%s')::oid, 0)"
 
 	int			oid = 0;
@@ -1298,7 +1321,7 @@ select_table_walker(Node *node, void *context)
 			num_oids = ctx->num_oids++;
 
 			ctx->table_oids[num_oids] = oid;
-			strlcpy(ctx->table_names[num_oids], table, POOL_NAMEDATALEN);
+			strlcpy(ctx->table_names[num_oids], table, NAMEDATALEN);
 
 			ereport(DEBUG1,
 					(errmsg("extracting table oids from SELECT statement"),
@@ -1361,11 +1384,11 @@ make_function_name_from_funccall(FuncCall *fcall)
 {
 	/*
 	 * Function name. Max size is calculated as follows: schema
-	 * name(POOL_NAMEDATALEN byte) + quotation marks for schmea name(2 byte) +
-	 * period(1 byte) + table name (POOL_NAMEDATALEN byte) + quotation marks
+	 * name(NAMEDATALEN byte) + quotation marks for schema name(2 byte) +
+	 * period(1 byte) + table name (NAMEDATALEN byte) + quotation marks
 	 * for table name(2 byte) + NULL(1 byte)
 	 */
-	static char funcname[POOL_NAMEDATALEN * 2 + 1 + 2 * 2 + 1];
+	static char funcname[NAMEDATALEN * 2 + 1 + 2 * 2 + 1];
 	List 	   *names;
 
 	if(fcall == NULL)
@@ -1382,29 +1405,29 @@ make_function_name_from_funccall(FuncCall *fcall)
 	{
 		case 1:
 			strcat(funcname, "\"");
-			strncat(funcname, strVal(linitial(names)), POOL_NAMEDATALEN);
+			strncat(funcname, strVal(linitial(names)), NAMEDATALEN);
 			strcat(funcname, "\"");
 			break;
 		case 2:
 			strcat(funcname, "\"");
-			strncat(funcname, strVal(linitial(names)), POOL_NAMEDATALEN);
+			strncat(funcname, strVal(linitial(names)), NAMEDATALEN);
 			strcat(funcname, "\"");
 
 			strcat(funcname, ".");
 
 			strcat(funcname, "\"");
-			strncat(funcname, strVal(lsecond(names)), POOL_NAMEDATALEN);
+			strncat(funcname, strVal(lsecond(names)), NAMEDATALEN);
 			strcat(funcname, "\"");
 			break;
 		case 3:
 			strcat(funcname, "\"");
-			strncat(funcname, strVal(lsecond(names)), POOL_NAMEDATALEN);
+			strncat(funcname, strVal(lsecond(names)), NAMEDATALEN);
 			strcat(funcname, "\"");
 
 			strcat(funcname, ".");
 
 			strcat(funcname, "\"");
-			strncat(funcname, strVal(lthird(names)), POOL_NAMEDATALEN);
+			strncat(funcname, strVal(lthird(names)), NAMEDATALEN);
 			strcat(funcname, "\"");
 
 			break;
@@ -1430,11 +1453,11 @@ make_table_name_from_rangevar(RangeVar *rangevar)
 {
 	/*
 	 * Table name. Max size is calculated as follows: schema
-	 * name(POOL_NAMEDATALEN byte) + quotation marks for schmea name(2 byte) +
-	 * period(1 byte) + table name (POOL_NAMEDATALEN byte) + quotation marks
+	 * name(NAMEDATALEN byte) + quotation marks for schema name(2 byte) +
+	 * period(1 byte) + table name (NAMEDATALEN byte) + quotation marks
 	 * for table name(2 byte) + NULL(1 byte)
 	 */
-	static char tablename[POOL_NAMEDATALEN * 2 + 1 + 2 * 2 + 1];
+	static char tablename[NAMEDATALEN * 2 + 1 + 2 * 2 + 1];
 
 	if (rangevar == NULL)
 	{
@@ -1456,7 +1479,7 @@ make_table_name_from_rangevar(RangeVar *rangevar)
 	if (rangevar->schemaname)
 	{
 		strcat(tablename, "\"");
-		strncat(tablename, rangevar->schemaname, POOL_NAMEDATALEN);
+		strncat(tablename, rangevar->schemaname, NAMEDATALEN);
 		strcat(tablename, "\"");
 		strcat(tablename, ".");
 	}
@@ -1470,11 +1493,98 @@ make_table_name_from_rangevar(RangeVar *rangevar)
 	}
 
 	strcat(tablename, "\"");
-	strncat(tablename, rangevar->relname, POOL_NAMEDATALEN);
+	strncat(tablename, rangevar->relname, NAMEDATALEN);
 	strcat(tablename, "\"");
 
 	ereport(DEBUG1,
 			(errmsg("make table name from rangevar: tablename:\"%s\"", tablename)));
 
 	return tablename;
+}
+
+/*
+ * Return whether given function has the given type name.  If one or more
+ * functions match, return true.
+ */
+static
+bool function_has_return_type(char *fname, char *typename)
+{
+/*
+ * Query to count the number of records matching given function name and type name.
+ */
+#define FUNCTION_RETURN_TYPE_MATCHEING_QUERY "SELECT count(*) FROM pg_catalog.pg_type AS t, pg_catalog.pg_proc AS p, pg_catalog.pg_namespace AS n WHERE p.proname = '%s' AND n.oid = p.pronamespace AND n.nspname %s '%s' AND p.prorettype = t.oid AND t.typname = '%s';"
+	bool		result;
+	char		query[1024];
+	char	   *rawstring = NULL;
+	List	   *names = NIL;
+	POOL_CONNECTION_POOL   *backend;
+	static POOL_RELCACHE   *relcache;
+
+	/* We need a modifiable copy of the input string. */
+	rawstring = pstrdup(fname);
+
+	/* split "schemaname.funcname" */
+	if(!SplitIdentifierString(rawstring, '.', (Node **) &names) ||
+		names == NIL)
+	{
+		pfree(rawstring);
+		list_free(names);
+
+		ereport(WARNING,
+				(errmsg("invalid function name %s", fname)));
+
+		return false;
+	}
+
+	if (list_length(names) == 2)
+	{
+		/* with schema qualification */
+		snprintf(query, sizeof(query), FUNCTION_RETURN_TYPE_MATCHEING_QUERY, (char *) llast(names),
+				 "=", (char *) linitial(names), typename);
+	}
+	else
+	{
+		snprintf(query, sizeof(query), FUNCTION_RETURN_TYPE_MATCHEING_QUERY, (char *) llast(names),
+				 "~", ".*", typename);
+	}
+
+	backend = pool_get_session_context(false)->backend;
+
+	if (!relcache)
+	{
+		/*
+		 * We pass "%s" as a template query so that pool_search_relcache
+		 * passes whole query.
+		 */
+		relcache = pool_create_relcache(pool_config->relcache_size, "%s",
+										int_register_func, int_unregister_func,
+										false);
+		if (relcache == NULL)
+		{
+			pfree(rawstring);
+			list_free(names);
+
+			ereport(WARNING,
+					(errmsg("unable to create relcache, while checking the function volatile property")));
+			return false;
+		}
+		ereport(DEBUG1,
+				(errmsg("checking the function matches the given type name"),
+				 errdetail("relcache created")));
+	}
+
+	/*
+	 * We pass whole query as "table" parameter of pool_search_relcache so
+	 * that each relcache entry is distinguished by actual query string.
+	 */
+	result = (pool_search_relcache(relcache, backend, query) == 0) ? 0 : 1;
+
+	pfree(rawstring);
+	list_free(names);
+
+	ereport(DEBUG1,
+			(errmsg("checking the function matches the given type name"),
+			 errdetail("search result = %d (function name: %s type name: %s)", result, fname, typename)));
+
+	return result;
 }

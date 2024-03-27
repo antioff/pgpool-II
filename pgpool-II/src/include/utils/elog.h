@@ -4,7 +4,7 @@
  *	  POSTGRES error reporting/logging definitions.
  *
  *
- * Portions Copyright (c) 2003-2014, PgPool Global Development Group
+ * Portions Copyright (c) 2003-2024, PgPool Global Development Group
  * Portions Copyright (c) 1996-2013, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -121,8 +121,10 @@ typedef enum
 /* pgpool-II extension. This is same as ERROR but sets the
  * do not cache connection flag before transforming to ERROR.
  */
-#define FRONTEND_ERROR			23	/* transformed to ERROR at errstart */
-#define FRONTEND_ONLY_ERROR		24	/* this is treated as LOG message
+#define FRONTEND_DEBUG			23	/* transformed to DEBUG at errstart */
+#define FRONTEND_LOG			24	/* transformed to LOG at errstart */
+#define FRONTEND_ERROR			25	/* transformed to ERROR at errstart */
+#define FRONTEND_ONLY_ERROR		26	/* this is treated as LOG message
 									 * internally for pgpool-II but forwarded
 									 * to frontend clients just like normal
 									 * errors followed by readyForQuery
@@ -205,6 +207,7 @@ typedef enum
 
 #define TEXTDOMAIN NULL
 
+extern bool message_level_is_interesting(int elevel);
 extern bool errstart(int elevel, const char *filename, int lineno,
 		 const char *funcname, const char *domain);
 extern void errfinish(int dummy,...);

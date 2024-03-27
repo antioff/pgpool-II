@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2024	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #ifndef FE_PORTS
 #define FE_PORTS
+#include "parser/pool_parser.h"
 #include "parser/pg_config_manual.h"
 #include "pool_type.h"
 
@@ -38,17 +39,17 @@
 extern char *simple_prompt(const char *prompt, int maxlen, bool echo);
 extern int	_fe_error_level;
 
-void	   *pg_malloc(size_t size);
+void	   *pg_malloc(Size size);
 
 void	   *pg_malloc0(size_t size);
-void	   *pg_realloc(void *ptr, size_t size);
+void	   *pg_realloc(void *ptr, Size size);
 char	   *pg_strdup(const char *in);
 void		pg_free(void *ptr);
-void	   *palloc(unsigned int size);
-void	   *palloc0(unsigned int size);
+void	   *palloc(Size size);
+void	   *palloc0(Size size);
 void		pfree(void *pointer);
 char	   *pstrdup(const char *in);
-void	   *repalloc(void *pointer, unsigned int size);
+void	   *repalloc(void *pointer, Size size);
 
 #ifdef __GNUC__
 extern int
@@ -68,8 +69,8 @@ extern int	errdetail(const char *fmt,...);
 extern void errmsg(const char *fmt,...);
 #endif
 
-extern int errstart(int elevel, const char *filename, int lineno,
-		 const char *funcname);
+extern bool errstart(int elevel, const char *filename, int lineno,
+					const char *funcname, const char *domain);
 extern void errfinish(int dummy,...);
 
 /*
@@ -112,8 +113,10 @@ extern void errfinish(int dummy,...);
 #define FATAL		21			/* fatal error - abort process */
 #define PANIC		22			/* take down the other backends with me */
 
-#define FRONTEND_ERROR			23	/* transformed to ERROR at errstart */
-#define FRONTEND_ONLY_ERROR		24	/* this is treated as LOG message
+#define FRONTEND_DEBUG			23	/* transformed to DEBUG at errstart */
+#define FRONTEND_LOG			24	/* transformed to LOG at errstart */
+#define FRONTEND_ERROR			25	/* transformed to ERROR at errstart */
+#define FRONTEND_ONLY_ERROR		26	/* this is treated as LOG message
 									 * internally for pgpool-II but forwarded
 									 * to frontend clients just like normal
 									 * errors followed by readyForQuery
@@ -130,7 +133,7 @@ extern void errfinish(int dummy,...);
 do { \
 	const int elevel_ = (elevel); \
 	_fe_error_level = elevel_; \
-	if (errstart(elevel_, __FILE__, __LINE__, __FUNCTION__)) \
+	if (errstart(elevel_, __FILE__, __LINE__, __FUNCTION__, "")) \
 		rest; \
 	if (elevel_ >= ERROR  && elevel_ != FRONTEND_ONLY_ERROR) \
 		exit(-1); \

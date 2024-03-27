@@ -5,8 +5,8 @@
  *
  * See comments in pg_list.h
  *
- * Portions Copyright (c) 2003-2020, PgPool Global Development Group
- * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2023, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -57,6 +57,7 @@ static inline MemoryContext GetMemoryChunkContext(void *pointer);
 #define IsPointerList(l)		((l) == NIL || IsA((l), List))
 #define IsIntegerList(l)		((l) == NIL || IsA((l), IntList))
 #define IsOidList(l)			((l) == NIL || IsA((l), OidList))
+#define IsXidList(l)			((l) == NIL || IsA((l), XidList))
 
 #ifdef USE_ASSERT_CHECKING
 /*
@@ -74,7 +75,8 @@ check_list_invariants(const List *list)
 
 	Assert(list->type == T_List ||
 		   list->type == T_IntList ||
-		   list->type == T_OidList);
+		   list->type == T_OidList ||
+		   list->type == T_XidList);
 }
 #else
 #define check_list_invariants(l)  ((void) 0)
@@ -241,6 +243,21 @@ list_make4_impl(NodeTag t, ListCell datum1, ListCell datum2,
 	return list;
 }
 
+List *
+list_make5_impl(NodeTag t, ListCell datum1, ListCell datum2,
+				ListCell datum3, ListCell datum4, ListCell datum5)
+{
+	List	   *list = new_list(t, 5);
+
+	list->elements[0] = datum1;
+	list->elements[1] = datum2;
+	list->elements[2] = datum3;
+	list->elements[3] = datum4;
+	list->elements[4] = datum5;
+	check_list_invariants(list);
+	return list;
+}
+
 /*
  * Make room for a new head cell in the given (non-NIL) list.
  *
@@ -291,7 +308,7 @@ lappend(List *list, void *datum)
 	else
 		new_tail_cell(list);
 
-	lfirst(list_tail(list)) = datum;
+	llast(list) = datum;
 	check_list_invariants(list);
 	return list;
 }
@@ -309,7 +326,7 @@ lappend_int(List *list, int datum)
 	else
 		new_tail_cell(list);
 
-	lfirst_int(list_tail(list)) = datum;
+	llast_int(list) = datum;
 	check_list_invariants(list);
 	return list;
 }
@@ -327,7 +344,25 @@ lappend_oid(List *list, Oid datum)
 	else
 		new_tail_cell(list);
 
-	lfirst_oid(list_tail(list)) = datum;
+	llast_oid(list) = datum;
+	check_list_invariants(list);
+	return list;
+}
+
+/*
+ * Append a TransactionId to the specified list. See lappend()
+ */
+List *
+lappend_xid(List *list, TransactionId datum)
+{
+	Assert(IsXidList(list));
+
+	if (list == NIL)
+		list = new_list(T_XidList, 1);
+	else
+		new_tail_cell(list);
+
+	llast_xid(list) = datum;
 	check_list_invariants(list);
 	return list;
 }
@@ -359,6 +394,9 @@ insert_new_cell(List *list, int pos)
 /*
  * Insert the given datum at position 'pos' (measured from 0) in the list.
  * 'pos' must be valid, ie, 0 <= pos <= list's length.
+ *
+ * Note that this takes time proportional to the distance to the end of the
+ * list, since the following entries must be moved.
  */
 List *
 list_insert_nth(List *list, int pos, void *datum)
@@ -409,6 +447,9 @@ list_insert_nth_oid(List *list, int pos, Oid datum)
  * value, rather than continuing to use the pointer passed as the
  * second argument.
  *
+ * Note that this takes time proportional to the length of the list,
+ * since the existing entries must be moved.
+ *
  * Caution: before Postgres 8.0, the original List was unmodified and
  * could be considered to retain its separate identity.  This is no longer
  * the case.
@@ -423,7 +464,7 @@ lcons(void *datum, List *list)
 	else
 		new_head_cell(list);
 
-	lfirst(list_head(list)) = datum;
+	linitial(list) = datum;
 	check_list_invariants(list);
 	return list;
 }
@@ -441,7 +482,7 @@ lcons_int(int datum, List *list)
 	else
 		new_head_cell(list);
 
-	lfirst_int(list_head(list)) = datum;
+	linitial_int(list) = datum;
 	check_list_invariants(list);
 	return list;
 }
@@ -459,7 +500,7 @@ lcons_oid(Oid datum, List *list)
 	else
 		new_head_cell(list);
 
-	lfirst_oid(list_head(list)) = datum;
+	linitial_oid(list) = datum;
 	check_list_invariants(list);
 	return list;
 }
@@ -474,6 +515,10 @@ lcons_oid(Oid datum, List *list)
  * Callers should be sure to use the return value as the new pointer to the
  * concatenated list: the 'list1' input pointer may or may not be the same
  * as the returned pointer.
+ *
+ * Note that this takes at least time proportional to the length of list2.
+ * It'd typically be the case that we have to enlarge list1's storage,
+ * probably adding time proportional to the length of list1.
  */
 List *
 list_concat(List *list1, const List *list2)
@@ -573,6 +618,8 @@ list_truncate(List *list, int new_size)
  * Return true iff 'datum' is a member of the list. Equality is
  * determined via equal(), so callers should ensure that they pass a
  * Node as 'datum'.
+ *
+ * This does a simple linear search --- avoid using it on long lists.
  */
 bool
 list_member(const List *list, const void *datum)
@@ -653,9 +700,32 @@ list_member_oid(const List *list, Oid datum)
 }
 
 /*
+ * Return true iff the TransactionId 'datum' is a member of the list.
+ */
+bool
+list_member_xid(const List *list, TransactionId datum)
+{
+	const ListCell *cell;
+
+	Assert(IsXidList(list));
+	check_list_invariants(list);
+
+	foreach(cell, list)
+	{
+		if (lfirst_xid(cell) == datum)
+			return true;
+	}
+
+	return false;
+}
+
+/*
  * Delete the n'th cell (counting from 0) in list.
  *
  * The List is pfree'd if this was the last member.
+ *
+ * Note that this takes time proportional to the distance to the end of the
+ * list, since the following entries must be moved.
  */
 List *
 list_delete_nth_cell(List *list, int n)
@@ -727,6 +797,9 @@ list_delete_nth_cell(List *list, int n)
  *
  * The List is pfree'd if this was the last member.  However, we do not
  * touch any data the cell might've been pointing to.
+ *
+ * Note that this takes time proportional to the distance to the end of the
+ * list, since the following entries must be moved.
  */
 List *
 list_delete_cell(List *list, ListCell *cell)
@@ -739,6 +812,8 @@ list_delete_cell(List *list, ListCell *cell)
 /*
  * Delete the first cell in list that matches datum, if any.
  * Equality is determined via equal().
+ *
+ * This does a simple linear search --- avoid using it on long lists.
  */
 List *
 list_delete(List *list, void *datum)
@@ -824,6 +899,13 @@ list_delete_oid(List *list, Oid datum)
  * where the intent is to alter the list rather than just traverse it.
  * Beware that the list is modified, whereas the Lisp-y coding leaves
  * the original list head intact in case there's another pointer to it.
+ *
+ * Note that this takes time proportional to the length of the list,
+ * since the remaining entries must be moved.  Consider reversing the
+ * list order so that you can use list_delete_last() instead.  However,
+ * if that causes you to replace lappend() with lcons(), you haven't
+ * improved matters.  (In short, you can make an efficient stack from
+ * a List, but not an efficient FIFO queue.)
  */
 List *
 list_delete_first(List *list)
@@ -838,9 +920,6 @@ list_delete_first(List *list)
 
 /*
  * Delete the last element of the list.
- *
- * This is the opposite of list_delete_first(), but is noticeably cheaper
- * with a long list, since no data need be moved.
  */
 List *
 list_delete_last(List *list)
@@ -862,6 +941,75 @@ list_delete_last(List *list)
 
 #ifdef NOT_USED_IN_PGPOOL
 /*
+ * Delete the first N cells of the list.
+ *
+ * The List is pfree'd if the request causes all cells to be deleted.
+ *
+ * Note that this takes time proportional to the distance to the end of the
+ * list, since the following entries must be moved.
+ */
+List *
+list_delete_first_n(List *list, int n)
+{
+	check_list_invariants(list);
+
+	/* No-op request? */
+	if (n <= 0)
+		return list;
+
+	/* Delete whole list? */
+	if (n >= list_length(list))
+	{
+		list_free(list);
+		return NIL;
+	}
+
+	/*
+	 * Otherwise, we normally just collapse out the removed elements.  But for
+	 * debugging purposes, move the whole list contents someplace else.
+	 *
+	 * (Note that we *must* keep the contents in the same memory context.)
+	 */
+#ifndef DEBUG_LIST_MEMORY_USAGE
+	memmove(&list->elements[0], &list->elements[n],
+			(list->length - n) * sizeof(ListCell));
+	list->length -= n;
+#else
+	{
+		ListCell   *newelems;
+		int			newmaxlen = list->length - n;
+
+		newelems = (ListCell *)
+			MemoryContextAlloc(GetMemoryChunkContext(list),
+							   newmaxlen * sizeof(ListCell));
+		memcpy(newelems, &list->elements[n], newmaxlen * sizeof(ListCell));
+		if (list->elements != list->initial_elements)
+			pfree(list->elements);
+		else
+		{
+			/*
+			 * As in enlarge_list(), clear the initial_elements[] space and/or
+			 * mark it inaccessible.
+			 */
+#ifdef CLOBBER_FREED_MEMORY
+			wipe_mem(list->initial_elements,
+					 list->max_length * sizeof(ListCell));
+#else
+			VALGRIND_MAKE_MEM_NOACCESS(list->initial_elements,
+									   list->max_length * sizeof(ListCell));
+#endif
+		}
+		list->elements = newelems;
+		list->max_length = newmaxlen;
+		list->length = newmaxlen;
+		check_list_invariants(list);
+	}
+#endif
+
+	return list;
+}
+
+/*
  * Generate the union of two lists. This is calculated by copying
  * list1 via list_copy(), then adding to it all the members of list2
  * that aren't already in list1.
@@ -878,8 +1026,10 @@ list_delete_last(List *list)
  * you probably want to use list_concat_unique() instead to avoid wasting
  * the storage of the old x list.
  *
- * This function could probably be implemented a lot faster if it is a
- * performance bottleneck.
+ * Note that this takes time proportional to the product of the list
+ * lengths, so beware of using it on long lists.  (We could probably
+ * improve that, but really you should be using some other data structure
+ * if this'd be a performance bottleneck.)
  */
 List *
 list_union(const List *list1, const List *list2)
@@ -985,6 +1135,11 @@ list_union_oid(const List *list1, const List *list2)
  * This variant works on lists of pointers, and determines list
  * membership via equal().  Note that the list1 member will be pointed
  * to in the result.
+ *
+ * Note that this takes time proportional to the product of the list
+ * lengths, so beware of using it on long lists.  (We could probably
+ * improve that, but really you should be using some other data structure
+ * if this'd be a performance bottleneck.)
  */
 List *
 list_intersection(const List *list1, const List *list2)
@@ -1043,6 +1198,11 @@ list_intersection_int(const List *list1, const List *list2)
  *
  * This variant works on lists of pointers, and determines list
  * membership via equal()
+ *
+ * Note that this takes time proportional to the product of the list
+ * lengths, so beware of using it on long lists.  (We could probably
+ * improve that, but really you should be using some other data structure
+ * if this'd be a performance bottleneck.)
  */
 List *
 list_difference(const List *list1, const List *list2)
@@ -1150,6 +1310,8 @@ list_difference_oid(const List *list1, const List *list2)
  *
  * Whether an element is already a member of the list is determined
  * via equal().
+ *
+ * This does a simple linear search --- avoid using it on long lists.
  */
 List *
 list_append_unique(List *list, void *datum)
@@ -1210,6 +1372,11 @@ list_append_unique_oid(List *list, Oid datum)
  * modified in-place rather than being copied. However, callers of this
  * function may have strict ordering expectations -- i.e. that the relative
  * order of those list2 elements that are not duplicates is preserved.
+ *
+ * Note that this takes time proportional to the product of the list
+ * lengths, so beware of using it on long lists.  (We could probably
+ * improve that, but really you should be using some other data structure
+ * if this'd be a performance bottleneck.)
  */
 List *
 list_concat_unique(List *list1, const List *list2)
@@ -1299,6 +1466,8 @@ list_concat_unique_oid(List *list1, const List *list2)
  *
  * It is caller's responsibility to have sorted the list to bring duplicates
  * together, perhaps via list_sort(list, list_oid_cmp).
+ *
+ * Note that this takes time proportional to the length of the list.
  */
 void
 list_deduplicate_oid(List *list)
@@ -1395,6 +1564,27 @@ list_copy(const List *oldlist)
 }
 
 /*
+ * Return a shallow copy of the specified list containing only the first 'len'
+ * elements.  If oldlist is shorter than 'len' then we copy the entire list.
+ */
+List *
+list_copy_head(const List *oldlist, int len)
+{
+	List	   *newlist;
+
+	if (oldlist == NIL || len <= 0)
+		return NIL;
+
+	len = Min(oldlist->length, len);
+
+	newlist = new_list(oldlist->type, len);
+	memcpy(newlist->elements, oldlist->elements, len * sizeof(ListCell));
+
+	check_list_invariants(newlist);
+	return newlist;
+}
+
+/*
  * Return a shallow copy of the specified list, without the first N elements.
  */
 List *
@@ -1455,6 +1645,8 @@ list_copy_deep(const List *oldlist)
  *
  * Like qsort(), this provides no guarantees about sort stability
  * for equal keys.
+ *
+ * This is based on qsort(), so it likewise has O(N log N) runtime.
  */
 void
 list_sort(List *list, list_sort_comparator cmp)
@@ -1468,6 +1660,22 @@ list_sort(List *list, list_sort_comparator cmp)
 	len = list_length(list);
 	if (len > 1)
 		qsort(list->elements, len, sizeof(ListCell), (qsort_comparator) cmp);
+}
+
+/*
+ * list_sort comparator for sorting a list into ascending int order.
+ */
+int
+list_int_cmp(const ListCell *p1, const ListCell *p2)
+{
+	int			v1 = lfirst_int(p1);
+	int			v2 = lfirst_int(p2);
+
+	if (v1 < v2)
+		return -1;
+	if (v1 > v2)
+		return 1;
+	return 0;
 }
 
 /*

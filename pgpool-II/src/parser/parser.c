@@ -10,8 +10,8 @@
  * analyze.c and related files.
  *
  *
- * Portions Copyright (c) 2003-2020, PgPool Global Development Group
- * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2023, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -48,12 +48,12 @@ static char *str_udeescape(const char *str, char escape,
  * raw_parser
  *		Given a query in string form, do lexical and grammatical analysis.
  *
- * Returns a list of raw (un-analyzed) parse trees.  The immediate elements
- * of the list are always RawStmt nodes.
+ * Returns a list of raw (un-analyzed) parse trees.  The contents of the
+ * list have the form required by the specified RawParseMode.
  * Set *error to true if there's any parse error.
  */
 List *
-raw_parser(const char *str, int len, bool *error, bool use_minimal)
+raw_parser(const char *str, RawParseMode mode, int len, bool *error, bool use_minimal)
 {
 	core_yyscan_t yyscanner;
 	base_yy_extra_type yyextra;
@@ -68,8 +68,26 @@ raw_parser(const char *str, int len, bool *error, bool use_minimal)
 	yyscanner = scanner_init(str, len, &yyextra.core_yy_extra,
 							 &ScanKeywords, ScanKeywordTokens);
 
-	/* base_yylex() only needs this much initialization */
-	yyextra.have_lookahead = false;
+	/* base_yylex() only needs us to initialize the lookahead token, if any */
+	if (mode == RAW_PARSE_DEFAULT)
+		yyextra.have_lookahead = false;
+	else
+	{
+		/* this array is indexed by RawParseMode enum */
+		static const int mode_token[] = {
+			0,					/* RAW_PARSE_DEFAULT */
+			MODE_TYPE_NAME,		/* RAW_PARSE_TYPE_NAME */
+			MODE_PLPGSQL_EXPR,	/* RAW_PARSE_PLPGSQL_EXPR */
+			MODE_PLPGSQL_ASSIGN1,	/* RAW_PARSE_PLPGSQL_ASSIGN1 */
+			MODE_PLPGSQL_ASSIGN2,	/* RAW_PARSE_PLPGSQL_ASSIGN2 */
+			MODE_PLPGSQL_ASSIGN3	/* RAW_PARSE_PLPGSQL_ASSIGN3 */
+		};
+
+		yyextra.have_lookahead = true;
+		yyextra.lookahead_token = mode_token[mode];
+		yyextra.lookahead_yylloc = 0;
+		yyextra.lookahead_end = NULL;
+	}
 
 	/* initialize the bison parser */
     if (use_minimal)
@@ -239,7 +257,8 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 		cur_token = yyextra->lookahead_token;
 		lvalp->core_yystype = yyextra->lookahead_yylval;
 		*llocp = yyextra->lookahead_yylloc;
-		*(yyextra->lookahead_end) = yyextra->lookahead_hold_char;
+		if (yyextra->lookahead_end)
+			*(yyextra->lookahead_end) = yyextra->lookahead_hold_char;
 		yyextra->have_lookahead = false;
 	}
 	else
@@ -253,6 +272,9 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 	 */
 	switch (cur_token)
 	{
+		case FORMAT:
+			cur_token_length = 6;
+			break;
 		case NOT:
 			cur_token_length = 3;
 			break;
@@ -265,6 +287,9 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 		case UIDENT:
 		case USCONST:
 			cur_token_length = strlen(yyextra->core_yy_extra.scanbuf + *llocp);
+			break;
+		case WITHOUT:
+			cur_token_length = 7;
 			break;
 		default:
 			return cur_token;
@@ -304,6 +329,16 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 	/* Replace cur_token if needed, based on lookahead */
 	switch (cur_token)
 	{
+		case FORMAT:
+			/* Replace FORMAT by FORMAT_LA if it's followed by JSON */
+			switch (next_token)
+			{
+				case JSON:
+					cur_token = FORMAT_LA;
+					break;
+			}
+			break;
+
 		case NOT:
 			/* Replace NOT by NOT_LA if it's followed by BETWEEN, IN, etc */
 			switch (next_token)
@@ -336,6 +371,16 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 				case TIME:
 				case ORDINALITY:
 					cur_token = WITH_LA;
+					break;
+			}
+			break;
+
+		case WITHOUT:
+			/* Replace WITHOUT by WITHOUT_LA if it's followed by TIME */
+			switch (next_token)
+			{
+				case TIME:
+					cur_token = WITHOUT_LA;
 					break;
 			}
 			break;

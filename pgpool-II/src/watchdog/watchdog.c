@@ -72,22 +72,22 @@
 #define NODE_DOWN_REQUIRE_CONSENSUS
 #define NODE_PROMOTE_REQUIRE_CONSENSUS
 
-typedef enum IPC_CMD_PREOCESS_RES
+typedef enum IPC_CMD_PROCESS_RES
 {
 	IPC_CMD_COMPLETE,
 	IPC_CMD_PROCESSING,
 	IPC_CMD_ERROR,
 	IPC_CMD_OK,
 	IPC_CMD_TRY_AGAIN
-}			IPC_CMD_PREOCESS_RES;
+}			IPC_CMD_PROCESS_RES;
 
 
 #define MIN_SECS_CONNECTION_RETRY	10	/* Time in seconds to retry connection
 										 * with node once it was failed */
 
 #define MAX_SECS_ESC_PROC_EXIT_WAIT 5	/* maximum amount of seconds to wait
-										 * for escalation/de-esclation process
-										 * to exit normaly before moving on */
+										 * for escalation/de-escalation process
+										 * to exit normally before moving on */
 
 #define BEACON_MESSAGE_INTERVAL_SECONDS		10	/* interval between beacon
 												 * messages */
@@ -203,8 +203,8 @@ packet_types all_packet_types[] = {
 };
 
 
-char	   *wd_event_name[] =
-{"STATE CHANGED",
+char	   *wd_event_name[] = {
+	"STATE CHANGED",
 	"TIMEOUT",
 	"PACKET RECEIVED",
 	"COMMAND FINISHED",
@@ -221,7 +221,8 @@ char	   *wd_event_name[] =
 	"NODE CONNECTION FOUND",
 	"CLUSTER QUORUM STATUS CHANGED",
 	"NODE REQUIRE TO RELOAD STATE",
-	"I AM APPEARING LOST"
+	"REMOTE NODE LOST US",
+	"REMOTE NODE FOUND US"
 };
 
 char	   *wd_state_names[] = {
@@ -250,6 +251,12 @@ char *wd_node_lost_reasons[] = {
 	"SHUTDOWN"
 };
 
+char *wd_cluster_membership_status[] = {
+	"MEMBER",
+	"REVOKED-SHUTDOWN",
+	"REVOKED-NO-SHOW",
+	"REVOKED-LOST"
+};
 /*
  * Command packet definition.
  */
@@ -264,7 +271,7 @@ typedef struct WDPacketData
 
 typedef enum WDNodeCommandState
 {
-	COMMAMD_STATE_INIT,
+	COMMAND_STATE_INIT,
 	COMMAND_STATE_SENT,
 	COMMAND_STATE_REPLIED,
 	COMMAND_STATE_SEND_ERROR,
@@ -362,6 +369,7 @@ typedef struct wd_cluster
 	WatchdogNode *remoteNodes;
 	WDClusterLeaderInfo clusterLeaderInfo;
 	int			remoteNodeCount;
+	int			memberRemoteNodeCount; /* no of nodes that count towards quorum and consensus */
 	int			quorum_status;
 	unsigned int nextCommandID;
 	pid_t		escalation_pid;
@@ -370,9 +378,10 @@ typedef struct wd_cluster
 	int			network_monitor_sock;
 	bool		clusterInitialized;
 	bool		ipc_auth_needed;
-	int			current_failover_id;
+	int 		current_failover_id;
+	int 		failover_command_timeout;
 	struct timeval last_bcast_srv_msg_time;	/* timestamp when last packet was
-											 *  boradcasted by the local node */
+											 *  broadcasted by the local node */
 	char		last_bcast_srv_msg;
 
 	List	   *unidentified_socks;
@@ -429,7 +438,7 @@ static WDFailoverCMDResults compute_failover_consensus(POOL_REQUEST_KIND reqKind
 
 static int	send_command_packet_to_remote_nodes(WDCommandData * ipcCommand, bool source_included);
 static void wd_command_is_complete(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES wd_command_processor_for_node_lost_event(WDCommandData * ipcCommand, WatchdogNode * wdLostNode);
+static IPC_CMD_PROCESS_RES wd_command_processor_for_node_lost_event(WDCommandData * ipcCommand, WatchdogNode * wdLostNode);
 
 volatile sig_atomic_t reload_config_signal = 0;
 volatile sig_atomic_t sigchld_request = 0;
@@ -504,7 +513,7 @@ static int	send_message_of_type(WatchdogNode * wdNode, char type, WDPacketData *
 static bool send_cluster_service_message(WatchdogNode * wdNode, WDPacketData * replyFor, char message);
 
 
-static int	accept_incomming_connections(fd_set *rmask, int pending_fds_count);
+static int	accept_incoming_connections(fd_set *rmask, int pending_fds_count);
 
 static int	standard_packet_processor(WatchdogNode * wdNode, WDPacketData * pkt);
 static void cluster_service_message_processor(WatchdogNode * wdNode, WDPacketData * pkt);
@@ -526,7 +535,7 @@ static int	watchdog_state_machine(WD_EVENTS event, WatchdogNode * wdNode, WDPack
 static int	watchdog_state_machine_nw_error(WD_EVENTS event, WatchdogNode * wdNode, WDPacketData * pkt, WDCommandData * clusterCommand);
 static int watchdog_state_machine_nw_isolation(WD_EVENTS event, WatchdogNode * wdNode, WDPacketData * pkt, WDCommandData * clusterCommand);
 
-static int	I_am_leader_and_cluser_in_split_brain(WatchdogNode * otherLeaderNode);
+static int	I_am_leader_and_cluster_in_split_brain(WatchdogNode * otherLeaderNode);
 static void handle_split_brain(WatchdogNode * otherLeaderNode, WDPacketData * pkt);
 static bool beacon_message_received_from_node(WatchdogNode * wdNode, WDPacketData * pkt);
 
@@ -547,16 +556,16 @@ static WDCommandData * get_wd_cluster_command_from_reply(WDPacketData * pkt);
 static WDCommandData * get_wd_IPC_command_from_reply(WDPacketData * pkt);
 static WDCommandData * get_wd_IPC_command_from_socket(int sock);
 
-static IPC_CMD_PREOCESS_RES process_IPC_command(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_nodeStatusChange_command(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_nodeList_command(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_get_runtime_variable_value_request(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_online_recovery(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_failover_indication(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_data_request_from_leader(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_failover_command(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_failover_command_on_coordinator(WDCommandData * ipcCommand);
-static IPC_CMD_PREOCESS_RES process_IPC_execute_cluster_command(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_command(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_nodeStatusChange_command(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_nodeList_command(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_get_runtime_variable_value_request(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_online_recovery(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_failover_indication(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_data_request_from_leader(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_failover_command(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_failover_command_on_coordinator(WDCommandData * ipcCommand);
+static IPC_CMD_PROCESS_RES process_IPC_execute_cluster_command(WDCommandData * ipcCommand);
 
 static bool write_ipc_command_with_result_data(WDCommandData * ipcCommand, char type, char *data, int len);
 
@@ -594,9 +603,13 @@ static void set_cluster_leader_node(WatchdogNode * wdNode);
 static void clear_standby_nodes_list(void);
 static int	standby_node_left_cluster(WatchdogNode * wdNode);
 static int	standby_node_join_cluster(WatchdogNode * wdNode);
+static void reset_lost_timers(void);
+static int update_cluster_memberships(void);
+static int revoke_cluster_membership_of_node(WatchdogNode* wdNode, WD_NODE_MEMBERSHIP_STATUS revoke_status);
+static int restore_cluster_membership_of_node(WatchdogNode* wdNode);
 static void update_missed_beacon_count(WDCommandData* ipcCommand, bool clear);
 static void wd_execute_cluster_command_processor(WatchdogNode * wdNode, WDPacketData * pkt);
-
+static void	update_failover_timeout(WatchdogNode * wdNode, POOL_CONFIG *pool_config);
 /* global variables */
 wd_cluster	g_cluster;
 struct timeval g_tm_set_time;
@@ -640,7 +653,7 @@ wd_check_config(void)
 	{
 		if (pool_config->num_hb_dest_if <= 0)
 			ereport(ERROR,
-					(errmsg("invalid lifecheck configuration. no heartbeat interfaces defined")));
+					(errmsg("invalid life-check configuration. no heartbeat interfaces defined")));
 	}
 }
 
@@ -662,7 +675,7 @@ wd_initialize_monitoring_interfaces(void)
 				   *idx;
 
 		ereport(LOG,
-				(errmsg("ensure availibility on any interface")));
+				(errmsg("ensure availability on any interface")));
 
 		if_ni = if_nameindex();
 		if (if_ni == NULL)
@@ -743,7 +756,7 @@ wd_cluster_initialize(void)
 	gettimeofday(&g_cluster.localNode->startup_time, NULL);
 
 	strncpy(g_cluster.localNode->hostname, pool_config->wd_nodes.wd_node_info[pgpool_node_id].hostname, sizeof(g_cluster.localNode->hostname) - 1);
-	strncpy(g_cluster.localNode->delegate_ip, pool_config->delegate_IP, sizeof(g_cluster.localNode->delegate_ip) - 1);
+	strncpy(g_cluster.localNode->delegate_ip, pool_config->delegate_ip, sizeof(g_cluster.localNode->delegate_ip) - 1);
 	/* Assign the node name */
 	{
 		struct utsname unameData;
@@ -761,10 +774,10 @@ wd_cluster_initialize(void)
 
 	/* initialize remote nodes */
 	g_cluster.remoteNodeCount = pool_config->wd_nodes.num_wd - 1;
+	g_cluster.memberRemoteNodeCount = g_cluster.remoteNodeCount;
 	if (g_cluster.remoteNodeCount == 0)
 		ereport(ERROR,
                 (errmsg("invalid watchdog configuration. other pgpools setting is not defined")));
-
 	ereport(LOG,
 			(errmsg("watchdog cluster is configured with %d remote nodes", g_cluster.remoteNodeCount)));
 	g_cluster.remoteNodes = palloc0((sizeof(WatchdogNode) * g_cluster.remoteNodeCount));
@@ -838,7 +851,7 @@ clear_command_node_result(WDCommandNodeResult * nodeResult)
 	nodeResult->result_type = WD_NO_MESSAGE;
 	nodeResult->result_data = NULL;
 	nodeResult->result_data_len = 0;
-	nodeResult->cmdState = COMMAMD_STATE_INIT;
+	nodeResult->cmdState = COMMAND_STATE_INIT;
 }
 
 static int
@@ -920,7 +933,7 @@ wd_create_recv_socket(int port)
 
 /*
  * creates a socket in non blocking mode and connects it to the hostname and port
- * the out parameter connected is set to true if the connection is successfull
+ * the out parameter connected is set to true if the connection is successful
  */
 static int
 wd_create_client_socket(char *hostname, int port, bool *connected)
@@ -1005,7 +1018,7 @@ wd_create_client_socket(char *hostname, int port, bool *connected)
 	return sock;
 }
 
-/* returns the number of successfull connections */
+/* returns the number of successful connections */
 static int
 connect_with_all_configured_nodes(void)
 {
@@ -1078,7 +1091,7 @@ connect_to_node(WatchdogNode * wdNode)
 	return (wdNode->client_socket.sock_state != WD_SOCK_ERROR);
 }
 
-/* signal handler for SIGHUP and SIGCHILD handler */
+/* signal handler for SIGHUP and SIGCHLD handler */
 static RETSIGTYPE watchdog_signal_handler(int sig)
 {
 	if (sig == SIGHUP)
@@ -1260,7 +1273,7 @@ watchdog_main(void)
 		{
 			int			processed_fds = 0;
 
-			processed_fds += accept_incomming_connections(&rmask, (select_ret - processed_fds));
+			processed_fds += accept_incoming_connections(&rmask, (select_ret - processed_fds));
 			processed_fds += update_successful_outgoing_cons(&wmask, (select_ret - processed_fds));
 			processed_fds += read_sockets(&rmask, (select_ret - processed_fds));
 		}
@@ -1436,7 +1449,7 @@ prepare_fds(fd_set *rmask, fd_set *wmask, fd_set *emask)
 	}
 
 	/*
-	 * I know this is getting complex but we need to add all incomming
+	 * I know this is getting complex but we need to add all incoming
 	 * unassigned connection sockets these one will go for reading
 	 */
 	foreach(lc, g_cluster.unidentified_socks)
@@ -1638,6 +1651,7 @@ read_sockets(fd_set *rmask, int pending_fds_count)
 						}
 						if (found)
 						{
+							restore_cluster_membership_of_node(wdNode);
 							/* reply with node info message */
 							ereport(LOG,
 									(errmsg("new node joined the cluster hostname:\"%s\" port:%d pgpool_port:%d", wdNode->hostname,
@@ -1663,18 +1677,9 @@ read_sockets(fd_set *rmask, int pending_fds_count)
 												   wd_node_lost_reasons[wdNode->node_lost_reason],
 												   abs((int)(previous_startup_time.tv_sec - wdNode->startup_time.tv_sec)))));
 
-								if (abs((int)(previous_startup_time.tv_sec - wdNode->startup_time.tv_sec)) <= 2 &&
-									wdNode->node_lost_reason == NODE_LOST_BY_LIFECHECK)
-								{
-									ereport(LOG,
-										(errmsg("node:\"%s\" was reported lost by the lifecheck process",wdNode->nodeName),
-											 errdetail("only lifecheck process can mark this node alive again")));
-									/* restore the node's lost state */
-									wdNode->state = oldNodeState;
-								}
-								else
-									watchdog_state_machine(WD_EVENT_PACKET_RCV, wdNode, pkt, NULL);
-
+								watchdog_state_machine(WD_EVENT_PACKET_RCV, wdNode, pkt, NULL);
+								/* Since the node was lost. Fire node found event as well */
+								watchdog_state_machine(WD_EVENT_REMOTE_NODE_FOUND, wdNode, NULL, NULL);
 							}
 
 						}
@@ -1767,7 +1772,7 @@ read_sockets(fd_set *rmask, int pending_fds_count)
 					/*
 					 * special case we want to remove the socket from
 					 * ipc_command_sock list manually, so mark the issuing
-					 * socket of ipcComman to invalid value
+					 * socket of ipcCommand to invalid value
 					 */
 					ipcCommand->sourceIPCSocket = -1;
 				}
@@ -1909,7 +1914,7 @@ read_ipc_socket_and_process(int sock, bool *remove_socket)
 	int			data_len,
 				ret;
 	WDCommandData *ipcCommand;
-	IPC_CMD_PREOCESS_RES res;
+	IPC_CMD_PROCESS_RES res;
 
 	*remove_socket = true;
 
@@ -2019,7 +2024,7 @@ read_ipc_socket_and_process(int sock, bool *remove_socket)
 	return (res != IPC_CMD_ERROR);
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_command(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_command(WDCommandData * ipcCommand)
 {
 	/* authenticate the client first */
 	if (check_and_report_IPC_authentication(ipcCommand) == false)
@@ -2076,7 +2081,7 @@ static IPC_CMD_PREOCESS_RES process_IPC_command(WDCommandData * ipcCommand)
 	return IPC_CMD_ERROR;
 }
 
-static IPC_CMD_PREOCESS_RES
+static IPC_CMD_PROCESS_RES
 process_IPC_execute_cluster_command(WDCommandData * ipcCommand)
 {
 	/* get the json for node list */
@@ -2142,7 +2147,7 @@ ERROR_EXIT:
 	return IPC_CMD_ERROR;
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_get_runtime_variable_value_request(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_get_runtime_variable_value_request(WDCommandData * ipcCommand)
 {
 	/* get the json for node list */
 	JsonNode   *jNode = NULL;
@@ -2207,7 +2212,7 @@ static IPC_CMD_PREOCESS_RES process_IPC_get_runtime_variable_value_request(WDCom
 	return IPC_CMD_COMPLETE;
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_nodeList_command(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_nodeList_command(WDCommandData * ipcCommand)
 {
 	/* get the json for node list */
 	JsonNode   *jNode = NULL;
@@ -2242,7 +2247,7 @@ static IPC_CMD_PREOCESS_RES process_IPC_nodeList_command(WDCommandData * ipcComm
 	return IPC_CMD_COMPLETE;
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_nodeStatusChange_command(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_nodeStatusChange_command(WDCommandData * ipcCommand)
 {
 	int			nodeStatus;
 	int			nodeID;
@@ -2389,7 +2394,7 @@ service_expired_failovers(void)
 
 		if (failoverObj)
 		{
-			if (WD_TIME_DIFF_SEC(currTime, failoverObj->startTime) >= FAILOVER_COMMAND_FINISH_TIMEOUT)
+			if (WD_TIME_DIFF_SEC(currTime, failoverObj->startTime) >= g_cluster.failover_command_timeout)
 			{
 				failovers_to_del = lappend(failovers_to_del, failoverObj);
 				ereport(DEBUG1,
@@ -2502,7 +2507,7 @@ process_remote_failover_command_on_coordinator(WatchdogNode * wdNode, WDPacketDa
 	}
 	else
 	{
-		IPC_CMD_PREOCESS_RES res;
+		IPC_CMD_PROCESS_RES res;
 		WDCommandData *ipcCommand = create_command_object(pkt->len);
 
 		ipcCommand->sourcePacket.type = pkt->type;
@@ -2538,7 +2543,7 @@ process_remote_failover_command_on_coordinator(WatchdogNode * wdNode, WDPacketDa
 }
 
 static bool
-reply_to_failove_command(WDCommandData * ipcCommand, WDFailoverCMDResults cmdResult, unsigned int failoverID)
+reply_to_failover_command(WDCommandData * ipcCommand, WDFailoverCMDResults cmdResult, unsigned int failoverID)
 {
 	bool		ret = false;
 	JsonNode   *jNode = jw_create_with_object(true);
@@ -2618,8 +2623,8 @@ static WDFailoverCMDResults compute_failover_consensus(POOL_REQUEST_KIND reqKind
 	}
 
 	/*
-	 * So we reached here means quorum is present Now come to dificult part of
-	 * enusring the consensus
+	 * So we reached here means quorum is present Now come to difficult part of
+	 * ensuring the consensus
 	 */
 	if (pool_config->failover_require_consensus == true)
 	{
@@ -2643,7 +2648,7 @@ static WDFailoverCMDResults compute_failover_consensus(POOL_REQUEST_KIND reqKind
 			ereport(LOG, (
 						  errmsg("we have got the consensus to perform the failover"),
 						  errdetail("%d node(s) voted in the favor", failoverObj->request_count)));
-			/* restor the flag value to the one from the first call */
+			/* restore the flag value to the one from the first call */
 			*flags = failoverObj->reqFlags;
 			/* remove this object, It is no longer needed */
 			remove_failover_object(failoverObj);
@@ -2730,7 +2735,7 @@ static WDFailoverObject * add_failover(POOL_REQUEST_KIND reqKind, int *node_id_l
 /*
  * The function processes all failover commands on leader node
  */
-static IPC_CMD_PREOCESS_RES process_failover_command_on_coordinator(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_failover_command_on_coordinator(WDCommandData * ipcCommand)
 {
 	char	   *func_name;
 	int			node_count = 0;
@@ -2750,7 +2755,7 @@ static IPC_CMD_PREOCESS_RES process_failover_command_on_coordinator(WDCommandDat
 		ereport(LOG, (
 					  errmsg("failed to process failover command"),
 					  errdetail("unable to parse the command data")));
-		reply_to_failove_command(ipcCommand, FAILOVER_RES_INVALID_FUNCTION, 0);
+		reply_to_failover_command(ipcCommand, FAILOVER_RES_INVALID_FUNCTION, 0);
 		return IPC_CMD_COMPLETE;
 	}
 
@@ -2762,7 +2767,7 @@ static IPC_CMD_PREOCESS_RES process_failover_command_on_coordinator(WDCommandDat
 		reqKind = PROMOTE_NODE_REQUEST;
 	else
 	{
-		reply_to_failove_command(ipcCommand, FAILOVER_RES_INVALID_FUNCTION, 0);
+		reply_to_failover_command(ipcCommand, FAILOVER_RES_INVALID_FUNCTION, 0);
 		return IPC_CMD_COMPLETE;
 	}
 
@@ -2798,9 +2803,9 @@ static IPC_CMD_PREOCESS_RES process_failover_command_on_coordinator(WDCommandDat
 				ret = promote_backend(node_id_list[0], flags);
 
 			if (ret == true)
-				reply_to_failove_command(ipcCommand, FAILOVER_RES_WILL_BE_DONE, 0);
+				reply_to_failover_command(ipcCommand, FAILOVER_RES_WILL_BE_DONE, 0);
 			else
-				reply_to_failove_command(ipcCommand, FAILOVER_RES_ERROR, 0);
+				reply_to_failover_command(ipcCommand, FAILOVER_RES_ERROR, 0);
 		}
 		else
 		{
@@ -2808,7 +2813,7 @@ static IPC_CMD_PREOCESS_RES process_failover_command_on_coordinator(WDCommandDat
 			 * It was the request from the local node, Just reply the caller
 			 * to get on with the failover
 			 */
-			reply_to_failove_command(ipcCommand, FAILOVER_RES_PROCEED, 0);
+			reply_to_failover_command(ipcCommand, FAILOVER_RES_PROCEED, 0);
 		}
 		return IPC_CMD_COMPLETE;
 	}
@@ -2840,11 +2845,11 @@ static IPC_CMD_PREOCESS_RES process_failover_command_on_coordinator(WDCommandDat
 			register_inform_quarantine_nodes_req();
 	}
 
-	reply_to_failove_command(ipcCommand, res, 0);
+	reply_to_failover_command(ipcCommand, res, 0);
 	return IPC_CMD_COMPLETE;
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_failover_command(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_failover_command(WDCommandData * ipcCommand)
 {
 	if (is_local_node_true_leader())
 	{
@@ -2891,7 +2896,7 @@ static IPC_CMD_PREOCESS_RES process_IPC_failover_command(WDCommandData * ipcComm
 	return IPC_CMD_ERROR;
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_online_recovery(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_online_recovery(WDCommandData * ipcCommand)
 {
 	if (get_local_node_state() == WD_STANDBY ||
 		get_local_node_state() == WD_COORDINATOR)
@@ -2929,7 +2934,7 @@ static IPC_CMD_PREOCESS_RES process_IPC_online_recovery(WDCommandData * ipcComma
 	return IPC_CMD_TRY_AGAIN;
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_data_request_from_leader(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_data_request_from_leader(WDCommandData * ipcCommand)
 {
 	/*
 	 * if cluster or myself is not in stable state just return cluster in
@@ -2941,7 +2946,7 @@ static IPC_CMD_PREOCESS_RES process_IPC_data_request_from_leader(WDCommandData *
 	if (get_local_node_state() == WD_STANDBY)
 	{
 		/*
-		 * set the command id in the IPC packet before forwaring it on the
+		 * set the command id in the IPC packet before forwarding it on the
 		 * watchdog socket
 		 */
 		wd_packet_shallow_copy(&ipcCommand->sourcePacket, &ipcCommand->commandPacket);
@@ -2986,7 +2991,7 @@ static IPC_CMD_PREOCESS_RES process_IPC_data_request_from_leader(WDCommandData *
 	return IPC_CMD_TRY_AGAIN;
 }
 
-static IPC_CMD_PREOCESS_RES process_IPC_failover_indication(WDCommandData * ipcCommand)
+static IPC_CMD_PROCESS_RES process_IPC_failover_indication(WDCommandData * ipcCommand)
 {
 	WDFailoverCMDResults res = FAILOVER_RES_NOT_ALLOWED;
 
@@ -3054,13 +3059,13 @@ static IPC_CMD_PREOCESS_RES process_IPC_failover_indication(WDCommandData * ipcC
 		ereport(LOG,
 				(errmsg("received the failover indication from Pgpool-II on IPC interface, but only leader can do failover")));
 	}
-	reply_to_failove_command(ipcCommand, res, 0);
+	reply_to_failover_command(ipcCommand, res, 0);
 
 	return IPC_CMD_COMPLETE;
 }
 
 
-/* Failover start basically does nothing fency, It just sets the failover_in_progress
+/* Failover start basically does nothing fancy, It just sets the failover_in_progress
  * flag and inform all nodes that the failover is in progress.
  *
  * only the local node that is a leader can start the failover.
@@ -3363,7 +3368,7 @@ is_node_active_and_reachable(WatchdogNode * wdNode)
 }
 
 static int
-accept_incomming_connections(fd_set *rmask, int pending_fds_count)
+accept_incoming_connections(fd_set *rmask, int pending_fds_count)
 {
 	int			processed_fds = 0;
 	int			fd;
@@ -3385,7 +3390,7 @@ accept_incomming_connections(fd_set *rmask, int pending_fds_count)
 			}
 			/* accept failed */
 			ereport(DEBUG1,
-					(errmsg("Failed to accept incomming watchdog connection")));
+					(errmsg("Failed to accept incoming watchdog connection")));
 		}
 		else
 		{
@@ -3431,7 +3436,7 @@ accept_incomming_connections(fd_set *rmask, int pending_fds_count)
 		{
 			MemoryContext oldCxt = MemoryContextSwitchTo(TopMemoryContext);
 
-			ereport(LOG,
+			ereport(DEBUG1,
 					(errmsg("new IPC connection received")));
 			g_cluster.ipc_command_socks = lappend_int(g_cluster.ipc_command_socks, fd);
 			MemoryContextSwitchTo(oldCxt);
@@ -3633,6 +3638,8 @@ add_nodeinfo_to_json(JsonNode * jNode, WatchdogNode * node)
 
 	jw_put_int(jNode, "ID", nodeIfNull_int(pgpool_node_id, -1));
 	jw_put_int(jNode, "State", nodeIfNull_int(state, -1));
+	jw_put_int(jNode, "Membership", nodeIfNull_int(membership_status, -1));
+	jw_put_string(jNode, "MembershipString", node ? wd_cluster_membership_status[node->membership_status] : NotSet);
 	jw_put_string(jNode, "NodeName", nodeIfNull_str(nodeName, NotSet));
 	jw_put_string(jNode, "HostName", nodeIfNull_str(hostname, NotSet));
 	jw_put_string(jNode, "StateName", node ? wd_state_names[node->state] : NotSet);
@@ -3652,6 +3659,8 @@ static JsonNode * get_node_list_json(int id)
 	JsonNode   *jNode = jw_create_with_object(true);
 
 	jw_put_int(jNode, "RemoteNodeCount", g_cluster.remoteNodeCount);
+	jw_put_int(jNode, "MemberRemoteNodeCount", g_cluster.memberRemoteNodeCount);
+	jw_put_int(jNode, "NodesRequireForQuorum", get_minimum_votes_to_resolve_consensus());
 	jw_put_int(jNode, "QuorumStatus", WD_LEADER_NODE ? WD_LEADER_NODE->quorum_status : -2);
 	jw_put_int(jNode, "AliveNodeCount", WD_LEADER_NODE ? WD_LEADER_NODE->standby_nodes_count : 0);
 	jw_put_int(jNode, "Escalated", g_cluster.localNode->escalated);
@@ -3910,7 +3919,7 @@ cluster_service_message_processor(WatchdogNode * wdNode, WDPacketData * pkt)
 		case CLUSTER_IAM_TRUE_LEADER:
 			{
 				/*
-				 * The cluster was in split-brain and remote node thiks it is
+				 * The cluster was in split-brain and remote node thinks it is
 				 * the worthy leader
 				 */
 				if (get_local_node_state() == WD_COORDINATOR)
@@ -4235,6 +4244,7 @@ standard_packet_processor(WatchdogNode * wdNode, WDPacketData * pkt)
 					if (standby_config)
 					{
 						verify_pool_configurations(wdNode, standby_config);
+						update_failover_timeout(wdNode, standby_config);
 					}
 				}
 			}
@@ -4292,7 +4302,7 @@ standard_packet_processor(WatchdogNode * wdNode, WDPacketData * pkt)
 						if (get_local_node_state() != WD_COORDINATOR)
 						{
 							/*
-							 * This fight dosen't belong to me brodcast the
+							 * This fight doesn't belong to me broadcast the
 							 * message about cluster in split-brain
 							 */
 
@@ -4315,7 +4325,7 @@ standard_packet_processor(WatchdogNode * wdNode, WDPacketData * pkt)
 					else if (WD_LEADER_NODE == wdNode && oldQuorumStatus != wdNode->quorum_status)
 					{
 						/* inform Pgpool main about quorum status changes */
-						register_watchdog_quorum_change_interupt();
+						register_watchdog_quorum_change_interrupt();
 					}
 				}
 
@@ -4356,8 +4366,8 @@ standard_packet_processor(WatchdogNode * wdNode, WDPacketData * pkt)
 					if (wdNode->node_lost_reason == NODE_LOST_BY_LIFECHECK)
 					{
 						ereport(LOG,
-							(errmsg("node:\"%s\" was reported lost by the lifecheck process",wdNode->nodeName),
-								 errdetail("only life-check process can mark this node alive again")));
+							(errmsg("node:\"%s\" was reported lost by the life-check process",wdNode->nodeName),
+								 errdetail("node will be added to cluster once life-check mark it as reachable again")));
 						/* restore the node's lost state */
 						wdNode->state = oldNodeState;
 					}
@@ -4512,7 +4522,7 @@ send_message(WatchdogNode * wdNode, WDPacketData * pkt)
 	return count;
 }
 
-static IPC_CMD_PREOCESS_RES wd_command_processor_for_node_lost_event(WDCommandData * ipcCommand, WatchdogNode * wdLostNode)
+static IPC_CMD_PROCESS_RES wd_command_processor_for_node_lost_event(WDCommandData * ipcCommand, WatchdogNode * wdLostNode)
 {
 	if (ipcCommand->sendToNode)
 	{
@@ -4630,7 +4640,7 @@ node_lost_while_ipc_command(WatchdogNode * wdNode)
 	foreach(lc, g_cluster.ipc_commands)
 	{
 		WDCommandData *ipcCommand = lfirst(lc);
-		IPC_CMD_PREOCESS_RES res = wd_command_processor_for_node_lost_event(ipcCommand, wdNode);
+		IPC_CMD_PROCESS_RES res = wd_command_processor_for_node_lost_event(ipcCommand, wdNode);
 
 		if (res != IPC_CMD_PROCESSING)
 		{
@@ -4651,7 +4661,7 @@ node_lost_while_ipc_command(WatchdogNode * wdNode)
 
 /*
  * The function walks through all command and resends
- * the failed maessage again if it can.
+ * the failed message again if it can.
  */
 static void
 service_ipc_commands(void)
@@ -4754,6 +4764,34 @@ service_unreachable_nodes(void)
 	for (i = 0; i < g_cluster.remoteNodeCount; i++)
 	{
 		WatchdogNode *wdNode = &(g_cluster.remoteNodes[i]);
+
+		if (wdNode->state == WD_LOST && wdNode->membership_status == WD_NODE_MEMBERSHIP_ACTIVE
+			&& pool_config->wd_lost_node_removal_timeout)
+		{
+			int lost_seconds = WD_TIME_DIFF_SEC(currTime, wdNode->lost_time);
+			if (lost_seconds >= pool_config->wd_lost_node_removal_timeout)
+			{
+				ereport(LOG,
+						(errmsg("remote node \"%s\" is lost for %d seconds", wdNode->nodeName,lost_seconds),
+						 errdetail("revoking the node's membership")));
+				revoke_cluster_membership_of_node(wdNode,WD_NODE_REVOKED_LOST);
+			}
+			continue;
+		}
+
+		if (wdNode->state == WD_DEAD && wdNode->membership_status == WD_NODE_MEMBERSHIP_ACTIVE
+			&& pool_config->wd_no_show_node_removal_timeout)
+		{
+			int no_show_seconds = WD_TIME_DIFF_SEC(currTime, g_cluster.localNode->startup_time);
+			if (no_show_seconds >= pool_config->wd_no_show_node_removal_timeout)
+			{
+				ereport(LOG,
+						(errmsg("remote node \"%s\" didn't showed-up in %d seconds", wdNode->nodeName,no_show_seconds),
+						 errdetail("revoking the node's membership")));
+				revoke_cluster_membership_of_node(wdNode,WD_NODE_REVOKED_NO_SHOW);
+			}
+			continue;
+		}
 
 		if (is_node_active(wdNode) == false)
 			continue;
@@ -4866,7 +4904,7 @@ watchdog_internal_command_packet_processor(WatchdogNode * wdNode, WDPacketData *
 	}
 	else if (pkt->type == WD_REJECT_MESSAGE || pkt->type == WD_ERROR_MESSAGE)
 	{
-		/* Error or reject message by any node imidiately finishes the command */
+		/* Error or reject message by any node immediately finishes the command */
 		ereport(DEBUG1,
 				(errmsg("command %c with command id %d is finished with COMMAND_FINISHED_NODE_REJECTED", pkt->type, pkt->command_id)));
 		clusterCommand->commandStatus = COMMAND_FINISHED_NODE_REJECTED;
@@ -5000,7 +5038,7 @@ issue_watchdog_internal_command(WatchdogNode * wdNode, WDPacketData * pkt, int t
 		}
 		if (nodeResult == NULL)
 		{
-			/* should never hapen */
+			/* should never happen */
 			ereport(WARNING,
 					(errmsg("Internal error. Not able to locate node result slot")));
 			MemoryContextDelete(clusterCommand->memoryContext);
@@ -5232,7 +5270,7 @@ is_local_node_true_leader(void)
 }
 
 /*
- * returns true if no message is swollowed by the
+ * returns true if no message is swallowed by the
  * processor and no further action is required
  */
 static bool
@@ -5288,7 +5326,7 @@ wd_commands_packet_processor(WD_EVENTS event, WatchdogNode * wdNode, WDPacketDat
 		if (ipcCommand == NULL)
 			return false;
 
-		/* Just forward the data to IPC socket and finsh the command */
+		/* Just forward the data to IPC socket and finish the command */
 		if (write_ipc_command_with_result_data(ipcCommand, WD_IPC_CMD_RESULT_OK, pkt->data, pkt->len) == false)
 			ereport(LOG,
 					(errmsg("failed to forward data message to IPC command socket")));
@@ -5312,9 +5350,9 @@ wd_commands_packet_processor(WD_EVENTS event, WatchdogNode * wdNode, WDPacketDat
 		if (ipcCommand->commandPacket.type == WD_IPC_FAILOVER_COMMAND)
 		{
 			if (pkt->type == WD_ACCEPT_MESSAGE)
-				reply_to_failove_command(ipcCommand, FAILOVER_RES_PROCEED, 0);
+				reply_to_failover_command(ipcCommand, FAILOVER_RES_PROCEED, 0);
 			else
-				reply_to_failove_command(ipcCommand, FAILOVER_RES_LEADER_REJECTED, 0);
+				reply_to_failover_command(ipcCommand, FAILOVER_RES_LEADER_REJECTED, 0);
 			return true;
 		}
 
@@ -5402,6 +5440,8 @@ watchdog_state_machine(WD_EVENTS event, WatchdogNode * wdNode, WDPacketData * pk
 		{
 			ereport(LOG,
 					(errmsg("remote node \"%s\" is shutting down", wdNode->nodeName)));
+			if (pool_config->wd_remove_shutdown_nodes)
+				revoke_cluster_membership_of_node(wdNode,WD_NODE_REVOKED_SHUTDOWN);
 		}
 		else
 		{
@@ -5440,11 +5480,13 @@ watchdog_state_machine(WD_EVENTS event, WatchdogNode * wdNode, WDPacketData * pk
 		wdNode->node_lost_reason = NODE_LOST_UNKNOWN_REASON;
 		wdNode->state = WD_LOADING;
 		send_cluster_service_message(wdNode, pkt, CLUSTER_NODE_APPEARING_FOUND);
+		/* if this node was kicked out of quorum calculation. add it back */
+		restore_cluster_membership_of_node(wdNode);
 	}
 	else if (event == WD_EVENT_PACKET_RCV)
 	{
 		print_packet_node_info(pkt, wdNode, false);
-		/* update the last receiv time */
+		/* update the last receive time */
 		gettimeofday(&wdNode->last_rcv_time, NULL);
 
 		if (pkt->type == WD_INFO_MESSAGE)
@@ -5768,14 +5810,14 @@ watchdog_state_machine_initializing(WD_EVENTS event, WatchdogNode * wdNode, WDPa
 	switch (event)
 	{
 		case WD_EVENT_WD_STATE_CHANGED:
-			/* set 1 sec timeout, save ourself from recurrsion */
+			/* set 1 sec timeout, save ourself from recursion */
 			set_timeout(1);
 			break;
 
 		case WD_EVENT_TIMEOUT:
 			{
 				/*
-				 * If leader node exists in cluser, Join it otherwise try
+				 * If leader node exists in cluster, Join it otherwise try
 				 * becoming a leader
 				 */
 				if (WD_LEADER_NODE)
@@ -5976,21 +6018,24 @@ watchdog_state_machine_coordinator(WD_EVENTS event, WatchdogNode * wdNode, WDPac
 	{
 		case WD_EVENT_WD_STATE_CHANGED:
 			{
-				int			i;
-
 				send_cluster_command(NULL, WD_DECLARE_COORDINATOR_MESSAGE, 4);
 				set_timeout(MAX_SECS_WAIT_FOR_REPLY_FROM_NODE);
 				update_missed_beacon_count(NULL,true);
+				update_failover_timeout(g_cluster.localNode, pool_config);
+
 				ereport(LOG,
 						(errmsg("I am announcing my self as leader/coordinator watchdog node")));
-
-				for (i = 0; i < g_cluster.remoteNodeCount; i++)
+				if (message_level_is_interesting(DEBUG2))
 				{
-					WatchdogNode *wdNode = &(g_cluster.remoteNodes[i]);
-
+					int			i;
 					ereport(DEBUG2,
 							(errmsg("printing all remote node information")));
-					print_watchdog_node_info(wdNode);
+					for (i = 0; i < g_cluster.remoteNodeCount; i++)
+					{
+						WatchdogNode *wdNode = &(g_cluster.remoteNodes[i]);
+
+						print_watchdog_node_info(wdNode);
+					}
 				}
 				/* Also reset my priority as per the original configuration */
 				g_cluster.localNode->wd_priority = pool_config->wd_priority;
@@ -6004,13 +6049,14 @@ watchdog_state_machine_coordinator(WD_EVENTS event, WatchdogNode * wdNode, WDPac
 					if (clusterCommand->commandStatus == COMMAND_FINISHED_ALL_REPLIED ||
 						clusterCommand->commandStatus == COMMAND_FINISHED_TIMEOUT)
 					{
+						update_cluster_memberships();
 						update_quorum_status();
-
+						reset_lost_timers();
 						ereport(DEBUG1,
 								(errmsg("declare coordinator command finished with status:[%s]",
 										clusterCommand->commandStatus == COMMAND_FINISHED_ALL_REPLIED ?
 										"ALL NODES REPLIED" :
-										"COMMAND TIMEED OUT"),
+										"COMMAND TIMED OUT"),
 								 errdetail("The command was sent to %d nodes and %d nodes replied to it",
 										   clusterCommand->commandSendToCount,
 										   clusterCommand->commandReplyFromCount
@@ -6021,7 +6067,7 @@ watchdog_state_machine_coordinator(WD_EVENTS event, WatchdogNode * wdNode, WDPac
 								 errdetail("our declare coordinator message is accepted by all nodes")));
 
 						set_cluster_leader_node(g_cluster.localNode);
-						register_watchdog_state_change_interupt();
+						register_watchdog_state_change_interrupt();
 
 						/*
 						 * Check if the quorum is present then start the
@@ -6067,7 +6113,7 @@ watchdog_state_machine_coordinator(WD_EVENTS event, WatchdogNode * wdNode, WDPac
 					else if (clusterCommand->commandStatus == COMMAND_FINISHED_TIMEOUT)
 					{
 						ereport(DEBUG1,
-								(errmsg("I am the cluster leader node command finished with status:[COMMAND TIMEED OUT] which is success"),
+								(errmsg("I am the cluster leader node command finished with status:[COMMAND TIMED OUT] which is success"),
 								 errdetail("The command was sent to %d nodes and %d nodes replied to it",
 										   clusterCommand->commandSendToCount,
 										   clusterCommand->commandReplyFromCount
@@ -6118,7 +6164,7 @@ watchdog_state_machine_coordinator(WD_EVENTS event, WatchdogNode * wdNode, WDPac
 					}
 					/* inform to the cluster about the new quorum status */
 					send_message_of_type(NULL, WD_INFO_MESSAGE, NULL);
-					register_watchdog_quorum_change_interupt();
+					register_watchdog_quorum_change_interrupt();
 				}
 			}
 			break;
@@ -6162,7 +6208,7 @@ watchdog_state_machine_coordinator(WD_EVENTS event, WatchdogNode * wdNode, WDPac
 							/*
 							 * Okay this is the case when only our VIP is lost
 							 * but network interface seems to be working fine
-							 * try to re-aquire the VIP
+							 * try to re-acquire the VIP
 							 */
 							wd_IP_up();
 						}
@@ -6523,7 +6569,7 @@ beacon_message_received_from_node(WatchdogNode * wdNode, WDPacketData * pkt)
  *  1 : local node should remain as the leader/coordinator
  */
 static int
-I_am_leader_and_cluser_in_split_brain(WatchdogNode * otherLeaderNode)
+I_am_leader_and_cluster_in_split_brain(WatchdogNode * otherLeaderNode)
 {
 	if (get_local_node_state() != WD_COORDINATOR)
 		return 0;
@@ -6597,7 +6643,7 @@ I_am_leader_and_cluser_in_split_brain(WatchdogNode * otherLeaderNode)
 			return 1;
 		}
 	}
-	else						/* decide on which node is the older mater */
+	else						/* decide on which node is the older master */
 	{
 		if (otherLeaderNode->current_state_time.tv_sec < g_cluster.localNode->current_state_time.tv_sec)
 		{
@@ -6624,7 +6670,7 @@ I_am_leader_and_cluser_in_split_brain(WatchdogNode * otherLeaderNode)
 static void
 handle_split_brain(WatchdogNode * otherLeaderNode, WDPacketData * pkt)
 {
-	int			decide_leader = I_am_leader_and_cluser_in_split_brain(otherLeaderNode);
+	int			decide_leader = I_am_leader_and_cluster_in_split_brain(otherLeaderNode);
 
 	if (decide_leader == 0)
 	{
@@ -6834,7 +6880,7 @@ watchdog_state_machine_standby(WD_EVENTS event, WatchdogNode * wdNode, WDPacketD
 				if (clusterCommand->commandStatus == COMMAND_FINISHED_ALL_REPLIED ||
 					clusterCommand->commandStatus == COMMAND_FINISHED_TIMEOUT)
 				{
-					register_watchdog_state_change_interupt();
+					register_watchdog_state_change_interrupt();
 
 					ereport(LOG,
 							(errmsg("successfully joined the watchdog cluster as standby node"),
@@ -6927,7 +6973,7 @@ watchdog_state_machine_standby(WD_EVENTS event, WatchdogNode * wdNode, WDPacketD
 
 					case WD_FAILOVER_END:
 						{
-							register_backend_state_sync_req_interupt();
+							register_backend_state_sync_req_interrupt();
 						}
 						break;
 
@@ -7024,7 +7070,7 @@ watchdog_state_machine_standby(WD_EVENTS event, WatchdogNode * wdNode, WDPacketD
 		else if (last_rcv_sec >= (2 * BEACON_MESSAGE_INTERVAL_SECONDS))
 		{
 			/*
-			 * We have not received a last becacon from leader ask for the
+			 * We have not received a last beacon from leader ask for the
 			 * node info from leader node
 			 */
 			ereport(WARNING,
@@ -7060,7 +7106,7 @@ update_quorum_status(void)
 	}
 	else if (g_cluster.clusterLeaderInfo.standby_nodes_count == get_minimum_remote_nodes_required_for_quorum())
 	{
-		if (g_cluster.remoteNodeCount % 2 != 0)
+		if (g_cluster.memberRemoteNodeCount % 2 != 0)
 		{
 			if (pool_config->enable_consensus_with_half_votes)
 				g_cluster.quorum_status = 0;	/* on the edge */
@@ -7091,14 +7137,14 @@ get_minimum_remote_nodes_required_for_quorum(void)
 	 * Even number of remote nodes, That means total number of nodes are odd,
 	 * so minimum quorum is just remote/2.
 	 */
-	if (g_cluster.remoteNodeCount % 2 == 0)
-			return (g_cluster.remoteNodeCount / 2);
+	if (g_cluster.memberRemoteNodeCount % 2 == 0)
+			return (g_cluster.memberRemoteNodeCount / 2);
 
 	/*
 	 * Total nodes including self are even, So we return 50% nodes as quorum
 	 * requirements
 	 */
-	return ((g_cluster.remoteNodeCount - 1) / 2);
+	return ((g_cluster.memberRemoteNodeCount - 1) / 2);
 }
 
 /*
@@ -7143,7 +7189,7 @@ get_minimum_votes_to_resolve_consensus(void)
 	 * So for even number of nodes when enable_consensus_with_half_votes is
 	 * not allowed than we would add one more vote than exact 50%
 	 */
-	if (g_cluster.remoteNodeCount % 2 != 0)
+	if (g_cluster.memberRemoteNodeCount % 2 != 0)
 	{
 		if (pool_config->enable_consensus_with_half_votes == false)
 			required_node_count += 1;
@@ -7600,7 +7646,7 @@ verify_authhash_for_node(WatchdogNode * wdNode, char *authhash)
 /*
  * function authenticates the IPC command by looking for the
  * auth key in the JSON data of IPC command.
- * For IPC commands comming from outer wrold the function validates the
+ * For IPC commands coming from outer world the function validates the
  * authkey in JSON packet with configured pool_config->wd_authkey.
  * if internal_client_only is true then the JSON data must contain the
  * shared key present in the pgpool-II shared memory. This can be used
@@ -7704,7 +7750,7 @@ check_and_report_IPC_authentication(WDCommandData * ipcCommand)
 		case WD_IPC_ONLINE_RECOVERY_COMMAND:
 		case WD_EXECUTE_CLUSTER_COMMAND:
 		case WD_GET_LEADER_DATA_REQUEST:
-			/* only allowed internaly. */
+			/* only allowed internally. */
 			internal_client_only = true;
 			break;
 
@@ -7922,9 +7968,73 @@ set_cluster_leader_node(WatchdogNode * wdNode)
 	}
 }
 
-static WatchdogNode * getLeaderWatchdogNode(void)
+static WatchdogNode*
+getLeaderWatchdogNode(void)
 {
 	return g_cluster.clusterLeaderInfo.leaderNode;
+}
+
+static int
+update_cluster_memberships(void)
+{
+	int i;
+	g_cluster.memberRemoteNodeCount = g_cluster.remoteNodeCount;
+	for (i = 0; i < g_cluster.remoteNodeCount; i++)
+	{
+		WatchdogNode *wdNode = &(g_cluster.remoteNodes[i]);
+		if (wdNode->membership_status != WD_NODE_MEMBERSHIP_ACTIVE)
+			g_cluster.memberRemoteNodeCount--;
+	}
+	return g_cluster.memberRemoteNodeCount;
+}
+
+static int
+revoke_cluster_membership_of_node(WatchdogNode* wdNode, WD_NODE_MEMBERSHIP_STATUS revoke_status)
+{
+	if (wdNode->membership_status == WD_NODE_MEMBERSHIP_ACTIVE)
+	{
+		wdNode->membership_status = revoke_status;
+
+		ereport(LOG,
+				(errmsg("revoking the membership of [%s] node:\"%s\" [node_id:%d]",
+							wd_state_names[wdNode->state], wdNode->nodeName,wdNode->pgpool_node_id),
+				 errdetail("membership revoke reason: \"%s\"",
+						   wd_cluster_membership_status[wdNode->membership_status])));
+
+		g_cluster.memberRemoteNodeCount--;
+	}
+	return g_cluster.memberRemoteNodeCount;
+}
+
+static int
+restore_cluster_membership_of_node(WatchdogNode* wdNode)
+{
+	if (wdNode->membership_status != WD_NODE_MEMBERSHIP_ACTIVE)
+	{
+		ereport(LOG,
+				(errmsg("Restoring cluster membership of node:\"%s\"",wdNode->nodeName),
+				 errdetail("membership of node was revoked because it was \"%s\"",
+				   wd_cluster_membership_status[wdNode->membership_status])));
+
+		wdNode->membership_status = WD_NODE_MEMBERSHIP_ACTIVE;
+		/* reset the lost time on the node */
+		wdNode->lost_time.tv_sec = 0;
+		wdNode->lost_time.tv_usec = 0;
+		g_cluster.memberRemoteNodeCount++;
+	}
+	return g_cluster.memberRemoteNodeCount;
+}
+
+static void
+reset_lost_timers(void)
+{
+	int i;
+	for (i = 0; i < g_cluster.remoteNodeCount; i++)
+	{
+		WatchdogNode *wdNode = &(g_cluster.remoteNodes[i]);
+		wdNode->lost_time.tv_sec = 0;
+		wdNode->lost_time.tv_usec = 0;
+	}
 }
 
 static int
@@ -7933,7 +8043,10 @@ standby_node_join_cluster(WatchdogNode * wdNode)
 	if (get_local_node_state() == WD_COORDINATOR)
 	{
 		int			i;
-
+		/* Just rest the lost time stamp*/
+		/* set the timestamp on node to track for how long this node is lost */
+		wdNode->lost_time.tv_sec = 0;
+		wdNode->lost_time.tv_usec = 0;
 		/* First check if the node is already in the List */
 		for (i = 0; i < g_cluster.clusterLeaderInfo.standby_nodes_count; i++)
 		{
@@ -7983,7 +8096,8 @@ standby_node_left_cluster(WatchdogNode * wdNode)
 					 */
 					ereport(LOG,
 							(errmsg("removing watchdog node \"%s\" from the standby list", wdNode->nodeName)));
-
+					/* set the timestamp on node to track for how long this node is lost */
+					gettimeofday(&wdNode->lost_time, NULL);
 					g_cluster.clusterLeaderInfo.standbyNodes[i] = NULL;
 					g_cluster.clusterLeaderInfo.standby_nodes_count--;
 					removed = true;
@@ -8050,6 +8164,43 @@ static void update_missed_beacon_count(WDCommandData* ipcCommand, bool clear)
 			}
 		}
 	}
+}
+
+static void
+update_failover_timeout(WatchdogNode * wdNode, POOL_CONFIG *pool_config)
+{
+	int failover_command_timeout;
+	if (get_local_node_state() != WD_COORDINATOR)
+		return;
+
+	failover_command_timeout = pool_config->health_check_period + (pool_config->health_check_retry_delay * pool_config->health_check_max_retries);
+
+	if (pool_config->health_check_params)
+	{
+		int i;
+		for (i = 0 ; i < pool_config->backend_desc->num_backends; i++)
+		{
+			int pn_failover_command_timeout = pool_config->health_check_params[i].health_check_period +
+							(pool_config->health_check_params[i].health_check_retry_delay *
+							pool_config->health_check_params[i].health_check_max_retries);
+
+			if (failover_command_timeout < pn_failover_command_timeout)
+				failover_command_timeout = pn_failover_command_timeout;
+		}
+	}
+
+	if (g_cluster.localNode == wdNode)
+	{
+		/* Reset*/
+		g_cluster.failover_command_timeout = failover_command_timeout;
+	}
+	else if (g_cluster.failover_command_timeout < failover_command_timeout)
+		g_cluster.failover_command_timeout = failover_command_timeout;
+
+	if (g_cluster.failover_command_timeout < FAILOVER_COMMAND_FINISH_TIMEOUT)
+		g_cluster.failover_command_timeout = FAILOVER_COMMAND_FINISH_TIMEOUT;
+
+	ereport(LOG,(errmsg("Setting failover command timeout to %d",failover_command_timeout)));
 }
 
 #ifdef WATCHDOG_DEBUG

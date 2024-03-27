@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -31,6 +31,8 @@
 #endif
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 
@@ -52,7 +54,6 @@
 #include "context/pool_process_context.h"
 #include "protocol/pool_process_query.h"
 #include "protocol/pool_pg_utils.h"
-#include "parser/pool_string.h"
 #include "auth/pool_passwd.h"
 #include "auth/pool_hba.h"
 #include "query_cache/pool_memqcache.h"
@@ -60,7 +61,7 @@
 #include "watchdog/wd_lifecheck.h"
 #include "watchdog/watchdog.h"
 #include "pcp/pcp_worker.h"
-
+#include <grp.h>
 
 /*
  * Reasons for signalling a pgpool-II main process
@@ -74,17 +75,18 @@ typedef enum
 								 * required */
 	SIG_WATCHDOG_QUORUM_CHANGED,	/* notify main about cluster quorum change
 									 * of watchdog cluster */
-	SIG_INFORM_QURANTINE_NODES, /* notify main about send degenerate requests
+	SIG_INFORM_QUARANTINE_NODES, /* notify main about send degenerate requests
 								 * for all quarantine nodes */
-	MAX_INTERUPTS				/* Must be last! */
+	MAX_INTERRUPTS				/* Must be last! */
 }			User1SignalReason;
 
 
 typedef struct User1SignalSlot
 {
-	sig_atomic_t signalFlags[MAX_INTERUPTS];
+	sig_atomic_t signalFlags[MAX_INTERRUPTS];
 }			User1SignalSlot;
 
+#ifdef NOT_USED
 /*
  * Process pending signal actions.
  */
@@ -99,7 +101,7 @@ typedef struct User1SignalSlot
 		{ \
 			do {\
 				sigusr1_request = 0; \
-				sigusr1_interupt_processor(); \
+				sigusr1_interrupt_processor(); \
 			} while (sigusr1_request == 1); \
 		} \
 		if (sigchld_request) \
@@ -112,18 +114,48 @@ typedef struct User1SignalSlot
 			reload_config_request = 0; \
 		} \
     } while (0)
+#endif
 
 #define PGPOOLMAXLITSENQUEUELENGTH 10000
+#define MAX_ONE_SHOT_KILLS 8
+
+
+#define UNIXSOCK_PATH_BUFLEN sizeof(((struct sockaddr_un *) NULL)->sun_path)
+
+/*
+ * Context data while exectuing failover()
+ */
+typedef struct
+{
+	bool		all_backend_down;	/* true if all backends are down */
+	bool		search_primary;		/* true if we need to seach primary node */
+	bool		need_to_restart_children;	/* true if we need to restart child process */
+	bool		need_to_restart_pcp;	/* true if we need to restart pc process */
+	bool		partial_restart;	/* true if partial restart is needed */
+	bool		sync_required;		/* true if watchdog synchronization is necessary */
+
+	POOL_REQUEST_KIND reqkind;
+	int			node_id_set[MAX_NUM_BACKENDS];
+	int			node_count;
+	unsigned char request_details;
+
+	/*
+	 * An array to hold down nodes information. Each array member corresponds
+	 * to node id.  If nodes[i] is 1, the node i is down.
+	*/
+	int			nodes[MAX_NUM_BACKENDS];
+} FAILOVER_CONTEXT;
 
 static void signal_user1_to_parent_with_reason(User1SignalReason reason);
 
 static void FileUnlink(int code, Datum path);
-static pid_t pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file);
+static pid_t pcp_fork_a_child(int *fds, char *pcp_conf_file);
 static pid_t fork_a_child(int *fds, int id);
 static pid_t worker_fork_a_child(ProcessType type, void (*func) (), void *params);
-static int	create_unix_domain_socket(struct sockaddr_un un_addr_tmp);
-static int	create_inet_domain_socket(const char *hostname, const int port);
+static int	create_unix_domain_socket(struct sockaddr_un un_addr_tmp, const char *group, const int permissions);
+static int *create_unix_domain_sockets_by_list(struct sockaddr_un *un_addrs, char *group, int permissions, int n_sockets);
 static int *create_inet_domain_sockets(const char *hostname, const int port);
+static int *create_inet_domain_sockets_by_list(char **listen_addresses, int n_listen_addresses, int port, int *n_sockets);
 static void failover(void);
 static bool check_all_backend_down(void);
 static void reaper(void);
@@ -136,7 +168,7 @@ static int	read_status_file(bool discard_status);
 static RETSIGTYPE exit_handler(int sig);
 static RETSIGTYPE reap_handler(int sig);
 static RETSIGTYPE sigusr1_handler(int sig);
-static void sigusr1_interupt_processor(void);
+static void sigusr1_interrupt_processor(void);
 static RETSIGTYPE reload_config_handler(int sig);
 static RETSIGTYPE wakeup_handler(int sig);
 
@@ -153,11 +185,31 @@ static void update_backend_quarantine_status(void);
 static int	get_server_version(POOL_CONNECTION_POOL_SLOT * *slots, int node_id);
 static void get_info_from_conninfo(char *conninfo, char *host, int hostlen, char *port, int portlen);
 
-static struct sockaddr_un un_addr;	/* unix domain socket path */
-static struct sockaddr_un pcp_un_addr;	/* unix domain socket path for PCP */
+/*
+ * Subroutines of failover()
+ */
+static int handle_failback_request(FAILOVER_CONTEXT *failover_context, int node_id);
+static int handle_failover_request(FAILOVER_CONTEXT *failover_context, int node_id);
+static void kill_failover_children(FAILOVER_CONTEXT *failover_context, int node_id);
+static void exec_failover_command(FAILOVER_CONTEXT *failover_context, int new_main_node_id, int promote_node_id);
+static int determine_new_primary_node(FAILOVER_CONTEXT *failover_context, int node_id);
+static int exec_follow_primary_command(FAILOVER_CONTEXT *failover_context, int node_id, int new_primary_node_id);
+static void save_node_info(FAILOVER_CONTEXT *failover_context, int new_primary_node_id, int new_main_node_id);
+static void exec_child_restart(FAILOVER_CONTEXT *failover_context, int node_id);
+static void exec_notice_pcp_child(FAILOVER_CONTEXT *failover_context);
+
+static void check_requests(void);
+static void print_signal_member(sigset_t *sig);
+static void service_child_processes(void);
+static int select_victim_processes(int *process_info_idxs, int count);
+
+static struct sockaddr_un *un_addrs;	/* unix domain socket path */
+static struct sockaddr_un *pcp_un_addrs;	/* unix domain socket path for PCP */
 ProcessInfo *process_info = NULL;	/* Per child info table on shmem */
 volatile	User1SignalSlot *user1SignalSlot = NULL;	/* User 1 signal slot on
 														 * shmem */
+int		current_child_process_count;
+
 struct timeval random_start_time;
 
 /*
@@ -180,14 +232,15 @@ ConnectionInfo *con_info;
 static int *fds = NULL;				/* listening file descriptors (UNIX socket,
 								 * inet domain sockets) */
 
-static int	pcp_unix_fd;		/* unix domain socket fd for PCP (not used) */
-static int	pcp_inet_fd;		/* inet domain socket fd for PCP */
+static int *pcp_fds = NULL;		/* listening file descriptors for pcp (UNIX socket,
+								 * inet domain sockets) */
+
 extern char *pcp_conf_file;		/* path for pcp.conf */
 extern char *conf_file;
 extern char *hba_file;
 
-static int	exiting = 0;		/* non 0 if I'm exiting */
-static int	switching = 0;		/* non 0 if I'm failing over or degenerating */
+static volatile sig_atomic_t exiting = 0;		/* non 0 if I'm exiting */
+static volatile sig_atomic_t switching = 0;		/* non 0 if I'm failing over or degenerating */
 
 POOL_REQUEST_INFO *Req_info;	/* request info area in shared memory */
 volatile sig_atomic_t *InRecovery;	/* non 0 if recovery is started */
@@ -215,7 +268,7 @@ BACKEND_STATUS *my_backend_status[MAX_NUM_BACKENDS];	/* Backend status buffer */
 int			my_main_node_id;	/* Main node id buffer */
 
 /*
- * Dummy varibale to suppress compiler warnings by discarding return values
+ * Dummy variable to suppress compiler warnings by discarding return values
  * from write(2) in signal handlers
  */
 static int dummy_status;
@@ -232,7 +285,15 @@ volatile SI_ManageInfo *si_manage_info;
 int
 PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 {
+	int			num_inet_fds = 0;
+	int			num_unix_fds = 0;
+	int			num_pcp_fds = 0;
+	int			*unix_fds;
+	int			*inet_fds;
+	int			*pcp_unix_fds;
+	int			*pcp_inet_fds;
 	int			i;
+	char		unix_domain_socket_path[UNIXSOCK_PATH_BUFLEN + 1024];
 
 	sigjmp_buf	local_sigjmp_buf;
 
@@ -252,23 +313,69 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	 */
 	read_status_file(discard_status);
 
-	/*
-	 * install the call back for preparation of system exit
-	 */
-	on_system_exit(system_will_go_down, (Datum) NULL);
-
 	/* set unix domain socket path for connections to pgpool */
-	snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s/.s.PGSQL.%d",
-			 pool_config->socket_dir,
-			 pool_config->port);
+	for (i = 0; i < pool_config->num_unix_socket_directories; i++)
+	{
+		memset(unix_domain_socket_path, 0, sizeof(unix_domain_socket_path));
+		snprintf(unix_domain_socket_path, sizeof(unix_domain_socket_path), "%s/.s.PGSQL.%d",
+				 pool_config->unix_socket_directories[i], pool_config->port);
+
+		if (strlen(unix_domain_socket_path) >= UNIXSOCK_PATH_BUFLEN)
+		{
+			ereport(WARNING,
+			(errmsg("Unix-domain socket path \"%s\" is too long (maximum %d bytes)",
+					unix_domain_socket_path,
+					(int) (UNIXSOCK_PATH_BUFLEN - 1))));
+			continue;
+		}
+		un_addrs = realloc(un_addrs, sizeof(struct sockaddr_un) * (num_unix_fds + 1));
+		if (un_addrs == NULL)
+			ereport(FATAL,
+				(errmsg("failed to allocate memory in startup process")));
+
+		snprintf(un_addrs[i].sun_path, sizeof(un_addrs[i].sun_path), "%s", unix_domain_socket_path);
+		num_unix_fds++;
+	}
+
+	if (num_unix_fds == 0)
+	{
+		ereport(FATAL,
+			   (errmsg("could not create any Unix-domain sockets")));
+	}
+
 	/* set unix domain socket path for pgpool PCP communication */
-	snprintf(pcp_un_addr.sun_path, sizeof(pcp_un_addr.sun_path), "%s/.s.PGSQL.%d",
-			 pool_config->pcp_socket_dir,
-			 pool_config->pcp_port);
+	for (i = 0; i < pool_config->num_pcp_socket_directories; i++)
+	{
+		memset(unix_domain_socket_path, 0, sizeof(unix_domain_socket_path));
+		snprintf(unix_domain_socket_path, sizeof(unix_domain_socket_path), "%s/.s.PGSQL.%d",
+				pool_config->pcp_socket_dir[i],
+				pool_config->pcp_port);
+
+		if (strlen(unix_domain_socket_path) >= UNIXSOCK_PATH_BUFLEN)
+		{
+			ereport(WARNING,
+			(errmsg("PCP Unix-domain socket path \"%s\" is too long (maximum %d bytes)",
+					unix_domain_socket_path,
+					(int) (UNIXSOCK_PATH_BUFLEN - 1))));
+			continue;
+		}
+		pcp_un_addrs = realloc(pcp_un_addrs, sizeof(struct sockaddr_un) * (num_pcp_fds + 1));
+		if (pcp_un_addrs == NULL)
+			ereport(FATAL,
+				(errmsg("failed to allocate memory in startup process")));
+
+		snprintf(pcp_un_addrs[i].sun_path, sizeof(pcp_un_addrs[i].sun_path), "%s", unix_domain_socket_path);
+		num_pcp_fds++;
+	}
+
+	if (num_pcp_fds == 0)
+	{
+		ereport(FATAL,
+			   (errmsg("could not create any PCP Unix-domain sockets")));
+	}
 
 	/* set up signal handlers */
 	pool_signal(SIGPIPE, SIG_IGN);
-
 
 	/* start the log collector if enabled */
 	pgpool_logger_pid = SysLogger_Start();
@@ -281,6 +388,11 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	syslogPipe[0] = -1;
 
 	initialize_shared_mem_objects(clear_memcache_oidmaps);
+
+	/*
+	 * install the callback for preparation of system exit
+	 */
+	on_system_exit(system_will_go_down, (Datum) NULL);
 
 	/* setup signal handlers */
 	pool_signal(SIGCHLD, reap_handler);
@@ -299,10 +411,10 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 
 		/*
 		 * Watchdog process fires SIGUSR2 once in stable state
-		 * In addition, when wathcodg fails to start with FATAL, the process
+		 * In addition, when watchdog fails to start with FATAL, the process
 		 * exits and SIGCHLD is fired, so we can also expect SIGCHLD from
 		 * watchdog process. Finally, we also need to look for the SIGUSR1
-		 * signla for the failover requests from other watchdog nodes. In
+		 * signal for the failover requests from other watchdog nodes. In
 		 * case a request arrives at the same time when the watchdog has just
 		 * been initialized.
 		 *
@@ -354,48 +466,68 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 		{
 			do {
 				sigusr1_request = 0;
-				sigusr1_interupt_processor();
+				sigusr1_interrupt_processor();
 			} while (sigusr1_request == 1);
 		}
 	}
 
-	/* create unix domain socket */
-	fds = malloc(sizeof(int) * 2);
+	/* create unix domain socket(s) */
+	fds = malloc(sizeof(int) * (num_unix_fds + 1));
 	if (fds == NULL)
 		ereport(FATAL,
-				(errmsg("failed to allocate memory in startup process")));
+			   (errmsg("failed to allocate memory in startup process")));
 
-	fds[0] = create_unix_domain_socket(un_addr);
-	fds[1] = -1;
-	on_proc_exit(FileUnlink, (Datum) un_addr.sun_path);
+	unix_fds = create_unix_domain_sockets_by_list(un_addrs,
+												  pool_config->unix_socket_group,
+												  pool_config->unix_socket_permissions,
+												  num_unix_fds);
+
+	for (i = 0; i < num_unix_fds; i++)
+	{
+		on_proc_exit(FileUnlink, (Datum) un_addrs[i].sun_path);
+	}
+
+	/* copy unix domain sockets */
+	memcpy(fds, unix_fds, sizeof(int) * num_unix_fds);
+	fds[num_unix_fds] = -1;
+	free(unix_fds);
 
 	/* create inet domain socket if any */
-	if (pool_config->listen_addresses[0])
+	inet_fds = create_inet_domain_sockets_by_list(pool_config->listen_addresses, pool_config->num_listen_addresses,
+												  pool_config->port, &num_inet_fds);
+
+	/* copy inet domain sockets if any */
+	if (num_inet_fds > 0)
 	{
-		int		   *inet_fds,
-				   *walk;
-		int			n = 1;
-
-		inet_fds = create_inet_domain_sockets(pool_config->listen_addresses, pool_config->port);
-
-		for (walk = inet_fds; *walk != -1; walk++)
-			n++;
-
-		fds = realloc(fds, sizeof(int) * (n + 1));
+		fds = realloc(fds, sizeof(int) * (num_inet_fds + num_unix_fds + 1));
 		if (fds == NULL)
 			ereport(FATAL,
-					(errmsg("failed to allocate memory in startup process")));
+				   (errmsg("failed to expand memory for fds")));
 
-		n = 1;
-		for (walk = inet_fds; *walk != -1; walk++)
-		{
-			fds[n] = inet_fds[n - 1];
-			n++;
-		}
-		fds[n] = -1;
+		memcpy(&fds[num_unix_fds], inet_fds, sizeof(int) * num_inet_fds);
+		fds[num_unix_fds + num_inet_fds] = -1;
 		free(inet_fds);
 	}
 
+	/* For query cache concurrency control */
+	if (pool_config->memory_cache_enabled)
+	{
+		char path[1024];
+		int		lfd;
+
+		snprintf(path, sizeof(path), "%s/QUERY_CACHE_LOCK_FILE", pool_config->logdir);
+		lfd = open(path, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+		if (lfd == -1)
+		{
+			ereport(FATAL,
+					(errmsg("Failed to open lock file for query cache \"%s\"", path),
+					 errdetail("%m")));
+		}
+		close(lfd);
+
+		/* Register file unlink at exit */
+		on_proc_exit(FileUnlink, (Datum) path);
+	}
 
 	/*
 	 * We need to block signal here. Otherwise child might send some signals,
@@ -404,11 +536,29 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	 * is harmless.
 	 */
 	POOL_SETMASK(&BlockSig);
-	/* fork the children */
-	for (i = 0; i < pool_config->num_init_children; i++)
+
+	if (pool_config->process_management == PM_DYNAMIC)
 	{
-		process_info[i].pid = fork_a_child(fds, i);
+		if (pool_config->process_management_strategy == PM_STRATEGY_AGGRESSIVE)
+			current_child_process_count = pool_config->max_spare_children;
+		else
+			current_child_process_count = pool_config->min_spare_children;
+	}
+	else
+		current_child_process_count = pool_config->num_init_children;
+	ereport(DEBUG1,
+            (errmsg("Spawning %d child processes",current_child_process_count)));
+	for (i = 0; i < current_child_process_count; i++)
+	{
 		process_info[i].start_time = time(NULL);
+		process_info[i].client_connection_count = 0;
+		process_info[i].status = WAIT_FOR_CONNECT;
+		process_info[i].connected = 0;
+		process_info[i].wait_for_connect = 0;
+		process_info[i].pooled_connections = 0;
+		process_info[i].need_to_restart = false;
+		process_info[i].exit_if_idle = false;
+		process_info[i].pid = fork_a_child(fds, i);
 	}
 
 	/* create pipe for delivering event */
@@ -429,16 +579,41 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 		Req_info->primary_node_id = find_primary_node_repeatedly();
 	}
 
-	/* fork a child for PCP handling */
-	pcp_unix_fd = create_unix_domain_socket(pcp_un_addr);
-	/* Add onproc exit to clean up the unix domain socket at exit */
-	on_proc_exit(FileUnlink, (Datum) pcp_un_addr.sun_path);
+	/* create pcp unix domain socket */
+	num_inet_fds = 0;
 
-	if (pool_config->pcp_listen_addresses[0])
+	pcp_unix_fds = create_unix_domain_sockets_by_list(pcp_un_addrs, "", 0777, num_pcp_fds);
+	for (i = 0; i < num_pcp_fds; i++)
 	{
-		pcp_inet_fd = create_inet_domain_socket(pool_config->pcp_listen_addresses, pool_config->pcp_port);
+		on_proc_exit(FileUnlink, (Datum) pcp_un_addrs[i].sun_path);
 	}
-	pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
+	pcp_fds = malloc(sizeof(int) * (num_pcp_fds + 1));
+	if (pcp_fds == NULL)
+		ereport(FATAL,
+				(errmsg("failed to allocate memory in startup process")));
+
+	memcpy(pcp_fds, pcp_unix_fds, sizeof(int) * num_pcp_fds);
+	pcp_fds[num_pcp_fds] = -1;
+	free(pcp_unix_fds);
+
+	/* create inet domain socket if any */
+	pcp_inet_fds = create_inet_domain_sockets_by_list(pool_config->pcp_listen_addresses,
+													  pool_config->num_pcp_listen_addresses,
+													  pool_config->pcp_port, &num_inet_fds);
+
+	if (num_inet_fds > 0)
+	{
+		pcp_fds = realloc(pcp_fds, sizeof(int) * (num_inet_fds + num_pcp_fds + 1));
+		if (pcp_fds == NULL)
+			ereport(FATAL,
+				   (errmsg("failed to expand memory for pcp_fds")));
+
+		memcpy(&pcp_fds[num_pcp_fds], pcp_inet_fds, sizeof(int) * num_inet_fds);
+		pcp_fds[num_inet_fds + num_pcp_fds] = -1;
+		free(pcp_inet_fds);
+	}
+
+	pcp_pid = pcp_fork_a_child(pcp_fds, pcp_conf_file);
 
 	/* Fork worker process */
 	worker_pid = worker_fork_a_child(PT_WORKER, do_worker_child, NULL);
@@ -470,11 +645,14 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 	/* This is the main loop */
 	for (;;)
 	{
+		/* Check pending requests */
+		check_requests();
+#ifdef NOT_USED
 		CHECK_REQUEST;
-
+#endif
 		/*
 		 * check for child signals to ensure child startup before reporting
-		 * successfull start.
+		 * successful start.
 		 */
 		if (first)
 		{
@@ -515,11 +693,15 @@ PgpoolMain(bool discard_status, bool clear_memcache_oidmaps)
 		for (;;)
 		{
 			int			r;
-			struct timeval t = {3, 0};
+			struct timeval t = {2, 0};
 
 			POOL_SETMASK(&UnBlockSig);
 			r = pool_pause(&t);
 			POOL_SETMASK(&BlockSig);
+
+			if (pool_config->process_management == PM_DYNAMIC)
+				service_child_processes();
+
 			if (r > 0)
 				break;
 		}
@@ -580,25 +762,25 @@ register_node_operation_request(POOL_REQUEST_KIND kind, int *node_id_set, int co
 }
 
 void
-register_watchdog_quorum_change_interupt(void)
+register_watchdog_quorum_change_interrupt(void)
 {
 	signal_user1_to_parent_with_reason(SIG_WATCHDOG_QUORUM_CHANGED);
 }
 
 void
-register_watchdog_state_change_interupt(void)
+register_watchdog_state_change_interrupt(void)
 {
 	signal_user1_to_parent_with_reason(SIG_WATCHDOG_STATE_CHANGED);
 }
 void
-register_backend_state_sync_req_interupt(void)
+register_backend_state_sync_req_interrupt(void)
 {
 	signal_user1_to_parent_with_reason(SIG_BACKEND_SYNC_REQUIRED);
 }
 void
 register_inform_quarantine_nodes_req(void)
 {
-	signal_user1_to_parent_with_reason(SIG_INFORM_QURANTINE_NODES);
+	signal_user1_to_parent_with_reason(SIG_INFORM_QUARANTINE_NODES);
 }
 
 static void
@@ -615,7 +797,7 @@ signal_user1_to_parent_with_reason(User1SignalReason reason)
  * fork a child for PCP
  */
 static pid_t
-pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file)
+pcp_fork_a_child(int *fds, char *pcp_conf_file)
 {
 	pid_t		pid;
 
@@ -630,10 +812,9 @@ pcp_fork_a_child(int unix_fd, int inet_fd, char *pcp_conf_file)
 		close(pipe_fds[1]);
 
 		/* call PCP child main */
-		POOL_SETMASK(&UnBlockSig);
 		health_check_timer_expired = 0;
 		reload_config_request = 0;
-		pcp_main(unix_fd, inet_fd);
+		pcp_main(fds);
 	}
 	else if (pid == -1)
 	{
@@ -740,6 +921,13 @@ worker_fork_a_child(ProcessType type, void (*func) (), void *params)
 	return pid;
 }
 
+/*
+ * Create a socket list by "hostname" and return it.  "hostname" can be either
+ * single host name, IP or "*" which means all available UP interface.  If
+ * fails with getaddrinfo, socket, setsockopt, bind or listen, return NULL and
+ * pgpool will ignore the hostname. This could happen if wrong hostname or
+ * duplicated hostname is specified in listen_addresses parameter.
+ */
 static int *
 create_inet_domain_sockets(const char *hostname, const int port)
 {
@@ -773,9 +961,12 @@ create_inet_domain_sockets(const char *hostname, const int port)
 
 	if ((ret = getaddrinfo((!hostname || strcmp(hostname, "*") == 0) ? NULL : hostname, portstr, &hints, &res)) != 0)
 	{
-		ereport(FATAL,
+		/* Perhaps wrong hostname or IP */
+		ereport(WARNING,
 				(errmsg("failed to create INET domain socket"),
 				 errdetail("getaddrinfo() failed: %s", gai_strerror(ret))));
+		free(portstr);
+		return NULL;
 	}
 
 	free(portstr);
@@ -824,9 +1015,11 @@ create_inet_domain_sockets(const char *hostname, const int port)
 		if ((setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *) &one,
 						sizeof(one))) == -1)
 		{
-			ereport(FATAL,
+			ereport(WARNING,
 					(errmsg("failed to create INET domain socket"),
 					 errdetail("socket error \"%m\"")));
+			close(fd);
+			continue;
 		}
 
 		if (walk->ai_family == AF_INET6)
@@ -848,9 +1041,11 @@ create_inet_domain_sockets(const char *hostname, const int port)
 
 		if (bind(fd, walk->ai_addr, walk->ai_addrlen) != 0)
 		{
-			ereport(FATAL,
+			ereport(WARNING,
 					(errmsg("failed to create INET domain socket"),
 					 errdetail("bind on socket failed with error \"%m\"")));
+			close(fd);
+			continue;
 		}
 
 		backlog = pool_config->num_init_children * pool_config->listen_backlog_multiplier;
@@ -860,9 +1055,13 @@ create_inet_domain_sockets(const char *hostname, const int port)
 
 		status = listen(fd, backlog);
 		if (status < 0)
-			ereport(FATAL,
+		{
+			ereport(WARNING,
 					(errmsg("failed to create INET domain socket"),
 					 errdetail("listen on socket failed with error \"%m\"")));
+			close(fd);
+			continue;
+		}
 
 		sockfds[n++] = fd;
 	}
@@ -871,107 +1070,19 @@ create_inet_domain_sockets(const char *hostname, const int port)
 
 	if (n == 0)
 	{
-		ereport(FATAL,
-				(errmsg("failed to create INET domain socket"),
-				 errdetail("Failed to create any sockets. See the earlier LOG messages.")));
+		/* No sockets created. Perhaps duplicated listen address. */
+		free(sockfds);
+		return NULL;
 	}
 
 	return sockfds;
 }
 
 /*
-* create inet domain socket
-*/
-static int
-create_inet_domain_socket(const char *hostname, const int port)
-{
-	struct sockaddr_in addr;
-	int			fd;
-	int			status;
-	int			one = 1;
-	int			len;
-	int			backlog;
-
-	fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (fd == -1)
-	{
-		ereport(FATAL,
-				(errmsg("failed to create INET domain socket"),
-				 errdetail("%m")));
-	}
-	if ((setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *) &one,
-					sizeof(one))) == -1)
-	{
-		ereport(FATAL,
-				(errmsg("failed to create INET domain socket"),
-				 errdetail("%m")));
-	}
-
-	memset((char *) &addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-
-	if (strcmp(hostname, "*") == 0)
-	{
-		addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	}
-	else
-	{
-		struct hostent *hostinfo;
-
-		hostinfo = gethostbyname(hostname);
-		if (!hostinfo)
-		{
-			ereport(FATAL,
-					(errmsg("failed to create INET domain socket"),
-					 errdetail("could not resolve hostname \"%s\": error \"%s\"", hostname, hstrerror(h_errno))));
-
-		}
-		addr.sin_addr = *(struct in_addr *) hostinfo->h_addr;
-	}
-
-	addr.sin_port = htons(port);
-	len = sizeof(struct sockaddr_in);
-
-	status = bind(fd, (struct sockaddr *) &addr, len);
-	if (status == -1)
-	{
-		int			saved_errno = errno;
-		char		host[NI_MAXHOST],
-					servname[NI_MAXSERV];
-
-		if ((status = getnameinfo((struct sockaddr *) &addr, len, host, sizeof(host), servname, sizeof(servname), 0)))
-		{
-			ereport(NOTICE,
-					(errmsg("getnameinfo failed while creating INET domain socket"),
-					 errdetail("getnameinfo failed with reason: \"%s\"", gai_strerror(status))));
-
-			snprintf(servname, sizeof(servname), "%d", port);
-			snprintf(host, sizeof(host), "%s", hostname);
-		}
-		ereport(FATAL,
-				(errmsg("failed to create INET domain socket"),
-				 errdetail("bind on host:\"%s\" server:\"%s\" failed with error \"%s\"", host, servname, strerror(saved_errno))));
-	}
-
-	backlog = pool_config->num_init_children * pool_config->listen_backlog_multiplier;
-
-	if (backlog > PGPOOLMAXLITSENQUEUELENGTH)
-		backlog = PGPOOLMAXLITSENQUEUELENGTH;
-
-	status = listen(fd, backlog);
-	if (status < 0)
-		ereport(FATAL,
-				(errmsg("failed to create INET domain socket"),
-				 errdetail("listen on socket failed with error \"%m\"")));
-
-	return fd;
-}
-
-/*
 * create UNIX domain socket
 */
 static int
-create_unix_domain_socket(struct sockaddr_un un_addr_tmp)
+create_unix_domain_socket(struct sockaddr_un un_addr_tmp, const char *group, const int permissions)
 {
 	struct sockaddr_un addr;
 	int			fd;
@@ -1000,7 +1111,39 @@ create_unix_domain_socket(struct sockaddr_un un_addr_tmp)
 				 errdetail("bind socket failed with error: \"%m\"")));
 	}
 
-	if (chmod(un_addr_tmp.sun_path, 0777) == -1)
+	if (*group != '\0')
+	{
+		char		*endptr;
+		gid_t	gid;
+		unsigned long val;
+
+		/* check group*/
+		val = strtoul(group, &endptr, 10);
+		if (*endptr == '\0')
+		{
+			gid = val;
+		}
+		else
+		{
+			struct group *gr;
+			gr = getgrnam(group);
+			if(!gr)
+			{
+				ereport(FATAL,
+						(errmsg("unix_socket_group \"%s\" does not exist", group)));
+			}
+			gid = gr->gr_gid;
+		}
+
+		if (chown(un_addr_tmp.sun_path, -1, gid) == -1)
+		{
+			ereport(FATAL,
+					(errmsg("failed to bind a socket: \"%s\"", un_addr_tmp.sun_path),
+					 errdetail("system call chown failed with error: \"%m\"")));
+		}
+	}
+
+	if (chmod(un_addr_tmp.sun_path, permissions) == -1)
 	{
 		ereport(FATAL,
 				(errmsg("failed to bind a socket: \"%s\"", un_addr_tmp.sun_path),
@@ -1118,10 +1261,16 @@ terminate_all_childrens(int sig)
 }
 
 
+/*
+ * Pgpool main process exit handler
+ */
 static RETSIGTYPE exit_handler(int sig)
 {
 	int		   *walk;
 	int			save_errno = errno;
+
+	ereport(LOG,
+			(errmsg("exit handler called (signal: %d)", sig)));
 
 	POOL_SETMASK(&AuthBlockSig);
 
@@ -1141,11 +1290,40 @@ static RETSIGTYPE exit_handler(int sig)
 		errno = save_errno;
 		return;
 	}
-	exiting = 1;
-	processState = EXITING;
 
+	/*
+	 * Check if another exit handler instance is already running.  It is
+	 * possible that exit_handler is interrupted in the middle by other
+	 * signal.
+	 */
+	if (exiting)
+	{
+		POOL_SETMASK(&UnBlockSig);
+		errno = save_errno;
+		return;
+	}
+
+	/* Check to make sure that other exit handler is not running */
+	pool_semaphore_lock(MAIN_EXIT_HANDLER_SEM);
+	if (exiting == 0)
+	{
+		exiting = 1;
+		pool_semaphore_unlock(MAIN_EXIT_HANDLER_SEM);
+	}
+	else
+	{
+		pool_semaphore_unlock(MAIN_EXIT_HANDLER_SEM);
+		ereport(LOG,
+				(errmsg("exit handler (signal: %d) called. but exit handler is already in progress", sig)));
+		POOL_SETMASK(&UnBlockSig);
+		errno = save_errno;
+		return;
+	}
+
+	processState = EXITING;
 	ereport(LOG,
-			(errmsg("shutting down")));
+			(errmsg("shutting down by signal %d", sig)));
+
 	/* Close listen socket if they are already initialized */
 	if (fds)
 	{
@@ -1249,7 +1427,7 @@ static RETSIGTYPE sigusr1_handler(int sig)
 
 
 static void
-sigusr1_interupt_processor(void)
+sigusr1_interrupt_processor(void)
 {
 	ereport(LOG,
 			(errmsg("Pgpool-II parent process received SIGUSR1")));
@@ -1269,12 +1447,12 @@ sigusr1_interupt_processor(void)
 		}
 	}
 
-	if (user1SignalSlot->signalFlags[SIG_INFORM_QURANTINE_NODES])
+	if (user1SignalSlot->signalFlags[SIG_INFORM_QUARANTINE_NODES])
 	{
 		ereport(LOG,
 				(errmsg("Pgpool-II parent process received inform quarantine nodes signal from watchdog")));
 
-		user1SignalSlot->signalFlags[SIG_INFORM_QURANTINE_NODES] = false;
+		user1SignalSlot->signalFlags[SIG_INFORM_QUARANTINE_NODES] = false;
 		degenerate_all_quarantine_nodes();
 	}
 
@@ -1353,31 +1531,21 @@ check_all_backend_down(void)
 }
 
 /*
- * backend connection error, failover/failback request, if possible
- * failover() must be called under protecting signals.
+ * The workhorse of failover processing. Directly called with pgpool main
+ * process or called from sigusr1_interrupt_processor() after SIGUSR1 signal
+ * is received.
  */
 static void
 failover(void)
 {
-	int			i,
-				j,
-				k;
+	FAILOVER_CONTEXT failover_context;
 	int			node_id;
 	int			new_main_node;
 	int			new_primary = -1;
-	int			nodes[MAX_NUM_BACKENDS];
-	bool		need_to_restart_children = true;
-	bool		partial_restart = false;
-	int			status;
-	int			sts;
-	bool		need_to_restart_pcp = false;
-	bool		all_backend_down = true;
-	bool		sync_required = false;
+	int			i;
 
 	ereport(DEBUG1,
 			(errmsg("failover handler called")));
-
-	memset(nodes, 0, sizeof(int) * MAX_NUM_BACKENDS);
 
 	/*
 	 * this could happen in a child process if a signal has been sent before
@@ -1414,16 +1582,21 @@ failover(void)
 		return;
 	}
 
+	/* initialize failover context */
+	memset(&failover_context, 0, sizeof(failover_context));
+	failover_context.search_primary = true;
+
 	Req_info->switching = true;
 	switching = 1;
+
+	/*
+	 * This loop processes each failover/failback request until the queue is
+	 * empty.
+	 */
 	for (;;)
 	{
-		POOL_REQUEST_KIND reqkind;
 		int			queue_index;
-		int			node_id_set[MAX_NUM_BACKENDS];
-		int			node_count;
-		unsigned char request_details;
-		bool		search_primary = true;
+		int			promote_node = 0;
 
 		pool_semaphore_lock(REQUEST_INFO_SEM);
 
@@ -1439,17 +1612,17 @@ failover(void)
 		/* make a local copy of request */
 		Req_info->request_queue_head++;
 		queue_index = Req_info->request_queue_head % MAX_REQUEST_QUEUE_SIZE;
-		memcpy(node_id_set, Req_info->request[queue_index].node_id, (sizeof(int) * Req_info->request[queue_index].count));
-		reqkind = Req_info->request[queue_index].kind;
-		request_details = Req_info->request[queue_index].request_details;
-		node_count = Req_info->request[queue_index].count;
+		memcpy(failover_context.node_id_set, Req_info->request[queue_index].node_id, (sizeof(int) * Req_info->request[queue_index].count));
+		failover_context.reqkind = Req_info->request[queue_index].kind;
+		failover_context.request_details = Req_info->request[queue_index].request_details;
+		failover_context.node_count = Req_info->request[queue_index].count;
 		pool_semaphore_unlock(REQUEST_INFO_SEM);
 
 		ereport(DEBUG1,
 				(errmsg("failover handler"),
-				 errdetail("kind: %d flags: %x node_count: %d index:%d", reqkind, request_details, node_count, queue_index)));
+				 errdetail("kind: %d flags: %x node_count: %d index:%d", failover_context.reqkind, failover_context.request_details, failover_context.node_count, queue_index)));
 
-		if (reqkind == CLOSE_IDLE_REQUEST)
+		if (failover_context.reqkind == CLOSE_IDLE_REQUEST)
 		{
 			kill_all_children(SIGUSR1);
 			continue;
@@ -1466,106 +1639,29 @@ failover(void)
 		ereport(DEBUG1,
 				(errmsg("failover handler"),
 				 errdetail("starting to select new main node")));
-		node_id = node_id_set[0];
+
+		/* If this is promoting specified node, new_main_node
+		 * should be replaced by the requested node. The requested
+		 * node should be REAL_PRIMARY_NODE_ID.
+		 */
+		if (failover_context.request_details & REQ_DETAIL_PROMOTE)
+		{
+			promote_node = failover_context.node_id_set[0];
+			for (i = 0; i < failover_context.node_count; i++)
+			{
+				failover_context.node_id_set[i] = REAL_PRIMARY_NODE_ID;
+			}
+		}
+
+		node_id = failover_context.node_id_set[0];
 
 		/* failback request? */
-		if (reqkind == NODE_UP_REQUEST)
+		if (failover_context.reqkind == NODE_UP_REQUEST)
 		{
-			if (node_id < 0 || node_id >= MAX_NUM_BACKENDS ||
-				(reqkind == NODE_UP_REQUEST && !(RAW_MODE &&
-												 BACKEND_INFO(node_id).backend_status == CON_DOWN) && VALID_BACKEND(node_id)) ||
-				(reqkind == NODE_DOWN_REQUEST && !VALID_BACKEND(node_id)))
-			{
-				if (node_id < 0 || node_id >= MAX_NUM_BACKENDS)
-					ereport(LOG,
-							(errmsg("invalid failback request, node id: %d is invalid. node id must be between [0 and %d]", node_id, MAX_NUM_BACKENDS)));
-				else
-					ereport(LOG,
-							(errmsg("invalid failback request, status: [%d] of node id : %d is invalid for failback", BACKEND_INFO(node_id).backend_status, node_id)));
-
+			if (handle_failback_request(&failover_context, node_id) < 0)
 				continue;
-			}
-
-			ereport(LOG,
-					(errmsg("starting fail back. reconnect host %s(%d)",
-							BACKEND_INFO(node_id).backend_hostname,
-							BACKEND_INFO(node_id).backend_port)));
-
-			/* Check to see if all backends are down */
-			all_backend_down = check_all_backend_down();
-
-			BACKEND_INFO(node_id).backend_status = CON_CONNECT_WAIT;	/* unset down status */
-			pool_set_backend_status_changed_time(node_id);
-
-			if ((request_details & REQ_DETAIL_UPDATE))
-			{
-				/* remove the quarantine flag */
-				BACKEND_INFO(node_id).quarantine = false;
-
-				/*
-				 * do not search for primary node when handling the quarantine
-				 * nodes
-				 */
-				search_primary = false;
-
-				/*
-				 * recalculate the main node id after setting the backend
-				 * status of quarantined node, this will bring us to the old
-				 * main_node_id that was beofre the quarantine state
-				 */
-				Req_info->main_node_id = get_next_main_node();
-				if (Req_info->primary_node_id == -1 &&
-					BACKEND_INFO(node_id).role == ROLE_PRIMARY)
-				{
-					/*
-					 * if the failback request is for the quarantined node and
-					 * that node had a primary role before it was quarantined,
-					 * restore the primary node status for that node. this is
-					 * important for the failover script to get the proper
-					 * value of old primary
-					 */
-					ereport(LOG,
-							(errmsg("failover: failing back the quarantine node that was primary before it was quarantined"),
-							 errdetail("all children needs a restart")));
-					Req_info->primary_node_id = node_id;
-
-					/*
-					 * since we changed the primary node so restart of all
-					 * children is required
-					 */
-					need_to_restart_children = true;
-					partial_restart = false;
-				}
-				else if (all_backend_down == false)
-				{
-					ereport(LOG,
-							(errmsg("Do not restart children because we are failing back node id %d host: %s port: %d and we are in streaming replication mode and not all backends were down", node_id,
-									BACKEND_INFO(node_id).backend_hostname,
-									BACKEND_INFO(node_id).backend_port)));
-					need_to_restart_children = false;
-					partial_restart = false;
-				}
-				else
-				{
-					need_to_restart_children = true;
-					partial_restart = false;
-				}
-			}
-			else
-			{
-				/*
-				 * The request is a proper failbak request and not because of
-				 * the update status of quarantined node
-				 */
-				(void) write_status_file();
-
-				trigger_failover_command(node_id, pool_config->failback_command,
-										 MAIN_NODE_ID, get_next_main_node(), PRIMARY_NODE_ID);
-			}
-
-			sync_required = true;
 		}
-		else if (reqkind == PROMOTE_NODE_REQUEST)
+		else if (failover_context.reqkind == PROMOTE_NODE_REQUEST)
 		{
 			if (node_id != -1 && VALID_BACKEND(node_id))
 			{
@@ -1584,63 +1680,14 @@ failover(void)
 		else					/* NODE_DOWN_REQUEST &&
 								 * NODE_QUARANTINE_REQUEST */
 		{
-			int			cnt = 0;
-
-			for (i = 0; i < node_count; i++)
-			{
-				if (node_id_set[i] != -1 && (BACKEND_INFO(node_id_set[i]).quarantine == true ||
-											 ((RAW_MODE && VALID_BACKEND_RAW(node_id_set[i])) ||
-											  VALID_BACKEND(node_id_set[i]))))
-				{
-					ereport(LOG,
-							(errmsg("starting %s. shutdown host %s(%d)",
-									(reqkind == NODE_QUARANTINE_REQUEST) ? "quarantine" : "degeneration",
-									BACKEND_INFO(node_id_set[i]).backend_hostname,
-									BACKEND_INFO(node_id_set[i]).backend_port)));
-
-					BACKEND_INFO(node_id_set[i]).backend_status = CON_DOWN; /* set down status */
-					pool_set_backend_status_changed_time(node_id_set[i]);
-					if (reqkind == NODE_QUARANTINE_REQUEST)
-					{
-						BACKEND_INFO(node_id_set[i]).quarantine = true;
-					}
-					else
-					{
-						/*
-						 * if the degeneration request is for the quarantined
-						 * node and that node had a primary role before it was
-						 * quarantined, Restore the primary node status for
-						 * that node before degenerating it. This is important
-						 * for the failover script to get the proper valueo of
-						 * old primary
-						 */
-						if (Req_info->primary_node_id == -1 &&
-							BACKEND_INFO(node_id_set[i]).quarantine == true &&
-							BACKEND_INFO(node_id_set[i]).role == ROLE_PRIMARY)
-						{
-							ereport(DEBUG2,
-									(errmsg("failover: degenerating the node that was primary node before it was quarantined")));
-							Req_info->primary_node_id = node_id_set[i];
-							search_primary = false;
-						}
-						BACKEND_INFO(node_id_set[i]).quarantine = false;
-						(void) write_status_file();
-					}
-
-					/* save down node */
-					nodes[node_id_set[i]] = 1;
-					cnt++;
-				}
-			}
-
-			if (cnt == 0)
-			{
-				ereport(LOG,
-						(errmsg("failover: no backends are degenerated")));
+			
+			if (handle_failover_request(&failover_context, node_id) < 0)
 				continue;
-			}
 		}
 
+		/*
+		 * Determin new main node.
+		 */
 		new_main_node = get_next_main_node();
 
 		if (new_main_node < 0)
@@ -1651,570 +1698,61 @@ failover(void)
 
 		ereport(DEBUG1,
 				(errmsg("failover/failback request details: STREAM: %d reqkind: %d detail: %x node_id: %d",
-						STREAM, reqkind, request_details & REQ_DETAIL_SWITCHOVER,
+						STREAM, failover_context.reqkind, failover_context.request_details & REQ_DETAIL_SWITCHOVER,
 						node_id)));
 
 		/*
-		 * On 2011/5/2 Tatsuo Ishii says: if mode is streaming replication and
-		 * request is NODE_UP_REQUEST (failback case) we don't need to restart
-		 * all children. Existing session will not use newly attached node,
-		 * but load balanced node is not changed until this session ends, so
-		 * it's harmless anyway.
+		 * Kill child process to prepare failover/failback.
 		 */
+		kill_failover_children(&failover_context, node_id);
 
 		/*
-		 * On 2015/9/21 Tatsuo Ishii says: this judgment is not sufficient if
-		 * all backends were down. Child process has local status in which all
-		 * backends are down. In this case even if new connection arrives from
-		 * frontend, the child will not accept it because the local status
-		 * shows all backends are down. For this purpose we refer to
-		 * "all_backend_down" variable, which was set before updating backend
-		 * status.
-		 *
-		 * See bug 248 for more details.
+		 * Exec failover_command if needed. We do not execute failover when
+		 * request is quarantine type.  Also if the request is to promote
+		 * specified node, execute failover command.
 		 */
+		exec_failover_command(&failover_context, new_main_node, promote_node);
 
 		/*
-		 * We also need to think about a case when the former primary node did
-		 * not exist.  In the case we need to restart all children as
-		 * well. For example when previous primary node id is 0 and then it
-		 * went down, restarted, re-attached without promotion. Then existing
-		 * child process loses connection slot to node 0 and keeps on using it
-		 * when node 0 comes back. This could result in segfault later on in
-		 * the child process because there's no connection to node id 0.
-		 *
-		 * Actually we need to think about when ALWAYS_PRIMARY flag is set
-		 * *but* DISALLOW_TO_FAILOVER flag is not set case. In the case after
-		 * primary failover Req_info->primary_node_id is set, but connection
-		 * to the primary node does not exist. So we should do full restart if
-		 * requested node id is the former primary node.
-		 *
-		 * See bug 672 for more details.
+		 * Determine new primary node id. Possibly call find_primary_node_repeatedly().
 		 */
-		if (STREAM && reqkind == NODE_UP_REQUEST && all_backend_down == false &&
-			Req_info->primary_node_id >= 0 && Req_info->primary_node_id != node_id)
-		{
-			/*
-			 * The decision to restart/no-restart children for update status
-			 * request has already been made
-			 */
-			if (!(request_details & REQ_DETAIL_UPDATE))
-			{
-				ereport(LOG,
-						(errmsg("Do not restart children because we are failing back node id %d host: %s port: %d and we are in streaming replication mode and not all backends were down", node_id,
-								BACKEND_INFO(node_id).backend_hostname,
-								BACKEND_INFO(node_id).backend_port)));
-
-				need_to_restart_children = false;
-				partial_restart = false;
-			}
-		}
-
-		/*
-		 * If the mode is streaming replication and the request is
-		 * NODE_DOWN_REQUEST and it's actually a switch over request, we don't
-		 * need to restart all children, except the node is primary.
-		 */
-		else if (STREAM && (reqkind == NODE_DOWN_REQUEST || reqkind == NODE_QUARANTINE_REQUEST) &&
-				 request_details & REQ_DETAIL_SWITCHOVER && node_id != PRIMARY_NODE_ID)
-		{
-			ereport(LOG,
-					(errmsg("Do not restart children because we are switching over node id %d host: %s port: %d and we are in streaming replication mode", node_id,
-							BACKEND_INFO(node_id).backend_hostname,
-							BACKEND_INFO(node_id).backend_port)));
-
-			need_to_restart_children = true;
-			partial_restart = true;
-
-			for (i = 0; i < pool_config->num_init_children; i++)
-			{
-				bool		restart = false;
-
-				for (j = 0; j < pool_config->max_pool; j++)
-				{
-					for (k = 0; k < NUM_BACKENDS; k++)
-					{
-						ConnectionInfo *con = pool_coninfo(i, j, k);
-
-						if (con->connected && con->load_balancing_node == node_id)
-						{
-							ereport(LOG,
-									(errmsg("child pid %d needs to restart because pool %d uses backend %d",
-											process_info[i].pid, j, node_id)));
-							restart = true;
-							break;
-						}
-					}
-				}
-
-				if (restart)
-				{
-					pid_t		pid = process_info[i].pid;
-
-					if (pid)
-					{
-						kill(pid, SIGQUIT);
-						ereport(DEBUG1,
-								(errmsg("failover handler"),
-								 errdetail("kill process with PID:%d", pid)));
-					}
-				}
-			}
-		}
-		else
-		{
-			ereport(LOG,
-					(errmsg("Restart all children")));
-
-			/* kill all children */
-			for (i = 0; i < pool_config->num_init_children; i++)
-			{
-				pid_t		pid = process_info[i].pid;
-
-				if (pid)
-				{
-					kill(pid, SIGQUIT);
-					ereport(DEBUG1,
-							(errmsg("failover handler"),
-							 errdetail("kill process with PID:%d", pid)));
-				}
-			}
-
-			need_to_restart_children = true;
-			partial_restart = false;
-		}
-
-		/*
-		 * Exec failover_command if needed We do not execute failover when
-		 * request is quarantine type
-		 */
-		if (reqkind == NODE_DOWN_REQUEST)
-		{
-			for (i = 0; i < pool_config->backend_desc->num_backends; i++)
-			{
-				if (nodes[i])
-				{
-					trigger_failover_command(i, pool_config->failover_command,
-											 MAIN_NODE_ID, new_main_node, REAL_PRIMARY_NODE_ID);
-					sync_required = true;
-				}
-			}
-		}
-
-		if (reqkind == PROMOTE_NODE_REQUEST && VALID_BACKEND(node_id))
-		{
-			new_primary = node_id;
-		}
-		else if (reqkind == NODE_QUARANTINE_REQUEST)
-		{
-			/*
-			 * if the quarantine node was the primary node set the newprimary
-			 * to -1 (invalid)
-			 */
-			if (Req_info->primary_node_id == node_id)
-			{
-				/*
-				 * set the role of the node, This will help us restore the
-				 * primary node id when the node will come out from quarantine
-				 * state
-				 */
-				BACKEND_INFO(node_id).role = ROLE_PRIMARY;
-				new_primary = -1;
-			}
-			else if (SL_MODE)
-			{
-				new_primary = Req_info->primary_node_id;
-			}
-		}
-
-		/*
-		 * If the down node was a standby node in streaming replication mode,
-		 * we can avoid calling find_primary_node_repeatedly() and recognize
-		 * the former primary as the new primary node, which will reduce the
-		 * time to process standby down.
-		 */
-		else if (SL_MODE &&
-				 reqkind == NODE_DOWN_REQUEST)
-		{
-			if (Req_info->primary_node_id != node_id)
-			{
-				new_primary = Req_info->primary_node_id;
-			}
-			else
-			{
-				if (Req_info->primary_node_id >= 0)
-					BACKEND_INFO(Req_info->primary_node_id).role = ROLE_STANDBY;
-				new_primary = find_primary_node_repeatedly();
-			}
-		}
-		else if (search_primary == false)
-		{
-			ereport(DEBUG1,
-					(errmsg("faliover was called on quarantined node. No need to search for primary node")));
-			new_primary = Req_info->primary_node_id;
-		}
-		else
-		{
-			new_primary = find_primary_node_repeatedly();
-		}
-
+		new_primary = determine_new_primary_node(&failover_context, node_id);
+		
 		/*
 		 * If follow_primary_command is provided and in streaming
 		 * replication mode, we start degenerating all backends as they are
 		 * not replicated anymore.
 		 */
-		int			follow_cnt = 0;
+		i = exec_follow_primary_command(&failover_context, node_id, new_primary);
 
-		if (STREAM)
-		{
-			if (*pool_config->follow_primary_command != '\0' ||
-				reqkind == PROMOTE_NODE_REQUEST)
-			{
-				/* only if the failover is against the current primary */
-				if (((reqkind == NODE_DOWN_REQUEST) &&
-					 Req_info->primary_node_id >= 0 &&
-					 (nodes[Req_info->primary_node_id])) ||
-					(node_id >= 0 && (reqkind == PROMOTE_NODE_REQUEST) &&
-					 (VALID_BACKEND(node_id))))
-				{
-
-					for (i = 0; i < pool_config->backend_desc->num_backends; i++)
-					{
-						/* do not degenerate the new primary */
-						if ((new_primary >= 0) && (i != new_primary))
-						{
-							BackendInfo *bkinfo;
-
-							bkinfo = pool_get_node_info(i);
-							ereport(LOG,
-									(errmsg("starting follow degeneration. shutdown host %s(%d)",
-											bkinfo->backend_hostname,
-											bkinfo->backend_port)));
-							bkinfo->backend_status = CON_DOWN;	/* set down status */
-							pool_set_backend_status_changed_time(i);
-							(void) write_status_file();
-
-							follow_cnt++;
-						}
-					}
-
-					if (follow_cnt == 0)
-					{
-						ereport(LOG,
-								(errmsg("failover: no follow backends are degenerated")));
-					}
-					else
-					{
-						/* update new primary node */
-						new_main_node = get_next_main_node();
-						ereport(LOG,
-								(errmsg("failover: %d follow backends have been degenerated", follow_cnt)));
-					}
-				}
-			}
-		}
-
-		if ((follow_cnt > 0) && (*pool_config->follow_primary_command != '\0'))
-		{
-			follow_pid = fork_follow_child(Req_info->primary_node_id, new_primary,
-										   Req_info->primary_node_id);
-		}
-
-		/* Save primary node id */
-		if (Req_info->primary_node_id != new_primary)
-		{
-			if (Req_info->primary_node_id >= 0)
-			{
-				pool_set_backend_status_changed_time(Req_info->primary_node_id);
-			}
-			if (new_primary >= 0)
-			{
-				BACKEND_INFO(new_primary).role = ROLE_PRIMARY;
-				pool_set_backend_status_changed_time(new_primary);
-			}
-		}
-		Req_info->primary_node_id = new_primary;
-		ereport(LOG,
-				(errmsg("failover: set new primary node: %d", Req_info->primary_node_id)));
-
-		if (new_main_node >= 0)
-		{
-			Req_info->main_node_id = new_main_node;
-			sync_required = true;
-			ereport(LOG,
-					(errmsg("failover: set new main node: %d", Req_info->main_node_id)));
-		}
-
-
-		/* Kill children and restart them if needed */
-		if (need_to_restart_children)
-		{
-			for (i = 0; i < pool_config->num_init_children; i++)
-			{
-				/*
-				 * Try to kill pgpool child because previous kill signal may
-				 * not be received by pgpool child. This could happen if
-				 * multiple PostgreSQL are going down (or even starting
-				 * pgpool, without starting PostgreSQL can trigger this).
-				 * Child calls degenerate_backend() and it tries to aquire
-				 * semaphore to write a failover request. In this case the
-				 * signal mask is set as well, thus signals are never
-				 * received.
-				 */
-
-				bool		restart = false;
-
-				if (partial_restart)
-				{
-					for (j = 0; j < pool_config->max_pool; j++)
-					{
-						for (k = 0; k < NUM_BACKENDS; k++)
-						{
-							ConnectionInfo *con = pool_coninfo(i, j, k);
-
-							if (con->connected && con->load_balancing_node == node_id)
-							{
-
-								ereport(LOG,
-										(errmsg("child pid %d needs to restart because pool %d uses backend %d",
-												process_info[i].pid, j, node_id)));
-								restart = true;
-								break;
-							}
-						}
-					}
-				}
-				else
-					restart = true;
-
-				if (restart)
-				{
-					if (process_info[i].pid)
-					{
-						kill(process_info[i].pid, SIGQUIT);
-
-						process_info[i].pid = fork_a_child(fds, i);
-						process_info[i].start_time = time(NULL);
-					}
-				}
-				else
-					process_info[i].need_to_restart = 1;
-			}
-		}
-
-		else
-		{
-			/*
-			 * Set restart request to each child. Children will exit(1)
-			 * whenever they are convenient.
-			 */
-			for (i = 0; i < pool_config->num_init_children; i++)
-			{
-				process_info[i].need_to_restart = 1;
-			}
-		}
+		/* if follow primary command was executed, main node can be changed */
+		if (i >= 0)
+			new_main_node = i;
 
 		/*
-		 * Send restart request to worker child.
+		 * Now new primary node and new main node are established.
+		 * Save them into shared memory. Also update status changed time.
 		 */
-		kill(worker_pid, SIGUSR1);
+		save_node_info(&failover_context, new_primary, new_main_node);
 
-		if (sync_required)
-			wd_failover_end();
-
-		if (reqkind == NODE_UP_REQUEST)
-		{
-			ereport(LOG,
-					(errmsg("failback done. reconnect host %s(%d)",
-							BACKEND_INFO(node_id).backend_hostname,
-							BACKEND_INFO(node_id).backend_port)));
-
-			/* Fork health check process if needed */
-			for (i = 0; i < NUM_BACKENDS; i++)
-			{
-				if (health_check_pids[i] == 0)
-				{
-					ereport(LOG,
-							(errmsg("start health check process for host %s(%d)",
-									BACKEND_INFO(i).backend_hostname,
-									BACKEND_INFO(i).backend_port)));
-
-					health_check_pids[i] = worker_fork_a_child(PT_HEALTH_CHECK, do_health_check_child, &i);
-				}
-			}
-		}
-		else if (reqkind == PROMOTE_NODE_REQUEST)
-		{
-			ereport(LOG,
-					(errmsg("promotion done. promoted host %s(%d)",
-							BACKEND_INFO(node_id).backend_hostname,
-							BACKEND_INFO(node_id).backend_port)));
-		}
-		else
-		{
-			/*
-			 * Temporary black magic. Without this regression 055 does not
-			 * finish
-			 */
-			fprintf(stderr, "%s done. shutdown host %s(%d)",
-					(reqkind == NODE_DOWN_REQUEST) ? "failover" : "quarantine",
-					BACKEND_INFO(node_id).backend_hostname,
-					BACKEND_INFO(node_id).backend_port);
-
-			ereport(LOG,
-					(errmsg("%s done. shutdown host %s(%d)",
-							(reqkind == NODE_DOWN_REQUEST) ? "failover" : "quarantine",
-							BACKEND_INFO(node_id).backend_hostname,
-							BACKEND_INFO(node_id).backend_port)));
-		}
-		need_to_restart_pcp = true;
+		/* Kill children and restart them if needed */
+		exec_child_restart(&failover_context, node_id);
 	}
 
+	/*
+	 * We are almost done.
+	 * Unlock flags.
+	 */
 	pool_semaphore_lock(REQUEST_INFO_SEM);
 	switching = 0;
 	Req_info->switching = false;
 	pool_semaphore_unlock(REQUEST_INFO_SEM);
 
 	/*
-	 * kick wakeup_handler in pcp_child to notice that failover/failback done
+	 * kick wakeup_handler in pcp_child to notice that failover/failback done.
 	 */
-	kill(pcp_pid, SIGUSR2);
-
-	if (need_to_restart_pcp)
-	{
-		sleep(1);
-
-		/*
-		 * Send restart request to pcp child.
-		 */
-		kill(pcp_pid, SIGUSR1);
-		for (;;)
-		{
-			sts = waitpid(pcp_pid, &status, 0);
-			if (sts != -1)
-				break;
-
-			if (errno == EINTR)
-				continue;
-			else
-			{
-				ereport(WARNING,
-						(errmsg("failover: waitpid failed"),
-						 errdetail("%m")));
-				continue;
-			}
-		}
-		if (WIFSIGNALED(status))
-			ereport(LOG,
-					(errmsg("PCP child %d exits with status %d by signal %d in failover()", pcp_pid, status, WTERMSIG(status))));
-		else
-			ereport(LOG,
-					(errmsg("PCP child %d exits with status %d in failover()", pcp_pid, status)));
-
-		pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
-		ereport(LOG,
-				(errmsg("fork a new PCP child pid %d in failover()", pcp_pid)));
-	}
+	exec_notice_pcp_child(&failover_context);
 }
-
-#ifdef NOT_USED
-/*
- * health check timer handler
- */
-static RETSIGTYPE health_check_timer_handler(int sig)
-{
-	int			save_errno = errno;
-
-	POOL_SETMASK(&BlockSig);
-	health_check_timer_expired = 1;
-	POOL_SETMASK(&UnBlockSig);
-	errno = save_errno;
-}
-
-/*
- * do_health_check() performs the health check on all backend nodes.
- * The inout parameter health_check_node_id is the starting backend
- * node number for health check and when the function returns or
- * exits with an error health_check_node_id contains the value
- * of last backend node number on which health check was performed.
- *
- * Function returns false if all backend nodes are down and true if all
- * backend nodes are in healthy state
- */
-static bool
-do_health_check(bool use_template_db, volatile int *health_check_node_id)
-{
-	POOL_CONNECTION_POOL_SLOT *slot;
-	BackendInfo *bkinfo;
-	static char *dbname;
-	int			i;
-	bool		all_nodes_healthy = false;
-	char	   *password = get_pgpool_config_user_password(pool_config->health_check_user,
-														   pool_config->health_check_password);
-
-	/* Do not execute health check during recovery */
-	if (*InRecovery)
-		return false;
-
-	if (!strcmp(pool_config->health_check_database, ""))
-		dbname = use_template_db ? "template1" : "postgres";
-	else
-		dbname = pool_config->health_check_database;
-
-	ereport(DEBUG1,
-			(errmsg("doing health check against database:%s user:%s",
-					dbname, pool_config->health_check_user)));
-
-	/*
-	 * Start checking the backed nodes starting from the previously failed
-	 * node
-	 */
-	for (i = *health_check_node_id; i < pool_config->backend_desc->num_backends; i++)
-	{
-		*health_check_node_id = i;
-
-		/*
-		 * Make sure that health check timer has not been expired. Before
-		 * called health_check(), health_check_timer_expired is set to 0.
-		 * However it is possible that while processing DB nodes health check
-		 * timer expired.
-		 */
-		if (health_check_timer_expired)
-		{
-			ereport(ERROR,
-					(errmsg("health check timer has been already expired before attempting to connect backend node %d", i)));
-		}
-
-		bkinfo = pool_get_node_info(i);
-
-		ereport(DEBUG1,
-				(errmsg("Backend DB node %d status is %d", i, bkinfo->backend_status)));
-
-
-		if (bkinfo->backend_status == CON_UNUSED ||
-			bkinfo->backend_status == CON_DOWN)
-			continue;
-
-		all_nodes_healthy = true;
-		ereport(DEBUG1,
-				(errmsg("Trying to make persistent DB connection to backend node %d having status %d", i, bkinfo->backend_status)));
-
-		slot = make_persistent_db_connection(i, bkinfo->backend_hostname,
-											 bkinfo->backend_port,
-											 dbname,
-											 pool_config->health_check_user,
-											 password ? password : "", false);
-
-		ereport(DEBUG1,
-				(errmsg("persistent DB connection to backend node %d having status %d is successful", i, bkinfo->backend_status)));
-
-		discard_persistent_db_connection(slot);
-	}
-	if (password)
-		pfree(password);
-	return all_nodes_healthy;
-}
-#endif
 
 /*
  * handle SIGCHLD
@@ -2246,7 +1784,7 @@ static RETSIGTYPE reap_handler(int sig)
 /*
  * pool_waitpid:
  * nothing more than a wrapper function over NOHANG mode waitpid() or wait3()
- * depending on the existance of waitpid in the system
+ * depending on the existence of waitpid in the system
  */
 pid_t
 pool_waitpid(int *status)
@@ -2304,7 +1842,7 @@ reaper(void)
 	int			status;
 	int			i;
 
-	ereport(DEBUG1,
+	ereport(LOG,
 			(errmsg("reaper handler")));
 
 	if (exiting)
@@ -2362,11 +1900,11 @@ reaper(void)
 				ereport(WARNING,
 						(errmsg("%s process with pid: %d was terminated by sigkill", exiting_process_name, pid)));
 			else
-				ereport(LOG,
+				ereport(DEBUG1,
 						(errmsg("%s process with pid: %d exits with status %d by signal %d", exiting_process_name, pid, status, WTERMSIG(status))));
 
 			/*
-			 * If the watchdog process was terminated abonormally. we need to
+			 * If the watchdog process was terminated abnormally. we need to
 			 * set the cleanup flag so that the new watchdog process can start
 			 * without problems
 			 */
@@ -2376,7 +1914,7 @@ reaper(void)
 			}
 		}
 		else
-			ereport(LOG,
+			ereport(DEBUG1,
 					(errmsg("%s process with pid: %d exits with status %d", exiting_process_name, pid, status)));
 
 		/* if exiting child process was PCP handler */
@@ -2385,7 +1923,7 @@ reaper(void)
 			found = true;
 			if (restart_child)
 			{
-				pcp_pid = pcp_fork_a_child(pcp_unix_fd, pcp_inet_fd, pcp_conf_file);
+				pcp_pid = pcp_fork_a_child(pcp_fds, pcp_conf_file);
 				new_pid = pcp_pid;
 			}
 			else
@@ -2460,14 +1998,22 @@ reaper(void)
 				{
 					found = true;
 					/* if found, fork a new child */
-					if (!switching && !exiting && restart_child)
+					if (!switching && !exiting && restart_child &&
+						pool_config->process_management != PM_DYNAMIC)
 					{
 						process_info[i].pid = fork_a_child(fds, i);
 						process_info[i].start_time = time(NULL);
 						new_pid = process_info[i].pid;
+						process_info[i].client_connection_count = 0;
+						process_info[i].status = WAIT_FOR_CONNECT;
+						process_info[i].connected = 0;
+						process_info[i].wait_for_connect = 0;
 					}
 					else
+					{
+						current_child_process_count--;
 						process_info[i].pid = 0;
+					}
 					break;
 				}
 			}
@@ -2502,7 +2048,7 @@ reaper(void)
 		else if (restart_child && new_pid)
 		{
 			/* Report if the child was restarted */
-			ereport(LOG,
+			ereport(DEBUG1,
 					(errmsg("fork a new %s process with pid: %d", exiting_process_name, new_pid)));
 		}
 		else
@@ -2516,7 +2062,7 @@ reaper(void)
 		}
 
 	}
-	ereport(DEBUG1,
+	ereport(LOG,
 			(errmsg("reaper handler: exiting normally")));
 }
 
@@ -2548,12 +2094,25 @@ int *
 pool_get_process_list(int *array_size)
 {
 	int		   *array;
+	int			cnt = 0;
 	int			i;
 
-	*array_size = pool_config->num_init_children;
+	for (i=0;i < pool_config->num_init_children;i++)
+	{
+		if (process_info[i].pid != 0)
+			cnt++;
+	}
+	*array_size = cnt;
+	cnt = 0;
 	array = palloc0(*array_size * sizeof(int));
-	for (i = 0; i < *array_size; i++)
-		array[i] = process_info[i].pid;
+	for (i = 0; i < pool_config->num_init_children || cnt < *array_size; i++)
+	{
+		if (process_info[i].pid != 0)
+		{
+			array[cnt] = process_info[i].pid;
+			cnt++;
+		}
+	}
 
 	return array;
 }
@@ -2724,7 +2283,7 @@ pool_sleep(unsigned int second)
 		r = pool_pause(&timeout);
 		POOL_SETMASK(&BlockSig);
 		if (r > 0)
-			CHECK_REQUEST;
+			check_requests();
 		POOL_SETMASK(&UnBlockSig);
 		gettimeofday(&current_time, NULL);
 	}
@@ -2740,9 +2299,8 @@ trigger_failover_command(int node, const char *command_line,
 						 int old_main_node, int new_main_node, int old_primary)
 {
 	int			r = 0;
-	String	   *exec_cmd;
-	char		port_buf[6];
-	char		buf[2];
+	StringInfoData	   exec_cmd_data;
+	StringInfo	   exec_cmd = &exec_cmd_data;
 	BackendInfo *info;
 	BackendInfo *newmain;
 	BackendInfo *oldprimary;
@@ -2758,8 +2316,7 @@ trigger_failover_command(int node, const char *command_line,
 	if (!info)
 		return -1;
 
-	buf[1] = '\0';
-	exec_cmd = init_string("");
+	initStringInfo(exec_cmd);
 
 	while (*command_line)
 	{
@@ -2772,91 +2329,80 @@ trigger_failover_command(int node, const char *command_line,
 				switch (val)
 				{
 					case 'p':	/* failed node port */
-						snprintf(port_buf, sizeof(port_buf), "%d", info->backend_port);
-						string_append_char(exec_cmd, port_buf);
+						appendStringInfo(exec_cmd, " %d", info->backend_port);
 						break;
 
 					case 'D':	/* failed node database directory */
-						string_append_char(exec_cmd, info->backend_data_directory);
+						appendStringInfoString(exec_cmd, info->backend_data_directory);
 						break;
 
 					case 'd':	/* failed node id */
-						snprintf(port_buf, sizeof(port_buf), "%d", node);
-						string_append_char(exec_cmd, port_buf);
+						appendStringInfo(exec_cmd, " %d", node);
 						break;
 
 					case 'h':	/* failed host name */
-						string_append_char(exec_cmd, info->backend_hostname);
+						appendStringInfoString(exec_cmd, info->backend_hostname);
 						break;
 
 					case 'H':	/* new main host name */
 						newmain = pool_get_node_info(new_main_node);
 						if (newmain)
-							string_append_char(exec_cmd, newmain->backend_hostname);
+							appendStringInfoString(exec_cmd, newmain->backend_hostname);
 						else
 							/* no valid new main */
-							string_append_char(exec_cmd, "\"\"");
+							appendStringInfoString(exec_cmd, "\"\"");
 						break;
 
 					case 'm':	/* new main node id */
-						snprintf(port_buf, sizeof(port_buf), "%d", new_main_node);
-						string_append_char(exec_cmd, port_buf);
+						appendStringInfo(exec_cmd, " %d", new_main_node);
 						break;
 
 					case 'r':	/* new main node port */
-						newmain = pool_get_node_info(get_next_main_node());
+						newmain = pool_get_node_info(new_main_node);
 						if (newmain)
-						{
-							snprintf(port_buf, sizeof(port_buf), "%d", newmain->backend_port);
-							string_append_char(exec_cmd, port_buf);
-						}
+							appendStringInfo(exec_cmd, "%d", newmain->backend_port);
 						else
 							/* no valid new main node */
-							string_append_char(exec_cmd, "\"\"");
+							appendStringInfoString(exec_cmd, "\"\"");
 						break;
 
 					case 'R':	/* new main database directory */
-						newmain = pool_get_node_info(get_next_main_node());
+						newmain = pool_get_node_info(new_main_node);
 						if (newmain)
-							string_append_char(exec_cmd, newmain->backend_data_directory);
+							appendStringInfoString(exec_cmd, newmain->backend_data_directory);
 						else
 							/* no valid new main */
-							string_append_char(exec_cmd, "\"\"");
+							appendStringInfoString(exec_cmd, "\"\"");
 						break;
 
 					case 'M':	/* old main node id */
-						snprintf(port_buf, sizeof(port_buf), "%d", old_main_node);
-						string_append_char(exec_cmd, port_buf);
+						appendStringInfo(exec_cmd, "%d", old_main_node);
 						break;
 
 					case 'P':	/* old primary node id */
-						snprintf(port_buf, sizeof(port_buf), "%d", old_primary);
-						string_append_char(exec_cmd, port_buf);
+						appendStringInfo(exec_cmd, "%d", old_primary);
 						break;
 
 					case 'N':	/* old primary host name */
 						oldprimary = pool_get_node_info(old_primary);
 						if (oldprimary)
-							string_append_char(exec_cmd, oldprimary->backend_hostname);
+							appendStringInfoString(exec_cmd, oldprimary->backend_hostname);
 						else
 							/* no valid old primary */
-							string_append_char(exec_cmd, "\"\"");
+							appendStringInfoString(exec_cmd, "\"\"");
 						break;
 
 					case 'S':	/* old primary port */
 						oldprimary = pool_get_node_info(old_primary);
 						if (oldprimary)
-						{
-							snprintf(port_buf, sizeof(port_buf), "%d", oldprimary->backend_port);
-							string_append_char(exec_cmd, port_buf);
-						}
+							appendStringInfo(exec_cmd, "%d", oldprimary->backend_port);
 						else
 							/* no valid old primary */
-							string_append_char(exec_cmd, "\"\"");
+							appendStringInfoString(exec_cmd, "\"\"");
 						break;
 
 					case '%':	/* escape */
-						string_append_char(exec_cmd, "%");
+						appendStringInfoString(exec_cmd, "%");
 						break;
 
 					default:	/* ignore */
@@ -2866,10 +2412,8 @@ trigger_failover_command(int node, const char *command_line,
 			}
 		}
 		else
-		{
-			buf[0] = *command_line;
-			string_append_char(exec_cmd, buf);
-		}
+			appendStringInfoChar(exec_cmd, *command_line);
+
 		command_line++;
 	}
 
@@ -2880,7 +2424,7 @@ trigger_failover_command(int node, const char *command_line,
 		r = system(exec_cmd->data);
 	}
 
-	free_string(exec_cmd);
+	pfree(exec_cmd->data);
 
 	return r;
 }
@@ -2912,7 +2456,7 @@ verify_backend_node_status(POOL_CONNECTION_POOL_SLOT * *slots)
 		if (!slots[i])
 			continue;
 
-		if (get_query_result(slots, i, "SELECT pg_is_in_recovery()", &res))
+		if (get_query_result(slots, i, "SELECT pg_catalog.pg_is_in_recovery()", &res))
 		{
 			continue;
 		}
@@ -3036,7 +2580,7 @@ verify_backend_node_status(POOL_CONNECTION_POOL_SLOT * *slots)
 		if (!check_connectivity)
 		{
 			ereport(DEBUG1,
-					(errmsg("verify_backend_node_status: server verion is lower than 9.6.0. Skipping connectivity checks")));
+					(errmsg("verify_backend_node_status: server version is lower than 9.6.0. Skipping connectivity checks")));
 			return pool_node_status;
 		}
 
@@ -3062,7 +2606,7 @@ verify_backend_node_status(POOL_CONNECTION_POOL_SLOT * *slots)
 						ereport(DEBUG1,
 								(errmsg("verify_backend_node_status: %d is standby", j)));
 
-						if (get_query_result(slots, j, "SELECT status, conninfo FROM pg_stat_wal_receiver", &res))
+						if (get_query_result(slots, j, "SELECT status, conninfo FROM pg_catalog.pg_stat_wal_receiver", &res))
 						{
 							ereport(DEBUG1,
 									(errmsg("verify_backend_node_status: call pg_stat_wal_receiver to standby %d failed", j)));
@@ -3231,7 +2775,7 @@ find_primary_node(void)
 														 bkinfo->backend_port,
 														 pool_config->sr_check_database,
 														 pool_config->sr_check_user,
-														 password ? password : "", true);
+														 password ? password : "", false);
 		if (!slots[i])
 		{
 			ereport(LOG,
@@ -3281,7 +2825,8 @@ find_primary_node(void)
 static int
 find_primary_node_repeatedly(void)
 {
-	int			sec;
+	time_t		search_primary_expiration;
+	time_t		now;
 	int			node_id = -1;
 	int			i;
 
@@ -3334,13 +2879,29 @@ find_primary_node_repeatedly(void)
 	 */
 	ereport(LOG,
 			(errmsg("find_primary_node_repeatedly: waiting for finding a primary node")));
-	for (sec = 0; (pool_config->search_primary_node_timeout == 0 ||
-				   sec < pool_config->search_primary_node_timeout); sec++)
+
+	/* set expiration time for searching the primary node */
+	search_primary_expiration = time(NULL) + pool_config->search_primary_node_timeout;
+
+	for (;;)
 	{
-		node_id = find_primary_node();
-		if (node_id != -1)
+		now = time(NULL);
+
+		if (pool_config->search_primary_node_timeout == 0 || search_primary_expiration > now)
+		{
+			node_id = find_primary_node();
+			if (node_id != -1)
+				break;
+			pool_sleep(1);
+		}
+		else
+		{
+			ereport(LOG,
+					(errmsg("failed to find primary node"),
+			         errdetail("find_primary_node_repeatedly: expired after %d seconds",
+								pool_config->search_primary_node_timeout)));
 			break;
-		pool_sleep(1);
+		}
 	}
 	return node_id;
 }
@@ -3348,7 +2909,7 @@ find_primary_node_repeatedly(void)
 /*
 * fork a follow child
 */
-pid_t
+static pid_t
 fork_follow_child(int old_main_node, int new_primary, int old_primary)
 {
 	pid_t		pid;
@@ -3394,20 +2955,24 @@ fork_follow_child(int old_main_node, int new_primary, int old_primary)
 		wd_lock_standby(WD_FOLLOW_PRIMARY_LOCK);
 		pool_acquire_follow_primary_lock(true, false);
 		Req_info->follow_primary_ongoing = true;
-		ereport(LOG,
-				(errmsg("start triggering follow command.")));
 		for (i = 0; i < pool_config->backend_desc->num_backends; i++)
 		{
 			BackendInfo *bkinfo;
 
 			bkinfo = pool_get_node_info(i);
 			if (bkinfo->backend_status == CON_DOWN)
+			{
+				ereport(LOG,
+						(errmsg("=== Starting follow primary command for node %d ===", i)));
 				trigger_failover_command(i, pool_config->follow_primary_command,
 										 old_main_node, new_primary, old_primary);
+				ereport(LOG,
+						(errmsg("=== Follow primary command for node %d ended ===", i)));
+			}
 		}
 		Req_info->follow_primary_ongoing = false;
 		pool_release_follow_primary_lock(false);
-		/* inform standby watchdog nodes to release the lock aswell*/
+		/* inform standby watchdog nodes to release the lock as well*/
 		wd_unlock_standby(WD_FOLLOW_PRIMARY_LOCK);
 		exit(0);
 	}
@@ -3430,19 +2995,26 @@ initialize_shared_mem_objects(bool clear_memcache_oidmaps)
 
 	/*
 	 * Calculate the size of required shared memory and try to allocate
-	 * everyting in sigle memory segment
+	 * everything in single memory segment
 	 */
 	size = 256;/* let us have some extra space */
 	size += MAXALIGN(sizeof(BackendDesc));
+	elog(DEBUG1, "BackendDesc: %zu bytes requested for shared memory", MAXALIGN(sizeof(BackendDesc)));
 	size += MAXALIGN(pool_coninfo_size());
 	size += MAXALIGN(pool_config->num_init_children * (sizeof(ProcessInfo)));
+	elog(DEBUG1, "ProcessInfo: num_init_children (%d) * sizeof(ProcessInfo) (%zu) = %zu bytes requested for shared memory",
+		 pool_config->num_init_children, sizeof(ProcessInfo), pool_config->num_init_children* sizeof(ProcessInfo));
 	size += MAXALIGN(sizeof(User1SignalSlot));
+	elog(DEBUG1, "UserSignalSlot: %zu bytes requested for shared memory", MAXALIGN(sizeof(User1SignalSlot)));
 	size += MAXALIGN(sizeof(POOL_REQUEST_INFO));
+	elog(DEBUG1, "POOL_REQUEST_INFO: %zu bytes requested for shared memory", MAXALIGN(sizeof(POOL_REQUEST_INFO)));
 	size += MAXALIGN(sizeof(int)); /* for InRecovery */
 	size += MAXALIGN(stat_shared_memory_size());
+	elog(DEBUG1, "stat_shared_memory_size: %zu bytes requested for shared memory", MAXALIGN(stat_shared_memory_size()));
 	size += MAXALIGN(health_check_stats_shared_memory_size());
 	/* Snapshot Isolation manage area */
 	size += MAXALIGN(sizeof(SI_ManageInfo));
+	elog(DEBUG1, "SI_ManageInfo: %zu bytes requested for shared memory", MAXALIGN(sizeof(SI_ManageInfo)));
 	size += MAXALIGN(pool_config->num_init_children * sizeof(pid_t));
 	size += MAXALIGN(pool_config->num_init_children * sizeof(pid_t));
 
@@ -3453,11 +3025,15 @@ initialize_shared_mem_objects(bool clear_memcache_oidmaps)
 		size += MAXALIGN(pool_hash_size(pool_config->memqcache_max_num_cache));
 	}
 	if (pool_config->memory_cache_enabled || pool_config->enable_shared_relcache)
+	{
 		size += MAXALIGN(sizeof(POOL_QUERY_CACHE_STATS));
+		elog(DEBUG1, "POOL_QUERY_CACHE_STATS: %zu bytes requested for shared memory", MAXALIGN(sizeof(POOL_QUERY_CACHE_STATS)));
+	}
 
 	if (pool_config->use_watchdog)
 	{
 		size += MAXALIGN(wd_ipc_get_shared_mem_size());
+		elog(DEBUG1, "watchdog: %zu bytes requested for shared memory", MAXALIGN(wd_ipc_get_shared_mem_size()));
 	}
 
 	ereport(LOG,
@@ -3475,7 +3051,10 @@ initialize_shared_mem_objects(bool clear_memcache_oidmaps)
 
 	process_info = (ProcessInfo *)pool_shared_memory_segment_get_chunk(pool_config->num_init_children * (sizeof(ProcessInfo)));
 	for (i = 0; i < pool_config->num_init_children; i++)
+	{
 		process_info[i].connection_info = pool_coninfo(i, 0, 0);
+		process_info[i].pid = 0;
+	}
 
 	user1SignalSlot = (User1SignalSlot *)pool_shared_memory_segment_get_chunk(sizeof(User1SignalSlot));
 
@@ -3545,6 +3124,8 @@ initialize_shared_mem_objects(bool clear_memcache_oidmaps)
 					(errmsg("pool_discard_oid_maps: discarded memqcache oid maps")));
 
 			pool_hash_init(pool_config->memqcache_max_num_cache);
+
+			pool_init_whole_cache_blocks();
 		}
 
 #ifdef USE_MEMCACHED
@@ -3695,6 +3276,8 @@ read_status_file(bool discard_status)
 			{
 				BACKEND_INFO(i).backend_status = CON_UP;
 				someone_wakeup = true;
+				ereport(LOG,
+						(errmsg("reading status file: %d th backend is set to up status", i)));
 			}
 			else if (!strncasecmp("down", readbuf, 4))
 			{
@@ -3707,6 +3290,8 @@ read_status_file(bool discard_status)
 			{
 				BACKEND_INFO(i).backend_status = CON_UNUSED;
 				pool_set_backend_status_changed_time(i);
+				ereport(LOG,
+						(errmsg("reading status file: %d th backend is set to unused status", i)));
 			}
 			else
 			{
@@ -3851,7 +3436,7 @@ reload_config(void)
 
 	pool_get_config(conf_file, CFGCXT_RELOAD);
 
-	/* Realoading config file could change backend status */
+	/* Reloading config file could change backend status */
 	(void) write_status_file();
 
 	MemoryContextSwitchTo(oldContext);
@@ -3972,7 +3557,7 @@ update_backend_quarantine_status(void)
  * nodes from the LEADER/COORDINATOR watchdog Pgpool-II and synchronize the
  * local backend states with the cluster wide status of each node.
  *
- * Latter in the funcrtion after syncing the backend node status the function
+ * Latter in the function after syncing the backend node status the function
  * do a partial or full restart of Pgpool-II children depending upon the
  * Pgpool-II mode and type of node status change
  *
@@ -3985,17 +3570,18 @@ sync_backend_from_watchdog(void)
 	bool		node_status_was_changed_to_up = false;
 	bool		need_to_restart_children = false;
 	bool		partial_restart = false;
-	bool		reload_maste_node_id = false;
+	bool		reload_master_node_id = false;
 
 	int			down_node_ids[MAX_NUM_BACKENDS];
 	int			down_node_ids_index = 0;
 	int			i;
+	WDPGBackendStatus *backendStatus;
 
 	/*
 	 * Ask the watchdog to get all the backend states from the
 	 * Leader/Coordinator Pgpool-II node
 	 */
-	WDPGBackendStatus *backendStatus = get_pg_backend_status_from_leader_wd_node();
+	backendStatus = get_pg_backend_status_from_leader_wd_node();
 
 	if (!backendStatus)
 	{
@@ -4008,7 +3594,7 @@ sync_backend_from_watchdog(void)
 	{
 		/*
 		 * -ve node count is returned by watchdog when the node itself is a
-		 * leader and in that case we need to use the loacl backend node
+		 * leader and in that case we need to use the local backend node
 		 * status
 		 */
 		ereport(LOG,
@@ -4038,7 +3624,7 @@ sync_backend_from_watchdog(void)
 				BACKEND_INFO(i).backend_status = CON_DOWN;
 				pool_set_backend_status_changed_time(i);
 				my_backend_status[i] = &(BACKEND_INFO(i).backend_status);
-				reload_maste_node_id = true;
+				reload_master_node_id = true;
 				node_status_was_changed_to_down = true;
 				ereport(LOG,
 						(errmsg("backend:%d is set to down status", i),
@@ -4057,7 +3643,7 @@ sync_backend_from_watchdog(void)
 				BACKEND_INFO(i).backend_status = CON_CONNECT_WAIT;
 				pool_set_backend_status_changed_time(i);
 				my_backend_status[i] = &(BACKEND_INFO(i).backend_status);
-				reload_maste_node_id = true;
+				reload_master_node_id = true;
 
 				ereport(LOG,
 						(errmsg("backend:%d is set to UP status", i),
@@ -4083,7 +3669,7 @@ sync_backend_from_watchdog(void)
 		 * leader node returns primary_node_id = -1 when the primary node is
 		 * in quarantine state on the leader.  So we will not update our
 		 * primary node id when the status of current primary node is not
-		 * CON_DOWN while primary_node_id sent by leader watchdong node is -1
+		 * CON_DOWN while primary_node_id sent by leader watchdog node is -1
 		 *
 		 * Note that Req_info->primary_node_id could be -2, which is the
 		 * initial value. So we need to avoid crash by checking the value is
@@ -4107,7 +3693,7 @@ sync_backend_from_watchdog(void)
 
 	pfree(backendStatus);
 
-	if (reload_maste_node_id)
+	if (reload_master_node_id)
 	{
 		Req_info->main_node_id = get_next_main_node();
 	}
@@ -4117,7 +3703,7 @@ sync_backend_from_watchdog(void)
 		return;
 
 	/*
-	 * Decide if All or subset of the Pgpool-II children needs immidiate
+	 * Decide if All or subset of the Pgpool-II children needs immediate
 	 * restart or we can do that after finishing the current session
 	 *
 	 * Check if there was no change at all
@@ -4228,6 +3814,11 @@ sync_backend_from_watchdog(void)
 
 					process_info[i].pid = fork_a_child(fds, i);
 					process_info[i].start_time = time(NULL);
+					process_info[i].client_connection_count = 0;
+					process_info[i].status = WAIT_FOR_CONNECT;
+					process_info[i].connected = 0;
+					process_info[i].wait_for_connect = 0;
+					process_info[i].pooled_connections = 0;
 				}
 			}
 			else
@@ -4243,7 +3834,8 @@ sync_backend_from_watchdog(void)
 		 */
 		for (i = 0; i < pool_config->num_init_children; i++)
 		{
-			process_info[i].need_to_restart = 1;
+			if (process_info[i].pid)
+				process_info[i].need_to_restart = 1;
 		}
 	}
 
@@ -4281,7 +3873,7 @@ get_server_version(POOL_CONNECTION_POOL_SLOT * *slots, int node_id)
 
 	if (server_versions[node_id] == 0)
 	{
-		query = "SELECT current_setting('server_version_num')";
+		query = "SELECT pg_catalog.current_setting('server_version_num')";
 
 		/* Get backend server version. If the query fails, keep previous info. */
 		if (get_query_result(slots, node_id, query, &res) == 0)
@@ -4500,4 +4092,1066 @@ pool_release_follow_primary_lock(bool remote_request)
 	ereport(DEBUG1,
 			(errmsg("pool_release_follow_primary_lock called")));
 
+}
+
+/*
+ * -------------------------------------------------------------------------
+ * Subroutines for failover() begin
+ * -------------------------------------------------------------------------
+ */
+
+/*
+ * Handle failback request. Called from failover().
+ */
+static int
+handle_failback_request(FAILOVER_CONTEXT *failover_context, int node_id)
+{
+	if (node_id < 0 || node_id >= MAX_NUM_BACKENDS ||
+		(failover_context->reqkind == NODE_UP_REQUEST && !(RAW_MODE &&
+										 BACKEND_INFO(node_id).backend_status == CON_DOWN) && VALID_BACKEND(node_id)) ||
+		(failover_context->reqkind == NODE_DOWN_REQUEST && !VALID_BACKEND(node_id)))
+	{
+		if (node_id < 0 || node_id >= MAX_NUM_BACKENDS)
+			ereport(LOG,
+					(errmsg("invalid failback request, node id: %d is invalid. node id must be between [0 and %d]", node_id, MAX_NUM_BACKENDS)));
+		else
+			ereport(LOG,
+					(errmsg("invalid failback request, status: [%d] of node id : %d is invalid for failback", BACKEND_INFO(node_id).backend_status, node_id)));
+
+		return -1;
+	}
+
+	ereport(LOG,
+			(errmsg("=== Starting fail back. reconnect host %s(%d) ===",
+					BACKEND_INFO(node_id).backend_hostname,
+					BACKEND_INFO(node_id).backend_port)));
+
+	/* Check to see if all backends are down */
+	failover_context->all_backend_down = check_all_backend_down();
+
+	BACKEND_INFO(node_id).backend_status = CON_CONNECT_WAIT;	/* unset down status */
+	pool_set_backend_status_changed_time(node_id);
+
+	if ((failover_context->request_details & REQ_DETAIL_UPDATE))
+	{
+		/* remove the quarantine flag */
+		BACKEND_INFO(node_id).quarantine = false;
+
+		/*
+		 * do not search for primary node when handling the quarantine
+		 * nodes
+		 */
+		failover_context->search_primary = false;
+
+		/*
+		 * recalculate the main node id after setting the backend
+		 * status of quarantined node, this will bring us to the old
+		 * main_node_id that was before the quarantine state
+		 */
+		Req_info->main_node_id = get_next_main_node();
+		if (Req_info->primary_node_id == -1 &&
+			BACKEND_INFO(node_id).role == ROLE_PRIMARY)
+		{
+			/*
+			 * if the failback request is for the quarantined node and
+			 * that node had a primary role before it was quarantined,
+			 * restore the primary node status for that node. this is
+			 * important for the failover script to get the proper
+			 * value of old primary
+			 */
+			ereport(LOG,
+					(errmsg("failover: failing back the quarantine node that was primary before it was quarantined"),
+					 errdetail("all children needs a restart")));
+			Req_info->primary_node_id = node_id;
+
+			/*
+			 * since we changed the primary node so restart of all
+			 * children is required
+			 */
+			failover_context->need_to_restart_children = true;
+			failover_context->partial_restart = false;
+		}
+		else if (failover_context->all_backend_down == false)
+		{
+			ereport(LOG,
+					(errmsg("Do not restart children because we are failing back node id %d host: %s port: %d and we are in streaming replication mode and not all backends were down", node_id,
+							BACKEND_INFO(node_id).backend_hostname,
+							BACKEND_INFO(node_id).backend_port)));
+			failover_context->need_to_restart_children = false;
+			failover_context->partial_restart = false;
+		}
+		else
+		{
+			failover_context->need_to_restart_children = true;
+			failover_context->partial_restart = false;
+		}
+	}
+	else
+	{
+		/*
+		 * The request is a proper failbak request and not because of
+		 * the update status of quarantined node
+		 */
+		(void) write_status_file();
+
+		trigger_failover_command(node_id, pool_config->failback_command,
+								 MAIN_NODE_ID, get_next_main_node(), PRIMARY_NODE_ID);
+	}
+
+	failover_context->sync_required = true;
+
+	return 0;
+}
+
+/*
+ * Handle failover request. Called from failover().
+ * return -1 if no node is requested failover.
+ */
+static int
+handle_failover_request(FAILOVER_CONTEXT *failover_context, int node_id)
+{
+	int		cnt = 0;	/* number of down node ids */
+	int		i;
+
+	for (i = 0; i < failover_context->node_count; i++)
+	{
+		if (failover_context->node_id_set[i] != -1 && (BACKEND_INFO(failover_context->node_id_set[i]).quarantine == true ||
+													  ((RAW_MODE && VALID_BACKEND_RAW(failover_context->node_id_set[i])) ||
+													   VALID_BACKEND(failover_context->node_id_set[i]))))
+		{
+			ereport(LOG,
+					(errmsg("=== Starting %s. shutdown host %s(%d) ===",
+							(failover_context->reqkind == NODE_QUARANTINE_REQUEST) ? "quarantine" : "degeneration",
+							BACKEND_INFO(failover_context->node_id_set[i]).backend_hostname,
+							BACKEND_INFO(failover_context->node_id_set[i]).backend_port)));
+
+			BACKEND_INFO(failover_context->node_id_set[i]).backend_status = CON_DOWN; /* set down status */
+			pool_set_backend_status_changed_time(failover_context->node_id_set[i]);
+			if (failover_context->reqkind == NODE_QUARANTINE_REQUEST)
+			{
+				BACKEND_INFO(failover_context->node_id_set[i]).quarantine = true;
+			}
+			else
+			{
+				/*
+				 * if the degeneration request is for the quarantined
+				 * node and that node had a primary role before it was
+				 * quarantined, Restore the primary node status for
+				 * that node before degenerating it. This is important
+				 * for the failover script to get the proper value of
+				 * old primary
+				 */
+				if (Req_info->primary_node_id == -1 &&
+					BACKEND_INFO(failover_context->node_id_set[i]).quarantine == true &&
+					BACKEND_INFO(failover_context->node_id_set[i]).role == ROLE_PRIMARY)
+				{
+					ereport(DEBUG2,
+							(errmsg("failover: degenerating the node that was primary node before it was quarantined")));
+					Req_info->primary_node_id = failover_context->node_id_set[i];
+					failover_context->search_primary = false;
+				}
+				BACKEND_INFO(failover_context->node_id_set[i]).quarantine = false;
+				(void) write_status_file();
+			}
+
+			/* save down node */
+			failover_context->nodes[failover_context->node_id_set[i]] = 1;
+			cnt++;
+		}
+	}
+
+	if (cnt == 0)
+	{
+		ereport(LOG,
+				(errmsg("failover: no backends are degenerated")));
+		return -1;
+	}
+	return 0;
+}
+
+/*
+ * Kill child process to prepare failover/failback.
+ */
+static void
+kill_failover_children(FAILOVER_CONTEXT *failover_context, int node_id)
+{
+	int		i, j, k;
+	/*
+	 * On 2011/5/2 Tatsuo Ishii says: if mode is streaming replication and
+	 * request is NODE_UP_REQUEST (failback case) we don't need to restart
+	 * all children. Existing session will not use newly attached node,
+	 * but load balanced node is not changed until this session ends, so
+	 * it's harmless anyway.
+	 */
+
+	/*
+	 * On 2015/9/21 Tatsuo Ishii says: this judgment is not sufficient if
+	 * all backends were down. Child process has local status in which all
+	 * backends are down. In this case even if new connection arrives from
+	 * frontend, the child will not accept it because the local status
+	 * shows all backends are down. For this purpose we refer to
+	 * "all_backend_down" variable, which was set before updating backend
+	 * status.
+	 *
+	 * See bug 248 for more details.
+	 */
+
+	/*
+	 * We also need to think about a case when the former primary node did
+	 * not exist.  In the case we need to restart all children as
+	 * well. For example when previous primary node id is 0 and then it
+	 * went down, restarted, re-attached without promotion. Then existing
+	 * child process loses connection slot to node 0 and keeps on using it
+	 * when node 0 comes back. This could result in segfault later on in
+	 * the child process because there's no connection to node id 0.
+	 *
+	 * Actually we need to think about when ALWAYS_PRIMARY flag is set
+	 * *but* DISALLOW_TO_FAILOVER flag is not set case. In the case after
+	 * primary failover Req_info->primary_node_id is set, but connection
+	 * to the primary node does not exist. So we should do full restart if
+	 * requested node id is the former primary node.
+	 *
+	 * See bug 672 for more details.
+	 */
+	if (STREAM && failover_context->reqkind == NODE_UP_REQUEST && failover_context->all_backend_down == false &&
+		Req_info->primary_node_id >= 0 && Req_info->primary_node_id != node_id)
+	{
+		/*
+		 * The decision to restart/no-restart children for update status
+		 * request has already been made
+		 */
+		if (!(failover_context->request_details & REQ_DETAIL_UPDATE))
+		{
+			ereport(LOG,
+					(errmsg("Do not restart children because we are failing back node id %d host: %s port: %d and we are in streaming replication mode and not all backends were down", node_id,
+							BACKEND_INFO(node_id).backend_hostname,
+							BACKEND_INFO(node_id).backend_port)));
+
+			failover_context->need_to_restart_children = false;
+			failover_context->partial_restart = false;
+		}
+	}
+
+	/*
+	 * If the mode is streaming replication and the request is
+	 * NODE_DOWN_REQUEST and it's actually a switch over request, we don't
+	 * need to restart all children, except the node is primary.
+	 */
+	else if (STREAM && (failover_context->reqkind == NODE_DOWN_REQUEST || failover_context->reqkind == NODE_QUARANTINE_REQUEST) &&
+			 failover_context->request_details & REQ_DETAIL_SWITCHOVER && node_id != PRIMARY_NODE_ID)
+	{
+		ereport(LOG,
+				(errmsg("Do not restart children because we are switching over node id %d host: %s port: %d and we are in streaming replication mode", node_id,
+						BACKEND_INFO(node_id).backend_hostname,
+						BACKEND_INFO(node_id).backend_port)));
+
+		failover_context->need_to_restart_children = true;
+		failover_context->partial_restart = true;
+
+		for (i = 0; i < pool_config->num_init_children; i++)
+		{
+			bool		restart = false;
+
+			for (j = 0; j < pool_config->max_pool; j++)
+			{
+				for (k = 0; k < NUM_BACKENDS; k++)
+				{
+					ConnectionInfo *con = pool_coninfo(i, j, k);
+
+					if (con->connected && con->load_balancing_node == node_id)
+					{
+						ereport(LOG,
+								(errmsg("child pid %d needs to restart because pool %d uses backend %d",
+										process_info[i].pid, j, node_id)));
+						restart = true;
+						break;
+					}
+				}
+			}
+
+			if (restart)
+			{
+				pid_t		pid = process_info[i].pid;
+
+				if (pid)
+				{
+					kill(pid, SIGQUIT);
+					ereport(DEBUG1,
+							(errmsg("failover handler"),
+							 errdetail("kill process with PID:%d", pid)));
+				}
+			}
+		}
+	}
+	else
+	{
+		ereport(LOG,
+				(errmsg("Restart all children")));
+
+		/* kill all children */
+		for (i = 0; i < pool_config->num_init_children; i++)
+		{
+			pid_t		pid = process_info[i].pid;
+
+			if (pid)
+			{
+				kill(pid, SIGQUIT);
+				ereport(DEBUG1,
+						(errmsg("failover handler"),
+						 errdetail("kill process with PID:%d", pid)));
+			}
+		}
+
+		failover_context->need_to_restart_children = true;
+		failover_context->partial_restart = false;
+	}
+}
+
+/*
+ * Exec failover_command if needed. We do not execute failover when request is
+ * quarantine type.  Also if the request is to promote specified node, execute
+ * failover command.
+ */
+static void
+exec_failover_command(FAILOVER_CONTEXT *failover_context, int new_main_node_id, int promote_node_id)
+{
+	int		i;
+
+	if (failover_context->reqkind == NODE_DOWN_REQUEST)
+	{
+		for (i = 0; i < pool_config->backend_desc->num_backends; i++)
+		{
+			if (failover_context->nodes[i])
+			{
+				/* If this is prmoting specified node, new_main_node
+				 * should be replaced by the requested node. The requested
+				 * node should be REAL_PRIMARY_NODE_ID.
+				 */
+				if (failover_context->request_details & REQ_DETAIL_PROMOTE)
+				{
+					trigger_failover_command(i, pool_config->failover_command,
+											 MAIN_NODE_ID, promote_node_id, REAL_PRIMARY_NODE_ID);
+				}
+				else
+				{
+					trigger_failover_command(i, pool_config->failover_command,
+											 MAIN_NODE_ID, new_main_node_id, REAL_PRIMARY_NODE_ID);
+				}
+				failover_context->sync_required = true;
+			}
+		}
+	}
+}
+
+/*
+ * Determine new primary node id. Possibly call find_primary_node_repeatedly().
+ */
+static int
+determine_new_primary_node(FAILOVER_CONTEXT *failover_context, int node_id)
+{
+	int		new_primary;
+
+	if (failover_context->reqkind == PROMOTE_NODE_REQUEST && VALID_BACKEND(node_id))
+	{
+		new_primary = node_id;
+	}
+	else if (failover_context->reqkind == NODE_QUARANTINE_REQUEST)
+	{
+		/*
+		 * If the quarantine node was the primary node, set the new primary
+		 * to -1 (invalid).
+		 */
+		if (Req_info->primary_node_id == node_id)
+		{
+			/*
+			 * set the role of the node, This will help us restore the
+			 * primary node id when the node will come out from quarantine
+			 * state
+			 */
+			BACKEND_INFO(node_id).role = ROLE_PRIMARY;
+			new_primary = -1;
+		}
+		else
+		{
+			new_primary = Req_info->primary_node_id;
+		}
+	}
+
+	/*
+	 * If the down node was a standby node in streaming replication mode,
+	 * we can avoid calling find_primary_node_repeatedly() and recognize
+	 * the former primary as the new primary node, which will reduce the
+	 * time to process standby down.
+	 * This does not apply to the case when no primary node existed
+	 * (Req_info->primary_node_id < 0). In this case
+	 * find_primary_node_repeatedly() should be called.
+	 */
+	else if (SL_MODE &&
+			 failover_context->reqkind == NODE_DOWN_REQUEST)
+	{
+		if (Req_info->primary_node_id >= 0 && Req_info->primary_node_id != node_id)
+		{
+			new_primary = Req_info->primary_node_id;
+		}
+		else
+		{
+			if (Req_info->primary_node_id >= 0)
+				BACKEND_INFO(Req_info->primary_node_id).role = ROLE_STANDBY;
+			new_primary = find_primary_node_repeatedly();
+		}
+	}
+	else if (failover_context->search_primary == false)
+	{
+		ereport(DEBUG1,
+				(errmsg("failover was called on quarantined node. No need to search for primary node")));
+		new_primary = Req_info->primary_node_id;
+	}
+	else
+	{
+		new_primary = find_primary_node_repeatedly();
+	}
+
+	return new_primary;
+}
+
+/*
+ * Execute follow primary command if neccessary.
+ * return new main node id if it needs to be changed.
+ * If not changed, -1 will be returned.
+ */
+static int
+exec_follow_primary_command(FAILOVER_CONTEXT *failover_context, int node_id, int new_primary_node_id)
+{
+	int		follow_cnt = 0;
+	int		new_main_node_id = -1;
+	int		i;
+
+	if (!STREAM)
+		return -1;
+
+	if (*pool_config->follow_primary_command != '\0' ||
+		failover_context->reqkind == PROMOTE_NODE_REQUEST)
+	{
+		/*
+		 * follow primary command is executed in following cases:
+		 * - failover against the current primary
+		 * - no primary exists and new primary is created by failover
+		 * - promote node request
+		 */
+		if (((failover_context->reqkind == NODE_DOWN_REQUEST) &&
+			 Req_info->primary_node_id >= 0 &&
+			 (failover_context->nodes[Req_info->primary_node_id])) ||
+			(failover_context->reqkind == NODE_DOWN_REQUEST && Req_info->primary_node_id < 0 && new_primary_node_id >= 0) ||
+			(node_id >= 0 && (failover_context->reqkind == PROMOTE_NODE_REQUEST) &&
+			 (VALID_BACKEND(node_id))))
+		{
+
+			for (i = 0; i < pool_config->backend_desc->num_backends; i++)
+			{
+				/* do not degenerate the new primary */
+				if ((new_primary_node_id >= 0) && (i != new_primary_node_id))
+				{
+					BackendInfo *bkinfo;
+
+					bkinfo = pool_get_node_info(i);
+					ereport(LOG,
+							(errmsg("starting follow degeneration. shutdown host %s(%d)",
+									bkinfo->backend_hostname,
+									bkinfo->backend_port)));
+					bkinfo->backend_status = CON_DOWN;	/* set down status */
+					pool_set_backend_status_changed_time(i);
+					(void) write_status_file();
+
+					follow_cnt++;
+				}
+			}
+
+			if (follow_cnt == 0)
+			{
+				ereport(LOG,
+						(errmsg("failover: no follow backends are degenerated")));
+			}
+			else
+			{
+				/* update new primary node */
+				new_main_node_id = get_next_main_node();
+				ereport(LOG,
+						(errmsg("failover: %d follow backends have been degenerated", follow_cnt)));
+			}
+		}
+	}
+
+	if ((follow_cnt > 0) && (*pool_config->follow_primary_command != '\0'))
+	{
+		/* exec follow child */
+		follow_pid = fork_follow_child(Req_info->primary_node_id, new_primary_node_id,
+									   Req_info->primary_node_id);
+	}
+
+	return new_main_node_id;
+}
+
+/*
+ * Now new primary node and new main node are established.
+ * Save them into shared memory. Also update status changed time.
+ */
+static void
+save_node_info(FAILOVER_CONTEXT *failover_context, int new_primary_node_id, int new_main_node_id)
+{
+	/* Save primary node id */
+	if (Req_info->primary_node_id != new_primary_node_id)
+	{
+		if (Req_info->primary_node_id >= 0)
+		{
+			pool_set_backend_status_changed_time(Req_info->primary_node_id);
+		}
+		if (new_primary_node_id >= 0)
+		{
+			BACKEND_INFO(new_primary_node_id).role = ROLE_PRIMARY;
+			pool_set_backend_status_changed_time(new_primary_node_id);
+		}
+	}
+	Req_info->primary_node_id = new_primary_node_id;
+	ereport(LOG,
+			(errmsg("failover: set new primary node: %d", Req_info->primary_node_id)));
+
+	if (new_main_node_id >= 0)
+	{
+		Req_info->main_node_id = new_main_node_id;
+		failover_context->sync_required = true;
+		ereport(LOG,
+				(errmsg("failover: set new main node: %d", Req_info->main_node_id)));
+	}
+}
+
+/*
+ * Rstart child process if needed.
+ */
+static void
+exec_child_restart(FAILOVER_CONTEXT *failover_context, int node_id)
+{
+	int		i, j, k;
+
+	if (failover_context->need_to_restart_children)
+	{
+		for (i = 0; i < pool_config->num_init_children; i++)
+		{
+			/*
+			 * Try to kill pgpool child because previous kill signal may
+			 * not be received by pgpool child. This could happen if
+			 * multiple PostgreSQL are going down (or even starting
+			 * pgpool, without starting PostgreSQL can trigger this).
+			 * Child calls degenerate_backend() and it tries to acquire
+			 * semaphore to write a failover request. In this case the
+			 * signal mask is set as well, thus signals are never
+			 * received.
+			 */
+
+			bool		restart = false;
+
+			if (failover_context->partial_restart)
+			{
+				for (j = 0; j < pool_config->max_pool; j++)
+				{
+					for (k = 0; k < NUM_BACKENDS; k++)
+					{
+						ConnectionInfo *con = pool_coninfo(i, j, k);
+
+						if (con->connected && con->load_balancing_node == node_id)
+						{
+
+							ereport(LOG,
+									(errmsg("child pid %d needs to restart because pool %d uses backend %d",
+											process_info[i].pid, j, node_id)));
+							restart = true;
+							break;
+						}
+					}
+				}
+			}
+			else
+				restart = true;
+
+			if (restart)
+			{
+				if (process_info[i].pid)
+				{
+					kill(process_info[i].pid, SIGQUIT);
+
+					process_info[i].pid = fork_a_child(fds, i);
+					process_info[i].start_time = time(NULL);
+					process_info[i].client_connection_count = 0;
+					process_info[i].status = WAIT_FOR_CONNECT;
+					process_info[i].connected = 0;
+					process_info[i].wait_for_connect = 0;
+					process_info[i].pooled_connections = 0;
+
+				}
+			}
+			else
+				process_info[i].need_to_restart = 1;
+		}
+	}
+
+	else
+	{
+		/*
+		 * Set restart request to each child. Children will exit(1)
+		 * whenever they are convenient.
+		 */
+		for (i = 0; i < pool_config->num_init_children; i++)
+		{
+			process_info[i].need_to_restart = 1;
+		}
+	}
+
+	/*
+	 * Send restart request to worker child.
+	 */
+	kill(worker_pid, SIGUSR1);
+
+	if (failover_context->sync_required)
+		wd_failover_end();
+
+	if (failover_context->reqkind == NODE_UP_REQUEST)
+	{
+		ereport(LOG,
+				(errmsg("=== Failback done. reconnect host %s(%d) ===",
+						BACKEND_INFO(node_id).backend_hostname,
+						BACKEND_INFO(node_id).backend_port)));
+
+		/* Fork health check process if needed */
+		for (i = 0; i < NUM_BACKENDS; i++)
+		{
+			if (health_check_pids[i] == 0)
+			{
+				ereport(LOG,
+						(errmsg("start health check process for host %s(%d)",
+								BACKEND_INFO(i).backend_hostname,
+								BACKEND_INFO(i).backend_port)));
+
+				health_check_pids[i] = worker_fork_a_child(PT_HEALTH_CHECK, do_health_check_child, &i);
+			}
+		}
+	}
+	else if (failover_context->reqkind == PROMOTE_NODE_REQUEST)
+	{
+		ereport(LOG,
+				(errmsg("=== Promotion done. promoted host %s(%d) ===",
+						BACKEND_INFO(node_id).backend_hostname,
+						BACKEND_INFO(node_id).backend_port)));
+	}
+	else
+	{
+#ifdef NOT_USED
+		/*
+		 * Temporary black magic. Without this regression 055 does not
+		 * finish
+		 */
+		fprintf(stderr, "=== %s done. shutdown host %s(%d) ===",
+				(failover_context->reqkind == NODE_DOWN_REQUEST) ? "Failover" : "Quarantine",
+				BACKEND_INFO(node_id).backend_hostname,
+				BACKEND_INFO(node_id).backend_port);
+#endif
+
+		ereport(LOG,
+				(errmsg("=== %s done. shutdown host %s(%d) ===",
+						(failover_context->reqkind == NODE_DOWN_REQUEST) ? "Failover" : "Quarantine",
+						BACKEND_INFO(node_id).backend_hostname,
+						BACKEND_INFO(node_id).backend_port)));
+	}
+	failover_context->need_to_restart_pcp = true;
+}
+
+/*
+ * kick wakeup_handler in pcp_child to notice that failover/failback done.
+ */
+static void
+exec_notice_pcp_child(FAILOVER_CONTEXT *failover_context)
+{
+	int			status;
+	int			sts;
+
+	kill(pcp_pid, SIGUSR2);
+
+	if (failover_context->need_to_restart_pcp)
+	{
+		sleep(1);
+
+		/*
+		 * Send restart request to pcp child.
+		 */
+		kill(pcp_pid, SIGUSR1);
+		for (;;)
+		{
+			sts = waitpid(pcp_pid, &status, 0);
+			if (sts != -1)
+				break;
+
+			if (errno == EINTR)
+				continue;
+			else
+			{
+				ereport(WARNING,
+						(errmsg("failover: waitpid failed"),
+						 errdetail("%m")));
+				continue;
+			}
+		}
+		if (WIFSIGNALED(status))
+			ereport(LOG,
+					(errmsg("PCP child %d exits with status %d by signal %d in failover()", pcp_pid, status, WTERMSIG(status))));
+		else
+			ereport(LOG,
+					(errmsg("PCP child %d exits with status %d in failover()", pcp_pid, status)));
+
+		pcp_pid = pcp_fork_a_child(pcp_fds, pcp_conf_file);
+		ereport(LOG,
+				(errmsg("fork a new PCP child pid %d in failover()", pcp_pid)));
+	}
+}
+/*
+ * -------------------------------------------------------------------------
+ * Subroutines for failover() end
+ * -------------------------------------------------------------------------
+ */
+
+
+/*
+ * Create UNIX domain sockets by unix_socket_directories/pcp_socket_dir,
+ * which is an array of string. The number of elements is
+ * "n_listen_addresses". "port" is the port number. A socket array is returned.
+ * The number of elements in the socket array is "n_sockets".
+ */
+static int *
+create_unix_domain_sockets_by_list(struct sockaddr_un *un_addrs,
+								   char *group, int permissions, int n_sockets)
+{
+	int		i;
+	int		*sockets = NULL;
+
+	if (un_addrs == NULL)
+		return NULL;
+
+	sockets = malloc(sizeof(int) * n_sockets);
+	if (sockets == NULL)
+		ereport(FATAL,
+			(errmsg("failed to allocate memory in startup process")));
+
+	for (i = 0; i < n_sockets; i++)
+	{
+		ereport(LOG,
+				(errmsg("create socket files[%d]: %s", i, un_addrs[i].sun_path)));
+
+		sockets[i] = create_unix_domain_socket(un_addrs[i], group, permissions);
+	}
+
+	return sockets;
+}
+
+/*
+ * Create INET domain sockets by specified listen address list
+ * "listen_addresses", which is an array of string.  The number of elements is
+ * "n_listen_addresses". "port" is the port number. A socket array is returned.
+ * The number of elements in the socket array is "n_sockets".
+ */
+static int *
+create_inet_domain_sockets_by_list(char **listen_addresses, int n_listen_addresses, int port, int *n_sockets)
+{
+	int		*sockets = NULL;
+	int		i;
+
+	*n_sockets = 0;
+
+	if (listen_addresses == NULL || listen_addresses[0] == NULL)
+		return NULL;
+
+	for (i = 0; i < n_listen_addresses; i++)
+	{
+		int		   *inet_fds,
+				   *walk;
+		int			n = 0;	/* number of fds returned from create_inet_domain_sockets(). */
+
+		ereport(LOG,
+				(errmsg("listen address[%d]: %s", i, listen_addresses[i])));
+
+		inet_fds = create_inet_domain_sockets(listen_addresses[i], port);
+
+		if (!inet_fds)
+			continue;
+
+		for (walk = inet_fds; *walk != -1; walk++)
+			n++;
+
+		sockets = realloc(sockets, sizeof(int) * (n + 1 + *n_sockets));
+		if (sockets == NULL)
+			ereport(FATAL,
+					(errmsg("failed to allocate memory in startup process")));
+
+		n = 0;
+		for (walk = inet_fds; *walk != -1; walk++)
+		{
+			ereport(DEBUG5,
+					(errmsg("set inet socket: %d to sockets[%d]", inet_fds[n], *n_sockets)));
+
+			sockets[*n_sockets] = inet_fds[n++];
+			(*n_sockets)++;
+		}
+		sockets[*n_sockets] = -1;
+		free(inet_fds);
+	}
+
+	return sockets;
+}
+
+/*
+ * Check and execute pending requests set by signal interrupts.
+ */
+static
+void check_requests(void)
+{
+	sigset_t	sig;
+
+	/*
+	 * Waking child request?
+	 */
+	if (wakeup_request)
+	{
+		wakeup_children();
+		wakeup_request = 0;
+	}
+
+	/*
+	 * Failover or failback request?
+	 */
+	if (sigusr1_request)
+	{
+		do {
+			sigusr1_request = 0;
+			sigusr1_interrupt_processor();
+		} while (sigusr1_request == 1);
+	}
+
+	/* Check pending signals (SIGQUIT/SIGTERRM/SIGINT) */
+	sigpending(&sig);
+	print_signal_member(&sig);
+
+	/*
+	 * Unblock signals so that SIGQUIT/SIGTERRM/SIGINT can be accepted.
+	 * They are all shutdown requests.
+	 */
+	POOL_SETMASK(&UnBlockSig);
+
+	/*
+	 * Reap child request?
+	 */
+	if (sigchld_request)
+	{
+		reaper();
+	}
+
+	/*
+	 * Configuration file reloading request?
+	 */
+	if (reload_config_request)
+	{
+		reload_config();
+		reload_config_request = 0;
+	}
+
+	/*
+	 * Block signals again
+	 */
+	POOL_SETMASK(&BlockSig);
+}
+
+static
+void print_signal_member(sigset_t *sig)
+{
+	if (sigismember(sig, SIGQUIT))
+		ereport(LOG,
+				(errmsg("SIGQUIT is member")));
+	if (sigismember(sig, SIGINT))
+		ereport(LOG,
+				(errmsg("SIGINT is member")));
+	if (sigismember(sig, SIGTERM))
+		ereport(LOG,
+				(errmsg("SIGTERM is member")));
+}
+
+/*
+* Function does the house keeping of spare child processes
+*/
+static void
+service_child_processes(void)
+{
+	int connected_children = Req_info->conn_counter;
+	int idle_children = current_child_process_count - connected_children;
+	static int high_load_counter = 0;
+	ereport(DEBUG2,
+		(errmsg("current_children_count = %d idle_children = %d connected_children = %d high_load_counter = %d",
+						current_child_process_count, idle_children, connected_children, high_load_counter)));
+	if (idle_children > pool_config->max_spare_children)
+	{
+		int ki;
+		int victim_count;
+		int kill_process_info_idxs[MAX_ONE_SHOT_KILLS];
+		int kill_count = idle_children - pool_config->max_spare_children;
+		int cycle_skip_count_before_scale_down;
+		int cycle_skip_between_scale_down;
+		int one_shot_kill_count;
+
+		switch (pool_config->process_management_strategy)
+		{
+		case PM_STRATEGY_AGGRESSIVE:
+			cycle_skip_count_before_scale_down = 25; /* roughly 50 seconds */
+			cycle_skip_between_scale_down = 2;
+			one_shot_kill_count = MAX_ONE_SHOT_KILLS;
+			break;
+
+		case PM_STRATEGY_LAZY:
+			cycle_skip_count_before_scale_down = 150; /* roughly 300 seconds */
+			cycle_skip_between_scale_down = 10;
+			one_shot_kill_count = 3;
+			break;
+
+		case PM_STRATEGY_GENTLE:
+			cycle_skip_count_before_scale_down = 60; /* roughly 120 seconds */
+			cycle_skip_between_scale_down = 5;
+			one_shot_kill_count = 3;
+			break;
+
+		default:
+			/* should never come here, but if we do use gentle counts*/
+			cycle_skip_count_before_scale_down = 60; /* roughly 120 seconds */
+			cycle_skip_between_scale_down = 5;
+			one_shot_kill_count = 3;
+			break;
+		}
+
+		/* Do not scale down too quickly */
+		if (++high_load_counter < cycle_skip_count_before_scale_down || high_load_counter % cycle_skip_between_scale_down)
+			return;
+
+		memset(kill_process_info_idxs, -1 ,sizeof(kill_process_info_idxs));
+
+		if (kill_count > one_shot_kill_count)
+			kill_count = one_shot_kill_count;
+
+		victim_count = select_victim_processes(kill_process_info_idxs, kill_count);
+
+		for (ki = 0; ki < victim_count; ki++)
+		{
+			int index = kill_process_info_idxs[ki];
+			if (index >=0)
+			{
+				if (process_info[index].pid && process_info[index].status == WAIT_FOR_CONNECT)
+				{
+					ereport(DEBUG1,
+					(errmsg("asking child process with pid:%d to kill itself to satisfy max_spare_children",
+							process_info[index].pid),
+							errdetail("child process has %d pooled connections",process_info[index].pooled_connections)));
+					process_info[index].exit_if_idle = true;
+					kill(process_info[index].pid, SIGUSR2);
+				}
+			}
+		}
+	}
+	else
+	{
+		/* Reset the high load counter */
+		high_load_counter = 0;
+		/*See if we need to spawn new children */
+		if (idle_children < pool_config->min_spare_children)
+		{
+			int i;
+			int spawned = 0;
+			int new_spawn_no = pool_config->min_spare_children - idle_children;
+			/* Add 25% of max_spare_children */
+			new_spawn_no += pool_config->max_spare_children / 4;
+			if (new_spawn_no + current_child_process_count > pool_config->num_init_children)
+			{
+				ereport(DEBUG5,
+					(errmsg("we have hit the ceiling, spawning %d child(ren)",
+									pool_config->num_init_children - current_child_process_count)));
+				new_spawn_no = pool_config->num_init_children - current_child_process_count;
+			}
+			if (new_spawn_no <= 0)
+				return;
+			for (i = 0; i < pool_config->num_init_children; i++)
+			{
+				if (process_info[i].pid == 0)
+				{
+					process_info[i].start_time = time(NULL);
+					process_info[i].client_connection_count = 0;
+					process_info[i].status = WAIT_FOR_CONNECT;
+					process_info[i].connected = 0;
+					process_info[i].wait_for_connect = 0;
+					process_info[i].pooled_connections = 0;
+					process_info[i].need_to_restart = 0;
+					process_info[i].exit_if_idle = false;
+					process_info[i].pid = fork_a_child(fds, i);
+
+					current_child_process_count++;
+					if (++spawned >= new_spawn_no)
+						break;
+				}
+			}
+		}
+	}
+}
+
+/*
+ * Function selects the child processes that can be killed based.
+ * selection criteria is to select the processes with minimum number of
+ * pooled connections.
+ * Returns the total number of identified process and fills the proc_info_arr
+ * with the victim children process_info index
+ */
+static int
+select_victim_processes(int *process_info_idxs, int count)
+{
+		int i, ki;
+		bool found_enough = false;
+		int selected_count = 0;
+
+		if (count <= 0)
+			return 0;
+
+		for (i = 0; i < pool_config->num_init_children; i++)
+		{
+			/* Only the child process in waiting for connect can be terminated */
+			if (process_info[i].pid && process_info[i].status == WAIT_FOR_CONNECT)
+			{
+				if (selected_count < count)
+				{
+					process_info_idxs[selected_count++] = i;
+				}
+				else
+				{
+					found_enough = true;
+					/* we don't bother selecting the child having least pooled connection with
+					 * aggressive strategy
+					 */
+					if (pool_config->process_management_strategy != PM_STRATEGY_AGGRESSIVE)
+					{
+						for (ki = 0; ki < count; ki++)
+						{
+							int old_index = process_info_idxs[ki];
+							if (old_index < 0 || process_info[old_index].pooled_connections > process_info[i].pooled_connections)
+							{
+								process_info_idxs[ki] = i;
+								found_enough = false;
+								break;
+							}
+							if (process_info[old_index].pooled_connections)
+								found_enough = false;
+						}
+					}
+				}
+			}
+			if (found_enough)
+				break;
+		}
+	return selected_count;
 }

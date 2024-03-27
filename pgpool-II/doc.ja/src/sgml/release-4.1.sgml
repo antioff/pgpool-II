@@ -1,12 +1,1807 @@
 <!-- doc/src/sgml/release-4.1.sgml -->
 <!-- See header comment in release.sgml about typical markup -->
 
+<sect1 id="release-4-1-19">
+ <title>リリース 4.1.19</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2024-02-29</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2024-02-27 [5f923f3]
+    -->
+    <para>
+     サンプルスクリプトからrestore_commandの設定を削除しました。 (Bo Peng)
+    </para>
+    <para>
+     レプリケーションスロットが有効になっているため、restore_commandは不要です。
+     この設定により、フェールオーバーが失敗するケースがあるからです。
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2024-02-26 [46556fc]
+    -->
+    <para>
+     <xref linkend="guc-recovery-user">のデフォルト値を修正しました。 (Bo Peng)
+    </para>
+    <para>
+     <varname>recovery_user</varname>デフォルト値は<xref linkend="guc-health-check-user">や<xref linkend="guc-sr-check-user">と同じである必要があるため、
+     デフォルト値を''から'nobody'に変更しました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2024-02-10 [fab7031]
+    -->
+    <para>
+     BEGINなどでの<xref linkend="guc-statement-level-load-balance">の不具合を修正しました。 (Tatsuo Ishii)
+    </para>
+    <para>
+     <varname>statement_level_load_balance</varname>が有効な場合、
+     <xref linkend="guc-load-balance-mode">が無効であっても、
+     BEGIN/END/COMMIT/ABORT/SET/SAVEPOINT/RELEASE SAVEPOINT/DEALLOCATE ALL/DISCARDがプライマリノードとすべてのスタンバイノードに送信されていました。
+     これは明らかに間違っているだけでなく、スタンバイノードの1つがリモートネットワークにある場合、速度が低下する原因となります。
+    </para>
+    <para>
+     <varname>load_balance_mode</varname>がオフの場合、
+     Pgpool-IIはそのようなクエリをプライマリノードにのみ送信するように修正しました。
+    </para>
+    <para>
+     Reported: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2024-January/009059.html">https://www.pgpool.net/pipermail/pgpool-general/2024-January/009059.html</ulink>
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2024-February/004423.html">https://www.pgpool.net/pipermail/pgpool-hackers/2024-February/004423.html</ulink>
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2024-02-26 [802fe90]
+    -->
+    <para>
+     日本語のWatchdogドキュメントを修正しました。 (Tatsuo Ishii)
+    </para>
+    <para>
+     Watchdog「リーダー」ではなく「マスター」を誤って使用していました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2024-02-26 [371930a]
+    -->
+    <para>
+     英語のWatchdogドキュメントを修正しました。 (Tatsuo Ishii)
+    </para>
+    <para>
+     PostgreSQL「プライマリ」ではなく「メイン」を誤って使用していました。
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-4-1-18">
+ <title>リリース 4.1.18</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2023-11-30</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-11-17 [823cfd9]
+    -->
+    <para>
+     大文字のホスト名をサポートするようにサンプルスクリプトのレプリケーションスロット名の変換処理を変更しました。(Bo Peng)
+    </para>
+    <para>
+     フェイルオーバやオンラインリカバリの時に実行されるスクリプトで、自動的にレプリケーションスロットを削除/作成しています。
+     レプリケーションスロット名には大文字を使用できないため、ホスト名を小文字に変換するようにこれらのスクリプトを修正しました。
+    </para>
+    <para>
+     パッチはSheikh Wasiu Al Hasibによって作成され、Bo Pengによって修正されました。
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-10-04 [6075d59]
+    -->
+    <para>
+     不要なログ行を削除しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     デバッグメッセージ「unset_tx_started_by_multi_statement_query is called in CommandComplete」が誤って残っていました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-09-29 [72a171c]
+    2023-09-29 [2036eac]
+    -->
+    <para>
+     <command>DECLARE</command>によって作成されたポータルでアボートしないように<function>Describe()</function>を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <command>DECLARE foo CURSOR FOR</command>を実行すると、<productname>PostgreSQL</productname>によって「foo」という名前のポータルが自動的に作成されます。
+     このポータルは<productname>Pgpool-II</productname>によって管理されないため、<command>Describe foo</command>メッセージは「unable to execute Describe. unable to get the bind message」エラーで失敗していました。
+    </para>
+    <para>
+     これを修正するため、<function>Describe()</function>でダミーの書き込みクエリコンテキストを作成し、<command>Desribe</command>メッセージをプライマリ（ストリーミングレプリケーションモード）またはすべてのノード（レプリケーション/スナップショットアイソレーションモード）に送信するようにしました。
+    </para>
+    <para>
+     新たなテストケース080も追加しました。
+    </para>
+    <para>
+     この問題はHeather Lapointeによって報告・分析されました。
+    </para>
+    <para>
+     ディスカッション: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2023-September/008995.html">https://www.pgpool.net/pipermail/pgpool-general/2023-September/008995.html</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-10-03 [9b95270]
+    2023-10-07 [f6b8228]
+    2023-09-20 [3763441]
+    -->
+    <para>
+     <varname>NAMEDATALEN</varname>の重複定義を削除しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <filename>src/include/pg_config_manual.h</filename>のみで<varname>NAMEDATALEN</varname>を定義するようにしました。
+     また、<filename>src/utils/pool_select_walker.c</filename>内の<varname>POOL_NAMEDATALEN</varname>を<varname>NAMEDATALEN</varname>に置き換えました。
+    </para>
+    <para>
+     ディスカッション: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2023-August/004366.html">https://www.pgpool.net/pipermail/pgpool-hackers/2023-August/004366.html</ulink>
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-11-29 [42dc580]
+    -->
+    <para>
+     PCPがすべてのアドレスをリッスンするには<varname>pcp_listen_addresses = '*'</varname>の設定が必要である旨を「Pgpool-II + Watchdogの構築の例」に記載しました。
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-4-1-17">
+ <title>リリース 4.1.17</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2023-08-17</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-07-23 [2cbc61e]
+    -->
+    <para>
+     共有メモリの初期化後にのみ、システム終了コールバックを呼び出すようにしました。(Muhammad Usama)
+    </para>
+    <para>
+     共有メモリの取得に失敗して、終了時コールバックが呼び出された場合、クリーンアップ関数は、共有メモリに存在するprocess_infoにアクセスする際にセグメンテーション違反を引き起こす可能性がありました。
+     process_infoがNULLのときに終了コールバックからの中断で修正することもできますが、共有メモリの初期化に成功した後に関数をインストールする方がより良いアプローチです。
+     なぜなら、システムの残りの部分は常にprocess_infoがNULLになることはないと想定しており、また、子プロセスが生成される前にクリーンアップをする必要はないからです。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-06-12 [7ff642f]
+    -->
+    <para>
+     一部のシステムカタログ照会関数にスキーマ修飾を追加しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-08-09 [30db44e]
+    -->
+    <para>
+     Coverityの警告を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     クエリキャッシュのモジュールで、time_tの値がint32変数に割り当てられる問題を修正しました。
+     Coverityの指摘に従いまして、変数の型をint64に変更しました。
+     また、time_tの差分を計算するためにdifftime()を使用しました。これは推奨される方法です。
+     <ulink url="https://www.jpcert.or.jp/sc-rules/c-msc05-c.html">https://www.jpcert.or.jp/sc-rules/c-msc05-c.html</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-08-04 [1633f61]
+    -->
+    <para>
+     find_primary_node_repeatedlyが<xref linkend="guc-search-primary-node-timeout">指定時間内で終了しない問題を修正しました。(Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-07-12 [1f5b7c8]
+    -->
+    <para>
+     マルチステートメントにおける<literal>PREPARE</literal>の利用を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     マルチステートメントの二番目以降の位置に<literal>PREPARE</literal>が含まれている場合、その後のbindメッセージでプリペアドステートメントを利用すると、送信されたメッセージにプリペアドステートメントが保存されな
+いため、「unable to bind」エラーが発生していました。
+    </para>
+    <para>
+     この問題を修正するために、ステートメントを解析した後にそのようなケースが見つかった場合、名前付きステートメントのクエリコンテキストを作成し、送信メッセージのリストに追加するようにしました。
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2023-July/008931.html">https://www.pgpool.net/pipermail/pgpool-general/2023-July/008931.html</ulink>
+    </para>
+    <para>
+     この修正のため、リグレッションテスト079..multi_prepareを追加しました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-07-09 [e62c5a7]
+    -->
+    <para>
+     <literal>pgproto</literal>をパラメータを使用するbindメッセージを処理できるようにしました。(Tatsuo Ishii)
+    </para>
+    <para>
+     以前、<literal>pgproto</literal>はパラメータを持たないbindメッセージしか処理できませんでした。
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-08-01 [65e2760]
+    -->
+    <para>
+     停止モードの意味を明確にしました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+   <listitem>
+    <!--
+    2023-07-11 [ddbcead]
+    -->
+    <para>
+     「8.2. Pgpool-II + Watchdogの構築の例」のSSH公開鍵認証の説明を補足しました。(Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-06-27 [fc0747a]
+    -->
+    <para>
+     オンラインリカバリーの説明を改善しました。(Bo Peng)
+    </para>
+    <para>
+     複数のpgpoolノードでwatchdogが有効になっていない場合、オンラインリカバリーのセカンドステージが適切に機能しないことについて言及しました。
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>回帰テスト修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-05-22 [29f7861]
+    -->
+    <para>
+     時折発生する069.memory_leak_extendedテストの失敗を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     偶発するテストの失敗の原因は、pgbenchが終了した後にpsコマンドを実行する前にpgpoolの子プロセスが消えてしまうことにあると判明しました。
+     これにより、「DISCARD ALL cannot be executed within a pipeline」というkind mismatchのFATALエラーが発生していました。
+     これを修正するために、pgbenchをバックグラウンドで実行し、pgbenchが終了する前にプロセスのサイズを取得するようにしました。
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2023-May/004338.html">https://www.pgpool.net/pipermail/pgpool-hackers/2023-May/004338.html</ulink>
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-4-1-16">
+ <title>リリース 4.1.16</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2023-05-18</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-04-18 [ea63203]
+    -->
+    <para>
+     マルチステートメントのクエリを判定するために、<literal>psqlscan</literal>のソースコードを<productname>Pgpool-II</productname>にインポートしました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <literal>psqlscan</literal>は、<productname>PostgreSQL</productname>ソースツリー内のモジュールです。
+     これは本質的にPostgreSQL SQLスキャナのサブセットですが、各SQLステートメントの終わりの検出に特化しています。 
+     したがって、これを使用してクエリ文字列内のSQLステートメントの数をカウントできます。
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004291.html">https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/04291.html</ulink>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2023-April/004320.html">https://www.pgpool.net/pipermail/pgpool-hackers/2023-April/004320.html</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-04-09 [f6ab7be]
+    2023-02-15 [4afb7d5]
+    -->
+    <para>
+     複数のステートメントを幅広く使用できるようにしました。 (Tatsuo Ishii)
+    </para>
+    <para>
+     このコミットは、複数のステートメント (マルチステートメント) に関する<productname>Pgpool-II</productname>の長年の制限を排除しました。
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004287.html">https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004287.html</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-04-16 [51e6174]
+    2023-03-30 [a508d33]
+    2023-03-28 [687f6c0]
+    -->
+    <para>
+     内部クエリでスキーマ修飾を使用するように変更しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     関数やキャストなどの一部のオブジェクトは、「pg_catalog.」スキーマ修飾を使用していませんでした。 
+     これによって直ちにセキュリティ上の懸念が生じるわけではありませんが、スキーマ修飾を使用することは常に良い習慣ですので、変更しました。
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-05-12 [21d2945]
+    -->
+    <para>
+     共有リレーションキャッシュで発生しうるデッドロックを修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     ユーザー定義関数がテーブルロックを取得する場合、拡張クエリプロトコルを使用して関数を呼び出すとデッドロックが発生する可能性がありました。
+     以下にシナリオを示します。
+     <itemizedlist>
+      <listitem>
+       <para>
+        (1) セッション中クライアントはparse、bind、executeリクエストをpgpoolに送信します。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (2) セッションAのPgpool-IIはリクエストをPostgreSQLに転送します。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (3) セッションAのPostgreSQLがexecuteを実行し、テーブルロックが発生します。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (4) セッションBで、クライアントは関数のparse、bind、executeリクエストをpgpoolに送信します。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (5) セッションBのPgpoolはリクエストをPostgreSQLに転送します。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (6) セッションBのPostgreSQLはbindを実行しますが、テーブルはセッションAのPostgreSQLによってすでにロックされており、ロックの解放を待ちます。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (7) セッションBのpgpoolはexecuteをPostgreSQLに転送した後、関数の揮発性をチェックするために共有リレーションキャッシュを検索するためのセマフォを取得します。
+        次に、do_queryを呼び出し、フラッシュメッセージをPostgreSQLに送信して、この時点までのPostgreSQLからの応答を取得します。
+        ただし、#6ではPostgreSQLがテーブルロックを待機しているため、pgpoolはバインド完了後のメッセージを待つ必要があります。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (8) セッションAのpgpoolがPostgreSQLにexecuteを転送した後、関数の揮発性をチェックするために共有リレーションキャッシュを検索しセマフォを取得しようとしましたが、セマフォはセッションBのpgpoolによってすでに取得されているため、セマフォの解放を待ちます。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        (9) セッションAとセッションBがお互いを待機するため、デッドロックが発生します。
+       </para>
+      </listitem>
+     </itemizedlist>
+    </para>
+    <para>
+     これを修正するには、do_query()を呼び出す前にセマフォを解放するようにpool_search_relcache()を変更しました(ただし、セマフォはdo_query()の後に取得します)。
+     これにより、上記#8のセッションAはセマフォを取得し、先に進むことができます。
+     クライアントからsyncメッセージを受信し、PostgreSQLに転送します。
+     syncを受信すると、ユーザ定義関数は実行を終了し、テーブルロックを解放します。
+     これにより、セッションBのPostgreSQLがテーブルロックを取得できるようになります。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-03-22 [f18b58a]
+    -->
+    <para>
+     musl libcを使用するシステムでのコンパイルエラーを修正しました。(<ulink url="https://www.pgpool.net/mantisbt/view.php?id=790">bug 790</ulink>) (Tatsuo Ishii)
+    </para>
+    <para>
+     パッチはleimaohuiによって提供されました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-02-05 [8af1024]
+    -->
+    <para>
+     複数のクエリキャッシュの不具合を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2023-January/004259.html">https://www.pgpool.net/pipermail/pgpool-hackers/2023-January/004259.html</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-02-05 [ad05fa5]
+    -->
+    <para>
+     特殊なケースでsrワーカーが間違ったクエリをスタンバイサーバに送信する不具合を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     ALWAYS_PRIMARYフラグが設定されている場合、PRIMARY_NODE_IDマクロは、プライマリがダウンしている場合でも、-1ではなくノードIDを返していました。 
+     この場合、ストリーミングレプリケーション遅延をチェックするワーカープロセスは、<productname>PostgreSQL</productname>のバージョンに応じて<literal>SELECT pg_current_wal_lsn()</literal>または<literal>SELECT pg_current_xlog_location()</literal>をスタンバイに送信し、当然エラーが発生していました。
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004279.html">https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004279.html</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-01-31 [633bdca]
+    -->
+    <para>
+     <literal>DEALLOCATE</literal>による種類不一致エラーを修正しました。
+     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=780">bug 780</ulink>) (Tatsuo Ishii)
+    </para>
+    <para>
+     以下の条件がすべて満たされた場合、種類不一致エラーが発生していました。
+     <itemizedlist>
+      <listitem>
+       <para>
+        ストリーミングレプリケーションモード
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        ロードバランスノードがプライマリ以外のノード
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        <literal>PREPARE</literal>がマルチステートメントクエリで使用されている
+       </para>
+      </listitem>
+     </itemizedlist>
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-04-25 [99b5db1]
+    -->
+    <para>
+     <xref linkend="guc-wd-priority">の説明を追加しました。(Chen Ningwei)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-04-19 [8305fcc]
+    -->
+    <para>
+     <literal>PREPARE/EXECUTE/DEALLOCATE</literal>に関する制限を追加しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-04-19 [c561d4d]
+    -->
+    <para>
+     Pgpool-IIで<literal>-D</literal>オプションを使用する場合の注意点を追加しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-04-14 [391c91e]
+    -->
+    <para>
+     「RPMからのインストール」セクションを強化しました。(Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-04-13 [185a4a8]
+    -->
+    <para>
+     「Pgpool-II + Watchdogの構築の例」から「-D」起動オプションの設定を削除しました。(Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-02-22 [30b2d9c]
+    -->
+    <para>
+     AES256をサポートするには<option>--with-openssl</option>オプションが必要であることを記載しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-02-21 [be400b9]
+    -->
+    <para>
+     .pcppassを使用するには、pcpコマンドの-wオプションが必要であることを記載しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-02-01 [4e3c8df]
+    -->
+    <para>
+     <xref linkend="sql-show-pool-cache">を強化しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>回帰テスト修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2023-01-28 [aa16a94]
+    -->
+    <para>
+     071.execute_and_deallocate/test.shをリファクタリングしました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-05-12 [5ab80d6]
+    2023-04-29 [b73d6f0]
+    2023-04-16 [d8d25d5]
+    2023-04-15 [17f01a6]
+    -->
+    <para>
+     いくつかの回帰テストを強化しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2023-04-06 [7c836d6]
+    -->
+    <para>
+     時折発生する005.jdbcテストの失敗を修正しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-4-1-15">
+ <title>リリース 4.1.15</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2023-01-23</simpara>
+  </note>
+
+ <sect2>
+  <title>概要</title>
+  <para>
+   このリリースには、セキュリティ修正が含まれています。
+  </para>
+  <para>
+   以下の条件をすべて満たす場合、<xref linkend="SQL-SHOW-POOL-STATUS">コマンドにより<xref linkend="guc-wd-lifecheck-user">のパスワードが公開されます。このコマンドは、<productname>Pgpool-II</productname>に接続できるすべてのユーザーが実行できます。(CVE-2023-22332)
+  </para>
+
+  <itemizedlist>
+   <listitem>
+    <para>
+     バージョン3.3以降
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     <xref linkend="guc-use-watchdog">が<literal>on</literal>に設定されている
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     <xref linkend="guc-wd-lifecheck-method">に<literal>query</literal>が設定されている
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     <xref linkend="guc-wd-lifecheck-password">にプレーンテキストのパスワードが設定されている
+    </para>
+   </listitem>
+  </itemizedlist>
+
+  <para>
+   上記条件のすべてに該当するユーザは、このバージョンにアップグレードするか (show pool_statusコマンドで<xref linkend="guc-wd-lifecheck-password">が表示されなくなる)、次の回避策のいずれかを使用することを強くお勧めします。
+  </para>
+
+  <para>
+   4.0.x～4.4.xユーザ向けの回避策:
+  </para>
+
+  <itemizedlist>
+   <listitem>
+    <para>
+     Watchdogを無効にする。(<xref linkend="guc-use-watchdog">を<literal>off</literal>に設定する)
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     <xref linkend="guc-wd-lifecheck-method">に<literal>heartbeat</literal>を設定する。
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     <xref linkend="guc-wd-lifecheck-password">には空文字を設定し、パスワードはpool_passwdファイルに設定する。
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     <xref linkend="guc-wd-lifecheck-password">にAESで暗号化したパスワードを設定する。
+    </para>
+   </listitem>
+  </itemizedlist>
+
+  <para>
+   いずれにせよ、PostgreSQLで<xref linkend="guc-wd-lifecheck-password">を変更することをお勧めします。
+  </para>
+
+  <para>
+   3.3.x～3.7.xユーザ向けの回避策:
+  </para>
+
+  <itemizedlist>
+   <listitem>
+    <para>
+     Watchdogを無効にする。(<xref linkend="guc-use-watchdog">を<literal>off</literal>に設定する)
+    </para>
+   </listitem>
+
+   <listitem>
+    <para>
+     <xref linkend="guc-wd-lifecheck-method">に<literal>heartbeat</literal>を設定する。
+    </para>
+   </listitem>
+  </itemizedlist>
+
+  <para>
+   いずれにせよ、<productname>PostgreSQL</productname>で<xref linkend="guc-wd-lifecheck-password">を変更することをお勧めします。
+  </para>
+
+  <para>
+   <productname>Pgpool-II</productname> 3.7.xおよび以前のバージョンはサポートが終了しているため、これらのバージョンのマイナーアップデートはリリースされません。
+  </para>
+ </sect2>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+	2023-01-21 [123ceb46]
+      -->
+    <para>
+     <xref linkend="SQL-SHOW-POOL-STATUS">、<xref linkend="PCP-POOL-STATUS">および<xref linkend="PGPOOL-ADM-PCP-POOL-STATUS">コマンドでwd_lifecheck_passwordを表示しないように修正しました。(CVE-2023-22332) (Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+	2023-01-21 [4e0cb44b]
+      -->
+    <para>
+     ドキュメントに記載されているように、<xref linkend="guc-wd-lifecheck-password">のデフォルト値を空の文字列に変更しました。(Bo Peng)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-12-24 [7749e0c]
+      -->
+    <para>
+     pgpool-regclass.cのコンパイラ警告を修正しました。(Florian Weimer, Tatsuo Ishii)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2023-01-06 [1f61532]
+      -->
+    <para>
+     <link linkend="runtime-in-memory-query-cache-shmem-config">共有メモリ使用時の設定</link>の章のいくつかの誤りを修正し、説明を強化しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-4-1-14">
+ <title>リリース 4.1.14</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2022-12-22</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-12-03 [bcea238]
+    -->
+    <para>
+     ログメッセージ"new IPC connection received"をDEBUG1にダウングレードしました。
+     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=775">bug 775</ulink>) (Bo Peng)
+    </para>
+    <para>
+     これは通常のメッセージで、LOGとして記録されるべきではありません。
+     パッチはpstefによって作成され、Bo Pengによってレビューされました。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-12-20 [7bc3176]
+    -->
+    <para>
+     <xref linkend="guc-failover-require-consensus">の問題を修正しました。(Muhammad Usama)
+    </para>
+    <para>
+     Watchdogクラスタ全体のヘルスチェックパラメータの最大値に基づいて、フェイルオーバコマンドのタイムアウトを動的に設定するように修正しました。
+    </para>
+    <para>
+     Tatsuo Ishiiによってレビューおよびテストされました。
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-November/004228.html">[pgpool-hackers: 4227]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-11-24 [77fdaca]
+    -->
+    <para>
+     パーサ内でバックスラッシュを使った場合の警告を出力しないように修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <varname>standard_conforming_strings = off</varname>かつ<varname>escape_string_warning = on</varname>の場合、<productname>PostgreSQL</productname>は文字列リテラル内でバックスラッシュを使った場合に警告を出力します。
+     これは問題ありません。
+     しかし、以前は<productname>Pgpool-II</productname>のパーサも同じメッセージを出力していました。
+     これは冗長です。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-10-27 [573b84b]
+    -->
+    <para>
+     <varname>idle_session_timeout</varname>に対応しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     idle_session_timeout (PostgreSQL 14 で追加)が有効、かつ、タイムアウトが発生した場合、次のことが発生します:
+     <itemizedlist>
+      <listitem>
+       <para>
+        <varname>failover_on_backend_error</varname>がon (デフォルト)の場合、<productname>Pgpool-II</productname>はフェイルオーバを発生させます。
+       </para>
+      </listitem>
+     </itemizedlist>
+     <itemizedlist>
+      <listitem>
+       <para>
+        PostgreSQL サーバが 1 台のみが idle_session_timeout を有効にしていると、Pgpool-II がハングする可能性があります。
+       </para>
+      </listitem>
+     </itemizedlist>
+    </para>
+    <para>
+     idle_session_timeoutに対応するため、エラーコードを検出するdetect_idle_session_timeout_error()を追加しました。
+     エラーを検出すると、Pgpool-II は致命的なエラーとしてフロントエンドにエラーコードを返し、セッションを切断します。
+     これはidle_in_transaction_session_timeoutの実装と同じような修正です。
+     <ulink url="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=commit;h=3f5986eee360f12e6a0bb77aa46f95abf5f6bc10">3f5986eee360f12e6a0bb77aa46f95abf5f6bc10</ulink>
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-October/004209.html">[pgpool-hackers: 4208]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-09-14 [963391b]
+    -->
+    <para>
+     SSLエラーSSL_ERROR_ZERO_RETURNに対応しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     以前はこれによってフェイルオーバが発生しましたが、サーバは単に接続を閉じることを意味するため、実際には不要でした。
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-September/008425.html">[pgpool-general: 8366]</ulink>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-September/004194.html">[pgpool-hackers: 4193]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-10-01 [c360057]
+    -->
+    <para>
+     メモリキャッシュサイズを2GBより多く設定した場合に発生するセグメンテーション違反を修正しました。(Muhammad Usama)
+    </para>
+    <para>
+     問題は与えられたキャッシュブロックのメモリアドレスを返す block_address()関数にあり、
+     2GB上限まで有効な共有メモリ空間内のブロックのオフセットを計算するために32bit整数を使っていました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-09-23 [50f0285]
+    -->
+    <para>
+     <command>pcp_proc_info</command>、<command>SHOW pool_pools</command>および<command>SHOW pool_processes</command>内のまれなセグメンテーション違反を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     セグメンテーション違反はget_pools()とget_processes()にありました。
+     それらは、最初に共有メモリ上の特定のプロセス情報スロットのpidを抽出し、次にキーとして pid を使ってスロットを再び検索していました。
+     これらのステップはロックによって保護されていなかったため、プロセス終了時に新しい子プロセスのフォークを担う親プロセスによって pid が上書きされた場合、
+     pid を使った検索が失敗し、NULLを返す可能性がありました。
+     その結果、それに続くNULLポインタの参照によってセグメンテーション違反が発生していました。
+    </para>
+    <para>
+     解決策は、最初にプロセス情報スロットへのポインタを取得し、次にポインタからpidメンバを抽出することです。
+     この方法でも、親プロセスによる共有メモリ情報の同時更新は可能ですが(出力におかしな結果をもたらす可能性があります)、少なくともセグメンテーション違反は回避できます。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-09-12 [7b288c6]
+    -->
+    <para>
+     無効な長さのUnixドメインソケットパスを使えないように修正しました。(Masaya Kawamoto)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-10-07 [0acb52b]
+    -->
+    <para>
+     Doc: memqcache_methodの説明を拡充しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     どの方式を使うべきかの説明を追加しました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-08-28 [4551ef6]
+    -->
+    <para>
+     Doc: ヘルスチェックプロセスでSSLが使えることに言及しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     ストリーミングレプリケーションのチェックでもSSLが使えることに言及しました。
+     これは2010年以降に使えていたはずです。
+    </para>
+    <para>
+     議論: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-August/004188.html">[pgpool-hackers: 4187]</ulink>
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>回帰テスト修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-12-17 [2985853]
+    -->
+    <para>
+     環境変数を使ってPGPOOLDIRを定義できるようにしました。
+     (<ulink url="https://www.pgpool.net/mantisbt/view.php?id=766">bug 766</ulink>) (Bo Peng)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-4-1-13">
+ <title>リリース 4.1.13</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2022-08-18</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-07-01 [f5cdd381]
+    -->
+    <para>
+     サンプルスクリプトで指定するrestore_commandにsshオプションを追加しました。(Bo Peng)
+    </para>
+    <para>
+     パッチはJon SCHEWEによって作成され、Bo Pengによって更新されました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-05-31 [5cacb7db]
+    -->
+    <para>
+     CloseCompleteを受け取った時、バッファリングなしでフロントエンドに転送するようになりました。(Tatsuo Ishii)
+    </para>
+    <para>
+     074.bug700_memqcache_segfaultで時折タイムアウトエラーが発生していました。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-07-05 [516d2ed2]
+    2022-07-04 [e4eac3f2]
+    -->
+    <para>
+     クエリキャッシュの不具合を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <!--
+     Pgpool-II did not cache the query like "Select '2022-02-18 07:00:00.006547'::timestamp".
+     SELECTs include TIMESTAMP, TIME and DATE are cached, and SELECTs include TIMESTAMPZ
+     and TIMEZ are not cached because the result can be changed by SET TIME ZONE command etc.
+     Furthermore, SELECTs having functions with return types are timestamptz or timetz are
+     not cached too as same reason.
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-July/008344.html">[pgpool-general: 8285]</ulink>
+     -->
+     Pgpool-IIは"Select '2022-02-18 07:00:00.006547'::timestamp"のような問合せをキャッシュしていませんでした。
+     TIMESTAMP、TIME、DATEを含むSELECT文はキャッシュされるようになりますが、TIMESTAMPZ、TIMEZを含むSELECT文は"SET TIME ZONE"コマンドなどで結果が変更されるためキャッシュされません。
+     また、TIMESTAMPZやTIMEZ型を返す関数を含むSELECT文も同様の理由でキャッシュされません。
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-July/008344.html">[pgpool-general: 8285]</ulink>
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-07-26 [e2f63009]
+    -->
+    <para>
+     Doc: 誤字を修正しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-07-19 [d193cba9]
+    -->
+    <para>
+     Doc: 特定のSELECT文がキャッシュされないことに言及しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     特定のSELECT文は以下です。
+     <itemizedlist>
+      <listitem>
+       <para>
+        TIMESTAMP WITH TIMEZONE、TIME WITH TIMEZONEを返す関数を使っているSELECT
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        TIMESTAMP WITH TIMEZONE、TIME WITH TIMEZONEへのキャストを含むSELECT
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        SQLValueFunction (CURRENT_TIME, CURRENT_USERなど)を含むSELECT
+       </para>
+      </listitem>
+     </itemizedlist>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-06-30 [611c70c8]
+    -->
+    <para>
+     Doc: Unixドメインソケット接続するときのPCPパスワードファイルの使用についての説明を修正しました。(Masaya Kawamoto)
+    </para>
+    <para>
+     pcppassファイルのlocalhostエントリはデフォルトのPCPソケットディレクトリパスへの接続とのみマッチして、全てのUnixソケット接続には使用されません。
+     この振る舞いはpgpassファイルと同じです。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-07-26 [3f219c1f]
+    2022-06-06 [237afad9]
+    -->
+    <para>
+     Doc: 必要メモリの説明を修正し、詳細にしました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <itemizedlist>
+      <listitem>
+       <para>
+        <!--
+        Add explanation about memory usage while pgpool child process is running.
+        -->
+        pgpoolの子プロセスが動作する間のメモリ使用についての説明を追加しました。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        <!--
+        Enhance the formula to calculate shared memory requirement so that it computes more accurate result.
+        -->
+        より正確な結果を計算できるように、必要共有メモリを計算する式を詳細にしました。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        <!--
+        Fix shared memory requirement for shared rel cache. The old value 64MB was simply wrong.
+        -->
+        インメモリクエリキャッシュ用の共有メモリ量を修正しました。64MBは誤った値でした。
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        <!--
+        Fix process memory requirement. Previously the formula was based on
+        RSS. However PSS should be used because RSS includes shared memory
+        such as the memory used for libraries. This resuls in lot smaller
+        memory requirement than before.
+        -->
+        必要プロセスメモリを修正しました。以前の式はRSSを基にしていましたが、RSSはライブラリに使用されるメモリなどの共有メモリも含むため、PSSを使用するべきです。
+        これによって以前より要求メモリが大幅に減少します。
+       </para>
+      </listitem>
+     </itemizedlist>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-06-02 [56827537]
+    -->
+    <para>
+     Doc: <xref linkend="guc-memqcache-maxcache">と<xref linkend="guc-memqcacheexpire">の誤った説明を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     これらのパラメータは設定ファイルの再読み込みでは変更できず、Pgpool-IIの再起動が必要です。
+
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-June/008254.html">[pgpool-general: 8195]</ulink>
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>テストツール修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-06-26 [3c9a1f22]
+    -->
+    <para>
+     PostgreSQL 15でpgpool_setupを実行できるようになりました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <ulink url="https://www.pgpool.net/mantisbt/view.php?id=757">ticket 757</ulink>を参照ください。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>回帰テスト修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-07-10 [92f15dd6]
+    -->
+    <para>
+     Test: 回帰テストで<productname>Pgpool-II</productname>のバージョンを表示するようになりました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-07-09 [17e29cf3]
+    -->
+    <para>
+     Test: 適切なinstall directoryでpgpool.confを探すように回帰テストスクリプトを修正しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+
+<sect1 id="release-4-1-12">
+ <title>リリース 4.1.12</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2022-05-19</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-05-16 [4d224d9]
+    -->
+    <para>
+     <productname>Pgpool-II</productname>メインプロセスの停止を強化しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     「pgpool stop」が一定期間（現在5秒）以内にメインプロセスを終了できなかった場合は、信号を再送信するように修正しました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-05-02 [a9389b9]
+    -->
+    <para>
+     <xref linkend="pcp-proc-count">コマンドのPIDの長さを7文字に変更しました。(Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-12 [dd502b6]
+    -->
+    <para>
+     Parseメッセージ処理のエラーメッセージにメッセージの種類、バックエンドノードIDを含めるように改善しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-11 [a44d364]
+    -->
+    <para>
+     ParameterStatusメッセージのログレベルをLOGからDEBUG5にダウングレードしました。(Tatsuo Ishii)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-March/008101.html">[pgpool-general: 8042]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-28 [fbe2f31]
+    2022-02-28 [2bbc376]
+    -->
+    <para>
+     <xref linkend="guc-pcp-listen-addresses">のデフォルト値を「*」から「localhost」に変更しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-01 [50425a7]
+    -->
+    <para>
+     <xref linkend="pcp-watchdog-info">のフィールド名を変更しました。(Muhammad Usama)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-04-27 [3337aa8]
+    -->
+    <para>
+     lost状態のリモート<productname>Pgpool-II</productname>ノードが再起動後にクラスタに再参加できない問題を修正しました。(Muhammad Usama)
+    </para>
+    <para>
+     報告: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2021-November/007954.html">[pgpool-general: 7896]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-04-14 [8677cd7]
+    -->
+    <para>
+     無限待機の可能性を回避するために、<productname>Pgpool-II</productname>メインプロセスのexit_handlerを修正しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-04 [6416f43]
+    -->
+    <para>
+     プライマリ検索中にバックエンドが失敗またはシャットダウンした場合にPgpool-IIのメインプロセスが終了してしまう問題を修正しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-03-03 [507feea]
+    -->
+    <para>
+     Watchdogで発生するセグメンテーション違反を修正しました。(Muhammad Usama)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-general/2022-March/008089.html">[pgpool-general: 8030]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-25 [e10f4bd]
+    -->
+    <para>
+     <command>pg_isready</command>を使用して<productname>PostgreSQL</productname>のステータスを確認するようにfollow_primary.sh.sampleを修正しました。(Bo Peng)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-05-09 [7bbf94f]
+    -->
+    <para>
+     Doc: 設定例を更新しました。(Masaya Kawamoto)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-04-28 [d5b2555]
+    2022-04-28 [4feedf0]
+    -->
+    <para>
+     Doc: pcp_watchdog_infoの出力例を更新しました。(Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-04-28 [1b20d7b]
+    -->
+    <para>
+     Doc: pg_encの引数として「$」文字を含むパスワードを指定する場合は、エスケープする必要があることを注意事項に追加しました。(Bo Peng)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>回帰テスト修正</title>
+  <itemizedlist>
+   <listitem>
+    <!--
+    2022-04-17 [29734b5]
+    -->
+    <para>
+     タイムアウトエラーを回避するために、リグレッションテスト018.detach_primaryを強化しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-04-17 [72d31b0]
+    -->
+    <para>
+     タイムアウトエラーを回避するために、リグレッションテスト074.bug700_memqcache_segfaultを強化しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-04-19 [7aed95e]
+    -->
+    <para>
+     セグメンテーション違反を検出するようにテストスクリプトを改善しました。(Bo Peng)
+    </para>
+   </listitem>
+  </itemizedlist>
+ </sect2>
+</sect1>
+
+<sect1 id="release-4-1-11">
+ <title>リリース 4.1.11</title>
+  <note>
+   <title>リリース日</title>
+   <simpara>2022-02-17</simpara>
+  </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-01-06 [4ed45b2c]
+    -->
+    <para>
+     <varname>in_hot_standby</varname>によるメッセージ長の違いに関する不要なログを抑制しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     PostgreSQL 14 は新しいパラメータを導入しました: <ulink url="https://www.postgresql.org/docs/14/runtime-config-preset.html">in_hot_standby</ulink>
+    </para>
+    <para>
+     この値はスタンバイサーバの場合は "on" で、プライマリサーバの場合は "off" になります。
+     その結果 pgpool のログは以下のメッセージで溢れていました。
+    </para>
+
+    <programlisting>
+     LOG:  reading message length
+     DETAIL:  message length (22) in slot 1 does not match with slot 0(23)
+    </programlisting>
+
+    <para>
+     これを防ぐために、パラメータ名が<varname>in_hot_standby</varname>でない場合にのみログを出力するようになりました。
+    </para>
+    <para>
+     また、メッセージにパラメータ名を表示するようになりました。例を示します。
+    </para>
+
+    <programlisting>
+     LOG:  ParameterStatus "TimeZone": node 1 message length 30 is different from main node message length 24
+    </programlisting>
+
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2021-December/004077.html">[pgpool-hackers: 4076]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-10 [f114a2b2]
+    -->
+    <para>
+     <xref linkend="guc-wd-lifecheck-password">と<xref linkend="guc-recovery-password">の形式の検査を追加しました。(Masaya Kawamoto)
+    </para>
+    <para>
+     <varname>wd_lifecheck_password</varname>と<varname>recovery_password</varname>はmd5ハッシュ形式を使用できませんが、pgpool は認証失敗を報告するだけでそれらのチェックをしていませんでした。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-13 [03a4df5e]
+    -->
+    <para>
+     パラメータステータスの取り扱いを変更しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     バックエンドからパラメータステータスのメッセージが届いたときにただメモリー上に記憶するだけでなく、フロントエンドに転送するようになりました。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>不具合修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-01-31 [6dae39f6]
+    -->
+    <para>
+     <command>pcp_node_info</command>の実行の際に長時間待機する不具合を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-January/004110.html">[pgpool-hackers: 4109]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-02 [ea377d3a]
+    -->
+    <para>
+     <productname>Coverity</productname>によって見つかったヘルスチェックプロセスの問題を修正しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-02 [aa55bc8e]
+    -->
+    <para>
+     <productname>Coverity</productname>によって見つかったメモリリークを修正しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-06 [19a20fbf]
+    -->
+    <para>
+     プライマリノードが存在しない場合の対処をするように<function>failover()</function>を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     プライマリノードが存在しない場合に pgpool が起動したときなど<varname>Req_info->primary_node_id</varname>が -1 である場合に<function>failover()</function>は<function>find_primary_node_repeatedly()</function>の呼び出しをスキップしていました。
+     また、<varname>follow_master_command</varname>も実行されませんでした。
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-February/004114.html">[pgpool-hackers: 4113]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-07 [71da51c8]
+    -->
+    <para>
+     failover スクリプトのサンプルを修正しました。(Bo Peng)
+    </para>
+    <para>
+     old primary node id が"-1"の場合を考慮していませんでした。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-10 [3d04fdda]
+    -->
+    <para>
+     バックエンドに接続できないときにストリーミングレプリケーションチェックプロセスがリトライしないように修正しました。(<ulink url="https://www.pgpool.net/mantisbt/view.php?id=742">bug 742</ulink>)(Bo Peng)
+    </para>
+    <para>
+     このリトライによってフェイルオーバに時間がかかっていました。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>ドキュメント修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-01-04 [205c65e9]
+    -->
+    <para>
+     ドキュメントの誤字を修正しました。(pengbo)
+    </para>
+    <para>
+     パッチはUmar Hayatによって提供されました。
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-01-04 [beba0359]
+    -->
+    <para>
+     <productname>PostgreSQL</productname> YUM リポジトリから<productname>Pgpool-II</productname>がインストールされないように /etc/yum.repos.d/pgdg-redhat-all.repo を"exclude"する設定を追加しました。(Bo Peng)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-01-07 [924fcafd]
+    -->
+    <para>
+     <varname>ParameterStatus</varname>と<varname>in_hot_standby</varname>パラメータに関する制約を追加しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-02-02 [228b6c1b]
+    -->
+    <para>
+     <varname>set_config</varname>に関する制約を追加しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>テストツール修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2022-02-06 [fc8c77b7]
+    2022-02-07 [80eebc91]
+    -->
+    <para>
+     <command>pgpool_setup</command>が作成するfailoverスクリプトを修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     <command>pgpool_setup</command>が<filename>failover.sh</filename>を作成するとき、プライマリサーバが存在しない場合を考慮していませんでした。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+
+ <sect2>
+  <title>回帰テスト修正</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2021-12-22 [71d272a5]
+    -->
+    <para>
+     再コンパイルしないで既存のインストールで回帰テストを実行できるようになりました。(Tatsuo Ishii)
+    </para>
+    <para>
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2021-December/004078.html">[pgpool-hackers: 4077]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-01-12 [c0fefaa7]
+    -->
+    <para>
+     テスト075を修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     pgpool が起動していなくても成功していました。
+     報告とパッチはQiang Lingjieによって提供されました。
+     Discussion: <ulink url="https://www.pgpool.net/pipermail/pgpool-hackers/2022-January/004086.html">[pgpool-hackers: 4085]</ulink>
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2022-01-13 [6f086f72]
+    -->
+    <para>
+     noinstall モード時の<command>pgpool_setup</command>と<command>watchdog_setup</command>のバイナリパスを修正しました。(Bo Peng)
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
+</sect1>
+
 <sect1 id="release-4-1-10">
  <title>リリース 4.1.10</title>
   <note>
    <title>リリース日</title>
    <simpara>2021-12-23</simpara>
   </note>
+
+ <sect2>
+  <title>変更点</title>
+  <itemizedlist>
+
+   <listitem>
+    <!--
+    2021-12-03 [12c8fc2a]
+    -->
+    <para>
+     yaccとの非互換性によって出力されるbisonの警告を抑制しました。(Tatsuo Ishii)
+    </para>
+   </listitem>
+
+   <listitem>
+    <!--
+    2021-11-22 [9d54015f]
+    -->
+    <para>
+     冗長なコードを修正しました。(Tatsuo Ishii)
+    </para>
+    <para>
+     パッチはLu Chenyangによって提供されました。
+    </para>
+   </listitem>
+
+  </itemizedlist>
+ </sect2>
 
  <sect2>
   <title>ドキュメント修正</title>

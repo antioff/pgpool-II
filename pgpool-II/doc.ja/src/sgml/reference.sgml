@@ -9,7 +9,7 @@
  <partintro>
   <para>
    <!--
-   This part contains reference information for the pgool-II.
+   This part contains reference information for the pgpool-II.
    -->
    ここには <productname>Pgpool-II</productname> のリファレンス情報があります。
   </para>
@@ -88,13 +88,14 @@
     <title>PCP パスワードファイル</title>
     <para>
      <!--
-     The file <filename>.pcppass</filename> in a user's home
+     The file <indexterm><primary><filename>.pcppass</filename></primary></indexterm> in a user's home
      directory or the file referenced by environment variable
-     PCPPASSFILE can contain passwords to be used if no password has
-     been specified for the pcp connection.
+     <indexterm><primary>PCPPASSFILE</primary></indexterm> can contain passwords to be used if no password has
+     been specified for the pcp connection (In <productname>Pgpool-II</productname> 4.4 or before, <literal>&#45;w/&#45;-no&#45;password</literal> option is needed).
+     See <xref linkend="PCP-COMMON-OPTIONS"> for more details.
      -->
-     PCP 接続時にパスワードが指定されなかった場合、ユーザのホームディレクトリに配置された <filename>.pcppass</filename> ファイルか、
-     環境変数 PCPPASSFILE で参照されるファイルに格納されたパスワードが使用可能です。
+     PCP 接続時にパスワードが指定されなかった場合、ユーザのホームディレクトリに配置された<indexterm><primary>.pcppass</primary></indexterm><filename>.pcppass</filename>ファイルか、環境変数 <indexterm><primary>PCPPASSFILE</primary></indexterm>PCPPASSFILEで参照されるファイルに格納されたパスワードが使用可能です(<productname>Pgpool-II</productname> 4.4以前は<literal>-w/--no-password</literal>オプションを指定する必要があります)。
+     詳細は<xref linkend="PCP-COMMON-OPTIONS">を参照してください。
     </para>
     <para>
      <!--
@@ -115,16 +116,20 @@
      field from the first line that matches the current connection
      parameters will be used. (Therefore, put more-specific entries
      first when you are using wildcards.) If an entry needs to contain
-     : or \, escape this character with \. A host name of localhost
-     matches both TCP (host name localhost) and Unix domain socket
-     connections coming from the local machine.
+     : or \, escape this character with \. The hostname field is matched
+     to the host connection parameter if that is specified, if the host
+     parameter is not given then the host name <literal>localhost</literal>
+     is searched for. The host name <literal>localhost</literal> is also
+     searched for when the connection is a Unix domain socket connection
+     and the host parameter matches the default pcp socket directory path.
      -->
      （この文字列の行頭に # を付けてからファイルにコピーしておけば備忘録のコメントになります。）
      最初の３つのフィールドはそれぞれリテラル値か、任意のものにマッチする * を指定します。
      現在の接続パラメータにマッチした最初の行の password フィールドが使用されます。
      （したがって、ワイルドーカードを使用する場合には、具体的なエントリーの方を先に書きます。）
      エントリーの中に 「:」 か 「\」 を含む必要がある場合には、その文字を 「\」 をつかってエスケープしてください。
-     ホスト名 localhost はローカルマシンからの TCP と Unix ドメインソケットの両方の接続にマッチします。
+     hostname フィールドは、host 接続パラメータとマッチします。host パラメータが指定されていなければ、ホスト名<literal>localhost</literal>がマッチします。
+     接続が Unix ドメインソケット接続で、host パラメータがデフォルトの PCP ソケットディレクトリパスに一致した場合も、ホスト名<literal>localhost</literal>がマッチします。
     </para>
 
     <para>
@@ -179,7 +184,7 @@
   &pgEnc;
   &pgproto;
   &pgpoolSetup;
-  &watchdoglSetup;
+  &watchdogSetup;
   &wdCli;
 
  </reference>
@@ -268,7 +273,7 @@
     to <productname>PostgreSQL</productname> with the result
     (3). <productname>PostgreSQL</productname> returns the result
     to <productname>Pgpool-II</productname> (5)
-    and <productname>Pgpool-II</productname> fowards the data to
+    and <productname>Pgpool-II</productname> forwards the data to
     the user (6).
     -->
     <productname>Pgpool-II</productname>経由でも(1)、あるいは直接<productname>PostgreSQL</productname>に対しても(2)、関数を呼び出すことができます。
@@ -308,7 +313,7 @@
     of <productname>PostgreSQL</productname>.  The pcp port number
     is hard coded as 9898, the pcp user name is assumes to be same
     as caller's <productname>PostgreSQL</productname> user name.
-    password is extraced from $HOME/.pcppass.
+    password is extracted from $HOME/.pcppass.
     -->
     2番目の形式では、<productname>Pgpool-II</productname>サーバ名が必要になります。
     サーバ名は<productname>PostgreSQL</productname>の"CREATE FOREIGN SERVER"コマンドで定義済みでなければなりません。
@@ -338,8 +343,8 @@
      -->
      次のSQLコマンドをアクセスしたいすべてのデータベースに発行します。
      <programlisting>
-      $ psql ...
-      $ CREATE EXTENSION pgpool_adm
+$ psql ...
+=# CREATE EXTENSION pgpool_adm
      </programlisting>
     </para>
    </sect1>

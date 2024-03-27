@@ -138,11 +138,30 @@
     receives a <systemitem>SIGHUP</> signal; this signal is most easily
     sent by running <literal>pgpool reload</> from the command line. The main
     pgpool process also propagates this signal to all its child
-    processes, so that existing sessions also adopt the new values.
+    processes, so that next sessions also adopt the new values.
     Some parameters can only be set at server start; any changes to their
     entries in the configuration file will be ignored until the server is restarted.
     Invalid parameter settings in the configuration file are likewise
     ignored (but logged) during <systemitem>SIGHUP</> processing.
+   </para>
+  </sect2>
+
+  <sect2 id="config-setting-includes">
+   <title>Managing Configuration File Contents</title>
+
+   <para>
+    <productname>Pgpool-II</productname> provides a feature for breaking down
+    <filename>pgpool.conf</filename> files into sub-files. This feature is
+    especially useful when managing multiple servers or dividing by features.
+    <literal>include</literal> directive can be used like this:
+
+    <programlisting>
+     include = 'filename'
+    </programlisting>
+
+    If the file name is not an absolute path, it is taken as relative
+    to the directory containing the referencing configuration file.
+    Inclusions can be nested.
    </para>
   </sect2>
 

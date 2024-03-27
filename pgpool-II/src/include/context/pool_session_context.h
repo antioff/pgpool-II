@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -41,7 +41,7 @@ typedef enum
 	POOL_UNKNOWN,				/* Unknown. Need to ask backend */
 	POOL_READ_UNCOMMITTED,		/* Read uncommitted */
 	POOL_READ_COMMITTED,		/* Read committed */
-	POOL_REPEATABLE_READ,		/* Rpeatable read */
+	POOL_REPEATABLE_READ,		/* Repeatable read */
 	POOL_SERIALIZABLE			/* Serializable */
 }			POOL_TRANSACTION_ISOLATION;
 
@@ -60,8 +60,8 @@ typedef enum
  */
 typedef enum
 {
-	POOL_SENT_MESSAGE_CREATED,	/* initial state of sent meesage */
-	POOL_SENT_MESSAGE_CLOSED	/* sent meesage closed but close complete
+	POOL_SENT_MESSAGE_CREATED,	/* initial state of sent message */
+	POOL_SENT_MESSAGE_CLOSED	/* sent message closed but close complete
 								 * message has not arrived yet */
 }			POOL_SENT_MESSAGE_STATE;
 
@@ -132,7 +132,7 @@ typedef struct
 								 * kind */
 	int			contents_len;	/* message packet length */
 	char		query[QUERY_STRING_BUFFER_LEN]; /* copy of original query */
-	char		statement[MAX_IDENTIFIER_LEN];	/* prepared statment name if
+	char		statement[MAX_IDENTIFIER_LEN];	/* prepared statement name if
 												 * any */
 	char		portal[MAX_IDENTIFIER_LEN]; /* portal name if any */
 	bool		is_rows_returned;	/* true if the message could produce row
@@ -142,6 +142,14 @@ typedef struct
 											 * used by parse_before_bind() */
 	bool		node_ids[MAX_NUM_BACKENDS];	/* backend node map which this message was sent to */
 	POOL_QUERY_CONTEXT *query_context;	/* query context */
+	/*
+	 * If "flush" message arrives, this flag is set to true until all buffered
+	 * message for frontend are sent out.
+	 */
+	bool		flush_pending;
+
+	bool		is_tx_started_by_multi_statement; /* true if an explicit transaction has been strated by
+													 multi statement query */
 }			POOL_PENDING_MESSAGE;
 
 typedef enum {
@@ -255,14 +263,14 @@ typedef struct
 								 * transaction */
 
 	/*
-	 * Parse/Bind/Decribe/Execute/Close message queue.
+	 * Parse/Bind/Describe/Execute/Close message queue.
 	 */
 	List	   *pending_messages;
 
 	/*
 	 * The last pending message. Reset at Ready for query.  Note that this is
 	 * a shallow copy of pending message.  Once the are is reset,
-	 * previos_message_exists is set to false.
+	 * previous_message_exists is set to false.
 	 */
 	bool		previous_message_exists;
 	POOL_PENDING_MESSAGE previous_message;
@@ -297,11 +305,21 @@ typedef struct
 	int			preferred_main_node_id;
 #endif
 
-	/* Whether snapshot is aquired in this transaction. Only used by Snapshot Isolation mode. */
+	/* Whether snapshot is acquired in this transaction. Only used by Snapshot Isolation mode. */
 	SI_STATE	si_state;
 	/* Whether transaction is read only. Only used by Snapshot Isolation mode. */
 	SI_STATE	transaction_read_only;
 
+	/*
+	 * If true, the current message from backend must be flushed to frontend.
+	 * Set by read_kind_from_backend and reset by SimpleForwardToFrontend.
+	 */
+	bool		flush_pending;
+
+	bool		is_tx_started_by_multi_statement;	/* True if an explicit
+													 * transaction has been
+													 * started by a
+													 * multi-statement-query */
 }			POOL_SESSION_CONTEXT;
 
 extern void pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend);
@@ -368,6 +386,7 @@ extern void pool_check_pending_message_and_reply(POOL_MESSAGE_TYPE type, char ki
 extern POOL_PENDING_MESSAGE * pool_pending_message_find_lastest_by_query_context(POOL_QUERY_CONTEXT * qc);
 extern int	pool_pending_message_get_target_backend_id(POOL_PENDING_MESSAGE * msg);
 extern int	pool_pending_message_get_message_num_by_backend_id(int backend_id);
+extern void pool_pending_message_set_flush_request(void);
 extern void dump_pending_message(void);
 extern void pool_set_major_version(int major);
 extern void pool_set_minor_version(int minor);
@@ -384,6 +403,10 @@ extern void pool_temp_tables_delete(char * tablename, POOL_TEMP_TABLE_STATE stat
 extern void	pool_temp_tables_commit_pending(void);
 extern void	pool_temp_tables_remove_pending(void);
 extern void	pool_temp_tables_dump(void);
+
+extern bool is_tx_started_by_multi_statement_query(void);
+extern void set_tx_started_by_multi_statement_query(void);
+extern void unset_tx_started_by_multi_statement_query(void);
 
 #ifdef NOT_USED
 extern void pool_set_preferred_main_node_id(int node_id);

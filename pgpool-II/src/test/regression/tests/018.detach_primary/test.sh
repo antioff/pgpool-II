@@ -38,7 +38,8 @@ $PG_CTL -D data2 promote
 sleep 10
 wait_for_pgpool_startup
 $PSQL -c "show pool_nodes" postgres > show_pool_nodes
-primary_node=`grep primary show_pool_nodes|awk '{print $1}'`
+cat show_pool_nodes
+primary_node=`grep primary show_pool_nodes|grep -v standby|awk '{print $1}'`
 if [ $primary_node != 0 ];then
     echo "primary node is not 0"
     ./shutdownall
@@ -83,7 +84,7 @@ wait_for_pgpool_startup
 
 # promote #3 node to create false primary
 $PG_CTL -D pgpool0/data2 promote
-sleep 10
+
 wait_for_pgpool_startup
 
 $PSQL -c "show pool_nodes" postgres|grep down
@@ -101,16 +102,36 @@ cd ..
 cd pgpool2
 ./startall
 cd ..
-sleep 10
-date
+
 wait_for_pgpool_startup
-date
+
 $PGPOOL_INSTALL_DIR/bin/pcp_watchdog_info -v -w -h localhost -p $PCP_PORT
 
-$PSQL -c "show pool_nodes" postgres
+date
+for i in {1..30}
+do
+    cnt=`$PGPOOL_INSTALL_DIR/bin/pcp_watchdog_info -v -w -h localhost -p $PCP_PORT|egrep "MASTER|LEADER|STANDBY"|wc -l`
+    if [ $cnt = 3 ];then
+	echo "watchdog is ready"
+	break
+    fi
+    sleep 1
+done
+date
 
-$PSQL -c "show pool_nodes" postgres|grep down
-if [ $? != 0 ];then
+ok=n
+for i in {1..10}
+do
+    $PSQL -c "show pool_nodes" postgres
+    $PSQL -c "show pool_nodes" postgres|grep down
+    if [ $? = 0 ];then
+	ok=y
+	break
+    fi
+    sleep 1
+done
+
+if [ $ok != 'y' ];then
     echo "node is not down despite that the quorum exists"
     ./shutdownall
     exit 1

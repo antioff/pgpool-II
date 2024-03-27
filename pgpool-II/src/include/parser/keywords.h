@@ -4,8 +4,8 @@
  *	  PostgreSQL's list of SQL keywords
  *
  *
- * Portions Copyright (c) 2003-2020, PgPool Global Development Group
- * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2023, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/common/keywords.h
@@ -23,12 +23,8 @@
 #define TYPE_FUNC_NAME_KEYWORD	2
 #define RESERVED_KEYWORD		3
 
-#ifndef FRONTEND
 extern PGDLLIMPORT const ScanKeywordList ScanKeywords;
 extern PGDLLIMPORT const uint8 ScanKeywordCategories[];
-#else
-extern const ScanKeywordList ScanKeywords;
-extern const uint8 ScanKeywordCategories[];
-#endif
+extern PGDLLIMPORT const bool ScanKeywordBareLabel[];
 
 #endif							/* KEYWORDS_H */

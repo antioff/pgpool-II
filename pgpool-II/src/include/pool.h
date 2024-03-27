@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -47,19 +47,6 @@
 #define POOLKEYFILE 	".pgpoolkey"
 #define POOLKEYFILEENV "PGPOOLKEYFILE"
 
-/*
- * Brought from PostgreSQL's pg_config_manual.h.
- *
- * Maximum length for identifiers (e.g. table names, column names,
- * function names).  Names actually are limited to one less byte than this,
- * because the length must include a trailing zero byte.
- *
- * Please note that in version 2 protocol, maximum user name length is
- * SM_USER, which is 32.
- */
-#define NAMEDATALEN 64
-
-/* configuration file name */
 #define POOL_CONF_FILE_NAME "pgpool.conf"
 
 /* PCP user/password file name */
@@ -82,6 +69,9 @@
 
 /* status file name */
 #define STATUS_FILE_NAME "pgpool_status"
+
+/* query cache lock file name */
+#define QUERY_CACHE_LOCK_FILE "memq_lock_file"
 
 /* default string used to identify pgpool on syslog output */
 #define DEFAULT_SYSLOG_IDENT "pgpool"
@@ -367,7 +357,6 @@ typedef enum
 #define STREAM (pool_config->backend_clustering_mode == CM_STREAMING_REPLICATION)
 #define LOGICAL (pool_config->backend_clustering_mode == CM_LOGICAL_REPLICATION)
 #define SLONY (pool_config->backend_clustering_mode == CM_SLONY)
-#define DUAL_MODE (REPLICATION || NATIVE_REPLICATION)
 #define RAW_MODE (pool_config->backend_clustering_mode == CM_RAW)
 #define SL_MODE (STREAM || LOGICAL) /* streaming or logical replication mode */
 
@@ -382,15 +371,15 @@ typedef enum
 #define MAX_NUM_SEMAPHORES		8
 #define CONN_COUNTER_SEM		0
 #define REQUEST_INFO_SEM		1
-#define SHM_CACHE_SEM			2
-#define QUERY_CACHE_STATS_SEM	3
-#define PCP_REQUEST_SEM			4
-#define ACCEPT_FD_SEM			5
-#define SI_CRITICAL_REGION_SEM	6
-#define FOLLOW_PRIMARY_SEM		7
+#define QUERY_CACHE_STATS_SEM	2
+#define PCP_REQUEST_SEM			3
+#define ACCEPT_FD_SEM			4
+#define SI_CRITICAL_REGION_SEM	5
+#define FOLLOW_PRIMARY_SEM		6
+#define MAIN_EXIT_HANDLER_SEM	7	/* used in exit_hander in pgpool main process */
 #define MAX_REQUEST_QUEUE_SIZE	10
 
-#define MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION 10	/* time in seconds to keep
+#define MAX_SEC_WAIT_FOR_CLUSTER_TRANSACTION 10	/* time in seconds to keep
 												 * retrying for a watchdog
 												 * command if the cluster is
 												 * not in stable state */
@@ -428,6 +417,8 @@ typedef enum
 											 * require majority vote */
 #define REQ_DETAIL_UPDATE		0x00000008	/* failover req is just an update
 											 * node status request */
+#define REQ_DETAIL_PROMOTE		0x00000010	/* failover req is actually promoting the specified standby node.
+											 * current primary will be detached */
 
 typedef struct
 {
@@ -449,7 +440,7 @@ typedef struct
 	int			conn_counter;	/* number of connections from clients to pgpool */
 	bool		switching;		/* it true, failover or failback is in
 								 * progress */
-	/* false if follow primary command or detach_false_primary in
+	/* greater than 0 if follow primary command or detach_false_primary in
 	 * execution */
 	bool		follow_primary_count;
 	bool		follow_primary_lock_pending; /* watchdog process can't wait
@@ -533,7 +524,7 @@ typedef enum
 	INITIALIZING,
 	PERFORMING_HEALTH_CHECK,
 	SLEEPING,
-	WAITIG_FOR_CONNECTION,
+	WAITING_FOR_CONNECTION,
 	BACKEND_CONNECTING,
 	PROCESSING,
 	EXITING
@@ -558,11 +549,12 @@ extern pid_t mypid;				/* parent pid */
 extern pid_t myProcPid;			/* process pid */
 extern ProcessType processType;
 extern ProcessState processState;
+extern bool	reset_query_error;	/* true if error occurs in reset queries */
 extern void set_application_name(ProcessType ptype);
 extern void set_application_name_with_string(char *string);
 extern void set_application_name_with_suffix(ProcessType ptype, int suffix);
 extern char *get_application_name(void);
-extern char *get_application_name_for_procees(ProcessType ptype);
+extern char *get_application_name_for_process(ProcessType ptype);
 
 void SetProcessGlobalVariables(ProcessType pType);
 
@@ -590,6 +582,7 @@ extern BACKEND_STATUS private_backend_status[MAX_NUM_BACKENDS];
 extern char remote_host[];		/* client host */
 extern char remote_port[];		/* client port */
 
+
 /*
  * public functions
  */
@@ -601,7 +594,7 @@ extern char *get_pool_key(void);
 
 
 /*pcp_child.c*/
-extern void pcp_main(int unix_fd, int inet_fd);
+extern void pcp_main(int *fds);
 
 
 
@@ -617,7 +610,7 @@ extern int	send_to_pg_frontend(char *data, int len, bool flush);
 extern int	pg_frontend_exists(void);
 extern int	set_pg_frontend_blocking(bool blocking);
 extern int	get_frontend_protocol_version(void);
-
+extern void set_process_status(ProcessStatus status);
 
 /*pool_shmem.c*/
 extern void *pool_shared_memory_create(size_t size);

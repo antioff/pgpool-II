@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2022	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -72,7 +72,6 @@ typedef struct WdUpstreamConnectionData
 	char	   *hostname;		/* host name of server */
 	pid_t		pid;			/* pid of ping process */
 	bool		reachable;		/* true if last ping was successful */
-	int			outputfd;		/* pipe fd linked to output of ping process */
 }			WdUpstreamConnectionData;
 
 
@@ -168,9 +167,8 @@ reaper(void)
 
 		if (server)
 		{
-			server->reachable = wd_get_ping_result(server->hostname, status, server->outputfd);
+			server->reachable = (status == 0);
 			server->pid = 0;
-			close(server->outputfd);
 		}
 		else
 			wd_reaper_lifecheck(pid, status);
@@ -534,7 +532,7 @@ inform_node_status(LifeCheckNode * node, char *message)
 	if (json_data == NULL)
 		return false;
 
-	for (x = 0; x < MAX_SEC_WAIT_FOR_CLUSTER_TRANSATION; x++)
+	for (x = 0; x < MAX_SEC_WAIT_FOR_CLUSTER_TRANSACTION; x++)
 	{
 		res = issue_command_to_watchdog(WD_NODE_STATUS_CHANGE_COMMAND, 0, json_data, strlen(json_data), false);
 		if (res)
@@ -690,7 +688,7 @@ is_wd_lifecheck_ready(void)
 		else
 		{
 			ereport(ERROR,
-					(errmsg("checking if watchdog is ready, unkown watchdog mode \"%d\"",
+					(errmsg("checking if watchdog is ready, unknown watchdog mode \"%d\"",
 							pool_config->wd_lifecheck_method)));
 		}
 	}
@@ -1016,11 +1014,20 @@ wd_ping_pgpool(LifeCheckNode * node, char* password)
 
 	conn = create_conn(node->hostName, node->pgpoolPort, password);
 	if (conn == NULL)
+	{
+		if(chceck_password_type_is_not_md5(pool_config->wd_lifecheck_user, pool_config->wd_lifecheck_password) == -1)
+		{
+			ereport(ERROR,
+					(errmsg("the password of wd_lifecheck_user %s is invalid format",
+						pool_config->recovery_user),
+					errdetail("wd_lifecheck_password is not allowed to be md5 hashed format")));
+		}
 		return WD_NG;
+	}
 	return ping_pgpool(conn);
 }
 
-/* inner function for issueing lifecheck query */
+/* inner function for issuing lifecheck query */
 static int
 ping_pgpool(PGconn *conn)
 {
@@ -1109,7 +1116,7 @@ wd_ping_all_server(void)
 		WdUpstreamConnectionData *server = (WdUpstreamConnectionData *) lfirst(lc);
 
 		if (server->pid <= 0)
-			server->pid = wd_issue_ping_command(server->hostname, &server->outputfd);
+			server->pid = wd_trusted_server_command(server->hostname);
 
 		if (server->pid > 0)
 			ping_process++;
@@ -1126,14 +1133,18 @@ wd_ping_all_server(void)
 			if (server)
 			{
 				ping_process--;
-				server->reachable = wd_get_ping_result(server->hostname, status, server->outputfd);
+				server->reachable = (status == 0);
 				server->pid = 0;
-				close(server->outputfd);
 				if (server->reachable)
 				{
 					/* one reachable server is all we need */
 					POOL_SETMASK(&UnBlockSig);
 					return true;
+				}
+				if (WIFEXITED(status) == 0 || WEXITSTATUS(status) != 0)
+				{
+					ereport(WARNING,
+							(errmsg("watchdog failed to ping host: \"%s\"", server->hostname)));
 				}
 			}
 			else

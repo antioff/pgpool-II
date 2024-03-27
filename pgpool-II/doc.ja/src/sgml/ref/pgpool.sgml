@@ -139,7 +139,7 @@ Pgpool-II documentation
       <para>
        <!--
        Set the path to the <filename>.pgpoolkey</filename> file.
-       Mandatory if you use AES256 encrypted password and the file is placed other than the standard locatiaon and used.
+       Mandatory if you use AES256 encrypted password and the file is placed other than the standard location and used.
        -->
        <filename>.pgpoolkey</filename>ファイルへのパスを指定します。
        AES256暗号化パスワードを使用し、このファイルが標準の場所以外にある場合には必須です。
@@ -255,6 +255,12 @@ Pgpool-II documentation
        -->
        <filename>pgpool_status</filename>ファイルを破棄し、以前の状態を復元しません。
       </para>
+      <caution>
+       <para>
+       このオプションは開発者向けテスト用の機能であり、それ以外の用途には使用しないでください。
+       <filename>pgpool_status</filename>ファイルを不用意に削除すると、<productname>Pgpool-II</productname>を再起動した時にsplit-brain状(primaryサーバが複数存在する状態)になることがあります。
+       </para>
+      </caution>
      </listitem>
     </varlistentry>
    </variablelist>
@@ -317,7 +323,7 @@ Pgpool-II documentation
    <!--
    Reload configuration file
    of <productname>Pgpool-II</productname>. No specific options
-   exist for realod mode. Common options are applicable.
+   exist for reload mode. Common options are applicable.
    -->
    <productname>Pgpool-II</productname>の設定ファイルを再読み込みします。
    reloadモードには専用のオプションはありません。

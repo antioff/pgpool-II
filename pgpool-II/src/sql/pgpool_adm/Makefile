@@ -2,11 +2,13 @@
 
 MODULE_big = pgpool_adm
 OBJS = pgpool_adm.o
-PG_CPPFLAGS = -I$(libpq_srcdir) -I../../include/pcp
+PG_CPPFLAGS = -I$(libpq_srcdir) -I../../include/pcp -DPGPOOL_ADM
 
 EXTENSION = pgpool_adm
 DATA = pgpool_adm--1.0.sql pgpool_adm--1.1.sql pgpool_adm--1.2.sql pgpool_adm--1.3.sql \
-pgpool_adm--1.0--1.1.sql pgpool_adm--1.1--1.2.sql pgpool_adm--1.2--1.3.sql
+pgpool_adm--1.0--1.1.sql pgpool_adm--1.1--1.2.sql pgpool_adm--1.2--1.3.sql \
+pgpool_adm--1.4.sql pgpool_adm--1.3--1.4.sql \
+pgpool_adm--1.5.sql pgpool_adm--1.4--1.5.sql
 SHLIB_LINK =  -L../../libs/pcp/.libs -lpcp -Wl,--as-needed -Wl,-rpath,'${prefix}/lib',--enable-new-dtags
 # if you are using PostgreSQL 8.0 or later,
 # using pg_config is recommended.

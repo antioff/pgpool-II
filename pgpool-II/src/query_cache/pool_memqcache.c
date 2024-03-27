@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -19,7 +19,7 @@
  * pool_memqcache.c: query cache on shmem or memcached
  *
  */
-#define DATABASE_TO_OID_QUERY "SELECT oid FROM pg_database WHERE datname = '%s'"
+#define DATABASE_TO_OID_QUERY "SELECT oid FROM pg_catalog.pg_database WHERE datname = '%s'"
 
 #include "pool.h"
 
@@ -258,7 +258,7 @@ pool_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *data, size_
 		return -1;
 	}
 	ereport(DEBUG1,
-			(errmsg("commiting SELECT results to cache storage"),
+			(errmsg("committing SELECT results to cache storage"),
 			 errdetail("Query=\"%s\"", query)));
 #ifdef DEBUG
 	dump_cache_data(data, datalen);
@@ -268,14 +268,14 @@ pool_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *data, size_
 	/* encode md5key for memcached */
 	encode_key(query, tmpkey, backend);
 	ereport(DEBUG2,
-			(errmsg("commiting SELECT results to cache storage"),
+			(errmsg("committing SELECT results to cache storage"),
 			 errdetail("search key : \"%s\"", tmpkey)));
 
 	memcpy(cachekey.hashkey, tmpkey, 32);
 
 	memqcache_expire = pool_config->memqcache_expire;
 	ereport(DEBUG1,
-			(errmsg("commiting SELECT results to cache storage"),
+			(errmsg("committing SELECT results to cache storage"),
 			 errdetail("memqcache_expire = %ld", memqcache_expire)));
 
 	if (pool_is_shmem_cache())
@@ -290,7 +290,7 @@ pool_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *data, size_
 		if (cacheid != NULL)
 		{
 			ereport(DEBUG1,
-					(errmsg("commiting SELECT results to cache storage"),
+					(errmsg("committing SELECT results to cache storage"),
 					 errdetail("item already exists")));
 
 			return 0;
@@ -307,7 +307,7 @@ pool_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *data, size_
 			else
 			{
 				ereport(DEBUG2,
-						(errmsg("commiting SELECT results to cache storage"),
+						(errmsg("committing SELECT results to cache storage"),
 						 errdetail("blockid: %d itemid: %d",
 								   cacheid->blockid, cacheid->itemid)));
 			}
@@ -328,7 +328,7 @@ pool_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *data, size_
 			return -1;
 		}
 		ereport(DEBUG1,
-				(errmsg("commiting SELECT results to cache storage"),
+				(errmsg("committing SELECT results to cache storage"),
 				 errdetail("set cache succeeded")));
 	}
 #endif
@@ -368,7 +368,7 @@ pool_catalog_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *dat
 		return -1;
 	}
 	ereport(DEBUG1,
-			(errmsg("commiting relation cache to cache storage"),
+			(errmsg("committing relation cache to cache storage"),
 			 errdetail("Query=\"%s\"", query)));
 
 #ifdef DEBUG
@@ -378,14 +378,14 @@ pool_catalog_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *dat
 	/* encode md5key for memcached */
 	encode_key(query, tmpkey, backend);
 	ereport(DEBUG2,
-			(errmsg("commiting relation cache to cache storage"),
+			(errmsg("committing relation cache to cache storage"),
 			 errdetail("search key : \"%s\"", tmpkey)));
 
 	memcpy(cachekey.hashkey, tmpkey, 32);
 
 	memqcache_expire = pool_config->relcache_expire;
 	ereport(DEBUG1,
-			(errmsg("commiting relation cache to cache storage"),
+			(errmsg("committing relation cache to cache storage"),
 			 errdetail("memqcache_expire = %ld", memqcache_expire)));
 
 	if (pool_is_shmem_cache())
@@ -400,7 +400,7 @@ pool_catalog_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *dat
 		if (cacheid != NULL)
 		{
 			ereport(DEBUG1,
-					(errmsg("commiting relation cache to cache storage"),
+					(errmsg("committing relation cache to cache storage"),
 					 errdetail("item already exists")));
 
 			return 0;
@@ -417,7 +417,7 @@ pool_catalog_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *dat
 			else
 			{
 				ereport(DEBUG2,
-						(errmsg("commiting relation cache to cache storage"),
+						(errmsg("committing relation cache to cache storage"),
 						 errdetail("blockid: %d itemid: %d",
 								   cacheid->blockid, cacheid->itemid)));
 			}
@@ -438,7 +438,7 @@ pool_catalog_commit_cache(POOL_CONNECTION_POOL * backend, char *query, char *dat
 			return -1;
 		}
 		ereport(DEBUG1,
-				(errmsg("commiting relation cache to cache storage"),
+				(errmsg("committing relation cache to cache storage"),
 				 errdetail("set cache succeeded")));
 	}
 #endif
@@ -706,7 +706,7 @@ delete_cache_on_memcached(const char *key)
 	memcached_return rc;
 
 	ereport(DEBUG2,
-			(errmsg("memcache: deleteing cache on memcached with key: \"%s\"", key)));
+			(errmsg("memcache: deleting cache on memcached with key: \"%s\"", key)));
 
 
 	/* delete cache data on memcached. key is md5 hash query */
@@ -734,7 +734,7 @@ pool_fetch_from_memory_cache(POOL_CONNECTION * frontend,
 {
 	char	   *qcache;
 	size_t		qcachelen;
-	int			sts;
+	volatile int	sts;
 	pool_sigset_t oldmask;
 
 	ereport(DEBUG1,
@@ -743,7 +743,7 @@ pool_fetch_from_memory_cache(POOL_CONNECTION * frontend,
 	*foundp = false;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
-	pool_shmem_lock();
+	pool_shmem_lock(POOL_MEMQ_SHARED_LOCK);
 
 	PG_TRY();
 	{
@@ -1268,7 +1268,7 @@ pool_extract_table_oids(Node *node, int **oidsp)
 	else
 	{
 		ereport(DEBUG1,
-				(errmsg("memcache: extracting table oids: statment is different from INSERT/UPDATE/DELETE/TRUNCATE/DROP TABLE/ALTER TABLE")));
+				(errmsg("memcache: extracting table oids: statement is different from INSERT/UPDATE/DELETE/TRUNCATE/DROP TABLE/ALTER TABLE")));
 		return 0;
 	}
 
@@ -1999,7 +1999,7 @@ pool_reset_memqcache_buffer(bool reset_dml_oids)
 
 /*
  * Return true if memory cache method is "shmem".  The purpose of this
- * function is to cache the result of stcmp and to save a few cycle.
+ * function is to cache the result of strcmp and to save a few cycle.
  */
 bool
 pool_is_shmem_cache(void)
@@ -2062,6 +2062,7 @@ pool_shared_memory_cache_size(void)
 	/* Remember # of blocks */
 	pool_set_memqcache_blocks(num_blocks);
 	size = pool_config->memqcache_cache_block_size * num_blocks;
+	elog(DEBUG1, "shared_memory_cache_size: %zu", size);
 	return size;
 }
 
@@ -2090,7 +2091,7 @@ pool_clear_memory_cache(void)
 	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
-	pool_shmem_lock();
+	pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
 
 	PG_TRY();
 	{
@@ -2103,6 +2104,8 @@ pool_clear_memory_cache(void)
 		pool_discard_oid_maps();
 
 		pool_hash_reset(pool_config->memqcache_max_num_cache);
+
+		pool_init_whole_cache_blocks();
 	}
 	PG_CATCH();
 	{
@@ -2126,8 +2129,19 @@ pool_memory_cache_address(void)
 }
 
 /*
- * Initialize new block
+ * Initialize whole cache blocks
  */
+void
+pool_init_whole_cache_blocks(void)
+{
+	int		blocks = pool_get_memqcache_blocks();
+	int		i;
+
+	for (i = 0; i < blocks; i++)
+	{
+		pool_init_cache_block(i);
+	}
+}
 
 /*
  * Free space management map
@@ -2140,7 +2154,7 @@ pool_memory_cache_address(void)
  * For example, if the value is 2, the free space can be between 64
  * bytes and 95 bytes.
  *
- * value free space(in bytes)
+ * value free space (in bytes)
  * 0     0-31
  * 1     32-63
  * 2     64-95
@@ -2159,6 +2173,7 @@ pool_shared_memory_fsmm_size(void)
 	size_t		size;
 
 	size = pool_get_memqcache_blocks() * sizeof(char);
+	elog(DEBUG1, "shared_memory_fsmm_size: %zu", size);
 	return size;
 }
 
@@ -2225,6 +2240,10 @@ pool_reset_fsmm(size_t size)
 /*
  * Find victim block using clock algorithm and make it free.
  * Returns new free block id.
+ * XXX actually this is not a clock algorithm because it does not have "reference" bit.
+ * It's like a simple FIFO.
+ * See https://en.wikipedia.org/wiki/Page_replacement_algorithm#Clock for more details.
+ * It would be nice if we could use true clock algorithm someday.
  */
 static POOL_CACHE_BLOCKID pool_reuse_block(void)
 {
@@ -2240,6 +2259,7 @@ static POOL_CACHE_BLOCKID pool_reuse_block(void)
 	reused_block = *pool_fsmm_clock_hand;
 	p = block_address(reused_block);
 
+	/* Remove all items in this block from hash table */
 	for (i = 0; i < bh->num_items; i++)
 	{
 		cip = item_pointer(p, i);
@@ -2298,7 +2318,7 @@ static POOL_CACHE_BLOCKID pool_get_block(size_t free_space)
 		if (p[i] >= encode_value)
 		{
 			/*
-			 * This block *may" have enough space. We need to make sure it
+			 * This block may not have enough space. We need to make sure it
 			 * actually has enough space.
 			 */
 			bh = (POOL_CACHE_BLOCK_HEADER *) block_address(i);
@@ -2429,7 +2449,6 @@ static POOL_CACHEID * pool_add_item_shmem_cache(POOL_QUERY_HASH * query_hash, ch
 	{
 		/* If not, reuse next victim block */
 		blockid = pool_reuse_block();
-		pool_init_cache_block(blockid);
 	}
 
 	/* Get block address on shmem */
@@ -2713,14 +2732,39 @@ static POOL_CACHEID * pool_find_item_on_shmem_cache(POOL_QUERY_HASH * query_hash
 	if (cih->expire > 0)
 	{
 		now = time(NULL);
-		if (now > (cih->timestamp + cih->expire))
+		if (difftime(now, cih->timestamp) > cih->expire)
 		{
-			ereport(DEBUG1,
-					(errmsg("memcache finding item"),
-					 errdetail("cache expired: now: %ld timestamp: %ld",
-							   now, cih->timestamp + cih->expire)));
-			pool_delete_item_shmem_cache(c);
-			return NULL;
+			/*
+			 * We need to acquire an exclusive lock before removing the cache
+			 * entry.  Since a lock escalation from shared lock to exclusive
+			 * lock is not supported, we need to release the lock then acquire
+			 * an exclusive lock.
+			 */
+			pool_shmem_unlock();
+			pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
+			/*
+			 * There is a window between pool_shmem_unlock() and
+			 * pool_shmem_lock().  We need to get POOL_CACHEID and
+			 * POOL_CACHE_ITEM_HEADER again because they could have been
+			 * modified by someone else.
+			 */
+			c = pool_hash_search(query_hash);
+			if (!c)
+			{
+				return NULL;
+			}
+
+			cih = item_header(block_address(c->blockid), c->itemid);
+			now = time(NULL);
+			if (now > (cih->timestamp + cih->expire))
+			{
+				ereport(DEBUG1,
+						(errmsg("memcache finding item"),
+						 errdetail("cache expired: now: %ld timestamp: %ld",
+								   now, cih->timestamp + cih->expire)));
+				pool_delete_item_shmem_cache(c);
+				return NULL;
+			}
 		}
 	}
 
@@ -2826,7 +2870,7 @@ pool_delete_item_shmem_cache(POOL_CACHEID * cacheid)
 	pool_hash_delete(&key);
 
 	/*
-	 * If the deleted item is last one in the block, we add it to the free
+	 * If the deleted item is the last one in the block, we add it to the free
 	 * space.
 	 */
 	if (cacheid->itemid == (bh->num_items - 1))
@@ -2834,7 +2878,7 @@ pool_delete_item_shmem_cache(POOL_CACHEID * cacheid)
 		bh->free_bytes += size;
 		ereport(DEBUG1,
 				(errmsg("memcache deleting item data"),
-				 errdetail("deleted %d bytes, freebytes is = %d",
+				 errdetail("deleted %d bytes, freebytes is %d",
 						   size, bh->free_bytes)));
 
 		bh->num_items--;
@@ -2936,15 +2980,46 @@ pool_wipe_out_cache_block(POOL_CACHE_BLOCKID blockid)
 }
 #endif
 
+#undef LOCK_TRACE
+
+static int memq_lock_fd = 0;
+
 /*
  * Acquire lock: XXX giant lock
  */
 void
-pool_shmem_lock(void)
+pool_shmem_lock(POOL_MEMQ_LOCK_TYPE type)
 {
+	if (memq_lock_fd == 0)
+	{
+		char path[1024];
+
+		snprintf(path, sizeof(path), "%s/%s", pool_config->logdir, QUERY_CACHE_LOCK_FILE);
+		memq_lock_fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+		if (memq_lock_fd == -1)
+		{
+			ereport(FATAL,
+					(errmsg("Failed to open lock file for query cache \"%s\"", path),
+					 errdetail("%m")));
+		}
+	}
+
+#ifdef LOCK_TRACE
+		elog(LOG, "LOCK TRACE: try to aquire lock %s", type == POOL_MEMQ_EXCLUSIVE_LOCK? "LOCK_EX" : "LOCK_SH");
+#endif
 	if (pool_is_shmem_cache() && !is_shmem_locked)
 	{
-		pool_semaphore_lock(SHM_CACHE_SEM);
+		if (flock(memq_lock_fd, type == POOL_MEMQ_EXCLUSIVE_LOCK? LOCK_EX : LOCK_SH))
+		{
+			ereport(FATAL,
+					(errmsg("Failed to lock file for query cache"),
+					 errdetail("%m")));
+
+		}
+
+#ifdef LOCK_TRACE
+		elog(LOG, "LOCK TRACE: aquire lock %s", type == POOL_MEMQ_EXCLUSIVE_LOCK? "LOCK_EX" : "LOCK_SH");
+#endif
 		is_shmem_locked = true;
 	}
 }
@@ -2957,7 +3032,15 @@ pool_shmem_unlock(void)
 {
 	if (pool_is_shmem_cache() && is_shmem_locked)
 	{
-		pool_semaphore_unlock(SHM_CACHE_SEM);
+		if (flock(memq_lock_fd, LOCK_UN))
+		{
+			ereport(FATAL,
+					(errmsg("Failed to unlock file for query cache"),
+					 errdetail("%m")));
+		}
+#ifdef LOCK_TRACE
+		elog(LOG, "LOCK TRACE: unlock");
+#endif
 		is_shmem_locked = false;
 	}
 }
@@ -2980,7 +3063,7 @@ block_address(int blockid)
 	char	   *p;
 
 	p = pool_memory_cache_address() +
-		blockid * pool_config->memqcache_cache_block_size;
+		(uint64)blockid * pool_config->memqcache_cache_block_size;
 	return p;
 }
 
@@ -3474,8 +3557,8 @@ pool_check_and_discard_cache_buffer(int num_oids, int *oids)
 }
 
 /*
- * At Ready for Query or Comand Complete handle query cache.  For streaming
- * replication mode and extended query at Comand Complete handle query cache.
+ * At Ready for Query or Command Complete handle query cache.  For streaming
+ * replication mode and extended query at Command Complete handle query cache.
  * For other case At Ready for Query handle query cache.
  */
 void
@@ -3520,7 +3603,7 @@ pool_handle_query_cache(POOL_CONNECTION_POOL * backend, char *query, Node *node,
 				 */
 				/* Register to memcached or shmem */
 				POOL_SETMASK2(&BlockSig, &oldmask);
-				pool_shmem_lock();
+				pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
 
 				cache_buffer = pool_get_current_cache_buffer(&len);
 				if (cache_buffer)
@@ -3614,7 +3697,7 @@ pool_handle_query_cache(POOL_CONNECTION_POOL * backend, char *query, Node *node,
 		int			num_caches;
 
 		POOL_SETMASK2(&BlockSig, &oldmask);
-		pool_shmem_lock();
+		pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
 
 		/* Invalidate query cache */
 		if (pool_config->memqcache_auto_cache_invalidation)
@@ -3663,7 +3746,7 @@ pool_handle_query_cache(POOL_CONNECTION_POOL * backend, char *query, Node *node,
 	}
 	else						/* Non cache safe queries */
 	{
-		/* Non cachable SELECT */
+		/* Non cacheable SELECT */
 		if (node && IsA(node, SelectStmt))
 		{
 			/* Extract table oids from buffer */
@@ -3678,7 +3761,7 @@ pool_handle_query_cache(POOL_CONNECTION_POOL * backend, char *query, Node *node,
 				if (num_oids > 0 && pool_config->memqcache_auto_cache_invalidation)
 				{
 					POOL_SETMASK2(&BlockSig, &oldmask);
-					pool_shmem_lock();
+					pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
 					pool_invalidate_query_cache(num_oids, oids, true, 0);
 					pool_shmem_unlock();
 					POOL_SETMASK(&oldmask);
@@ -3718,7 +3801,7 @@ pool_handle_query_cache(POOL_CONNECTION_POOL * backend, char *query, Node *node,
 
 			if (num_oids > 0 && pool_config->memqcache_auto_cache_invalidation)
 			{
-				pool_shmem_lock();
+				pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
 				pool_invalidate_query_cache(num_oids, oids, true, dboid);
 				pool_discard_oid_maps_by_db(dboid);
 				pool_shmem_unlock();
@@ -3747,7 +3830,7 @@ pool_handle_query_cache(POOL_CONNECTION_POOL * backend, char *query, Node *node,
 				if (state == 'I')
 				{
 					POOL_SETMASK2(&BlockSig, &oldmask);
-					pool_shmem_lock();
+					pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
 					pool_invalidate_query_cache(num_oids, oids, true, 0);
 					pool_shmem_unlock();
 					POOL_SETMASK(&oldmask);
@@ -3991,6 +4074,8 @@ pool_hash_size(int nelements)
 	size = (char *) &hh.elements - (char *) &hh + sizeof(POOL_HEADER_ELEMENT) * nelements2;
 
 	size += sizeof(POOL_HASH_ELEMENT) * nelements2;
+
+	elog(DEBUG1, "pool_hash_size: %zu", size);
 
 	return size;
 }
@@ -4446,7 +4531,7 @@ inject_cached_message(POOL_CONNECTION * backend, char *qcache, int qcachelen)
 	else
 		timeout = 0;
 
-	/* Send flush messsage to backend to retrieve response of backend */
+	/* Send flush message to backend to retrieve response of backend */
 	pool_write(backend, "H", 1);
 	len = htonl(sizeof(len));
 	pool_write_and_flush(backend, &len, sizeof(len));
@@ -4548,7 +4633,7 @@ InvalidateQueryCache(int tableoid, int dboid)
 	pool_sigset_t oldmask;
 
 	POOL_SETMASK2(&BlockSig, &oldmask);
-	pool_shmem_lock();
+	pool_shmem_lock(POOL_MEMQ_EXCLUSIVE_LOCK);
 
 	/* Invalidate query cache */
 	pool_invalidate_query_cache(1, &tableoid, true, dboid);

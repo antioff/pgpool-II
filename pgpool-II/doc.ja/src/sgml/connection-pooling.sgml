@@ -190,7 +190,7 @@
 
      <para>
       <!--
-      But serialization has its own overheads, and it is recomended
+      But serialization has its own overheads, and it is recommended
       to be used only with the larger values of <xref linkend="guc-num-init-children">.
       For the small number of <xref linkend="guc-num-init-children">,
       the serialize accept can degrade the performance because of
@@ -203,7 +203,7 @@
      <note>
       <para>
        <!--
-       It is recomended to do a benchmark before deciding wether to use
+       It is recommended to do a benchmark before deciding wether to use
        <varname>serialize_accept</varname> or not, because the corelation
        of <xref linkend="guc-num-init-children"> and <varname>serialize_accept</varname>
        can be different on different environments.
@@ -964,7 +964,7 @@ local0.*    /var/log/pgpool.log
       the program name used to identify <productname>Pgpool-II</productname>
       messages in <application>syslog</> logs. The default is <literal>pgpool</literal>.
       -->
-      <application>syslog</>にログ取得が有効な場合、このパラメータは<application>syslog</>ログ内の<productname>Pgpool-II</productname>メッセージを特定するのに使用するプログラム名を確定します。
+      <application>syslog</>へのログ取得が有効な場合、このパラメータは<application>syslog</>ログ内の<productname>Pgpool-II</productname>メッセージを特定するのに使用するプログラム名を確定します。
       デフォルトは<literal>pgpool</literal>です。
      </para>
      <para>
@@ -1113,12 +1113,59 @@ local0.*    /var/log/pgpool.log
     <listitem>
      <para>
       <!--
-      Similar to <xref linkend="guc-log-statement">, except that it print the
+      Similar to <xref linkend="guc-log-statement">, except that it prints the
       logs for each DB node separately. It can be useful to make sure that
       replication or load-balancing is working.
       -->
       <xref linkend="guc-log-statement">と似ていますが、DBノード単位でログが出力されます。
        レプリケーションや負荷分散が動いていることを確認するのに便利です。
+     </para>
+     <para>
+      <!--
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+      You can also use <xref linkend="SQL-PGPOOL-SET"> command to alter the value of
+      this parameter for a current session.
+      -->
+      このパラメータは<productname>Pgpool-II</>の設定を再読み込みすることで変更可能です。
+      現在のセッションでのパラメータ値は、<xref linkend="SQL-PGPOOL-SET">コマンドで変更することもできます。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-notice-per-node-statement" xreflabel="notice_per_node_statement">
+    <term><varname>notice_per_node_statement</varname> (<type>boolean</type>)
+     <indexterm>
+      <!--
+      <primary><varname>notice_per_node_statement</varname> configuration parameter</primary>
+      -->
+      <primary><varname>notice_per_node_statement</varname> 設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Similar to <xref linkend="guc-log-per-node-statement">, except
+      that it prints the statement logs for each DB node separately as
+      a NOTICE message. With the
+      default <xref linkend="client_min_messages"> setting (that is
+      NOTICE), the log message will be printed on client's terminal as
+      well. This is convenient for clients because it does not need to
+      access <productname>Pgpool-II</productname> log file.  Note that
+      unlike <xref linkend="guc-log-per-node-statement">, <xref linkend="guc-notice-per-node-statement">
+      does not print internal queries, (e.g., system catalog inquiry).
+      This is because this feature is designed to be used for testing
+      as well. As internal queries tend to be non-deterministic,
+      printing them in testing is not helpful. For the same reason,
+      backend process id is not printed.
+      -->
+      <xref linkend="guc-log-per-node-statement">と似ていますが、NOTICEメッセージとしてDBノード単位でログが出力されます。
+      <xref linkend="guc-client-min-messages">のデフォルト設定(すなわちNOTICE)では、このログメッセージはクライアントの端末にも出力されます。
+      クライアントにとっては、<productname>Pgpool-II</productname>のログファイルにアクセスする必要がないので便利です。
+      <xref linkend="guc-log-per-node-statement">と違って、<xref linkend="guc-notice-per-node-statement">は内部的に発行する問い合わせ（たとえば
+システムカタログへの問い合わせ）は出力しないことに注意してください。
+      これは、この機能がテストにも使えるように設計されているからです。
+      内部的な問い合わせは非決定論的に発行される傾向があるため、テストに使うには適していません。
+      同じ理由で、バックエンドのプロセスIDも出力されません。
      </para>
      <para>
       <!--
@@ -1237,6 +1284,33 @@ local0.*    /var/log/pgpool.log
     </listitem>
    </varlistentry>
 
+   <varlistentry id="guc-log-pcp-processes" xreflabel="log_pcp_processes">
+    <term><varname>log_pcp_processes</varname> (<type>boolean</type>)
+     <indexterm>
+      <!--
+      <primary><varname>log_pcp_processes</varname> configuration parameter</primary>
+       -->
+      <primary><varname>log_pcp_processes</varname> 設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Setting to on, enable logging about normal PCP Process
+      fork and exit status. Default is on.
+      -->
+      onに設定されている場合、PCPプロセスの正常なforkあるいはexitした状態をログに出力します。
+      デフォルトはonです。
+     </para>
+     <para>
+      <!--
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+      -->
+      このパラメータは<productname>Pgpool-II</>の設定を再読み込みすることで変更可能です。
+     </para>
+    </listitem>
+   </varlistentry>
+
    <varlistentry id="guc-log-error-verbosity" xreflabel="log_error_verbosity">
     <term><varname>log_error_verbosity</varname> (<type>enum</type>)
      <indexterm>
@@ -1289,16 +1363,13 @@ local0.*    /var/log/pgpool.log
       <literal>%</literal> characters begin <quote>escape sequences</> that are replaced
       with information outlined below.
       All unrecognized escapes are ignored. Other characters are copied straight to
-      the log line. Default is '%t: pid %p: ', which prints timestamp and process id,
-      which keeps backward compatibily with pre<productname>Pgpool-II</productname>
-      <emphasis>V3.4</emphasis>.
+      the log line. Default is '%m: %a pid %p: ', which prints timestamp, application name and process id.
       -->
       これは、各ログ行の先頭に出力する<function>printf</>の書式文字列です。
       <literal>%</>から始まる<quote>エスケープシーケンス</>は、後述の通りのステータス情報で置き換えられます。
       認識できないエスケープは無視されます。
       他の文字はそのままログ行に出力されます。
-      デフォルトは '%t: pid %p: 'で、タイムスタンプとプロセスIDを印字します。
-      これは、<productname>Pgpool-II</productname> <emphasis>V3.4</emphasis>より前のバージョンとの互換性を保つためです。
+      デフォルトは '%m: %a pid %p: 'で、タイムスタンプ、アプリケーション名、プロセスIDを印字します。
      </para>
 
      <table id="log-line-prefix-table">
@@ -1346,10 +1417,12 @@ local0.*    /var/log/pgpool.log
 
 	<row>
 	 <entry>%t</entry>
-	 <!--
-	 <entry>Time stamp</entry>
-	 -->
-	 <entry>タイムスタンプ</entry>
+	 <entry>ミリ秒なしのタイムスタンプ</entry>
+	</row>
+
+	<row>
+	 <entry>%m</entry>
+	 <entry>ミリ秒付きのタイムスタンプ</entry>
 	</row>
 
 	<row>
@@ -1422,7 +1495,7 @@ local0.*    /var/log/pgpool.log
 	</row>
 
 	<row>
-	 <entry>watchdog heart beat reciever</entry>
+	 <entry>watchdog heart beat receiver</entry>
 	 <entry>heart_beat_receiver</entry>
 	</row>
 
@@ -1459,6 +1532,11 @@ local0.*    /var/log/pgpool.log
 	<row>
 	 <entry>health check process</entry>
 	 <entry>health_check%d (%dはバックエンドノードIDに置換されます)</entry>
+	</row>
+
+	<row>
+	 <entry>logger process</entry>
+	 <entry>logger (loggerプロセスが管理するログファイルに「logger」というアプリケーション名が出力されることはありません)</entry>
 	</row>
 
        </tbody>

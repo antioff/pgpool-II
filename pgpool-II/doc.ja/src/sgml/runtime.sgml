@@ -180,21 +180,21 @@
 
    </para>
 
-   <table id="pgpool-conf-samples-table">
+   <table id="backend-clustering-mode-table">
     <!--
-    <title>pgpool.conf samples</title>
+    <title><xref linkend="guc-backend-clustering-mode"> value in pgpool.conf</title>
     -->
-    <title>pgpool.confのサンプル</title>
+    <title>pgpool.conf中の<xref linkend="guc-backend-clustering-mode">の値</title>
 
     <tgroup cols="2">
      <thead>
       <row>
        <!--
-       <entry>Operation mode</entry>
-       <entry>Configuration file name</entry>
+       <entry>Clustering mode</entry>
+       <entry>value</entry>
        -->
        <entry>クラスタリングモード</entry>
-       <entry>設定ファイル名</entry>
+       <entry>値</entry>
       </row>
      </thead>
 
@@ -204,27 +204,27 @@
        <entry>Streaming replication mode</entry>
        -->
        <entry>ストリーミングレプリケーションモード</entry>
-       <entry><literal>pgpool.conf.sample-stream</literal></entry>
+       <entry><literal>streaming_replication</literal></entry>
       </row>
       <row>
        <entry>ネイティブレプリケーションモード</entry>
-       <entry><literal>pgpool.conf.sample-replication</literal></entry>
+       <entry><literal>native_replication</literal></entry>
       </row>
       <row>
        <entry>ロジカルレプリケーションモード</entry>
-       <entry><literal>pgpool.conf.sample-logical</literal></entry>
+       <entry><literal>logical_replication</literal> </entry>
       </row>
       <row>
        <entry>slonyモード</entry>
-       <entry><literal>pgpool.conf.sample-slony</literal></entry>
+       <entry><literal>slony</literal></entry>
       </row>
       <row>
        <entry>スナップショットアイソレーションモード</entry>
-       <entry><literal>pgpool.conf.sample-snapshot</literal></entry>
+       <entry><literal>snapshot_isolation</literal></entry>
       </row>
       <row>
        <entry>Rawモード</entry>
-       <entry><literal>pgpool.conf.sample-raw</literal> </entry>
+       <entry><literal>raw</literal> </entry>
       </row>
      </tbody>
     </tgroup>
@@ -242,7 +242,7 @@
     （もしかするとそのためにはroot権限が必要かもしれません。）
     <programlisting>
 # cd /usr/local/etc
-# cp pgpool.conf.sample-stream pgpool.conf
+# cp pgpool.conf.sample pgpool.conf
     </programlisting>
    </para>
   </sect2>
@@ -288,82 +288,47 @@
    </indexterm>
 
    <para>
-    <productname>Pgpool-II</>にはストリーミングレプリケーションモード、ロジカルレプリケーションモード、メインレプリカモード(Slonyモード)、ネイティブレプリケーションモード、スナップショットアイソレーションモード、rawモードの6つのクラスタリングモードがあります。
+    <productname>Pgpool-II</>にはストリーミングレプリケーションモード、ロジカルレプリケーションモード、メインレプリカモード(Slonyモード)、ネイティブレプリケーションモード、スナップショットアイソレーションモード、rawモードの6つの<link linkend="guc-backend-clustering-mode">クラスタリングモード</link>があります。
     いずれのモードにおいても、<productname>Pgpool-II</>はコネクションプーリング、自動フェイルオーバの機能を提供します。
-    ストリーミングレプリケーションモードとネイティブレプリケーションモードのときにのみオンラインリカバリが利用可能です。
+    ストリーミングレプリケーションモード、ネイティブレプリケーションモード、スナップショットアイソレーションモードでは、更新処理を受け付けながらデータベースノードの同期を取り直すオンラインリカバリが利用可能です。
+    オンラインリカバリの詳細については<xref linkend="runtime-online-recovery">を参照してください。
    </para>
 
    <para>
-    <!--
-    Those modes are exclusive each other and cannot be changed after
-    starting the server. You should make a decision which to use in
-    the early stage of designing the system. If you are not sure, it
-    is recommended to use the streaming replication mode.
-    -->
     これらのモードは互いに排他的であり、サーバ起動後は変更することができません。
     システム設計の初期の段階でどのモードを使うか決めなければなりません。
-    どれを使えば良いかわからない場合は、ストリーミングレプリケーションモードを使うことを推奨します。
+    どれを使えば良いかわからない場合は、ストリーミングレプリケーションモードかスナップショットアイソレーションモードを使うことを推奨します。
    </para>
 
    <para>
-    <!--
-    The streaming replication mode can be used with <productname>PostgreSQL</> servers
-    operating streaming replication. In this mode, <productname>PostgreSQL</> is
-    responsible for synchronizing databases. This mode is widely used
-    and most recommended way to use <productname>Pgpool-II</>. Load balancing is
-    possible in the mode.
-    -->
-    <firstterm>ストリーミングレプリケーションモード</firstterm>はストリーミングレプリケーションを使用する<productname>PostgreSQL</>サーバと一緒に使うことができます。
+    <firstterm>ストリーミングレプリケーションモード</firstterm>はストリーミングレプリケーションを使用する<productname>PostgreSQL</>サーバ(AWSのAuroa、RDSを含みます)と一緒に使うことができます。
     このモードでは、<productname>PostgreSQL</>がデータベースを同期する責任を持ちます。
     このモードは広く使われており、最も推奨される<productname>Pgpool-II</>の使用法です。
     このモードでは負荷分散が可能です。
+    ノードをまたがる可視性の一貫性は保証されません。
    </para>
 
    <para>
-    <!--
-    In the <firstterm>native replication
-    mode</firstterm>, <productname>Pgpool-II</> is responsible for
-    synchronizing databases. The advantage for the mode is the
-    synchronization is done in synchronous way: writing to the
-    database does not return until all of <productname>PostgreSQL</>
-    servers finish the write operation. However, you could get a
-    similar effect using <productname>PostgreSQL</> 9.6 or later
-    with <literal>synchronous_commit = remote_apply</literal> being
-    set in streaming replication. If you could use the setting, we
-    strongly recommend to use it instead of native replication mode
-    because you can avoid some <xref linkend="restrictions"> in the
-    native replication mode.  Since <productname>PostgreSQL</> does
-    not provide cross node snapshot control, it is possible that
-    session X can see data on node A committed by session Y before
-    session Y commits data on node B. If session X tries to update
-    data on node B based on the data seen on node A, then data
-    consistency between node A and B might be lost. To avoid the
-    problem, user need to issue an explict lock on the data. This is
-    another why reason we recommend to use streaming replication
-    mode with <literal>synchronous_commit = remote_apply</literal>.
-   </para>
-    <para>
-    Load balancing is possible in the mode.
+    <firstterm>スナップショットアイソレーションモード</firstterm>では、<productname>Pgpool-II</productname>がデータベースを同期する責任を持ちます。
+    このモードの利点はデータベース同期が同期的に行われることです。
+    すなわち、データベースへの書き込みは全ての<productname>PostgreSQL</productname>サーバが書き込み操作を完了するまで返ってきません。
+    また、スナップショットアイソレーションモードは、ノードをまたがる可視性の一貫性を保証します。
+    これは簡単に言うと、単一サーバ上のトランザクション可視性ルールがそのまま複数サーバからなるクラスタでも適用されるということで、<productname>Pgpool-II</productname>のスナップショットアイソレーションモードが持つ著しい特徴です。
+    実際、<productname>PostgreSQL</productname>に改造を加えずにノードをまたがる可視性の一貫性を保証するシステムは、現時点では<productname>Pgpool-II</productname>のスナップショットアイソレーションモードだけです。
+    これにより、アプリケーションは単一の<productname>PostgreSQL</productname>ではなく複数<productname>PostgreSQL</productname>からなるクラスタを使っていることを意識しないで済むメリットがあります。
+    ただし、このモードではトランザクション分離レベルを<emphasis>REPEATABLE READにする必要があります</emphasis>。
+      具体的には、<filename>postgresql.conf</filename>に以下のように記述します。
+      <programlisting>
+default_transaction_isolation = 'repeatable read'
+      </programlisting>
+    また、トランザクションの一貫性を保つ仕組みのオーバヘッドにより、ストリーミングレプリケーションモードやネイティブレプリケーションモードに比べると性能が低下します。
    </para>
 
-    <para>
-    In the <firstterm>raw
-    mode</firstterm>, <productname>Pgpool-II</> does not care about
-    the database synchronization. It's user's responsibility to make
-    the whole system does a meaningfull thing. Load balancing
-    is <emphasis>not</emphasis> possible in the mode.
-    -->
+   <para>
     <firstterm>ネイティブレプリケーションモード</firstterm>では、<productname>Pgpool-II</>がデータベースを同期する責任を持ちます。
     このモードの利点は同期が同期的に行われることです。
     すなわち、データベースへの書き込みは全ての<productname>PostgreSQL</>サーバが書き込み操作を完了するまで返ってきません。
-    しかし、<productname>PostgreSQL</> 9.6以降では、ストリーミングレプリケーションで<literal>synchronous_commit = remote_apply</literal>と設定することにより、同様の効果が得られます。
-    ネイティブレプリケーションモードの<xref linkend="restrictions">を回避できるので、この設定が使える場合には、ネイティブレプリケーションモードではなくてこの設定を使うことをお勧めします。
-     <productname>PostgreSQL</>はノードをまたがるスナップショット管理を提供しないため、セッションYがノードBでコミットする前に、ノードAでコミットしたデータをセッションXが見ることがあり得ます。
-     もしセッションXが、そのときノードAで見た見たデータに基づいてノードBのデータを更新しようとすると、ノードAとノードBのデータ一貫性は損なわれるかもしれません。
-     この問題を回避するには、ユーザは明示的にノードAのデータをロックしなければなりません。
-     これがストリーミングレプリケーションと<literal>synchronous_commit = remote_apply</literal>を使用することをおすすめするもう一つの理由です。
-   </para>
-   <para>
+    このモードではノードをまたがる可視性の一貫性は保証されないので、トランザクション分離レベルをREPEATABLE READに限定したくない場合を除き、スナップショットアイソレーションモードを使うことをお勧めします。
     このモードでは負荷分散が可能です。
    </para>
 
@@ -407,29 +372,6 @@
     このモードでは負荷分散が可能です。
    </para>
 
-   <para>
-    <firstterm>スナップショットアイソレーションモード</firstterm>は、ネィティブレプリケーションモードと似ていますが、更にノードをまたがる可視性の一貫性を保証します。
-    ただし、制限事項がいくつかあり、今の所(<productname>Pgpool-II</productname> 4.2)では「実験的な実装」という位置づけです。
-    業務で使用する場合には慎重なテストをお勧めします。
-   </para>
-   <itemizedlist>
-    <listitem>
-     <para>
-      PostgreSQLのトランザクション分離レベルをREPEATABLE READにする必要があります。
-      具体的には、<filename>postgresql.conf</filename>に以下のように記述します。
-      <programlisting>
-default_transaction_isolation = 'repeatable read'
-      </programlisting>
-     </para>
-    </listitem>
-
-    <listitem>
-     <para>
-      シリアル型やシーケンスに関する一貫した可視性を保証しません。
-     </para>
-    </listitem>
-
-   </itemizedlist>
 
    <para>
     <!--
@@ -443,6 +385,51 @@ default_transaction_isolation = 'repeatable read'
     このモードでは負荷分散は<emphasis>できません</emphasis>。
    </para>
   </sect2>
+
+  <sect2 id="process-management-mode">
+   <!--
+   <title>Process management modes</title>
+   -->
+   <title>プロセス管理モード</title>
+
+   <indexterm zone="running-mode">
+    <primary>dynamic process management</primary>
+   </indexterm>
+
+   <indexterm zone="running-mode">
+    <primary>static process management</primary>
+   </indexterm>
+   <para>
+    <!--
+    <productname>Pgpool-II</> implements a multi-process architecture where
+    each child process can handle exactly one client connection at any time.
+    The total number of concurrent client connections <productname>Pgpool-II</>
+    can handle is configured by the
+    <link linkend="guc-num-init-children">num_init_children</link> config parameter.
+    <productname>Pgpool-II</> supports two child process management modes.
+    <firstterm>Dynamic</firstterm> and <firstterm>Static</firstterm>.
+    In static process management mode, <productname>Pgpool-II</> pre-forks the
+    num_init_children number of child
+    process at startup, and each child process keeps listening for incoming
+    client connection. While with dynamic process management mode,
+    <productname>Pgpool-II</> keeps track of idle processes and forks or kills
+    processes to keep this number within the specified boundaries.
+    -->
+    <productname>Pgpool-II</>は、各子プロセスが常に1つのクライアント接続を処理できるマルチプロセスアーキテクチャを実装しています。
+    <productname>Pgpool-II</>が処理できるクライアントの最大同時接続数は、<xref linkend="guc-num-init-children">設定パラメーターによって設定されます。
+    <productname>Pgpool-II</>は、2つの子プロセス管理モード<firstterm>dynamic</firstterm>および<firstterm>static</firstterm>をサポートしています。
+    静的（<literal>static</literal>）プロセス管理モードでは、<productname>Pgpool-II</>は起動時に<varname>num_init_children</varname>の設定値の数の子プロセスを事前にフォークし、各子プロセスは、クライアント接続をリッスンし続けます。
+    動的（<literal>dynamic</literal>）プロセス管理モードでは、<productname>Pgpool-II</>はアイドル状態のプロセスを追跡し、プロセスの数を指定された範囲内に維持するために、プロセスをforkまたはkillします。
+   </para>
+   <para>
+    <!--
+    <varname>process_management_mode</varname> is not available prior to
+    <productname>Pgpool-II </productname><emphasis>V4.4</emphasis>.
+    -->
+    <xref linkend="guc-process-management-mode">は、<productname>Pgpool-II</> <emphasis>V4.4</emphasis>より以前のバージョンでは使用できません。
+   </para>
+  </sect2>
+
  </sect1>
 
  <sect1 id="configuring-backend-info">
@@ -824,65 +811,134 @@ $ <userinput>pgpool -f /usr/local/etc/pgpool.conf -F /usr/local/etc/pcp.conf -m 
 この節では最小限の停止時間でこの仕事を実行する方法を説明します。
   </para>
 
-  <para>
-<!--
-   Stopping or restarting <productname>PostgreSQL</productname>
-   causes failover. If the running mode is not streaming replication
-   mode, or the server is a standby server in streaming replication
-   mode, probably that's not a big deal because clients can always
-   use other servers in the cluster. However if the server is primary
-   server, it will cause change of primary server by promoting one of
-   the standby servers. Moreover if there's only one server remains
-   in the cluster, there are no alternative server or standby server
-   which can be promoted.
--->
-<productname>PostgreSQL</productname>を停止、再起動するとフェイルオーバが発生します。
-ストリーミングレプリケーションモードでない場合、あるいはストリーミングレプリケーションモードであってもサーバがスタンバイサーバであればあまり大きな問題にはなりませ
-ん。
-しかし、サーバがクラスタのプライマリサーバなら、スタンバイサーバの一つが昇格してしまいます。
-更には、クラスタに1台のサーバしか残っていなければ、昇格できるスタンバイサーバがないことになります。
-  </para>
+  <sect2 id="using-pcp-detach-node">
+   <title>pcp_detach_nodeコマンドの活用</title>
+   <para>
+    <command>pg_ctl</command>で<productname>PostgreSQL</productname>を停止すると、<productname>Pgpool-II</productname>がそのことをヘルスチェックで検知するまではフェイルオーバが発生せず、ヘルスチェックの設定によっては<productname>PostgreSQL</productname>の切り離しに時間がかかります。
+    とりわけ<link linkend="tutorial-watchdog">Watchdog</link>が有効かつ<xref linkend="guc-failover-require-consensus">がonなら、<productname>Pgpool-II</productname>は過半数のWatchdogが<productname>PostgreSQL</productname>の停止に合意するまで、フェイルオーバを開始しません。
+    <xref linkend="pcp-detach-node">でノードを切り離せば、ヘルスチェックの設定に関わらず直ちにフェイルオーバが開始されます。
+     切り離されたノードは実際には<productname>PostgreSQL</productname>が停止しておらず、必要なら手動で停止させなければならないことに注意してください。
+   </para>
+  </sect2>
 
-  <para>
-<!--
-   In this case you can use <xref linkend="guc-backend-flag"> to avoid
-   failover.  By setting below in pgpool.conf will avoid failover of
-   backend0.
--->
-この場合は<xref linkend="guc-backend-flag">を使ってフェイルオーバを避けることができます。
-以下のようにpgpool.confを設定すると、backend0のフェイルオーバが起こりません。
-   <programlisting>
+  <sect2 id="using-backend-flag">
+   <title>backend_flagの活用</title>
+   <para>
+    <!--
+    Stopping or restarting <productname>PostgreSQL</productname>
+    causes failover. If the running mode is not streaming replication
+    mode, or the server is a standby server in streaming replication
+    mode, probably that's not a big deal because clients can always
+    use other servers in the cluster. However if the server is primary
+    server, it will cause change of primary server by promoting one of
+    the standby servers. Moreover if there's only one server remains
+    in the cluster, there are no alternative server or standby server
+    which can be promoted.
+    -->
+    <productname>PostgreSQL</productname>を停止、再起動するとフェイルオーバが発生します。
+    ストリーミングレプリケーションモードでない場合、あるいはストリーミングレプリケーションモードであってもサーバがスタンバイサーバであればあまり大きな問題にはなりませ
+    ん。
+    しかし、サーバがクラスタのプライマリサーバなら、スタンバイサーバの一つが昇格してしまいます。
+    更には、クラスタに1台のサーバしか残っていなければ、昇格できるスタンバイサーバがないことになります。
+   </para>
+
+   <para>
+    <!--
+    In this case you can use <xref linkend="guc-backend-flag"> to avoid
+    failover.  By setting below in pgpool.conf will avoid failover of
+    backend0.
+    -->
+    この場合は<xref linkend="guc-backend-flag">を使ってフェイルオーバを避けることができます。
+     以下のようにpgpool.confを設定すると、backend0のフェイルオーバが起こりません。
+     <programlisting>
 backend_flag0 = DISALLOW_TO_FAILOVER
-    </programlisting>
-<!--
-   This will take effect by reloading or restarting
-   <productname>Pgpool-II</productname>. If this flag is set, failover
-   will not happen if the backend is not available. While the backend
-   is not available, clients wil get error message:
--->
-この設定は、<productname>Pgpool-II</productname>の再読込か再起動で有効になります。
-このフラグが設定されると、バックエンドが使用不可能になってもフェイルオーバが起きません。
-バックエンドが使用不可の間、クライアントは以下のエラーメッセージを受け取ります。
-   <programlisting>
+     </programlisting>
+     <!--
+     This will take effect by reloading or restarting
+     <productname>Pgpool-II</productname>. If this flag is set, failover
+     will not happen if the backend is not available. While the backend
+     is not available, clients wil get error message:
+     -->
+     この設定は、<productname>Pgpool-II</productname>の再読込か再起動で有効になります。
+     このフラグが設定されると、バックエンドが使用不可能になってもフェイルオーバが起きません。
+     バックエンドが使用不可の間、クライアントは以下のエラーメッセージを受け取ります。
+     <programlisting>
 psql: error: could not connect to server: FATAL:  failed to create a backend connection
 DETAIL:  executing failover on backend
-   </programlisting>
-<!--
-   After restarting the backend, clients can connect as usual.
+     </programlisting>
+     <!--
+     After restarting the backend, clients can connect as usual.
 
-   To allow failover on the backend again, you can set:
--->
-バックエンドを再起動すると、クライアントは通常通り接続ができます。
-再びフェイルオーバを有効にするには、以下を設定します。
-   <programlisting>
+     To allow failover on the backend again, you can set:
+     -->
+     バックエンドを再起動すると、クライアントは通常通り接続ができます。
+     再びフェイルオーバを有効にするには、以下を設定します。
+     <programlisting>
 backend_flag0 = ALLOW_TO_FAILOVER
-   </programlisting>
-<!--
-   and reload or restart <productname>Pgpool-II</productname>.
--->
-そして、<productname>Pgpool-II</productname>の再読込か、再起動を行います。
-  </para>
+     </programlisting>
+     <!--
+     and reload or restart <productname>Pgpool-II</productname>.
+     -->
+     そして、<productname>Pgpool-II</productname>の再読込か、再起動を行います。
+   </para>
+  </sect2>
+ </sect1>
 
+ <sect1 id="backup">
+<!--
+  <title>Backing up PostgreSQL database</title>
+-->
+  <title>PostgreSQLデータベースのバックアップ</title>
+
+  <indexterm zone="backup">
+   <primary>backup</primary>
+  </indexterm>
+
+  <para>
+<!--
+   If you plan to backup <productname>PostgreSQL</productname>
+   database
+   using <command>pg_dump</command>, <command>pg_basebackup</command>
+   or any other tools, we strongly recommend to run the commands
+   against <productname>PostgreSQL</productname>
+   directly. As <productname>Pgpool-II</productname> is a proxy
+   software, it gives an overhead for relaying message packets. Since
+   obtaining a backup tends to produce lots of packets, performing
+   backup through <productname>Pgpool-II</productname> will be slow
+   compared with directly
+   connecting <productname>PostgreSQL</productname> unless the
+   database is very small.
+-->
+<command>pg_dump</command>、<command>pg_basebackup</command>その他のツールを使って<productname>PostgreSQL</productname>データベースをバックアップする際は、そうしたコマンドを<productname>PostgreSQL</productname>で直接実行することを強くお勧めします。
+<productname>Pgpool-II</productname>はproxyソフトウェアなので、メッセージパケットを転送する際にオーバヘッドが生じるからです。
+バックアップの取得は大量のパケットを生じるので、データベースが非常に小さくない限り、<productname>Pgpool-II</productname>経由でバックアップを取得するのは、直接<productname>PostgreSQL</productname>に接続するよりも遅くなります。
+  </para>
+  <para>
+<!--
+   Moreover, parallel <command>pg_dump</command> raises error if it is
+   executed through <productname>Pgpool-II</productname> because the
+   command handles snapshot id, which is a database depending object.
+-->
+  </para>
+  <para>
+   また、パラレル<command>pg_dump</command>では、データベース依存のオブジェクトであるスナップショットIDを扱うため、<productname>Pgpool-II</productname>経由で実行するとエラーになってしまいます。
+  </para>
+  <para>
+<!--
+   In most cases you want to choose primary server as the backup
+   target.  If you want backup standby server, you have to be very
+   careful in choosing the right <productname>PostgreSQL</productname>
+   server to obtain a backup because if the data is outdated, you are
+   likely to have outdated database backup. You can
+   use <xref linkend="SQL-SHOW-POOL-NODES">
+   or <xref linkend="PCP-NODE-INFO"> to know how the standby server
+   catches up the primary server.
+-->
+   多くの場合、プライマリサーバをバックアップ取得対象に選ぶと思います。
+   スタンバイサーバを選ぶ場合は、正しい<productname>PostgreSQL</productname>サーバを選ぶようにしましょう。
+　 データが古ければ、バックアップも古いものになってしまう可能性が高いからです。
+   <xref linkend="SQL-SHOW-POOL-NODES">あるいは<xref linkend="PCP-NODE-INFO">を使って対象のスタンバイサーバがプライマリサーバに追いついているかどうかを知ることができます。
+  </para>
  </sect1>
 
 </chapter>

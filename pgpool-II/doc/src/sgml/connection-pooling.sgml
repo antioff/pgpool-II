@@ -728,6 +728,37 @@
     </listitem>
    </varlistentry>
 
+   <varlistentry id="guc-notice-per-node-statement" xreflabel="notice_per_node_statement">
+    <term><varname>notice_per_node_statement</varname> (<type>boolean</type>)
+     <indexterm>
+      <primary><varname>notice_per_node_statement</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Similar to <xref linkend="guc-log-per-node-statement">, except
+      that it prints the statement logs for each DB node separately as
+      a NOTICE message. With the
+      default <xref linkend="guc-client-min-messages"> setting (that
+      is NOTICE), the log message will be printed on client's terminal
+      as well. This is convenient for clients because it does not need
+      to access <productname>Pgpool-II</productname> log file.  Note
+      that
+      unlike <xref linkend="guc-log-per-node-statement">, <xref linkend="guc-notice-per-node-statement">
+      does not print internal queries, (e.g., system catalog inquiry).
+      This is because this feature is designed to be used for testing
+      as well. As internal queries tend to be non-deterministic,
+      printing them in testing is not helpful. For the same reason,
+      backend process id is not printed.
+     </para>
+     <para>
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+      You can also use <xref linkend="SQL-PGPOOL-SET"> command to alter the value of
+      this parameter for a current session.
+     </para>
+    </listitem>
+   </varlistentry>
+
    <varlistentry id="guc-log-client-messages" xreflabel="log_client_messages">
     <term><varname>log_client_messages</varname> (<type>boolean</type>)
      <indexterm>
@@ -796,6 +827,23 @@
     </listitem>
    </varlistentry>
 
+   <varlistentry id="guc-log-pcp-processes" xreflabel="log_pcp_processes">
+    <term><varname>log_pcp_processes</varname> (<type>boolean</type>)
+     <indexterm>
+      <primary><varname>log_pcp_processes</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Setting to on, enable logging about normal PCP Process
+      fork and exit status. Default is on.
+     </para>
+     <para>
+      This parameter can be changed by reloading the <productname>Pgpool-II</> configurations.
+     </para>
+    </listitem>
+   </varlistentry>
+
    <varlistentry id="guc-log-error-verbosity" xreflabel="log_error_verbosity">
     <term><varname>log_error_verbosity</varname> (<type>enum</type>)
      <indexterm>
@@ -832,9 +880,7 @@
       <literal>%</literal> characters begin <quote>escape sequences</> that are replaced
       with information outlined below.
       All unrecognized escapes are ignored. Other characters are copied straight to
-      the log line. Default is '%t: pid %p: ', which prints timestamp and process id,
-      which keeps backward compatibility with pre<productname>Pgpool-II</productname>
-      <emphasis>V3.4</emphasis>.
+      the log line. Default is '%m: %a pid %p: ', which prints timestamp, application name and process id.
      </para>
 
      <table id="log-line-prefix-table">
@@ -873,7 +919,12 @@
 
 	<row>
 	 <entry>%t</entry>
-	 <entry>Time stamp</entry>
+	 <entry>Time stamp without milliseconds</entry>
+	</row>
+
+	<row>
+	 <entry>%m</entry>
+	 <entry>Time stamp with milliseconds</entry>
 	</row>
 
 	<row>
@@ -971,6 +1022,11 @@
 	<row>
 	 <entry>health check process</entry>
 	 <entry>health_check%d (%d is replaced with backend node id)</entry>
+	</row>
+
+	<row>
+	 <entry>logger process</entry>
+	 <entry>logger (Note that the application name "logger" will not be output to the log file managed by logger process)</entry>
 	</row>
 
        </tbody>

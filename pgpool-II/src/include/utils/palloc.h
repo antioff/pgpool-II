@@ -18,7 +18,7 @@
  * everything that should be freed.  See utils/mmgr/README for more info.
  *
  *
- * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/utils/palloc.h
@@ -29,7 +29,10 @@
 #define PALLOC_H
 
 #include <stdarg.h>
+
 #include "parser/pg_config_manual.h"
+#include "parser/pool_parser.h"
+
 /*
  * Type MemoryContextData is declared in nodes/memnodes.h.  Most users
  * of memory allocation should just treat it as an abstract type, so we
@@ -58,7 +61,7 @@ typedef struct MemoryContextCallback
  * Avoid accessing it directly!  Instead, use MemoryContextSwitchTo()
  * to change the setting.
  */
-extern PGDLLIMPORT MemoryContext CurrentMemoryContext;
+extern MemoryContext CurrentMemoryContext;
 
 /*
  * Flags for MemoryContextAllocExtended.

@@ -8,7 +8,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2021	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -56,7 +56,7 @@ static int	pcp_authorize(PCPConnInfo * pcpConn, char *username, char *password);
 static void pcp_internal_error(PCPConnInfo * pcpConn, const char *fmt,...);
 
 static PCPResultInfo * _pcp_detach_node(PCPConnInfo * pcpConn, int nid, bool gracefully);
-static PCPResultInfo * _pcp_promote_node(PCPConnInfo * pcpConn, int nid, bool gracefully);
+static PCPResultInfo * _pcp_promote_node(PCPConnInfo * pcpConn, int nid, bool gracefully, bool promote);
 static PCPResultInfo * process_pcp_response(PCPConnInfo * pcpConn, char sentMsg);
 static void setCommandSuccessful(PCPConnInfo * pcpConn);
 static void setResultStatus(PCPConnInfo * pcpConn, ResultStateType resultState);
@@ -77,7 +77,6 @@ static void process_error_response(PCPConnInfo * pcpConn, char toc, char *buff);
 
 
 static void setResultSlotCount(PCPConnInfo * pcpConn, unsigned int slotCount);
-static void free_processInfo(struct PCPConnInfo *pcpConn, void *ptr);
 static int	PCPFlush(PCPConnInfo * pcpConn);
 
 static bool getPoolPassFilename(char *pgpassfile);
@@ -92,7 +91,7 @@ static char *pwdfMatchesString(char *buf, char *token);
  */
 
 /* Check if PCP connection is connected and authenticated
- * return 1 on successfull 0 otherwise
+ * return 1 on successful 0 otherwise
  */
 
 PCPConnInfo *
@@ -101,7 +100,7 @@ pcp_connect(char *hostname, int port, char *username, char *password, FILE *Pfde
 	struct sockaddr_in addr;
 	struct sockaddr_un unix_addr;
 	struct hostent *hp;
-	char	   *password_fron_file = NULL;
+	char	   *password_from_file = NULL;
 	char		os_user[256];
 	PCPConnInfo *pcpConn = palloc0(sizeof(PCPConnInfo));
 	int			fd;
@@ -228,8 +227,8 @@ pcp_connect(char *hostname, int port, char *username, char *password, FILE *Pfde
 		char		port_str[100];
 
 		snprintf(port_str, sizeof(port_str), "%d", port);
-		password_fron_file = PasswordFromFile(pcpConn, hostname, port_str, username);
-		password = password_fron_file;
+		password_from_file = PasswordFromFile(pcpConn, hostname, port_str, username);
+		password = password_from_file;
 	}
 
 	if (pcp_authorize(pcpConn, username, password) < 0)
@@ -241,8 +240,8 @@ pcp_connect(char *hostname, int port, char *username, char *password, FILE *Pfde
 	else
 		pcpConn->connState = PCP_CONNECTION_OK;
 
-	if (password_fron_file)
-		pfree(password_fron_file);
+	if (password_from_file)
+		pfree(password_from_file);
 
 	return pcpConn;
 }
@@ -698,11 +697,30 @@ pcp_node_count(PCPConnInfo * pcpConn)
 static void
 process_node_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 {
+	char       *index;
 	BackendInfo *backend_info = NULL;
 
-	if (strcmp(buf, "CommandComplete") == 0)
+	if (strcmp(buf, "ArraySize") == 0)
+	{
+		int			ci_size;
+
+		index = (char *) memchr(buf, '\0', len);
+		if (index == NULL)
+			goto INVALID_RESPONSE;
+		index += 1;
+		ci_size = atoi(index);
+
+		setResultStatus(pcpConn, PCP_RES_INCOMPLETE);
+		setResultSlotCount(pcpConn, ci_size);
+		pcpConn->pcpResInfo->nextFillSlot = 0;
+		return;
+	}
+	else if (strcmp(buf, "NodeInfo") == 0)
 	{
 		char	   *index = NULL;
+
+		if (PCPResultStatus(pcpConn->pcpResInfo) != PCP_RES_INCOMPLETE)
+			goto INVALID_RESPONSE;
 
 		backend_info = (BackendInfo *) palloc(sizeof(BackendInfo));
 
@@ -728,14 +746,39 @@ process_node_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 		if (index == NULL)
 			goto INVALID_RESPONSE;
 		index += 1;
+		backend_info->quarantine = atoi(index);
+
+		index = (char *) memchr(index, '\0', len);
+		if (index == NULL)
+			goto INVALID_RESPONSE;
+		index += 1;
+		strlcpy(backend_info->pg_backend_status, index, sizeof(backend_info->pg_backend_status));
+
+		index = (char *) memchr(index, '\0', len);
+		if (index == NULL)
+			goto INVALID_RESPONSE;
+		index += 1;
 		backend_info->backend_weight = atof(index);
+
+		index = (char *) memchr(index, '\0', len);
+		if (index == NULL)
+			goto INVALID_RESPONSE;
+		index++;
+		backend_info->role = atoi(index);
+
+		index = (char *) memchr(index, '\0', len);
+		if (index == NULL)
+			goto INVALID_RESPONSE;
+		index++;
+
+		strlcpy(backend_info->pg_role, index, sizeof(backend_info->pg_role));
 
 		index = (char *) memchr(index, '\0', len);
 		if (index == NULL)
 			goto INVALID_RESPONSE;
 
 		index++;
-		backend_info->role = atoi(index);
+		backend_info->standby_delay_by_time = atol(index);
 
 		index = (char *) memchr(index, '\0', len);
 		if (index == NULL)
@@ -761,7 +804,7 @@ process_node_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 		index = (char *) memchr(index, '\0', len);
 		if (index == NULL)
 			goto INVALID_RESPONSE;
-		
+
 		index++;
 		backend_info->status_changed_time = atol(index);
 
@@ -772,16 +815,13 @@ process_node_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 		if (setNextResultBinaryData(pcpConn->pcpResInfo, (void *) backend_info, sizeof(BackendInfo), NULL) < 0)
 			goto INVALID_RESPONSE;
 
-		setCommandSuccessful(pcpConn);
+		return;
 	}
-	else
+	else if (strcmp(buf, "CommandComplete") == 0)
 	{
-		pcp_internal_error(pcpConn,
-						   "command failed with reason: \"%s\"", buf);
-		setResultStatus(pcpConn, PCP_RES_BAD_RESPONSE);
+		setResultStatus(pcpConn, PCP_RES_COMMAND_OK);
+		return;
 	}
-
-	return;
 
 INVALID_RESPONSE:
 
@@ -866,7 +906,7 @@ pcp_reload_config(PCPConnInfo * pcpConn,char command_scope)
 	int                     wsize;
 /*
  * pcp packet format for pcp_reload_config
- * z[size][commmand_scope]
+ * z[size][command_scope]
  */
 	if (PCPConnectionStatus(pcpConn) != PCP_CONNECTION_OK)
 	{
@@ -1032,29 +1072,16 @@ pcp_process_count(PCPConnInfo * pcpConn)
 }
 
 static void
-free_processInfo(struct PCPConnInfo *pcpConn, void *ptr)
-{
-	ProcessInfo *pi = (ProcessInfo *) ptr;
-
-	if (pcpConn->Pfdebug)
-		fprintf(pcpConn->Pfdebug, "free ProcessInfo structure \n");
-
-	if (pi == NULL)
-	{
-		if (pcpConn->Pfdebug)
-			fprintf(pcpConn->Pfdebug, "ProcessInfo structure is NULL nothing to free \n");
-		return;
-	}
-	if (pi->connection_info)
-		pfree(pi->connection_info);
-	pfree(pi);
-}
-
-static void
 process_process_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 {
 	char	   *index;
-	ProcessInfo *processInfo = NULL;
+	int			*offsets;
+	int			i, n;
+	int			maxstr;
+	char		*p;
+	POOL_REPORT_POOLS	*pools = NULL;
+
+	offsets = pool_report_pools_offsets(&n);
 
 	if (strcmp(buf, "ArraySize") == 0)
 	{
@@ -1076,76 +1103,22 @@ process_process_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 		if (PCPResultStatus(pcpConn->pcpResInfo) != PCP_RES_INCOMPLETE)
 			goto INVALID_RESPONSE;
 
-		processInfo = palloc0(sizeof(ProcessInfo));
-		processInfo->connection_info = palloc0(sizeof(ConnectionInfo));
+		pools = palloc0(sizeof(POOL_REPORT_POOLS));
+		p = (char *)pools;
+		buf += strlen(buf) + 1;
 
-		index = (char *) memchr(buf, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->pid = atoi(index);
+		for (i = 0; i < n; i++)
+		{
+			if (i == n -1)
+				maxstr = sizeof(POOL_REPORT_POOLS) - offsets[i];
+			else
+				maxstr = offsets[i + 1] - offsets[i];
 
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		strlcpy(processInfo->connection_info->database, index, SM_DATABASE);
+			StrNCpy(p + offsets[i], buf, maxstr -1);
+			buf += strlen(buf) + 1;
+		}
 
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		strlcpy(processInfo->connection_info->user, index, SM_USER);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->start_time = atol(index);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->connection_info->create_time = atol(index);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->connection_info->major = atoi(index);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->connection_info->minor = atoi(index);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->connection_info->counter = atoi(index);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->connection_info->backend_id = atoi(index);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->connection_info->pid = atoi(index);
-
-		index = (char *) memchr(index, '\0', len);
-		if (index == NULL)
-			goto INVALID_RESPONSE;
-		index += 1;
-		processInfo->connection_info->connected = atoi(index);
-
-		if (setNextResultBinaryData(pcpConn->pcpResInfo, (void *) processInfo, sizeof(ProcessInfo), free_processInfo) < 0)
+		if (setNextResultBinaryData(pcpConn->pcpResInfo, (void *) pools, sizeof(POOL_REPORT_POOLS), NULL) < 0)
 			goto INVALID_RESPONSE;
 
 		return;
@@ -1159,11 +1132,9 @@ process_process_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 
 INVALID_RESPONSE:
 
-	if (processInfo)
+	if (pools)
 	{
-		if (processInfo->connection_info)
-			pfree(processInfo->connection_info);
-		pfree(processInfo);
+		pfree(pools);
 	}
 	pcp_internal_error(pcpConn,
 					   "command failed. invalid response");
@@ -1430,9 +1401,9 @@ pcp_recovery_node(PCPConnInfo * pcpConn, int nid)
  * --------------------------------
  */
 PCPResultInfo *
-pcp_promote_node(PCPConnInfo * pcpConn, int nid)
+pcp_promote_node(PCPConnInfo * pcpConn, int nid, bool promote)
 {
-	return _pcp_promote_node(pcpConn, nid, FALSE);
+	return _pcp_promote_node(pcpConn, nid, FALSE, promote);
 }
 
 /* --------------------------------
@@ -1443,17 +1414,18 @@ pcp_promote_node(PCPConnInfo * pcpConn, int nid)
  * --------------------------------
  */
 PCPResultInfo *
-pcp_promote_node_gracefully(PCPConnInfo * pcpConn, int nid)
+pcp_promote_node_gracefully(PCPConnInfo * pcpConn, int nid, bool switchover)
 {
-	return _pcp_promote_node(pcpConn, nid, TRUE);
+	return _pcp_promote_node(pcpConn, nid, TRUE, switchover);
 }
 
 static PCPResultInfo *
-_pcp_promote_node(PCPConnInfo * pcpConn, int nid, bool gracefully)
+_pcp_promote_node(PCPConnInfo * pcpConn, int nid, bool gracefully, bool switchover)
 {
 	int			wsize;
 	char		node_id[16];
 	char	   *sendchar;
+	char		*switchover_option;	/* n: just change node status, s: switchover primary */
 
 	if (PCPConnectionStatus(pcpConn) != PCP_CONNECTION_OK)
 	{
@@ -1461,17 +1433,31 @@ _pcp_promote_node(PCPConnInfo * pcpConn, int nid, bool gracefully)
 		return NULL;
 	}
 
-	snprintf(node_id, sizeof(node_id), "%d", nid);
+	snprintf(node_id, sizeof(node_id), "%d ", nid);
 
 	if (gracefully)
 		sendchar = "j";
 	else
 		sendchar = "J";
 
+	if (switchover)
+		switchover_option = "s";
+	else
+		switchover_option = "n";
+
 	pcp_write(pcpConn->pcpConn, sendchar, 1);
-	wsize = htonl(strlen(node_id) + 1 + sizeof(int));
+
+	/* caluculate send buffer size */
+	wsize = sizeof(char);	/* protocol. 'j' or 'J' */
+	wsize += strlen(node_id);	/* node id + space */
+	wsize += sizeof(char);	/* promote option */
+	wsize += sizeof(int);	/* buffer length */
+	wsize = htonl(wsize);
+
 	pcp_write(pcpConn->pcpConn, &wsize, sizeof(int));
 	pcp_write(pcpConn->pcpConn, node_id, strlen(node_id) + 1);
+	pcp_write(pcpConn->pcpConn, switchover_option, 1);
+
 	if (PCPFlush(pcpConn) < 0)
 		return NULL;
 	if (pcpConn->Pfdebug)
@@ -1546,6 +1532,15 @@ process_watchdog_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 			json_value_free(root);
 			goto INVALID_RESPONSE;
 		}
+		if (json_get_int_value_for_key(root, "MemberRemoteNodeCount", &wd_cluster_info->memberRemoteNodeCount))
+		{
+			wd_cluster_info->memberRemoteNodeCount = -1;
+		}
+		if (json_get_int_value_for_key(root, "NodesRequireForQuorum", &wd_cluster_info->nodesRequiredForQuorum))
+		{
+			wd_cluster_info->nodesRequiredForQuorum = -1;
+		}
+
 		if (json_get_int_value_for_key(root, "QuorumStatus", &wd_cluster_info->quorumStatus))
 		{
 			json_value_free(root);
@@ -1621,6 +1616,22 @@ process_watchdog_info_response(PCPConnInfo * pcpConn, char *buf, int len)
 				goto INVALID_RESPONSE;
 			}
 			strncpy(wdNodeInfo->delegate_ip, ptr, sizeof(wdNodeInfo->delegate_ip) - 1);
+
+			if (json_get_int_value_for_key(nodeInfoValue, "Membership", &wdNodeInfo->membership_status))
+			{
+				/* would be from the older version. No need to panic */
+				wdNodeInfo->membership_status = 0;
+			}
+
+			ptr = json_get_string_value_for_key(nodeInfoValue, "MembershipString");
+			if (ptr == NULL)
+			{
+				strncpy(wdNodeInfo->membership_status_string, "NOT-Available",
+						sizeof(wdNodeInfo->membership_status_string) - 1);
+			}
+			else
+				strncpy(wdNodeInfo->membership_status_string, ptr,
+						sizeof(wdNodeInfo->membership_status_string) - 1);
 
 			if (json_get_int_value_for_key(nodeInfoValue, "WdPort", &wdNodeInfo->wd_port))
 			{

@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -29,6 +29,10 @@
 #include <signal.h>
 #include <stdio.h>
 
+#ifndef PGPOOL_ADM
+#include "parser/pg_config_manual.h"
+#endif
+
 /*
  * startup packet definitions (v2) stolen from PostgreSQL
  */
@@ -49,7 +53,6 @@
 #define MAX_CONNECTION_SLOTS MAX_NUM_BACKENDS
 #define MAX_DB_HOST_NAMELEN	 MAX_FDQN_HOSTNAME_LEN
 #define MAX_PATH_LENGTH 256
-#define NAMEDATALEN 64
 
 typedef enum
 {
@@ -90,18 +93,21 @@ typedef struct
 	char		backend_hostname[MAX_DB_HOST_NAMELEN];	/* backend host name */
 	int			backend_port;	/* backend port numbers */
 	BACKEND_STATUS backend_status;	/* backend status */
+	char		pg_backend_status[NAMEDATALEN];	/* backend status examined by show pool_nodes and pcp_node_info*/
 	time_t		status_changed_time;	/* backend status changed time */
 	double		backend_weight; /* normalized backend load balance ratio */
-	double		unnormalized_weight;	/* descripted parameter */
+	double		unnormalized_weight;	/* described parameter */
 	char		backend_data_directory[MAX_PATH_LENGTH];
-	char		backend_application_name[NAMEDATALEN];	/* application_name for walreciever */
+	char		backend_application_name[NAMEDATALEN];	/* application_name for walreceiver */
 	unsigned short flag;		/* various flags */
 	bool		quarantine;		/* true if node is CON_DOWN because of
 								 * quarantine */
 	uint64		standby_delay;	/* The replication delay against the primary */
+	bool		standby_delay_by_time;	/* true if standby_delay is measured in microseconds, not bytes */
 	SERVER_ROLE role;			/* Role of server. used by pcp_node_info and
 								 * failover() to keep track of quarantined
 								 * primary node */
+	char		pg_role[NAMEDATALEN];	/* backend role examined by show pool_nodes and pcp_node_info*/
 	char		replication_state [NAMEDATALEN];	/* "state" from pg_stat_replication */
 	char		replication_sync_state [NAMEDATALEN];	/* "sync_state" from pg_stat_replication */
 }			BackendInfo;
@@ -115,6 +121,15 @@ typedef struct
 
 	BackendInfo backend_info[MAX_NUM_BACKENDS];
 }			BackendDesc;
+
+typedef enum
+{
+	WAIT_FOR_CONNECT,
+	COMMAND_EXECUTE,
+	IDLE,
+	IDLE_IN_TRANS,
+	CONNECTING
+}			ProcessStatus;
 
 /*
  * Connection pool information. Placed on shared memory area.
@@ -130,6 +145,9 @@ typedef struct
 	int			key;			/* cancel key */
 	int			counter;		/* used counter */
 	time_t		create_time;	/* connection creation time */
+	time_t		client_connection_time;	/* client connection time */
+	time_t		client_disconnection_time;	/* client last disconnection time */
+	int			client_idle_duration;	/* client idle duration time (s) */
 	int			load_balancing_node;	/* load balancing node */
 	char		connected;		/* True if frontend connected. Please note
 								 * that we use "char" instead of "bool". Since
@@ -156,12 +174,19 @@ typedef struct
 {
 	pid_t		pid;			/* OS's process id */
 	time_t		start_time;		/* fork() time */
+	char		connected;		/* if not 0 this process is already used*/
+	int			wait_for_connect;	/* waiting time for client connection (s) */
 	ConnectionInfo *connection_info;	/* head of the connection info for
 										 * this process */
-	char		need_to_restart;	/* If non 0, exit this child process as
+	int			client_connection_count;	/* how many times clients used this process */
+	ProcessStatus	status;
+	bool		need_to_restart;	/* If non 0, exit this child process as
 									 * soon as current session ends. Typical
 									 * case this flag being set is failback a
 									 * node in streaming replication mode. */
+	bool		exit_if_idle;
+	int		pooled_connections; /* Total number of pooled connections
+									  * by this child */
 }			ProcessInfo;
 
 /*
@@ -179,7 +204,7 @@ typedef struct
 #define POOLCONFIG_MAXDATELEN 128
 #define POOLCONFIG_MAXCOUNTLEN 16
 #define POOLCONFIG_MAXLONGCOUNTLEN 20
-
+#define POOLCONFIG_MAXPROCESSSTATUSLEN 20
 /* config report struct*/
 typedef struct
 {
@@ -195,8 +220,10 @@ typedef struct
 	char		hostname[MAX_DB_HOST_NAMELEN + 1];
 	char		port[POOLCONFIG_MAXPORTLEN + 1];
 	char		status[POOLCONFIG_MAXSTATLEN + 1];
+	char		pg_status[POOLCONFIG_MAXSTATLEN + 1];
 	char		lb_weight[POOLCONFIG_MAXWEIGHTLEN + 1];
 	char		role[POOLCONFIG_MAXWEIGHTLEN + 1];
+	char		pg_role[POOLCONFIG_MAXWEIGHTLEN + 1];
 	char		select[POOLCONFIG_MAXWEIGHTLEN + 1];
 	char		load_balance_node[POOLCONFIG_MAXWEIGHTLEN + 1];
 	char		delay[POOLCONFIG_MAXWEIGHTLEN + 1];
@@ -209,28 +236,36 @@ typedef struct
 typedef struct
 {
 	char		pool_pid[POOLCONFIG_MAXCOUNTLEN + 1];
-	char		start_time[POOLCONFIG_MAXDATELEN + 1];
+	char		process_start_time[POOLCONFIG_MAXDATELEN + 1];
+	char		client_connection_count[POOLCONFIG_MAXCOUNTLEN + 1];
 	char		database[POOLCONFIG_MAXIDENTLEN + 1];
 	char		username[POOLCONFIG_MAXIDENTLEN + 1];
-	char		create_time[POOLCONFIG_MAXDATELEN + 1];
+	char		backend_connection_time[POOLCONFIG_MAXDATELEN + 1];
 	char		pool_counter[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		status[POOLCONFIG_MAXPROCESSSTATUSLEN + 1];
 }			POOL_REPORT_PROCESSES;
 
 /* pools reporting struct */
 typedef struct
 {
-	int			pool_pid;
-	time_t		start_time;
-	int			pool_id;
-	int			backend_id;
+	char		pool_pid[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		process_start_time[POOLCONFIG_MAXDATELEN + 1];
+	char		client_connection_count[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		pool_id[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		backend_id[POOLCONFIG_MAXCOUNTLEN + 1];
 	char		database[POOLCONFIG_MAXIDENTLEN + 1];
 	char		username[POOLCONFIG_MAXIDENTLEN + 1];
-	time_t		create_time;
-	int			pool_majorversion;
-	int			pool_minorversion;
-	int			pool_counter;
-	int			pool_backendpid;
-	int			pool_connected;
+	char		backend_connection_time[POOLCONFIG_MAXDATELEN + 1];
+	char		client_connection_time[POOLCONFIG_MAXDATELEN + 1];
+	char		client_disconnection_time[POOLCONFIG_MAXDATELEN + 1];
+	char		client_idle_duration[POOLCONFIG_MAXDATELEN + 1];
+	char		pool_majorversion[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		pool_minorversion[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		pool_counter[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		pool_backendpid[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		pool_connected[POOLCONFIG_MAXCOUNTLEN + 1];
+	char		status[POOLCONFIG_MAXPROCESSSTATUSLEN + 1];
+	char		load_balance_node[POOLCONFIG_MAXPROCESSSTATUSLEN + 1];
 }			POOL_REPORT_POOLS;
 
 /* version struct */
@@ -331,7 +366,7 @@ typedef struct PCPConnInfo
 	char	   *errMsg;			/* error message, or NULL if no error */
 	ConnStateType connState;
 	PCPResultInfo *pcpResInfo;
-	FILE	   *Pfdebug;		/* File pointer to output debug infor */
+	FILE	   *Pfdebug;		/* File pointer to output debug info */
 }			PCPConnInfo;
 
 struct WdInfo;
@@ -352,8 +387,8 @@ extern PCPResultInfo * pcp_detach_node_gracefully(PCPConnInfo * pcpConn, int nid
 extern PCPResultInfo * pcp_attach_node(PCPConnInfo * pcpConn, int nid);
 extern PCPResultInfo * pcp_pool_status(PCPConnInfo * pcpConn);
 extern PCPResultInfo * pcp_recovery_node(PCPConnInfo * pcpConn, int nid);
-extern PCPResultInfo * pcp_promote_node(PCPConnInfo * pcpConn, int nid);
-extern PCPResultInfo * pcp_promote_node_gracefully(PCPConnInfo * pcpConn, int nid);
+extern PCPResultInfo * pcp_promote_node(PCPConnInfo * pcpConn, int nid, bool promote);
+extern PCPResultInfo * pcp_promote_node_gracefully(PCPConnInfo * pcpConn, int nid, bool promote);
 extern PCPResultInfo * pcp_watchdog_info(PCPConnInfo * pcpConn, int nid);
 extern PCPResultInfo * pcp_set_backend_parameter(PCPConnInfo * pcpConn, char *parameter_name, char *value);
 
@@ -373,6 +408,7 @@ extern int	pcp_result_is_empty(PCPResultInfo * res);
 extern char *role_to_str(SERVER_ROLE role);
 
 extern	int * pool_health_check_stats_offsets(int *n);
+extern	int * pool_report_pools_offsets(int *n);
 
 /* ------------------------------
  * pcp_error.c

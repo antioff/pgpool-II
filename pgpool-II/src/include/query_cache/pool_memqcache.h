@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2019	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -59,6 +59,9 @@ typedef struct
 
 #define POOL_BLOCK_USED	0x0001	/* is this block used? */
 
+/*
+ * Cache block header (12 bytes)
+ */
 typedef struct
 {
 	unsigned char flags;		/* flags. see above */
@@ -75,6 +78,9 @@ typedef struct
 #define POOL_ITEM_HAS_NEXT	0x0002	/* is this item has "next" item? */
 #define POOL_ITEM_DELETED	0x0004	/* is this item deleted? */
 
+/*
+ * Cache item pointer (48 bytes)
+ */
 typedef struct
 {
 	POOL_QUERY_HASH query_hash; /* md5 hashed query signature */
@@ -85,7 +91,7 @@ typedef struct
 
 /*
  * Each block holds several "cache item", which consists of variable
- * length of Data(header plus RowDescription packet and DataRow
+ * length of Data (header plus RowDescription packet and DataRow
  * packet).  Each cache item is assigned "cache item id", which
  * represents the cache item order in a block.
  */
@@ -98,12 +104,13 @@ typedef struct
 
 /*
  * "Cache Item header" structure is used to manage each cache item.
+ *  (16 bytes)
  */
 typedef struct
 {
 	unsigned int total_length;	/* total length in bytes including myself */
 	time_t		timestamp;		/* cache creation time */
-	int			expire;			/* cache expire	*/
+	int64		expire;			/* cache expire	duration in seconds */
 }			POOL_CACHE_ITEM_HEADER;
 
 typedef struct
@@ -204,7 +211,7 @@ typedef struct
  *--------------------------------------------------------------------------------
  */
 
-/* Hash element */
+/* Hash element (48 bytes) */
 typedef struct POOL_HASH_ELEMENT
 {
 	struct POOL_HASH_ELEMENT *next; /* link to next entry */
@@ -214,7 +221,7 @@ typedef struct POOL_HASH_ELEMENT
 
 typedef uint32 POOL_HASH_KEY;
 
-/* Hash header element */
+/* Hash header element (16 bytes) */
 typedef struct
 {
 	POOL_HASH_KEY hashkey;		/* hash key */
@@ -228,6 +235,12 @@ typedef struct
 	uint32		mask;			/* mask for hash function */
 	POOL_HEADER_ELEMENT elements[1];	/* actual hash elements follows */
 }			POOL_HASH_HEADER;
+
+typedef enum
+{
+	POOL_MEMQ_SHARED_LOCK = 0,
+	POOL_MEMQ_EXCLUSIVE_LOCK,
+} POOL_MEMQ_LOCK_TYPE;
 
 extern int	pool_hash_init(int nelements);
 extern size_t pool_hash_size(int nelements);
@@ -281,10 +294,12 @@ extern POOL_TEMP_QUERY_CACHE * pool_get_current_cache(void);
 extern void pool_discard_temp_query_cache(POOL_TEMP_QUERY_CACHE * temp_cache);
 extern void pool_discard_current_temp_query_cache(void);
 
-extern void pool_shmem_lock(void);
+extern void pool_shmem_lock(POOL_MEMQ_LOCK_TYPE type);
 extern void pool_shmem_unlock(void);
 extern bool pool_is_shmem_lock(void);
 
 extern void InvalidateQueryCache(int tableoid, int dboid);
+
+extern void pool_init_whole_cache_blocks(void);
 
 #endif							/* POOL_MEMQCACHE_H */

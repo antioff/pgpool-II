@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017-2018	Tatsuo Ishii
- * Copyright (c) 2018-2021	PgPool Global Development Group
+ * Copyright (c) 2018-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -19,6 +19,7 @@
 #include "../../include/config.h"
 #include "pgproto/pgproto.h"
 #include <unistd.h>
+#include <sys/select.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -38,10 +39,10 @@ static char *read_string(PGconn *conn);
 /*
  * Read message from connection until ready for query message is received.  If
  * a positive timeout is given, wait for timeout seconds then return if no
- * data is availble from the connection.
+ * data is available from the connection.
  */
 void
-read_until_ready_for_query(PGconn *conn, int timeout)
+read_until_ready_for_query(PGconn *conn, int timeout, int wait_for_ready_for_query)
 {
 	int			kind;
 	int			len;
@@ -163,8 +164,12 @@ read_until_ready_for_query(PGconn *conn, int timeout)
 				break;
 
 			case 'S':			/* Parameter status */
-				fprintf(stderr, "<= BE ParameterStatus\n");
-				read_and_discard(conn);
+				fprintf(stderr, "<= BE ParameterStatus(");
+				len = read_int32(conn);
+				p = read_string(conn);
+				fprintf(stderr, "name: \"%s\"", p);
+				p = read_string(conn);
+				fprintf(stderr, " value: \"%s\")\n", p);
 				break;
 
 			case 'T':			/* Row Description */
@@ -253,7 +258,13 @@ read_until_ready_for_query(PGconn *conn, int timeout)
 				break;
 		}
 
-		/* If nap-bwteen-line is requested, nap for some time */
+		/*
+		 * wait_for_ready_for_query is false, immediately return.
+		 */
+		if (wait_for_ready_for_query == 0)
+			cont = 0;
+
+		/* If nap-between-line is requested, nap for some time */
 		if (read_nap > 0)
 		{
 			(void) usleep(read_nap);

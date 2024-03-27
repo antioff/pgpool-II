@@ -13,7 +13,6 @@ libsql_parser_a_SOURCES  = \
 	nodes.c \
 	outfuncs.c \
 	parser.c \
-	pool_string.c \
 	scansup.c \
 	stringinfo.c \
 	value.c \
@@ -26,7 +25,7 @@ if use_repl_snprintf
   libsql_parser_a_SOURCES  += snprintf.c
 endif
 
-EXTRA_DIST = scan.c scan.l
+EXTRA_DIST = scan.l
 ARFLAGS = cr
 
 AM_YFLAGS = -d -Wno-yacc

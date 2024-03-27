@@ -26,18 +26,35 @@
     <listitem>
      <para>
       <!--
-      Specifies the hostname or IP address, on which <productname>Pgpool-II</>
-      will accept TCP/IP connections. <literal>'*'</literal>
-      accepts all incoming connections. <literal>''</literal>
-      disables TCP/IP connections. Default
-      is <literal>'localhost'</literal>. Connections via UNIX
-      domain socket are always accepted.
+      Specifies the TCP/IP address(es) on which the server is
+      to listen for connections from client applications.
+      The value takes the form of a comma-separated list of host names
+      and/or numeric IP addresses.  The special entry <literal>*</literal>
+      corresponds to all available IP interfaces.  The entry
+      <literal>0.0.0.0</literal> allows listening for all IPv4 addresses and
+      <literal>::</literal> allows listening for all IPv6 addresses.
+      If the list is empty, the server does not listen on any IP interface
+      at all, in which case only Unix-domain sockets can be used to connect
+      to it.
+      The default value
+      is <systemitem class="systemname">localhost</systemitem>, which
+      allows only local TCP/IP <quote>loopback</quote> connections to
+      be made.  While client authentication
+      (<xref linkend="auth-pool-hba-conf">) allows fine-grained
+      control over who can access the
+      server, <varname>listen_addresses</varname> controls which
+      interfaces accept connection attempts, which can help prevent
+      repeated malicious connection requests on insecure network
+      interfaces.  This parameter can only be set at server start.
       -->
-      <productname>Pgpool-II</>がTCP/IP接続を受け付けるホスト名またはIPアドレスを指定します。
-      <literal>*</literal>を指定すると入ってくる全ての接続を受け付けます。
-      <literal>''</literal>を指定するとTCP/IP接続を受け付けません。
-      デフォルト値は<literal>'localhost'</literal>です。
-      UNIXドメインソケット経由の接続は常に受け付けます。
+      クライアントアプリケーションからの接続をサーバが監視する TCP/IP アドレスを指定します。
+      この値は、ホスト名をコンマで区切ったリスト、そして/もしくは、数値によるIPアドレスです。
+      <literal>*</literal>という特別なエントリは利用可能な全てのIPインタフェースに対応します。
+      エントリ<literal>0.0.0.0</literal>は全てのIPv4アドレスの監視を、そしてエントリ<literal>::</literal>は全てのIPv6アドレスの監視を許容します。
+      リストが空の場合、サーバはいかなるIPインタフェースも全く監視しないで、Unixドメインソケットのみを使用して接続が行われます。
+      デフォルトの値は<systemitem class="systemname">localhost</systemitem>で、ローカルなTCP/IP <quote>loopback</quote>接続のみ許可します。
+      クライアント認証(<xref linkend="auth-pool-hba-conf">)は誰がサーバにアクセス可能かをきめ細かく制御するのに対し、<varname>listen_addresses</varname>はどのインタフェースが接続を試みるかを制御します。
+      これにより、安全でないネットワークインタフェース上において繰り返して行われる悪意のある接続要求の防止に役立ちます。
      </para>
      <para>
       <!--
@@ -76,28 +93,107 @@
     </listitem>
    </varlistentry>
 
-   <varlistentry id="guc-socket-dir" xreflabel="socket_dir">
-    <term><varname>socket_dir</varname> (<type>string</type>)
+   <varlistentry id="guc-unix-socket-directories" xreflabel="unix_socket_directories">
+    <term><varname>unix_socket_directories</varname> (<type>string</type>)
      <indexterm>
       <!--
-      <primary><varname>socket_dir</varname> configuration parameter</primary>
+      <primary><varname>unix_socket_directories</varname> configuration parameter</primary>
       -->
-      <primary><varname>socket_dir</varname> 設定パラメータ</primary>
+      <primary><varname>unix_socket_directories</varname> 設定パラメータ</primary>
      </indexterm>
     </term>
     <listitem>
      <para>
       <!--
-      The directory where the UNIX domain socket accepting connections for
-      <productname>Pgpool-II</productname> will be
-      created. Default is <literal>/tmp</literal>. Be aware that this
-      socket might be deleted by a cron job. We recommend to set this
-      value to <literal>/var/run</literal> or such directory.
+      The directory where the UNIX domain socket(s) accepting connections for
+      <productname>Pgpool-II</productname> will be created. Multiple sockets
+      can be created by listing multiple directories separated by commas. Default
+      is <literal>/tmp</literal>. Be aware that this sockets might be deleted
+      by a cron job. We recommend to set this value to <literal>/var/run</literal>
+      or such directory.
       -->
       <productname>Pgpool-II</productname>が接続を受け付けるUNIXドメインソケットを置くディレクトリです。
+      コンマで区切った複数のディレクトリのリストを設定すると複数のUNIXドメインソケットファイルを作成します。
       デフォルト値は<literal>/tmp</literal>です。
       このソケットは、cron によって削除されることがあるので注意してください。
       <literal>/var/run</literal>などのディレクトリに変更することをお勧めします。
+     </para>
+     <para>
+      <!--
+      This parameter can only be set at server start.
+      -->
+      このパラメータはサーバ起動時にのみ設定可能です。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-unix-socket-group" xreflabel="unix_socket_group">
+    <term><varname>unix_socket_group</varname> (<type>string</type>)
+     <indexterm>
+      <!--
+      <primary><varname>unix_socket_group</varname> configuration parameter</primary>
+      -->
+      <primary><varname>unix_socket_group</varname> 設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+     <!--
+      Sets the owning group of the Unix-domain socket(s). (The owning user of
+      the sockets is always the user that starts the server.) In combination
+      with the parameter <varname>unix_socket_permissions</varname> this can be
+      used as an additional access control mechanism for Unix-domain connections.
+      By default this is the empty string, which uses the default group of the
+      server user.
+     -->
+      UNIXドメインソケット（複数も）を所有するグループを設定します（ソケットを所有するユーザは常にサーバを起動するユーザです）。
+      <varname>unix_socket_permissions</varname>パラメータとの組合せで、UNIXドメインソケット接続の追加的アクセス管理機構として使うことができます。
+      デフォルトでは空文字列で、サーバユーザのデフォルトグループを使用します。
+     </para>
+     <para>
+      <!--
+      This parameter can only be set at server start.
+      -->
+      このパラメータはサーバ起動時にのみ設定可能です。
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-unix-socket-permissions" xreflabel="unix_socket_permissions">
+    <term><varname>unix_socket_permissions</varname> (<type>integer</type>)
+     <indexterm>
+     <!--
+      <primary><varname>unix_socket_permissions</varname> configuration parameter</primary>
+     -->
+      <primary><varname>unix_socket_permissions</varname> 設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+     <!--
+      Sets the access permissions of the Unix-domain socket(s). Unix-domain
+      sockets use the usual Unix file system permission set. The parameter value
+      is expected to be a numeric mode specified in the format accepted by the
+      chmod and umask system calls. (To use the customary octal format the number
+      must start with a <literal>0</literal> (zero).)
+     -->
+      UNIXドメインソケット（複数も）のアクセスパーミッションを設定します。
+      UNIXドメインソケットは通常のUNIXファイルシステムパーミッション設定の一式を使用します。
+      パラメータ値は、<command>chmod</command>および<command>umask</command>システムコールが受け付ける数値形式での指定を想定しています。
+      （通常使われる8進数形式を使用するのであれば、<literal>0</literal>（ゼロ）で始まらなければなりません。）
+     </para>
+     <para>
+     <!--
+      The default permissions are <literal>0777</literal>, meaning anyone can
+      connect. Reasonable alternatives are <literal>0770</literal> (only user
+      and group, see also <varname>unix_socket_group</varname>) and
+      <literal>0700</literal> (only user). (Note that for a Unix-domain socket,
+      only write permission matters, so there is no point in setting or revoking
+      read or execute permissions.)
+     -->
+      デフォルトのパーミッションは、誰でも接続できる0777になっています。
+      変更するならば<literal>0770</literal>（ユーザとグループのみです。<varname>unix_socket_group</varname>も参照してください）や<literal>0700</literal>（ユーザのみ）が適切です。
+      （UNIXドメインソケットでは書き込み権限だけが問題になるため、読み込みや実行のパーミッションを設定または解除する意味はありません。）
      </para>
      <para>
       <!--
@@ -120,18 +216,35 @@
     <listitem>
      <para>
       <!--
-      Specifies the hostname or IP address, on which PCP process
-      will accept TCP/IP connections. <literal>*</literal>
-      accepts all incoming connections. <literal>''</literal>
-      disables TCP/IP connections. Default
-      is <literal>*</literal>. Connections via UNIX domain
-      socket are always accepted.
+      Specifies the TCP/IP address(es) on which the pcp server is
+      to listen for connections from client applications.
+      The value takes the form of a comma-separated list of host names
+      and/or numeric IP addresses.  The special entry <literal>*</literal>
+      corresponds to all available IP interfaces.  The entry
+      <literal>0.0.0.0</literal> allows listening for all IPv4 addresses and
+      <literal>::</literal> allows listening for all IPv6 addresses.
+      If the list is empty, the server does not listen on any IP interface
+      at all, in which case only Unix-domain sockets can be used to connect
+      to it.
+      The default value
+      is <systemitem class="systemname">localhost</systemitem>, which
+      allows only local TCP/IP <quote>loopback</quote> connections to
+      be made.  While client authentication
+      (<xref linkend="auth-pool-hba-conf">) allows fine-grained
+      control over who can access the
+      server, <varname>pcp_listen_addresses</varname> controls which
+      interfaces accept connection attempts, which can help prevent
+      repeated malicious connection requests on insecure network
+      interfaces.  This parameter can only be set at server start.
       -->
-      PCPプロセスがTCP/IP接続を受け付けるホスト名またはIPアドレスを指定します。
-      <literal>*</literal>を指定すると入ってくる全ての接続を受け付けます。
-      <literal>''</literal>を指定するとTCP/IP接続を受け付けません。
-      デフォルト値は<literal>*</literal>です。
-      UNIXドメインソケット経由のコネクションは常に受け付けます。
+      クライアントアプリケーションからの接続をPCPサーバが監視する TCP/IP アドレスを指定します。
+      この値は、ホスト名をコンマで区切ったリスト、そして/もしくは、数値によるIPアドレスです。
+      <literal>*</literal>という特別なエントリは利用可能な全てのIPインタフェースに対応します。
+      エントリ<literal>0.0.0.0</literal>は全てのIPv4アドレスの監視を、そしてエントリ<literal>::</literal>は全てのIPv6アドレスの監視を許容します。
+      リストが空の場合、サーバはいかなるIPインタフェースも全く監視しないで、Unixドメインソケットのみを使用して接続が行われます。
+      デフォルトの値は<systemitem class="systemname">localhost</systemitem>で、ローカルなTCP/IP <quote>loopback</quote>接続のみ許可します。
+      クライアント認証(<xref linkend="auth-pool-hba-conf">)は誰がサーバにアクセス可能かをきめ細かく制御するのに対し、<varname>pcp_listen_addresses</varname>はどのインタフェースが接続を試みるかを制御します。
+      これにより、安全でないネットワークインタフェース上において繰り返して行われる悪意のある接続要求の防止に役立ちます。
      </para>
      <para>
       <!--
@@ -182,13 +295,15 @@
      <para>
       <!--
       The directory where the UNIX domain socket accepting connections for
-      PCP process will be
-      created. Default is <literal>/tmp</literal>. Be aware that
+      PCP process will be created. Multiple sockets can be created
+      by listing multiple directories separated by commas.
+      Default is <literal>/tmp</literal>. Be aware that
       this socket might be deleted by a cron job. We recommend
       to set this value to <literal>/var/run</literal> or such
       directory.
       -->
       PCPプロセスが接続を受け付けるUNIXドメインソケットを置くディレクトリです。
+      コンマで区切った複数のディレクトリのリストを設定すると複数のUNIXドメインソケットファイルを作成します。
       デフォルト値は<literal>/tmp</literal>です。
       このソケットは、cron によって削除されることがあるので注意してください。
       <literal>/var/run</literal>などのディレクトリに変更することをお勧めします。
@@ -471,7 +586,7 @@
       -->
       パスワードは、3つの形式でpool_passwdファイルに保存できます。
       AES256暗号化形式、平文形式、md5形式です。
-      <productname>Pgpool-II</productname>は接頭辞によってパスワードの形式を確認するため、pool_passwd内の各パスワードのエントリはパスワードの形式を接頭語として付ける必要があります。
+      <productname>Pgpool-II</productname>は接頭辞によってパスワードの形式を確認するため、pool_passwd内の各パスワードのエントリはパスワードの形式を接頭辞として付ける必要があります。
      </para>
      <para>
       <!--
@@ -590,6 +705,243 @@
  </sect2>
 </sect1>
 
+<sect1 id="runtime-config-process-management">
+ <!--
+ <title>Process Management</title>
+ -->
+ <title>プロセス管理</title>
+
+  <para>
+  <variablelist>
+
+   <varlistentry id="guc-process-management-mode" xreflabel="process_management_mode">
+    <term><varname>process_management_mode</varname> (<type>enum</type>)
+     <indexterm>
+      <primary><varname>process_management_mode</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Specify the idle process management method for
+      <productname>Pgpool-II</productname> child processes.
+      Valid options:
+      -->
+      <productname>Pgpool-II</productname>アイドル状態の子プロセスの管理方法を指定します。
+      有効なオプション:
+      <table id="process-management-mode-table">
+      <!--
+      <title>Possible Process Management Modes</title>
+      -->
+      <title>指定可能なプロセス管理モード</title>
+
+      <tgroup cols="2">
+       <tbody>
+        <row>
+         <entry>static</entry>
+         <entry>
+          <!--
+          All children are pre-forked at startup.
+	  Number of child processes is fixed (<xref linkend="guc-num-init-children">).
+          -->
+          すべての子プロセスは起動時に事前にフォークされます。
+	   子プロセスの数は固定です(<xref linkend="guc-num-init-children">)。
+         </entry>
+        </row>
+
+       <row>
+         <entry>dynamic</entry>
+         <entry>
+          <!--
+         <entry>child processes are spawned on demand up to <xref linkend="guc-num-init-children">.
+          number of idle child processes at any time depends on
+          min_spare_children and max_spare_children
+          -->
+          子プロセスはオンデマンドで生成され、最大<xref linkend="guc-num-init-children">です。
+          アイドル状態の子プロセスの数はmin_spare_childrenとmax_spare_childrenの設定値に基づいて増減していきます。
+         </entry>
+        </row>
+
+       </tbody>
+      </tgroup>
+     </table>
+     </para>
+     <para>
+       <!--
+       Default is Static, that is compatible with pre <emphasis>V4.4</emphasis>.
+       -->
+       デフォルトは<literal>static</literal>で、<emphasis>V4.4</emphasis>より以前のバージョンとの互換性があります。
+     </para>
+
+     <para>
+      <!--
+      <varname>process_management_mode</varname> is not available prior to
+      <productname>Pgpool-II </productname><emphasis>V4.4</emphasis>.
+      -->
+      <varname>process_management_mode</varname>は、<productname>Pgpool-II</productname><emphasis> V4.4</emphasis>より以前のバージョンでは使用できません。
+     </para>
+
+     <para>
+      詳細は<xref linkend="process-management-mode">を参照してください。
+     </para>
+
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-process-management-strategy" xreflabel="process_management_strategy">
+    <term><varname>process_management_strategy</varname> (<type>enum</type>)
+     <indexterm>
+      <primary><varname>process_management_strategy</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Specify the process management strategy to satisfy spare (idle) processes count
+      Valid options:
+      -->
+      アイドル状態のプロセスの数を満たすためのプロセス管理戦略を指定します。
+      有効なオプション:
+      <table id="process-management-strategy-table">
+      <!--
+      <title>Possible Process Management Strategies</title>
+      -->
+      <title>指定可能なプロセス管理戦略</title>
+
+      <tgroup cols="2">
+       <tbody>
+        <row>
+         <entry>lazy</entry>
+         <entry>
+          <!--
+          With this strategy the scale-down is performed gradually
+          and only gets triggered when excessive spare processes count
+          remains high for more than 5 mins
+          -->
+          この戦略では、スケールダウンが徐々に実行され、余分なアイドル状態のプロセスが5分以上残っている場合にのみトリガーされます。
+         </entry>
+        </row>
+
+       <row>
+         <entry>gentle</entry>
+         <entry>
+          <!--
+          With this strategy the scale-down is performed gradually
+          and only gets triggered when excessive spare processes count
+          remains high for more than 2 mins
+          -->
+          この戦略では、スケールダウンが徐々に実行され、余分なアイドル状態のプロセスが2分以上残っている場合にのみトリガーされます。
+         </entry>
+        </row>
+
+       <row>
+         <entry>aggressive</entry>
+         <entry>
+          <!--
+          With this strategy the scale-down is performed aggressively
+          and gets triggered more frequently in case of higher spare processes.
+          This mode uses faster and slightly less smart process selection criteria
+          to identify the child processes that can be serviced to satisfy
+          max_spare_children
+          -->
+          この戦略では、スケールダウンが積極的に実行され、アイドル状態のプロセスが多い場合により頻繁にトリガーされます。
+          このモードでは、<xref linkend="guc-max-spare-children">を満たすために、サービスを提供するための子プロセスの識別基準は、より高速でややスマートでないプロセス選択基準を使用します。
+         </entry>
+        </row>
+
+       </tbody>
+      </tgroup>
+     </table>
+     </para>
+     <para>
+      <!--
+      Default is Gentle.
+      -->
+      デフォルトは<literal>gentle</literal>です。
+     </para>
+     <para>
+      <!--
+      <varname>process_management_strategy</varname> is not available prior to
+      <productname>Pgpool-II </productname><emphasis>V4.4</emphasis>.
+      -->
+      <varname>process_management_strategy</varname>は、<productname>Pgpool-II</productname><emphasis>V4.4</emphasis>より以前のバージョンでは使用できません。
+     </para>
+
+    </listitem>
+   </varlistentry>
+
+ <varlistentry id="guc-min-spare-children" xreflabel="min_spare_children">
+    <term><varname>min_spare_children</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>min_spare_children</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Specify the minimum number of spare (idle) child processes to keep.
+      If the idle process count falls below min_spare_children,
+      Pgpool-II will spawn new child processes unless it hits the total allowed child process ceiling (num_init_children)
+      Default value is 5.
+      -->
+      保持する予備（アイドル状態）の子プロセスの最小個数を指定します。
+      予備（アイドル状態）の子プロセス数が<varname>min_spare_children</varname>を下回った場合、<productname>Pgpool-II</productname>は許容される子プロセスの合計上限（<xref linkend="guc-num-init-children">）に達しない限り、新しい子プロセスを生成します。
+      デフォルト値は5です。
+     </para>
+     <para>
+      <!--
+      This parameter can be changed by reloading
+      the <productname>Pgpool-II</productname> configurations.
+      -->
+      このパラメータは<productname>Pgpool-II</productname>の設定を再読み込みすることで変更可能です。
+     </para>
+     <para>
+      <!--
+      This parameter is only applicable for <emphasis>dynamic</emphasis> process management mode.
+      -->
+      このパラメーターは、動的プロセス管理モードが有効になっている場合にのみ適用されます。
+     </para>
+    </listitem>
+   </varlistentry>
+
+ <varlistentry id="guc-max-spare-children" xreflabel="max_spare_children">
+    <term><varname>max_spare_children</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>max_spare_children</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Specify the maximum number of spare (idle) child processes to keep.
+       If the idle process count increases from max_spare_children, Pgpool-II will kill the excessive child processes.
+      Default value is 10.
+      -->
+      保持する予備（アイドル状態）の子プロセスの最大個数を指定します。
+      予備（アイドル状態）の子プロセス数が<varname>max_spare_children</varname>を超えた場合、<productname>Pgpool-II</productname>は余分な子プロセスを強制終了します。
+      デフォルト値は10です。
+     </para>
+     <para>
+      <!--
+      This parameter can be changed by reloading
+      the <productname>Pgpool-II</productname> configurations.
+      -->
+      このパラメータは<productname>Pgpool-II</productname>の設定を再読み込みすることで変更可能です。
+     </para>
+     <para>
+      <!--
+      This parameter is only applicable for <emphasis>dynamic</emphasis> process management mode.
+      -->
+      このパラメーターは、動的プロセス管理モードが有効になっている場合にのみ適用されます。
+     </para>
+    </listitem>
+   </varlistentry>
+
+    </variablelist>
+
+ </para>
+</sect1>
+
 <sect1 id="runtime-config-running-mode">
  <title>クラスタリングモード</title>
 
@@ -611,7 +963,7 @@
    </varlistentry>
   </variablelist>
 
- <sect2 id="runtime-config-streaming-replication-mode">
+ <sect2 id="runtime-config-streaming-replication-mode" xreflabel="ストリーミングレプリケーションモード">
   <title>ストリーミングレプリケーションモード</title>
 
   <para>
@@ -625,41 +977,18 @@ backend_clustering_mode = 'streaming_replication'
    また、スタンバイサーバをまったく使用しないことも可能です。
   </para>
   <para>
+   このモードの難点は、検索問い合わせを負荷分散させた時に、スタンバイサーバのレプリケーション遅延を意識しなければならない点です。
+   ノードをまたがる可視性の一貫性も保証されません。
+   この問題を改善するために多くの追加パラメータが用意されていますが、そのことが管理を難しくする場合もあります。
+   また、プライマリサーバがダウンしてスタンバイが昇格する場合にフェイルオーバの時間がかかることがあります。
+   こうした問題を避けたい場合は、<link linkend="guc-snapshot-isolation-mode">スナップショットアイソレーションモード</link>をご検討ください。
+  </para>
+  <para>
    ストリーミングレプリケーションモードで使用する追加のパラメータについては<xref linkend="runtime-streaming-replication-check">をご覧ください。
   </para>
  </sect2>
  
- <sect2 id="runtime-config-logical-replication-mode">
-  <title>ロジカルレプリケーションモード</title>
-
-  <para>
-   このモードは最近追加されました。
-   このモードでは<productname>PostgreSQL</productname>が個々のサーバをレプリケーションします。
-   このモードを有効にするには<varname>backend_clustering_mode</varname>に'logical_replication'を設定してください。
-    <programlisting>
-backend_clustering_mode = 'logical_replication'
-    </programlisting>
-   このモードでは127台までのロジカルレプリケーションスタンバイサーバを使用できます。
-   また、スタンバイサーバをまったく使用しないことも可能です。
-  </para>
- </sect2>
-
- <sect2 id="runtime-config-slony-mode">
-  <title>Slonyモード</title>
-
-  <para>
-   このモードでは<productname>Pgpool-II</productname>を<acronym>Slony-I</acronym>と組み合わせて使用します。
-   Slony-Iが実際にデータのレプリケーションを行います。
-   このモードを有効にするには<varname>backend_clustering_mode</varname>に'slony'を設定してください。
-    <programlisting>
-backend_clustering_mode = 'slony'
-    </programlisting>
-   このモードでは127台までのレプリカサーバを使用できます。
-   また、レプリカサーバをまったく使用しないことも可能です。
-  </para>
- </sect2>
-
- <sect2 id="guc-replication-mode" xreflabel="native_replication_mode">
+ <sect2 id="guc-replication-mode" xreflabel="ネイティブレプリケーションモード">
   <title>ネイティブレプリケーションモード</title>
 
   <para>
@@ -672,6 +1001,8 @@ backend_clustering_mode = 'slony'
     <programlisting>
 backend_clustering_mode = 'native_replication'
     </programlisting>
+   このモードでは127台までのレプリカサーバを使用できます。
+   また、レプリカサーバをまったく使用しないことも可能です。
   </para>
 
   <para>
@@ -680,8 +1011,15 @@ backend_clustering_mode = 'native_replication'
    also be used with replication mode to distribute the load to the
    attached backend nodes.
    -->
-   参照負荷をスタンバイバックエンドノードに振り分ける負荷分散（<xref linkend="runtime-config-load-balancing">を参照）もレプリケーションモードと共に使用可能です。
+   参照負荷をバックエンドノードに振り分ける負荷分散（<xref linkend="runtime-config-load-balancing">を参照）もレプリケーションモードと共に使用可能です。
   </para>
+
+  <para>
+   このモードの難点は、ノードをまたがる可視性の一貫性が保証されないことです。
+   このことでノードの間のデータの一貫性が崩れたり、一貫性のないデータを一時的に読み込んでしまうことがあります。
+   こうした問題を避けたい場合は、<link linkend="guc-snapshot-isolation-mode">スナップショットアイソレーションモード</link>をご検討ください。
+  </para>
+
   <para>
    <!--
    Following options affect the behavior of
@@ -979,7 +1317,7 @@ backend_clustering_mode = 'native_replication'
       <!--
       <productname>Pgpool-II</productname> <emphasis>V2.2</emphasis> or later,
       automatically detects whether the table has a SERIAL columns or not,
-      so it never  locks the table if it desn't have the SERIAL columns.
+      so it never  locks the table if it doesn't have the SERIAL columns.
       -->
       <productname>Pgpool-II</productname> <emphasis>V2.2</emphasis>以降では、テーブルがSERIAL列を持つかどうか自動判別するため、SERIAL列がなければ決してテーブルをロックしません。
      </para>
@@ -1089,16 +1427,16 @@ backend_clustering_mode = 'native_replication'
        acquire the lock for the table. Of cause this results in an error.
        The transaction will be aborted, and the following INSERT statement produces the above error message.
        -->
-       たとえば、transactionsテストでは、存在しないテーブルに対してINSERTを試みており、<productname>Pgpool-II</productname>は<productname>PostgerSQL</productname>にそのテーブルのロックを獲得させることになります。
+       たとえば、transactionsテストでは、存在しないテーブルに対してINSERTを試みており、<productname>Pgpool-II</productname>は<productname>PostgreSQL</productname>にそのテーブルのロックを獲得させることになります。
        これはもちろんエラーとなります。
        トランザクションがアボート状態になり、続くINSERTでは上記エラーが出てしまいます。
       </para>
      </note>
      <para>
       <!--
-      Default is off.
+      Default is on.
       -->
-      デフォルトはoffです。
+      デフォルトはonです。
      </para>
      <para>
       <!--
@@ -1224,7 +1562,7 @@ backend_clustering_mode = 'native_replication'
   </variablelist>
  </sect2>
 
- <sect2 id="guc-snapshot-isolation-mode" xreflabel="snapshot_isolation_mode">
+ <sect2 id="guc-snapshot-isolation-mode" xreflabel="スナップショットアイソレーションモード">
   <title>スナップショットアイソレーションモード</title>
 
   <para>
@@ -1281,8 +1619,6 @@ S2/N1: COMMIT;
 S2/N2: COMMIT;
    </programlisting>
 
-   ただし、制限事項がいくつかあり、今の所(<productname>Pgpool-II</productname> 4.2)では「実験的な実装」という位置づけです。
-   業務で使用する場合には慎重なテストをお勧めします。
   </para>
   <itemizedlist>
    <listitem>
@@ -1295,15 +1631,52 @@ S2/N2: COMMIT;
     </para>
    </listitem>
 
-   <listitem>
-    <para>
-     シリアル型やシーケンスに関する一貫した可視性を保証しません。
-    </para>
-   </listitem>
   </itemizedlist>
  </sect2>
 
- <sect2 id="guc-raw-mode" xreflabel="raw_mode">
+ <sect2 id="runtime-config-logical-replication-mode">
+  <title>ロジカルレプリケーションモード</title>
+
+  <para>
+   このモードでは<productname>PostgreSQL</productname>が個々のサーバをレプリケーションします。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'logical_replication'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'logical_replication'
+    </programlisting>
+   このモードでは127台までのロジカルレプリケーションサーバを使用できます。
+   また、スタンバイサーバをまったく使用しないことも可能です。
+  </para>
+  <para>
+   このモードの難点は、検索問い合わせを負荷分散させた時に、スタンバイサーバのレプリケーション遅延を意識しなければならない点です。
+   ノードをまたがる可視性の一貫性も保証されません。
+   また、DDLやラージオブジェクトなど、一部のデータオブジェクトはレプリケーションされません。
+  </para>
+ </sect2>
+
+ <sect2 id="runtime-config-slony-mode">
+  <title>Slonyモード</title>
+
+  <para>
+   このモードでは<productname>Pgpool-II</productname>を<acronym>Slony-I</acronym>と組み合わせて使用します。
+   Slony-Iが実際にデータのレプリケーションを行います。
+   このモードを有効にするには<varname>backend_clustering_mode</varname>に'slony'を設定してください。
+    <programlisting>
+backend_clustering_mode = 'slony'
+    </programlisting>
+   このモードでは127台までのレプリカサーバを使用できます。
+   また、レプリカサーバをまったく使用しないことも可能です。
+  </para>
+  <para>
+   このモードの難点は、検索問い合わせを負荷分散させた時に、スタンバイサーバのレプリケーション遅延を意識しなければならない点です。
+   ノードをまたがる可視性の一貫性も保証されません。
+   また、DDLやラージオブジェクトなど、一部のデータオブジェクトはレプリケーションされません。
+  </para>
+  <para>
+   ストリーミングレプリケーションやロジカルレプリケーションが登場後、Slony-Iを新規に採用するシステムは少ないので、特に理由がない限りこのモードを使用することはお勧めしません。
+  </para>
+ </sect2>
+
+ <sect2 id="guc-raw-mode" xreflabel="rawモード">
   <title>rawモード</title>
   <para>
    このモードでは、<productname>Pgpool-II</>はデータベースの同期に関しては関与しません。
@@ -1475,8 +1848,8 @@ backend_clustering_mode = 'raw'
      <para>
       <!--
       <varname>backend_weight</varname> specifies the load balance
-      ratio of the backends. It may be set to any interger or
-      floating point value greater than or equeal zero.
+      ratio of the backends. It may be set to any integer or
+      floating point value greater than or equal zero.
       Multiple backends can be specified by
       adding a number at the end of the parameter name
       (e.g. backend_weight0). If you plan to use only one
@@ -1493,7 +1866,7 @@ backend_clustering_mode = 'raw'
       reloading a configuration file. However, this will take
       effect only for new established client sessions.
       <productname>Pgpool-II</> <emphasis>V2.2.6</>, <emphasis>V2.3</> or later
-      allows alllow updating the values by reloading a configuration file.
+      allows allow updating the values by reloading a configuration file.
       This is useful if you want to prevent any query sent to
       standbys to perform some administrative work in native replication mode.
       -->
@@ -1622,7 +1995,7 @@ backend_clustering_mode = 'raw'
 	<row>
 	 <entry><literal>DISALLOW_TO_FAILOVER</literal></entry>
 	 <!--
-	 <entry>Disllow to failover or detaching backend
+	 <entry>Disallow to failover or detaching backend
 	 This is useful when you protect backend by
 	 using HA (High Availability) softwares such as
 	 <productname>Heartbeat</> or <productname>Pacemaker</>. You cannot specify with
@@ -1685,12 +2058,13 @@ backend_clustering_mode = 'raw'
       <varname>backend_application_name</varname>はWAL logをプライマリサーバから読み込むwalreceiverのために使用するapplication_nameを設定します。
       ですから、ストリーミングレプリケーションモード以外では設定する必要がありません。
       また、このパラメータは<xref linkend="SQL-SHOW-POOL-NODES">と<xref linkend="PCP-NODE-INFO">コマンド中に表示される"replication_state"と"replication_sync_state"のために使用されます。
+       更に、<xref linkend="guc-delay-threshold-by-time">もこのパラメータを必要とします。
      </para>
      <para>
       たとえば、プライマリノードがbackend0（そのホスト名は"host0"とします）、スタンバイノードはbackend1で、backend1のbackend_application_nameは"server1"であるとします。
       すると、<filename>postgresql.conf</filename>の<literal>primary_conninfo</literal>パラメータは次のようになるはずです。
       <programlisting>
-primary_conninfo = 'host=host0 port=5432 user=postgres application_name='server1''
+primary_conninfo = 'host=host0 port=5432 user=postgres application_name=''server1'''
       </programlisting>
       <xref linkend="guc-recovery-1st-stage-command">がそのパラメータを生成します。
       コマンドの完全な例に関しては、<xref linkend="example-cluster-pgpool-config-online-recovery">をご覧ください。

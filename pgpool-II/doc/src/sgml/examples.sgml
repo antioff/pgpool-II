@@ -13,8 +13,8 @@
   <title>Configuration Examples</title>
   &example-basic;
   &example-cluster;
+  &example-replication-si-mode;
   &example-AWS;
   &example-Aurora;
-  &example-Kubernetes;
  </chapter>
 </part>

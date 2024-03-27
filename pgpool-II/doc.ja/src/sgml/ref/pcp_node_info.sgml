@@ -67,6 +67,19 @@ Pgpool-II documentation
     </varlistentry>
 
     <varlistentry>
+     <term><option>-a</option></term>
+     <term><option>--all</option></term>
+     <listitem>
+      <para>
+       <!--
+       Display all backend nodes information.
+       -->
+       すべてのバックエンドノードの情報を表示します。
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
      <!--
      <term><option>Other options </option></term>
      -->
@@ -95,8 +108,8 @@ Pgpool-II documentation
    -->
    ここでは例を示します。
    <programlisting>
-    $ pcp_node_info -h localhost -U postgres 1
-    /tmp 11003 2 0.500000 up standby 0 streaming async 2019-04-23 13:58:40
+$ pcp_node_info -w -p 11001 -n 1
+/tmp 11003 1 0.500000 waiting up standby standby 0 streaming async 2021-02-27 14:51:30
    </programlisting>
   </para>
   <para>
@@ -109,42 +122,35 @@ Pgpool-II documentation
     1. hostname
     2. port number
     3. status
-    4. load balance weight
-    5. status name
-    6. backend role
-    7. replication delay
-    8. replication state (PostgreSQL 9.1以降。pg_stat_replicationから取得)
-    9. sync replication state (PostgreSQL 9.2以降。pg_stat_replicationから取得)
-    10. last status change time
+    4. backend status
+    5. load balance weight
+    6. status name
+    7. backend role
+    8. actual backend role
+    9. replication delay
+    10. replication state (PostgreSQL 9.1以降。pg_stat_replicationから取得)
+    11. sync replication state (PostgreSQL 9.2以降。pg_stat_replicationから取得)
+    12. last status change time
     -->
-    1. ノードのホスト名
-    2. ノードのポート番号
-    3. ステータス
-    4. ロードバランスウェイト
-    5. バックエンド状態名
-    6. バックエンドの役割
-    7. レプリケーションの遅延
-    8. レプリケーション状態 (PostgreSQL 9.1以降。pg_stat_replicationから取得)
-    9. 同期レプリケーション状態 (PostgreSQL 9.2以降。pg_stat_replicationから取得)
-    10. 最終ステータス変更時刻
+1. ノードのホスト名
+2. ノードのポート番号
+3. ステータス
+4. ロードバランスウェイト
+5. バックエンド状態名
+6. 実際のバックエンドの状態 (Pgpool-II 4.3以降。PQpingParamsで取得)
+7. バックエンドの役割
+8. 実際のバックエンドの役割(Pgpool-II 4.3以降。pg_is_in_recoveryで取得)
+9. レプリケーションの遅延
+10. レプリケーション状態 (Pgpool-II 4.1以降。pg_stat_replicationから取得)
+11. 同期レプリケーション状態 (Pgpool-II 4.1以降。pg_stat_replicationから取得)
+12. 最終ステータス変更時刻
    </literallayout>
   </para>
   <para>
    <!--
-   Status is represented by a digit from [0 to 3].
+    3 (status) is represented by a digit from [0 to 3].
    -->
-   7, 8, 9は、<xref linkend="guc-sr-check-period">が0以外でなければ正しく表示されません。
-    また、8, 9は、<xref linkend="guc-sr-check-user">が<productname>PostgreSQL</productname>のスーパーユーザーであるか、"pg_monitor"グループに所属していなけれ正しく表示されません。
-     <note>
-      <para>
-       <xref linkend="guc-sr-check-user">をpg_monitorグループに所属させるには、以下のSQLコマンドを<productname>PostgreSQL</productname>スーパーユーザーで実行してください（"sr_check_user"を<xref linkend="guc-sr-check-user">の設定値で置き換えてください）
-	 <programlisting>
-	  GRANT pg_monitor TO sr_check_user;
-	 </programlisting>
-	 <productname>PostgreSQL</productname> 9.6にはpg_monitorグループがないので、<xref linkend="guc-sr-check-user">は<productname>PostgreSQL</productname>のスーパーユーザーでなければなりません。
-      </para>
-     </note>
-     ステータスは [0..3] までの数字で表わされます。各数字の意味は以下のとおりです。
+   3 (ステータス)は [0..3] までの数字で表わされます。各数字の意味は以下のとおりです。
   </para>
   <para>
    <itemizedlist>
@@ -162,28 +168,84 @@ Pgpool-II documentation
   </para>
   <para>
    <!--
-   The load balance weight is displayed in normalized format.
+   4 (load balance weight) is displayed in normalized format.
    -->
-   ロードバランスウェイトは Normalize されたフォーマットで出力されます。
+   4 (ロードバランスウェイト)は0から1に正規化されたフォーマットで出力されます。
   </para>
+  <para>
+   6は実際のバックエンドの状態をリアルタイムで取得して表示します。
+   情報の取得は、このコマンドが実行された時に<function>PQpingParams</function>を呼び出すことによって行われます。
+   <function>PQpingParams</function>は<productname>PostgreSQL</productname> 9.1以降でのみサポートされています。
+   <productname>Pgpool-II</productname>が<productname>PostgreSQL</productname> 9.0以前とともに構築されると、この列は"unknown"と表示されます。
+   また、<link linkend="runtime-config-health-check">ヘルスチェック</link>が無効になっている場合も"unknown"と表示されます。
+   <xref linkend="pcp-detach-node">でバックエンドノードを切り離すと、<productname>Pgpool-II</productname>が管理する状態は"down"になりますが、バックエンドの実際の状態は"up"なので、5と6が一致しないことはあり得ます。
+    逆に、5が"up"なのに、6が"down"というのは起こらないはずです。
+  </para>
+  <para>
+   8は実際のバックエンドの状態をリアルタイムで取得して表示します。
+   その結果はストリーミングレプリケーションモードでは、"primary"か"standby"ですが、情報が取得できなければ"unknown"と表示します。
+   <productname>Pgpool-II</productname>はノードID順にバックエンドノードを調べ、最後に見つけたスタンバイ以外のノードをプライマリとするので、誤ってスタンバイ以外のノードが複数できたときなどには、7と8が一致しないことはありえます。
+   （このコマンドはそのような状態を見つけるのに役立ちます。)
+   それ以外のモードでは、"main"あるいは"replica"と表示されます。
+   ストリーミングレプリケーションモードと違って、<function>pg_is_in_recovery</function>は呼び出されず、7と8が異なる値になることはありません。
+  </para>
+  <para>
+   9, 10, 11は、<xref linkend="guc-sr-check-period">が0以外でなければ正しく表示されません。
+   また、10, 11は、<xref linkend="guc-sr-check-user">が<productname>PostgreSQL</productname>のスーパーユーザーであるか、"pg_monitor"グループに所属していなけれ正しく表示されません。
+   <note>
+    <para>
+    <xref linkend="guc-sr-check-user">をpg_monitorグループに所属させるには、以下のSQLコマンドを<productname>PostgreSQL</productname>スーパーユーザーで実行してください（"sr_check_user"を<xref linkend="guc-sr-check-user">の設定値で置き換えてください）
+	 <programlisting>
+GRANT pg_monitor TO sr_check_user;
+	 </programlisting>
+	<productname>PostgreSQL</productname> 9.6にはpg_monitorグループがないので、<xref linkend="guc-sr-check-user">は<productname>PostgreSQL</productname>のスーパーユーザーでなければなりません。
+    </para>
+   </note>
+  </para>
+
+  <para>
+  <!--
+    From <productname>Pgpool-II</productname> 4.4, 9 (replication
+    delay) is displayed in either bytes or
+    seconds. See <xref linkend="guc-delay-threshold-by-time"> for more
+    details.
+    -->
+    <productname>Pgpool-II</productname> 4.4から、9 (レプリケーション遅延)はバイトもしくは秒単位で表示されます。
+    詳細は<xref linkend="guc-delay-threshold-by-time">を参照ください。
+  </para>
+
+  <para>
+   <!--
+   The <option>-a</option> or <option>all</option> option lists all backend nodes information.
+   -->
+   <option>-a</option>または <option>--all</option>オプションはすべてのバックエンドノードの情報を表示します。
+  </para>
+  <programlisting>
+$ pcp_node_info -w -p 11001 -a
+/tmp 11002 1 0.500000 waiting up primary primary 0 none none 2021-02-27 14:51:30
+/tmp 11003 1 0.500000 waiting up standby standby 0 streaming async 2021-02-27 14:51:30
+  </programlisting>
+
   <para>
    <!--
    The <option>verbose</option> option can help understand the output. For example:
    -->
-   <option>--verbose</option> オプションは出力内容を理解するのに役に立ちます。例：
+   <option>--verbose</option> オプションは出力内容を理解するのに役に立ちます。例を示します：
   </para>
   <programlisting>
-   $ pcp_node_info --verbose -h localhost -U postgres 1
-   Hostname               : /tmp
-   Port                   : 11003
-   Status                 : 2
-   Weight                 : 0.500000
-   Status Name            : up
-   Role                   : standby
-   Replication Delay      : 0
-   Replication State      : streaming
-   Replication Sync State : async
-   Last Status Change     : 2019-04-23 13:58:40
+$ pcp_node_info -w -p 11001 --verbose 1
+Hostname               : /tmp
+Port                   : 11003
+Status                 : 1
+Weight                 : 0.500000
+Status Name            : waiting
+Backend Status Name    : up
+Role                   : standby
+Backend Role           : standby
+Replication Delay      : 0
+Replication State      : streaming
+Replication Sync State : async
+Last Status Change     : 2021-02-27 14:51:30
   </programlisting>
  </refsect1>
 

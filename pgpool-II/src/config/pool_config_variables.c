@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -49,7 +49,11 @@
 #endif
 
 #define default_reset_query_list	"ABORT;DISCARD ALL"
-#define default_write_function_list "nextval,setval"
+#define default_listen_addresses_list	"localhost"
+#define default_pcp_listen_addresses_list	"localhost"
+#define default_unix_socket_directories_list	"/tmp"
+#define default_read_only_function_list ""
+#define default_write_function_list ""
 
 #define EMPTY_CONFIG_GENERIC {NULL, 0, 0, NULL, 0, false, 0, 0, 0, 0, NULL, NULL}
 #define EMPTY_CONFIG_BOOL {EMPTY_CONFIG_GENERIC, NULL, false, NULL, NULL, NULL, false}
@@ -92,6 +96,7 @@ static bool get_index_in_var_name(struct config_generic *record,
 					  const char *name, int *index, int elevel);
 
 
+static bool MakeUserRedirectListRegex(char *newval, int elevel);
 static bool MakeDBRedirectListRegex(char *newval, int elevel);
 static bool MakeAppRedirectListRegex(char *newval, int elevel);
 static bool MakeDMLAdaptiveObjectRelationList(char *newval, int elevel);
@@ -104,6 +109,8 @@ static char **get_list_from_string_regex_delim(const char *str, const char *deli
 
 /*show functions */
 static const char *IntValueShowFunc(int value);
+static const char *FilePermissionShowFunc(int value);
+static const char *UnixSockPermissionsShowFunc(void);
 static const char *HBDestinationPortShowFunc(int index);
 static const char *HBDeviceShowFunc(int index);
 static const char *HBHostnameShowFunc(int index);
@@ -134,6 +141,7 @@ static bool BackendSlotEmptyCheckFunc(int index);
 
 /*variable custom assign functions */
 static bool FailOverOnBackendErrorAssignMessage(ConfigContext scontext, bool newval, int elevel);
+static bool DelegateIPAssignMessage(ConfigContext scontext, char *newval, int elevel);
 static bool BackendPortAssignFunc(ConfigContext context, int newval, int index, int elevel);
 static bool BackendHostAssignFunc(ConfigContext context, char *newval, int index, int elevel);
 static bool BackendDataDirAssignFunc(ConfigContext context, char *newval, int index, int elevel);
@@ -177,7 +185,7 @@ static void convert_int_from_base_unit(int64 base_value, int base_unit,
 
 /* These functions are used to provide Hints for enum type config parameters and
  * to output the values of the parameters.
- * These functuons are not available for tools since they use the stringInfo that is
+ * These functions are not available for tools since they use the stringInfo that is
  * not present for tools.
  */
 
@@ -226,6 +234,21 @@ static const struct config_enum_entry backend_clustering_mode_options[] = {
 	{"slony", CM_SLONY, false},
 	{"raw", CM_RAW, false},
 	{"snapshot_isolation", CM_SNAPSHOT_ISOLATION, false},
+	{NULL, 0, false}
+};
+
+static const struct config_enum_entry process_management_mode_options[] = {
+	{"static", PM_STATIC, false},
+	{"dynamic", PM_DYNAMIC, false},
+
+	{NULL, 0, false}
+};
+
+static const struct config_enum_entry process_management_strategy_options[] = {
+	{"aggressive", PM_STRATEGY_AGGRESSIVE, false},
+	{"gentle", PM_STRATEGY_GENTLE, false},
+	{"lazy", PM_STRATEGY_LAZY, false},
+
 	{NULL, 0, false}
 };
 
@@ -280,8 +303,8 @@ static const struct config_enum_entry check_temp_table_options[] = {
 	{"catalog", CHECK_TEMP_CATALOG, false},	/* search system catalogs */
 	{"trace", CHECK_TEMP_TRACE, false},		/* tracing temp tables */
 	{"none", CHECK_TEMP_NONE, false},		/* do not check temp tables */
-	{"on", CHECK_TEMP_ON, false},			/* same as CHECK_TEMP_CATALOG. Just for backward compatibilty. */
-	{"off", CHECK_TEMP_OFF, false},			/* same as CHECK_TEMP_NONE. Just for backward compatibilty. */
+	{"on", CHECK_TEMP_ON, false},			/* same as CHECK_TEMP_CATALOG. Just for backward compatibility. */
+	{"off", CHECK_TEMP_OFF, false},			/* same as CHECK_TEMP_NONE. Just for backward compatibility. */
 	{NULL, 0, false}
 };
 
@@ -382,7 +405,7 @@ static struct config_bool ConfigureNamesBool[] =
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.failover_when_quorum_exists,
-		false,
+		true,
 		NULL, NULL, NULL
 	},
 	{
@@ -391,7 +414,7 @@ static struct config_bool ConfigureNamesBool[] =
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.failover_require_consensus,
-		false,
+		true,
 		NULL, NULL, NULL
 	},
 	{
@@ -413,7 +436,16 @@ static struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 	{
-		{"log_connections", CFGCXT_RELOAD, LOGING_CONFIG,
+		{"wd_remove_shutdown_nodes", CFGCXT_RELOAD, WATCHDOG_CONFIG,
+			"Revoke the cluster membership of properly shutdown watchdog nodes.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.wd_remove_shutdown_nodes,
+		false,
+		NULL, NULL, NULL
+	},
+	{
+		{"log_connections", CFGCXT_RELOAD, LOGGING_CONFIG,
 			"Logs each successful connection.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -423,7 +455,7 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"log_disconnections", CFGCXT_RELOAD, LOGING_CONFIG,
+		{"log_disconnections", CFGCXT_RELOAD, LOGGING_CONFIG,
 			"Logs end of a session.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -433,7 +465,17 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"log_hostname", CFGCXT_RELOAD, LOGING_CONFIG,
+		{"log_pcp_processes", CFGCXT_RELOAD, LOGGING_CONFIG,
+			"Logs PCP process forks and anormal exit status to the log",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.log_pcp_processes,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"log_hostname", CFGCXT_RELOAD, LOGGING_CONFIG,
 			"Logs the host name in the connection logs.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -453,7 +495,7 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"replication_mode", CFGCXT_INIT, LOGING_CONFIG,
+		{"replication_mode", CFGCXT_INIT, LOGGING_CONFIG,
 			"Enables replication mode.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -468,7 +510,7 @@ static struct config_bool ConfigureNamesBool[] =
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.load_balance_mode,
-		false,
+		true,
 		NULL, NULL, NULL
 	},
 
@@ -498,6 +540,16 @@ static struct config_bool ConfigureNamesBool[] =
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.replicate_select,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"prefer_lower_delay_standby", CFGCXT_RELOAD, STREAMING_REPLICATION_CONFIG,
+			"If the load balance node is delayed over delay_threshold on SR, pgpool find another standby node which is lower delayed.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.prefer_lower_delay_standby,
 		false,
 		NULL, NULL, NULL
 	},
@@ -533,6 +585,16 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"failover_on_backend_shutdown", CFGCXT_RELOAD, FAILOVER_CONFIG,
+			"Triggers fail over when backend is shutdown.",
+			CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.failover_on_backend_shutdown,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"detach_false_primary", CFGCXT_RELOAD, FAILOVER_CONFIG,
 			"Automatically detaches false primary node.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
@@ -563,7 +625,7 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"log_statement", CFGCXT_SESSION, LOGING_CONFIG,
+		{"log_statement", CFGCXT_SESSION, LOGGING_CONFIG,
 			"Logs all statements in the pgpool logs.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -573,7 +635,7 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"log_per_node_statement", CFGCXT_SESSION, LOGING_CONFIG,
+		{"log_per_node_statement", CFGCXT_SESSION, LOGGING_CONFIG,
 			"Logs per node detailed SQL statements.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -583,7 +645,17 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"log_client_messages", CFGCXT_SESSION, LOGING_CONFIG,
+		{"notice_per_node_statement", CFGCXT_SESSION, LOGGING_CONFIG,
+			"Logs notice message for per node detailed SQL statements.",
+			CONFIG_VAR_TYPE_ENUM, false, 0
+		},
+		&g_pool_config.notice_per_node_statement,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"log_client_messages", CFGCXT_SESSION, LOGGING_CONFIG,
 			"Logs any client messages in the pgpool logs.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -604,11 +676,11 @@ static struct config_bool ConfigureNamesBool[] =
 
 	{
 		{"clear_memqcache_on_escalation", CFGCXT_RELOAD, WATCHDOG_CONFIG,
-			"Clears the query cache in the shared memory when pgpool-II escaltes to leader watchdog node.",
+			"Clears the query cache in the shared memory when pgpool-II escalates to leader watchdog node.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.clear_memqcache_on_escalation,
-		false,
+		true,
 		NULL, NULL, NULL
 	},
 
@@ -703,7 +775,7 @@ static struct config_bool ConfigureNamesBool[] =
 
 	{
 		{"auto_failback", CFGCXT_RELOAD, FAILOVER_CONFIG,
-			"Enables nodes automatically reattach, when dettached node continue streaming replication.",
+			"Enables nodes automatically reattach, when detached node continue streaming replication.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.auto_failback,
@@ -711,7 +783,7 @@ static struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 	{
-		{"logging_collector", CFGCXT_INIT, LOGING_CONFIG,
+		{"logging_collector", CFGCXT_INIT, LOGGING_CONFIG,
 			"Enable capturing of stderr into log files.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
@@ -720,11 +792,21 @@ static struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 	{
-		{"log_truncate_on_rotation", CFGCXT_INIT, LOGING_CONFIG,
+		{"log_truncate_on_rotation", CFGCXT_INIT, LOGGING_CONFIG,
 			"If on, an existing log file gets truncated on time based log rotation.",
 			CONFIG_VAR_TYPE_BOOL, false, 0
 		},
 		&g_pool_config.log_truncate_on_rotation,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"health_check_test", CFGCXT_INIT, HEALTH_CHECK_CONFIG,
+		 "If on, enable health check testing.",
+		 CONFIG_VAR_TYPE_BOOL, false, 0
+		},
+		&g_pool_config.health_check_test,
 		false,
 		NULL, NULL, NULL
 	},
@@ -736,6 +818,19 @@ static struct config_bool ConfigureNamesBool[] =
 
 static struct config_string ConfigureNamesString[] =
 {
+	{
+		{"user_redirect_preference_list", CFGCXT_RELOAD, STREAMING_REPLICATION_CONFIG,
+			"redirect by user name.",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.user_redirect_preference_list,	/* variable */
+		NULL,					/* boot value */
+		NULL,					/* assign_func */
+		NULL,					/* check_func */
+		MakeUserRedirectListRegex,	/* process func */
+		NULL					/* show hook */
+	},
+
 	{
 		{"database_redirect_preference_list", CFGCXT_RELOAD, STREAMING_REPLICATION_CONFIG,
 			"redirect by database name.",
@@ -772,42 +867,12 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		{"listen_addresses", CFGCXT_INIT, CONNECTION_CONFIG,
-			"hostname or IP address on which pgpool will listen on.",
+		{"unix_socket_group", CFGCXT_INIT, CONNECTION_CONFIG,
+			"The owning user of the sockets that always starts the server.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
-		&g_pool_config.listen_addresses,
-		"localhost",
-		NULL, NULL, NULL, NULL
-	},
-
-	{
-		{"pcp_listen_addresses", CFGCXT_INIT, CONNECTION_CONFIG,
-			"hostname(s) or IP address(es) on which pcp will listen on.",
-			CONFIG_VAR_TYPE_STRING, false, 0
-		},
-		&g_pool_config.pcp_listen_addresses,
-		"*",
-		NULL, NULL, NULL, NULL
-	},
-
-	{
-		{"socket_dir", CFGCXT_INIT, CONNECTION_CONFIG,
-			"The directory to create the UNIX domain socket for accepting pgpool-II client connections.",
-			CONFIG_VAR_TYPE_STRING, false, 0
-		},
-		&g_pool_config.socket_dir,
-		DEFAULT_SOCKET_DIR,
-		NULL, NULL, NULL, NULL
-	},
-
-	{
-		{"pcp_socket_dir", CFGCXT_INIT, CONNECTION_CONFIG,
-			"The directory to create the UNIX domain socket for accepting pgpool-II PCP connections.",
-			CONFIG_VAR_TYPE_STRING, false, 0
-		},
-		&g_pool_config.pcp_socket_dir,
-		DEFAULT_SOCKET_DIR,
+		&g_pool_config.unix_socket_group,
+		"",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -822,7 +887,7 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		{"log_destination", CFGCXT_RELOAD, LOGING_CONFIG,
+		{"log_destination", CFGCXT_RELOAD, LOGGING_CONFIG,
 			"destination of pgpool-II log",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
@@ -834,7 +899,7 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		{"syslog_ident", CFGCXT_RELOAD, LOGING_CONFIG,
+		{"syslog_ident", CFGCXT_RELOAD, LOGGING_CONFIG,
 			"syslog program ident string.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
@@ -866,12 +931,12 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		{"log_line_prefix", CFGCXT_RELOAD, LOGING_CONFIG,
+		{"log_line_prefix", CFGCXT_RELOAD, LOGGING_CONFIG,
 			"printf-style string to output at beginning of each log line.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.log_line_prefix,
-		"%t: pid %p: ",
+		"%m: %a pid %p: ",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -941,7 +1006,7 @@ static struct config_string ConfigureNamesString[] =
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.recovery_user,
-		"",
+		"nobody",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -1016,11 +1081,31 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
+		{"trusted_server_command", CFGCXT_RELOAD, WATCHDOG_CONFIG,
+			"Command to excute when communicate with trusted server.",
+			CONFIG_VAR_TYPE_STRING, false, 0
+		},
+		&g_pool_config.trusted_server_command,
+		"ping -q -c3 %h",
+		NULL, NULL, NULL, NULL
+	},
+
+	{
 		{"delegate_IP", CFGCXT_INIT, WATCHDOG_CONFIG,
+			"Old config parameter for delegate_ip.",
+			CONFIG_VAR_TYPE_STRING, false, VAR_HIDDEN_IN_SHOW_ALL
+		},
+		NULL,
+		"",
+		DelegateIPAssignMessage, NULL, NULL, NULL
+	},
+
+	{
+		{"delegate_ip", CFGCXT_INIT, WATCHDOG_CONFIG,
 			"Delegate IP address to be used when pgpool node become a watchdog cluster leader.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
-		&g_pool_config.delegate_IP,
+		&g_pool_config.delegate_ip,
 		"",
 		NULL, NULL, NULL, NULL
 	},
@@ -1101,7 +1186,7 @@ static struct config_string ConfigureNamesString[] =
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.wd_lifecheck_dbname,
-		"postgres",
+		"template1",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -1121,7 +1206,7 @@ static struct config_string ConfigureNamesString[] =
 			CONFIG_VAR_TYPE_STRING, false, VAR_HIDDEN_VALUE
 		},
 		&g_pool_config.wd_lifecheck_password,
-		"postgres",
+		"",
 		NULL, NULL, NULL, NULL
 	},
 
@@ -1228,7 +1313,7 @@ static struct config_string ConfigureNamesString[] =
 
 	{
 		{"memqcache_oiddir", CFGCXT_INIT, CACHE_CONFIG,
-			"Tempory directory to record table oids.",
+			"Temporary directory to record table oids.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
 		&g_pool_config.memqcache_oiddir,
@@ -1247,7 +1332,7 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		{"logdir", CFGCXT_INIT, LOGING_CONFIG,
+		{"logdir", CFGCXT_INIT, LOGGING_CONFIG,
 			"PgPool status file logging directory.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
@@ -1256,7 +1341,7 @@ static struct config_string ConfigureNamesString[] =
 		NULL, NULL, NULL, NULL
 	},
 	{
-		{"log_directory", CFGCXT_INIT, LOGING_CONFIG,
+		{"log_directory", CFGCXT_INIT, LOGGING_CONFIG,
 			"directory where log files are written.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
@@ -1266,7 +1351,7 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
-		{"log_filename", CFGCXT_INIT, LOGING_CONFIG,
+		{"log_filename", CFGCXT_INIT, LOGGING_CONFIG,
 			"log file name pattern.",
 			CONFIG_VAR_TYPE_STRING, false, 0
 		},
@@ -1289,9 +1374,61 @@ static struct config_string_list ConfigureNamesStringList[] =
 		&g_pool_config.reset_query_list,	/* variable */
 		&g_pool_config.num_reset_queries,	/* item count var  */
 		(const char *) default_reset_query_list,	/* boot value */
-		";",					/* token seperator */
+		";",					/* token separator */
 		false,					/* compute_regex ? */
 		NULL, NULL, NULL		/* assign, check, show funcs */
+	},
+
+	{
+		{"listen_addresses", CFGCXT_INIT, CONNECTION_CONFIG,
+			"hostname(s) or IP address(es) on which pgpool will listen on.",
+			CONFIG_VAR_TYPE_STRING_LIST, false, 0
+		},
+		&g_pool_config.listen_addresses,
+		&g_pool_config.num_listen_addresses,
+		(const char *) default_listen_addresses_list,
+		",",
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"pcp_listen_addresses", CFGCXT_INIT, CONNECTION_CONFIG,
+			"hostname(s) or IP address(es) on which pcp will listen on.",
+			CONFIG_VAR_TYPE_STRING_LIST, false, 0
+		},
+		&g_pool_config.pcp_listen_addresses,
+		&g_pool_config.num_pcp_listen_addresses,
+		(const char *) default_pcp_listen_addresses_list,
+		",",
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"unix_socket_directories", CFGCXT_INIT, CONNECTION_CONFIG,
+			"The directories to create the UNIX domain sockets for accepting pgpool-II client connections.",
+			CONFIG_VAR_TYPE_STRING_LIST, false, 0
+		},
+		&g_pool_config.unix_socket_directories,
+		&g_pool_config.num_unix_socket_directories,
+		(const char *) default_unix_socket_directories_list,
+		",",
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"pcp_socket_dir", CFGCXT_INIT, CONNECTION_CONFIG,
+			"The directories to create the UNIX domain socket for accepting pgpool-II PCP connections.",
+			CONFIG_VAR_TYPE_STRING_LIST, false, 0
+		},
+		&g_pool_config.pcp_socket_dir,
+		&g_pool_config.num_pcp_socket_directories,
+		(const char *) default_unix_socket_directories_list,
+		",",
+		false,
+		NULL, NULL, NULL
 	},
 
 	{
@@ -1301,7 +1438,7 @@ static struct config_string_list ConfigureNamesStringList[] =
 		},
 		&g_pool_config.read_only_function_list,
 		&g_pool_config.num_read_only_function_list,
-		NULL,
+		(const char *) default_read_only_function_list,
 		",",
 		true,
 		NULL, NULL, NULL
@@ -1629,7 +1766,7 @@ static struct config_string_array ConfigureNamesStringArray[] =
 
 	{
 		{"backend_application_name", CFGCXT_RELOAD, CONNECTION_CONFIG,
-			"applicaton_name of the backend.",
+			"application_name of the backend.",
 			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, MAX_NUM_BACKENDS
 		},
 		NULL,
@@ -1689,7 +1826,7 @@ static struct config_string_array ConfigureNamesStringArray[] =
 
 	{
 		{"heartbeat_device", CFGCXT_RELOAD, WATCHDOG_LIFECHECK,
-			"Name of NIC device for sending hearbeat.",
+			"Name of NIC device for sending heartbeat.",
 			CONFIG_VAR_TYPE_STRING_ARRAY, true, 0, WD_MAX_IF_NUM
 		},
 		NULL,
@@ -1799,12 +1936,45 @@ static struct config_int ConfigureNamesInt[] =
 	},
 
 	{
+		{"unix_socket_permissions", CFGCXT_INIT, CONNECTION_CONFIG,
+			"The access permissions of the Unix domain sockets.",
+			CONFIG_VAR_TYPE_INT, false, 0
+		},
+		&g_pool_config.unix_socket_permissions,
+		0777,
+		0000, 0777,
+		NULL, NULL, UnixSockPermissionsShowFunc
+	},
+
+	{
 		{"num_init_children", CFGCXT_INIT, CONNECTION_POOL_CONFIG,
-			"Number of children pre-forked for client connections.",
+			"Maximim number of child processs to handle client connections.",
 			CONFIG_VAR_TYPE_INT, false, 0
 		},
 		&g_pool_config.num_init_children,
 		32,
+		1, INT_MAX,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"min_spare_children", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
+			"Minimum number of spare child processes.",
+			CONFIG_VAR_TYPE_INT, false, 0
+		},
+		&g_pool_config.min_spare_children,
+		5,
+		1, INT_MAX,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"max_spare_children", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
+			"Maximum number of spare child processes.",
+			CONFIG_VAR_TYPE_INT, false, 0
+		},
+		&g_pool_config.max_spare_children,
+		10,
 		1, INT_MAX,
 		NULL, NULL, NULL
 	},
@@ -1826,7 +1996,7 @@ static struct config_int ConfigureNamesInt[] =
 			CONFIG_VAR_TYPE_INT, false, 0
 		},
 		&g_pool_config.listen_backlog_multiplier,
-		32,
+		2,
 		1, INT_MAX,
 		NULL, NULL, NULL
 	},
@@ -1881,7 +2051,7 @@ static struct config_int ConfigureNamesInt[] =
 			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.authentication_timeout,
-		0,
+		60,
 		0, INT_MAX,
 		NULL, NULL, NULL
 	},
@@ -1903,7 +2073,7 @@ static struct config_int ConfigureNamesInt[] =
 			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.sr_check_period,
-		0,
+		10,
 		0, INT_MAX,
 		NULL, NULL, NULL
 	},
@@ -1962,6 +2132,26 @@ static struct config_int ConfigureNamesInt[] =
 		0, INT_MAX,
 		NULL, NULL, NULL
 	},
+	{
+		{"wd_lost_node_removal_timeout", CFGCXT_RELOAD, WATCHDOG_CONFIG,
+			"Timeout in seconds to revoke the cluster membership of LOST watchdog nodes.",
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
+		},
+		&g_pool_config.wd_lost_node_removal_timeout,
+		0,
+		0, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"wd_no_show_node_removal_timeout", CFGCXT_RELOAD, WATCHDOG_CONFIG,
+			"Timeout in seconds to revoke the cluster membership of NO-SHOW watchdog nodes.",
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
+		},
+		&g_pool_config.wd_no_show_node_removal_timeout,
+		0,
+		0, INT_MAX,
+		NULL, NULL, NULL
+	},
 
 	{
 		{"wd_life_point", CFGCXT_INIT, WATCHDOG_CONFIG,
@@ -1976,7 +2166,7 @@ static struct config_int ConfigureNamesInt[] =
 
 	{
 		{"wd_heartbeat_keepalive", CFGCXT_INIT, WATCHDOG_CONFIG,
-			"Time interval in seconds between sending the heartbeat siganl.",
+			"Time interval in seconds between sending the heartbeat signal.",
 			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.wd_heartbeat_keepalive,
@@ -1987,7 +2177,7 @@ static struct config_int ConfigureNamesInt[] =
 
 	{
 		{"wd_heartbeat_deadtime", CFGCXT_INIT, WATCHDOG_CONFIG,
-			"Deadtime interval in seconds for heartbeat siganl.",
+			"Deadtime interval in seconds for heartbeat signal.",
 			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_S
 		},
 		&g_pool_config.wd_heartbeat_deadtime,
@@ -2073,7 +2263,7 @@ static struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 	{
-		{"log_rotation_age", CFGCXT_INIT, LOGING_CONFIG,
+		{"log_rotation_age", CFGCXT_INIT, LOGGING_CONFIG,
 			"Automatic rotation of logfiles will happen after that (minutes) time.",
 			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_MIN
 		},
@@ -2083,7 +2273,7 @@ static struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 	{
-		{"log_rotation_size", CFGCXT_INIT, LOGING_CONFIG,
+		{"log_rotation_size", CFGCXT_INIT, LOGGING_CONFIG,
 			"Automatic rotation of logfiles will happen after that much (kilobytes) log output.",
 			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_KB
 		},
@@ -2093,7 +2283,7 @@ static struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 	{
-		{"log_file_mode", CFGCXT_INIT, LOGING_CONFIG,
+		{"log_file_mode", CFGCXT_INIT, LOGGING_CONFIG,
 			"creation mode for log files.",
 			CONFIG_VAR_TYPE_INT, false, 0
 		},
@@ -2102,7 +2292,16 @@ static struct config_int ConfigureNamesInt[] =
 		0, INT_MAX,
 		NULL, NULL, NULL
 	},
-
+	{
+		{"delay_threshold_by_time", CFGCXT_RELOAD, STREAMING_REPLICATION_CONFIG,
+			"standby delay threshold by time.",
+			CONFIG_VAR_TYPE_INT, false, GUC_UNIT_MS,
+		},
+		&g_pool_config.delay_threshold_by_time,
+		0,
+		0, INT_MAX,
+		NULL, NULL, NULL
+	},
 
 	/* End-of-list marker */
 	EMPTY_CONFIG_INT
@@ -2121,10 +2320,31 @@ static struct config_enum ConfigureNamesEnum[] =
 		NULL, NULL, NULL, NULL
 	},
 
+	{
+		{"process_management_mode", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
+			"child process management mode.",
+			CONFIG_VAR_TYPE_ENUM, false, 0
+		},
+		(int *) &g_pool_config.process_management,
+		PM_STATIC,
+		process_management_mode_options,
+		NULL, NULL, NULL, NULL
+	},
 
 	{
-		{"syslog_facility", CFGCXT_RELOAD, LOGING_CONFIG,
-			"syslog local faclity.",
+		{"process_management_strategy", CFGCXT_RELOAD, CONNECTION_POOL_CONFIG,
+			"child process management strategy.",
+			CONFIG_VAR_TYPE_ENUM, false, 0
+		},
+		(int *) &g_pool_config.process_management_strategy,
+		PM_STRATEGY_GENTLE,
+		process_management_strategy_options,
+		NULL, NULL, NULL, NULL
+	},
+
+	{
+		{"syslog_facility", CFGCXT_RELOAD, LOGGING_CONFIG,
+			"syslog local facility.",
 			CONFIG_VAR_TYPE_ENUM, false, 0
 		},
 		&g_pool_config.syslog_facility,
@@ -2136,7 +2356,7 @@ static struct config_enum ConfigureNamesEnum[] =
 	},
 
 	{
-		{"log_error_verbosity", CFGCXT_SESSION, LOGING_CONFIG,
+		{"log_error_verbosity", CFGCXT_SESSION, LOGGING_CONFIG,
 			"How much details about error should be emitted.",
 			CONFIG_VAR_TYPE_ENUM, false, 0
 		},
@@ -2147,7 +2367,7 @@ static struct config_enum ConfigureNamesEnum[] =
 	},
 
 	{
-		{"client_min_messages", CFGCXT_SESSION, LOGING_CONFIG,
+		{"client_min_messages", CFGCXT_SESSION, LOGGING_CONFIG,
 			"Which messages should be sent to client.",
 			CONFIG_VAR_TYPE_ENUM, false, 0
 		},
@@ -2158,7 +2378,7 @@ static struct config_enum ConfigureNamesEnum[] =
 	},
 
 	{
-		{"log_min_messages", CFGCXT_SESSION, LOGING_CONFIG,
+		{"log_min_messages", CFGCXT_SESSION, LOGGING_CONFIG,
 			"Which messages should be emitted to server log.",
 			CONFIG_VAR_TYPE_ENUM, false, 0
 		},
@@ -2174,7 +2394,7 @@ static struct config_enum ConfigureNamesEnum[] =
 			CONFIG_VAR_TYPE_ENUM, false, 0
 		},
 		(int *) &g_pool_config.log_standby_delay,
-		LSD_NONE,
+		LSD_OVER_THRESHOLD,
 		log_standby_delay_options,
 		NULL, NULL, NULL, NULL
 	},
@@ -2802,11 +3022,11 @@ initialize_variables_with_default(struct config_generic *gconf)
 				{
 					if (strcmp(gconf->name, "primary_routing_query_pattern_list") == 0)
 					{
-						*conf->variable = get_list_from_string_regex_delim(newval, conf->seperator, conf->list_elements_count);
+						*conf->variable = get_list_from_string_regex_delim(newval, conf->separator, conf->list_elements_count);
 					}
 					else
 					{
-						*conf->variable = get_list_from_string(newval, conf->seperator, conf->list_elements_count);
+						*conf->variable = get_list_from_string(newval, conf->separator, conf->list_elements_count);
 					}
 
 					if (conf->compute_regex)
@@ -2961,7 +3181,7 @@ get_list_from_string_regex_delim(const char *input, const char *delimi, int *n)
 }
 
 /*
- * Memory of the array type variables must be initialized befor calling this function
+ * Memory of the array type variables must be initialized before calling this function
  */
 void
 InitializeConfigOptions(void)
@@ -2992,7 +3212,7 @@ InitializeConfigOptions(void)
 /*
  * returns the index value postfixed with the variable name
  * for example if the if name contains "backend_hostname11" and
- * the record name must be for the variable nameed "backend_hostname"
+ * the record name must be for the variable named "backend_hostname"
  * if the index is not present at end of the name the function
  * will return true and out parameter index will be assigned with -ve value
  */
@@ -3043,7 +3263,7 @@ find_option(const char *name, int elevel)
 
 			/*
 			 * For dynamic array type vars the key also have the index at the
-			 * end e.g. backend_hostname0 so we only comapare the key's name
+			 * end e.g. backend_hostname0 so we only compare the key's name
 			 * part
 			 */
 			if (!strncmp(gconf->name, name, index_start_index))
@@ -3792,11 +4012,11 @@ setConfigOptionVar(struct config_generic *record, const char *name, int index_va
 
 					if (strcmp(name, "primary_routing_query_pattern_list") == 0)
 					{
-						*conf->variable = get_list_from_string_regex_delim(newval, conf->seperator, conf->list_elements_count);
+						*conf->variable = get_list_from_string_regex_delim(newval, conf->separator, conf->list_elements_count);
 					}
 					else
 					{
-						*conf->variable = get_list_from_string(newval, conf->seperator, conf->list_elements_count);
+						*conf->variable = get_list_from_string(newval, conf->separator, conf->list_elements_count);
 					}
 
 					if (conf->compute_regex)
@@ -4233,6 +4453,21 @@ IntValueShowFunc(int value)
 }
 
 static const char *
+FilePermissionShowFunc(int value)
+{
+	static char buffer[10];
+
+	snprintf(buffer, sizeof(buffer), "%04o", value);
+	return buffer;
+}
+
+static const char *
+UnixSockPermissionsShowFunc(void)
+{
+	return FilePermissionShowFunc(g_pool_config.unix_socket_permissions);
+}
+
+static const char *
 BackendWeightShowFunc(int index)
 {
 	return IntValueShowFunc(g_pool_config.backend_desc->backend_info[index].unnormalized_weight);
@@ -4529,8 +4764,22 @@ FailOverOnBackendErrorAssignMessage(ConfigContext scontext, bool newval, int ele
 	if (scontext != CFGCXT_BOOT)
 		ereport(WARNING,
 				(errmsg("fail_over_on_backend_error is changed to failover_on_backend_error"),
-				 errdetail("setting failover_on_backend_error has no effect"),
-				 errhint("use failover_on_backend_error instead")));
+				 errdetail("if fail_over_on_backend_error is specified, the value will be set to failover_on_backend_error")));
+	g_pool_config.failover_on_backend_error = newval;
+	return true;
+}
+/*
+ * Throws warning for if someone uses the removed delegate_IP
+ * configuration parameter and set the value to delegate_ip
+ */
+static bool
+DelegateIPAssignMessage(ConfigContext scontext, char *newval, int elevel)
+{
+	if (scontext != CFGCXT_BOOT)
+		ereport(WARNING,
+				(errmsg("delegate_IP is changed to delegate_ip"),
+				 errdetail("if delegate_IP is specified, the value will be set to delegate_ip")));
+	g_pool_config.delegate_ip = newval;
 	return true;
 }
 /*
@@ -4709,6 +4958,29 @@ config_post_processor(ConfigContext context, int elevel)
 				(errmsg("invalid configuration, failover_when_quorum_exists is not allowed in native replication mode")));
 		return false;
 	}
+
+	/*
+	 * Verify the minimum and maximum number of spare children configuration when
+	 * dynamic process management is enabled
+	 */
+
+	if (g_pool_config.process_management == PM_DYNAMIC)
+	{
+		if (pool_config->min_spare_children >= pool_config->max_spare_children)
+		{
+			ereport(elevel,
+					(errmsg("invalid configuration, max_spare_children:%d must be greater than min_spare_children:%d",
+					pool_config->max_spare_children,pool_config->min_spare_children)));
+			return false;
+		}
+		if (pool_config->num_init_children < pool_config->max_spare_children)
+		{
+			ereport(elevel,
+					(errmsg("invalid configuration, max_spare_children:%d can't be greater than num_init_children:%d",
+					pool_config->max_spare_children,pool_config->num_init_children)));
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -4881,6 +5153,48 @@ MakeDBRedirectListRegex(char *newval, int elevel)
 	return true;
 }
 
+static bool
+MakeUserRedirectListRegex(char *newval, int elevel)
+{
+	/* TODO Deal with the memory */
+	int			i;
+	Left_right_tokens *lrtokens;
+
+	if (newval == NULL)
+	{
+		pool_config->redirect_usernames = NULL;
+		pool_config->user_redirect_tokens = NULL;
+		return true;
+	}
+
+	lrtokens = create_lrtoken_array();
+	extract_string_tokens2(newval, ",", ':', lrtokens);
+
+	pool_config->redirect_usernames = create_regex_array();
+	pool_config->user_redirect_tokens = lrtokens;
+
+	for (i = 0; i < lrtokens->pos; i++)
+	{
+		if (!check_redirect_node_spec(lrtokens->token[i].right_token))
+		{
+			ereport(elevel,
+					(errmsg("invalid configuration for key \"user_redirect_preference_list\""),
+					 errdetail("wrong redirect db node spec: \"%s\"", lrtokens->token[i].right_token)));
+			return false;
+		}
+
+		if (*(lrtokens->token[i].left_token) == '\0' ||
+			add_regex_array(pool_config->redirect_usernames, lrtokens->token[i].left_token))
+		{
+			ereport(elevel,
+					(errmsg("invalid configuration for key \"user_redirect_preference_list\""),
+					 errdetail("wrong redirect user name regular expression: \"%s\"", lrtokens->token[i].left_token)));
+			return false;
+		}
+	}
+	return true;
+}
+
 /* Read the pgpool_node_id file */
 static bool
 SetPgpoolNodeId(int elevel)
@@ -4987,7 +5301,7 @@ SetHBDestIfFunc(int elevel)
 
 	/*
 	 * g_pool_config.hb_ifs is the information for sending/receiving heartbeat
-	 * for all nodes specied in pgpool.conf.
+	 * for all nodes specified in pgpool.conf.
 	 * If it is local pgpool node information, set dest_port to g_pool_config.wd_heartbeat_port
 	 * and ignore addr and if_name.
 	 * g_pool_config.hb_dest_if is the heartbeat destination information.
@@ -5327,8 +5641,10 @@ ShowOption(struct config_generic *record, int index, int elevel)
 
 				if (conf->show_hook)
 					val = (*conf->show_hook) ();
-				else
+				else if (conf->variable)
 					val = *conf->variable ? "on" : "off";
+				else
+					val = "";
 			}
 			break;
 
@@ -5408,7 +5724,7 @@ ShowOption(struct config_generic *record, int index, int elevel)
 
 				if (conf->show_hook)
 					val = (*conf->show_hook) ();
-				else if (*conf->variable && **conf->variable)
+				else if (conf->variable && *conf->variable && **conf->variable)
 					val = *conf->variable;
 				else
 					val = "";

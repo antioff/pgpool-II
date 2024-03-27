@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2020	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -40,7 +40,7 @@
 #include "pool_config_variables.h"
 
 static int	choose_db_node_id(char *str);
-static void free_persisten_db_connection_memory(POOL_CONNECTION_POOL_SLOT * cp);
+static void free_persistent_db_connection_memory(POOL_CONNECTION_POOL_SLOT * cp);
 static void si_enter_critical_region(void);
 static void si_leave_critical_region(void);
 
@@ -86,7 +86,7 @@ make_persistent_db_connection(
 
 	if (fd < 0)
 	{
-		free_persisten_db_connection_memory(cp);
+		free_persistent_db_connection_memory(cp);
 		pfree(startup_packet);
 		ereport(ERROR,
 				(errmsg("failed to make persistent db connection"),
@@ -108,7 +108,7 @@ make_persistent_db_connection(
 	if (len1 >= (sizeof(startup_packet->data) - len))
 	{
 		pool_close(cp->con);
-		free_persisten_db_connection_memory(cp);
+		free_persistent_db_connection_memory(cp);
 		pfree(startup_packet);
 		ereport(ERROR,
 				(errmsg("failed to make persistent db connection"),
@@ -120,7 +120,7 @@ make_persistent_db_connection(
 	if (len1 >= (sizeof(startup_packet->data) - len))
 	{
 		pool_close(cp->con);
-		free_persisten_db_connection_memory(cp);
+		free_persistent_db_connection_memory(cp);
 		pfree(startup_packet);
 		ereport(ERROR,
 				(errmsg("failed to make persistent db connection"),
@@ -132,7 +132,7 @@ make_persistent_db_connection(
 	if (len1 >= (sizeof(startup_packet->data) - len))
 	{
 		pool_close(cp->con);
-		free_persisten_db_connection_memory(cp);
+		free_persistent_db_connection_memory(cp);
 		pfree(startup_packet);
 		ereport(ERROR,
 				(errmsg("failed to make persistent db connection"),
@@ -161,7 +161,7 @@ make_persistent_db_connection(
 	PG_CATCH();
 	{
 		pool_close(cp->con);
-		free_persisten_db_connection_memory(cp);
+		free_persistent_db_connection_memory(cp);
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
@@ -191,7 +191,20 @@ make_persistent_db_connection_noerror(
 	}
 	PG_CATCH();
 	{
-		EmitErrorReport();
+		/*
+		 * We used to call EmitErrorReport() to log the error and send an
+		 * error message to frontend.  However if pcp frontend program
+		 * receives an ERROR, it stops processing and terminates, which is not
+		 * good. This is problematic especially with pcp_node_info, since it
+		 * calls db_node_role(), and db_node_role() calls this function. So if
+		 * the target PostgreSQL is down, EmitErrorRepor() sends ERROR message
+		 * to pcp frontend and it stops (see process_pcp_response() in
+		 * src/libs/pcp/pcp.c. To fix this, just eliminate calling
+		 * EmitErrorReport(). This will suppress ERROR message but as you can
+		 * see the comment in this function "does not ereports in case of an
+		 * error", this should have been the right behavior in the first
+		 * place.
+		 */
 		MemoryContextSwitchTo(oldContext);
 		FlushErrorState();
 		slot = NULL;
@@ -205,7 +218,7 @@ make_persistent_db_connection_noerror(
  * make_persistent_db_connection and discard_persistent_db_connection.
  */
 static void
-free_persisten_db_connection_memory(POOL_CONNECTION_POOL_SLOT * cp)
+free_persistent_db_connection_memory(POOL_CONNECTION_POOL_SLOT * cp)
 {
 	if (!cp)
 		return;
@@ -251,7 +264,7 @@ discard_persistent_db_connection(POOL_CONNECTION_POOL_SLOT * cp)
 	socket_unset_nonblock(cp->con->fd);
 
 	pool_close(cp->con);
-	free_persisten_db_connection_memory(cp);
+	free_persistent_db_connection_memory(cp);
 }
 
 /*
@@ -296,10 +309,13 @@ select_load_balancing_node(void)
 				r;
 	int			i;
 	int			index_db = -1,
-				index_app = -1;
+				index_app = -1,
+				index_user = -1;
 	POOL_SESSION_CONTEXT *ses = pool_get_session_context(false);
 	int			tmp;
 	int			no_load_balance_node_id = -2;
+	uint64		lowest_delay;
+	int 		lowest_delay_nodes[NUM_BACKENDS];
 
 	/*
 	 * -2 indicates there's no database_redirect_preference_list. -1 indicates
@@ -315,6 +331,33 @@ select_load_balancing_node(void)
 #endif
 
 	/*
+	 * Check user_redirect_preference_list
+	 */
+	if (SL_MODE && pool_config->redirect_usernames)
+	{
+		char	   *user = MAIN_CONNECTION(ses->backend)->sp->user;
+
+		/*
+		 * Check to see if the user matches any of
+		 * user_redirect_preference_list
+		 */
+		index_user = regex_array_match(pool_config->redirect_usernames, user);
+		if (index_user >= 0)
+		{
+			/* Matches */
+			ereport(DEBUG1,
+					(errmsg("selecting load balance node user matched"),
+					 errdetail("username: %s index is %d dbnode is %s weight is %f", user, index_user,
+							   pool_config->user_redirect_tokens->token[index_user].right_token,
+							   pool_config->user_redirect_tokens->token[index_user].weight_token)));
+
+			tmp = choose_db_node_id(pool_config->user_redirect_tokens->token[index_user].right_token);
+			if (tmp == -1 || (tmp >= 0 && VALID_BACKEND_RAW(tmp)))
+				suggested_node_id = tmp;
+		}
+	}
+
+	/*
 	 * Check database_redirect_preference_list
 	 */
 	if (SL_MODE && pool_config->redirect_dbnames)
@@ -328,6 +371,13 @@ select_load_balancing_node(void)
 		index_db = regex_array_match(pool_config->redirect_dbnames, database);
 		if (index_db >= 0)
 		{
+			/*
+			 * if the database name matches any of
+			 * database_redirect_preference_list,
+			 * user_redirect_preference_list will be ignored.
+			 */
+			index_user = -1;
+
 			/* Matches */
 			ereport(DEBUG1,
 					(errmsg("selecting load balance node db matched"),
@@ -355,7 +405,7 @@ select_load_balancing_node(void)
 		if (app_name && strlen(app_name) > 0)
 		{
 			/*
-			 * Check to see if the aplication name matches any of
+			 * Check to see if the application name matches any of
 			 * app_name_redirect_preference_list.
 			 */
 			index_app = regex_array_match(pool_config->redirect_app_names, app_name);
@@ -363,15 +413,16 @@ select_load_balancing_node(void)
 			{
 
 				/*
-				 * if the aplication name matches any of
+				 * if the application name matches any of
 				 * app_name_redirect_preference_list,
 				 * database_redirect_preference_list will be ignored.
 				 */
+				index_user = -1;
 				index_db = -1;
 
 				/* Matches */
 				ereport(DEBUG1,
-						(errmsg("selecting load balance node db matched"),
+						(errmsg("selecting load balance node app name matched"),
 						 errdetail("app_name: %s index is %d dbnode is %s weight is %f", app_name, index_app,
 								   pool_config->app_name_redirect_tokens->token[index_app].right_token,
 								   pool_config->app_name_redirect_tokens->token[index_app].weight_token)));
@@ -386,12 +437,97 @@ select_load_balancing_node(void)
 	if (suggested_node_id >= 0)
 	{
 		/*
+		 * If pgpool is running in Streaming Replication mode and delay_threshold
+		 * and prefer_lower_delay_standby are true, we choose the least delayed
+		 * node if suggested_node is standby and delayed over delay_threshold.
+		 */
+		if (STREAM && pool_config->prefer_lower_delay_standby &&
+			suggested_node_id != PRIMARY_NODE_ID &&
+			check_replication_delay(suggested_node_id) < 0)
+		{
+			ereport(DEBUG1,
+				(errmsg("selecting load balance node"),
+				 errdetail("suggested backend %d is streaming delayed over delay_threshold", suggested_node_id)));
+
+			/*
+			 * The new load balancing node is seleted from the
+			 * nodes which have the lowest delay.
+			 */
+			if (pool_config->delay_threshold_by_time > 0)
+				lowest_delay = pool_config->delay_threshold_by_time * 1000;	/* convert from milli seconds to micro seconds */
+			else
+				lowest_delay = pool_config->delay_threshold;
+
+			/* Initialize */
+			total_weight = 0.0;
+			for (i = 0; i < NUM_BACKENDS; i++)
+			{
+				lowest_delay_nodes[i] = 0;
+			}
+
+			for (i = 0; i < NUM_BACKENDS; i++)
+			{
+				if (VALID_BACKEND_RAW(i) &&
+					(i != PRIMARY_NODE_ID) &&
+					(BACKEND_INFO(i).backend_weight > 0.0))
+				{
+					if (lowest_delay == BACKEND_INFO(i).standby_delay)
+					{
+						lowest_delay_nodes[i] = 1;
+						total_weight += BACKEND_INFO(i).backend_weight;
+					}
+					else if (lowest_delay > BACKEND_INFO(i).standby_delay)
+					{
+						int ii;
+						lowest_delay = BACKEND_INFO(i).standby_delay;
+						for (ii = 0; ii < NUM_BACKENDS; ii++)
+						{
+							lowest_delay_nodes[ii] = 0;
+						}
+						lowest_delay_nodes[i] = 1;
+						total_weight = BACKEND_INFO(i).backend_weight;
+					}
+				}
+			}
+
+#if defined(sun) || defined(__sun)
+			r = (((double) rand()) / RAND_MAX) * total_weight;
+#else
+			r = (((double) random()) / RAND_MAX) * total_weight;
+#endif
+
+			selected_slot = PRIMARY_NODE_ID;
+			total_weight = 0.0;
+			for (i = 0; i < NUM_BACKENDS; i++)
+			{
+				if (lowest_delay_nodes[i] == 0)
+					continue;
+
+				if (selected_slot == PRIMARY_NODE_ID)
+					selected_slot = i;
+
+				if (r >= total_weight)
+					selected_slot = i;
+				else
+					break;
+
+				total_weight += BACKEND_INFO(i).backend_weight;
+			}
+
+			ereport(DEBUG1,
+					(errmsg("selecting load balance node"),
+					 errdetail("selected backend id is %d", selected_slot)));
+			return selected_slot;
+		}
+
+		/*
 		 * If the weight is bigger than random rate then send to
 		 * suggested_node_id. If the weight is less than random rate then
 		 * choose load balance node from other nodes.
 		 */
 		if ((index_db >= 0 && r <= pool_config->db_redirect_tokens->token[index_db].weight_token) ||
-			(index_app >= 0 && r <= pool_config->app_name_redirect_tokens->token[index_app].weight_token))
+			(index_app >= 0 && r <= pool_config->app_name_redirect_tokens->token[index_app].weight_token) ||
+			(index_user >= 0 && r <= pool_config->user_redirect_tokens->token[index_user].weight_token))
 		{
 			ereport(DEBUG1,
 					(errmsg("selecting load balance node"),
@@ -407,7 +543,8 @@ select_load_balancing_node(void)
 	{
 		/* If the weight is less than random rate then send to primary. */
 		if ((index_db >= 0 && r > pool_config->db_redirect_tokens->token[index_db].weight_token) ||
-			(index_app >= 0 && r > pool_config->app_name_redirect_tokens->token[index_app].weight_token))
+			(index_app >= 0 && r > pool_config->app_name_redirect_tokens->token[index_app].weight_token) ||
+			(index_user >= 0 && r > pool_config->user_redirect_tokens->token[index_user].weight_token))
 		{
 			ereport(DEBUG1,
 					(errmsg("selecting load balance node"),
@@ -457,6 +594,82 @@ select_load_balancing_node(void)
 			total_weight += BACKEND_INFO(i).backend_weight;
 		}
 	}
+
+	/*
+	 * If Streaming Replication mode and delay_threshold and
+	 * prefer_lower_delay_standby is true, we elect the most lower delayed
+	 * node if suggested_node is standby and delayed over delay_threshold.
+	 */
+	if (STREAM && pool_config->prefer_lower_delay_standby &&
+		check_replication_delay(selected_slot) < 0)
+	{
+		ereport(DEBUG1,
+				(errmsg("selecting load balance node"),
+				 errdetail("backend id %d is streaming delayed over delay_threshold", selected_slot)));
+
+		if (pool_config->delay_threshold_by_time > 0)
+			lowest_delay = pool_config->delay_threshold_by_time * 1000;
+		else
+			lowest_delay = pool_config->delay_threshold;
+		total_weight = 0.0;
+		for (i = 0; i < NUM_BACKENDS; i++)
+		{
+			lowest_delay_nodes[i] = 0;
+		}
+
+		for (i = 0; i < NUM_BACKENDS; i++)
+		{
+			if ((i != PRIMARY_NODE_ID) &&
+				VALID_BACKEND_RAW(i) &&
+				(BACKEND_INFO(i).backend_weight > 0.0))
+			{
+				if (lowest_delay == BACKEND_INFO(i).standby_delay)
+				{
+					lowest_delay_nodes[i] = 1;
+					total_weight += BACKEND_INFO(i).backend_weight;
+				}
+				else if (lowest_delay > BACKEND_INFO(i).standby_delay)
+				{
+					int ii;
+					lowest_delay = BACKEND_INFO(i).standby_delay;
+					for (ii = 0; ii < NUM_BACKENDS; ii++)
+					{
+						lowest_delay_nodes[ii] = 0;
+					}
+					lowest_delay_nodes[i] = 1;
+					total_weight = BACKEND_INFO(i).backend_weight;
+				}
+			}
+		}
+
+#if defined(sun) || defined(__sun)
+		r = (((double) rand()) / RAND_MAX) * total_weight;
+#else
+		r = (((double) random()) / RAND_MAX) * total_weight;
+#endif
+
+		selected_slot = PRIMARY_NODE_ID;
+
+		total_weight = 0.0;
+		for (i = 0; i < NUM_BACKENDS; i++)
+		{
+			if (lowest_delay_nodes[i] == 0)
+				continue;
+
+			if (selected_slot == PRIMARY_NODE_ID)
+			{
+				selected_slot = i;
+			}
+
+			if (r >= total_weight)
+				selected_slot = i;
+			else
+				break;
+
+			total_weight += BACKEND_INFO(i).backend_weight;
+		}
+	}
+
 	ereport(DEBUG1,
 			(errmsg("selecting load balance node"),
 			 errdetail("selected backend id is %d", selected_slot)));
@@ -502,7 +715,7 @@ Pgversion(POOL_CONNECTION_POOL * backend)
 		/*
 		 * Create relcache.
 		 */
-		relcache = pool_create_relcache(pool_config->relcache_size, "SELECT version()",
+		relcache = pool_create_relcache(pool_config->relcache_size, "SELECT pg_catalog.version()",
 										string_register_func, string_unregister_func, false);
 		if (relcache == NULL)
 		{
@@ -725,7 +938,7 @@ si_snapshot_prepared(void)
 }
 
 /*
- * Reurns true if the command will acquire snapshot.
+ * Returns true if the command will acquire snapshot.
  */
 bool
 si_snapshot_acquire_command(Node *node)
@@ -880,3 +1093,40 @@ si_commit_done(void)
 		session->si_state = SI_NO_SNAPSHOT;
 	}
 }
+
+/*
+ * Check replication delay and returns the status.
+ * Return values:
+ * 0: no delay or not in streaming repplication mode or
+ * delay_threshold(_by_time) is set to 0
+ * -1: delay exceeds delay_threshold_by_time
+ * -2: delay exceeds delay_threshold
+ */
+int	check_replication_delay(int node_id)
+{
+	BackendInfo *bkinfo;
+
+	if (!STREAM)
+		return 0;
+
+	bkinfo = pool_get_node_info(node_id);
+
+	/*
+	 * Check delay_threshold_by_time.  bkinfo->standby_delay is in
+	 * microseconds while delay_threshold_by_time is in milliseconds. We need
+	 * to multiply delay_threshold_by_time by 1000 to normalize.
+	 */
+	if (pool_config->delay_threshold_by_time > 0 &&
+		bkinfo->standby_delay > pool_config->delay_threshold_by_time*1000)
+		return -1;
+
+	/*
+	 * Check delay_threshold.
+	 */
+	if (pool_config->delay_threshold > 0 &&
+		bkinfo->standby_delay > pool_config->delay_threshold)
+		return -2;
+
+	return 0;
+}
+

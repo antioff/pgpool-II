@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -37,7 +37,7 @@ static POOL_SESSION_CONTEXT session_context_d;
 static POOL_SESSION_CONTEXT * session_context = NULL;
 static void GetTranIsolationErrorCb(void *arg);
 static void init_sent_message_list(void);
-static POOL_PENDING_MESSAGE * copy_pending_message(POOL_PENDING_MESSAGE * messag);
+static POOL_PENDING_MESSAGE * copy_pending_message(POOL_PENDING_MESSAGE * message);
 static void dump_sent_message(char *caller, POOL_SENT_MESSAGE * m);
 static void dml_adaptive_init(void);
 static void dml_adaptive_destroy(void);
@@ -76,7 +76,7 @@ pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * bac
 	session_context->query_context = NULL;
 
 	/* Initialize local session id */
-	pool_incremnet_local_session_id();
+	pool_increment_local_session_id();
 
 	/* Create memory context */
 	/* TODO re-think about the parent for this context ?? */
@@ -180,6 +180,8 @@ pool_init_session_context(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * bac
 	session_context->transaction_read_only = false;
 
 	dml_adaptive_init();
+
+	unset_tx_started_by_multi_statement_query();
 }
 
 /*
@@ -1119,7 +1121,7 @@ pool_pending_messages_destroy(void)
 
 	if (!session_context)
 		ereport(ERROR,
-				(errmsg("pool_pending_message_destory: session context is not initialized")));
+				(errmsg("pool_pending_message_destroy: session context is not initialized")));
 
 	foreach(cell, session_context->pending_messages)
 	{
@@ -1173,7 +1175,7 @@ pool_pending_message_create(char kind, int len, char *contents)
 
 		default:
 			ereport(ERROR,
-					(errmsg("pool_pending_message_create: unknow kind: %c", kind)));
+					(errmsg("pool_pending_message_create: unknown kind: %c", kind)));
 			break;
 	}
 
@@ -1192,6 +1194,7 @@ pool_pending_message_create(char kind, int len, char *contents)
 	msg->is_rows_returned = false;
 	msg->not_forward_to_frontend = false;
 	memset(msg->node_ids, false, sizeof(msg->node_ids));
+	msg->flush_pending = false;
 
 	MemoryContextSwitchTo(old_context);
 
@@ -1548,7 +1551,7 @@ const char *
 pool_pending_message_type_to_string(POOL_MESSAGE_TYPE type)
 {
 	static const char *pending_msg_string[] = {"Parse", "Bind", "Execute",
-	"Descripbe", "Close", "Sync"};
+	"Describe", "Close", "Sync"};
 
 	if (type < 0 || type > POOL_SYNC)
 		return "unknown type";
@@ -1711,6 +1714,24 @@ pool_pending_message_get_message_num_by_backend_id(int backend_id)
 }
 
 /*
+ * Set flush request flag
+ */
+void
+pool_pending_message_set_flush_request(void)
+{
+	ListCell   *msg_item;
+
+	foreach(msg_item, session_context->pending_messages)
+	{
+		POOL_PENDING_MESSAGE *msg = (POOL_PENDING_MESSAGE *) lfirst(msg_item);
+		msg->flush_pending = true;
+		ereport(DEBUG5,
+				(errmsg("pool_pending_message_set_flush_request: msg: %s",
+						pool_pending_message_type_to_string(msg->type))));
+	}
+}
+
+/*
  * Dump whole pending message list
  */
 void
@@ -1725,6 +1746,9 @@ dump_pending_message(void)
 				(errmsg("dump_pending_message: session context is not initialized")));
 		return;
 	}
+
+	if (!message_level_is_interesting(DEBUG5))
+		return;
 
 	ereport(DEBUG5,
 			(errmsg("start dumping pending message list")));
@@ -1880,7 +1904,7 @@ pool_temp_tables_destroy(void)
 {
 	if (!session_context)
 		ereport(ERROR,
-				(errmsg("pool_temp_tables_destory: session context is not initialized")));
+				(errmsg("pool_temp_tables_destroy: session context is not initialized")));
 
 	list_free(session_context->temp_tables);
 }
@@ -2083,4 +2107,46 @@ pool_temp_tables_dump(void)
 	}
 #endif
 
+}
+
+/*
+ * Return true if an explicit transaction has been started by a
+ * multi-statement-query
+ */
+bool
+is_tx_started_by_multi_statement_query(void)
+{
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("is_tx_started_by_multi_statement_query: session context is not initialized")));
+
+	return session_context->is_tx_started_by_multi_statement;
+}
+
+/*
+ * Remember that an explicit transaction has been started by a
+ * multi-statement-query
+ */
+void
+set_tx_started_by_multi_statement_query(void)
+{
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("set_tx_started_by_multi_statement_query: session context is not initialized")));
+
+	session_context->is_tx_started_by_multi_statement = true;
+}
+
+/*
+ * Forget that an explicit transaction has been started by a
+ * multi-statement-query
+ */
+void
+unset_tx_started_by_multi_statement_query(void)
+{
+	if (!session_context)
+		ereport(ERROR,
+				(errmsg("unset_tx_started_by_multi_statement_query: session context is not initialized")));
+
+	session_context->is_tx_started_by_multi_statement = false;
 }

@@ -208,14 +208,14 @@ wd_create_hb_recv_socket(WdHbIf * hb_if)
 							 errdetail("setsockopt(SO_BINDTODEVICE) failed with reason: \"%m\"")));
 				}
 				ereport(LOG,
-						(errmsg("createing watchdog heartbeat receive socket."),
+						(errmsg("creating watchdog heartbeat receive socket."),
 						 errdetail("bind receive socket to device: \"%s\"", i.ifr_name)));
 
 			}
 			else
 				ereport(LOG,
 						(errmsg("failed to create watchdog heartbeat receive socket."),
-						 errdetail("setsockopt(SO_BINDTODEVICE) requies root privilege")));
+						 errdetail("setsockopt(SO_BINDTODEVICE) requires root privilege")));
 		}
 #else
 		ereport(LOG,

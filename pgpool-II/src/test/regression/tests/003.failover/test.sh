@@ -15,12 +15,14 @@ do
 
 # create test environment
 	echo -n "creating test environment..."
-	$PGPOOL_SETUP -m $mode -n 2 --no-stop|| exit 1
+	$PGPOOL_SETUP -m $mode -n 2|| exit 1
 	echo "done."
 
 	# disable replication delay check so that comparison between
 	# expected and actual result is not confused.
 	echo "sr_check_period = 0" >> etc/pgpool.conf
+	./startall
+	wait_for_pgpool_startup
 
 	source ./bashrc.ports
 
@@ -35,7 +37,7 @@ do
 	    sed -e 's/streaming/         /' | sed -e 's/async/     /'> result
 
 	# check the output of "show pool_nodes".
-	LANG=C $PSQL -f ../create_expected.sql -v mode="'$mode'" -v dir="'$PGSOCKET_DIR'" test | tail -n 6 > expected
+	LANG=C $PSQL -f ../create_expected.sql -v mode="'$mode'" test | tail -n 6 > expected
 	cmp result expected > /dev/null 2>&1
 	if [ $? != 0 ];then
 		./shutdownall
@@ -57,7 +59,7 @@ do
 	fi
 
 	# check the output of "show pool_nodes".
-	LANG=C $PSQL -f ../create_expected_node0.sql -v mode="'$mode'" -v dir="'$PGSOCKET_DIR'" test | tail -n 6 > expected
+	LANG=C $PSQL -f ../create_expected_node0.sql -v mode="'$mode'" test | tail -n 6 > expected
 	cmp result expected > /dev/null 2>&1
 	if [ $? != 0 ];then
 		./shutdownall

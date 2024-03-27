@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2024	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -37,6 +37,7 @@
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 /*
  * Where to send query
@@ -56,8 +57,11 @@ typedef enum
 									(errmsg("setting db node for query to be sent, no query context")));\
 						} while (0)
 
-static POOL_DEST send_to_where(Node *node, char *query);
+static POOL_DEST send_to_where(Node *node);
 static void where_to_send_deallocate(POOL_QUERY_CONTEXT * query_context, Node *node);
+static void where_to_send_main_replica(POOL_QUERY_CONTEXT * query_context, char *query, Node *node);
+static void where_to_send_native_replication(POOL_QUERY_CONTEXT * query_context, char *query, Node *node);
+
 static char *remove_read_write(int len, const char *contents, int *rewritten_len);
 static void set_virtual_main_node(POOL_QUERY_CONTEXT *query_context);
 static void set_load_balance_info(POOL_QUERY_CONTEXT *query_context);
@@ -189,7 +193,7 @@ pool_set_node_to_be_sent(POOL_QUERY_CONTEXT * query_context, int node_id)
 }
 
 /*
- * Unspecify DB node to send query
+ * Unspecified DB node to send query
  */
 void
 pool_unset_node_to_be_sent(POOL_QUERY_CONTEXT * query_context, int node_id)
@@ -236,14 +240,28 @@ pool_setall_node_to_be_sent(POOL_QUERY_CONTEXT * query_context)
 		if (private_backend_status[i] == CON_UP ||
 			(private_backend_status[i] == CON_CONNECT_WAIT))
 		{
-			/*
-			 * In streaming replication mode, if the node is not primary node
-			 * nor load balance node, there's no point to send query.
-			 */
-			if (SL_MODE && !pool_config->statement_level_load_balance &&
-				i != PRIMARY_NODE_ID && i != sc->load_balance_node_id)
+			if (SL_MODE)
 			{
-				continue;
+				/*
+				 * If load balance mode is disabled, only send to the primary node.
+				 * or send to the main node if primary node does not exist.
+				 */
+				if (!pool_config->load_balance_mode)
+				{
+					if (i == PRIMARY_NODE_ID ||
+						(PRIMARY_NODE_ID < 0 && MAIN_NODE_ID == i))
+						query_context->where_to_send[i] = true;
+					break;
+				}
+				else
+					/*
+					 * If the node is not primary node nor load balance node,
+					 * there's no point to send query except statement load
+					 * balance is enabled.
+					 */
+					if (!pool_config->statement_level_load_balance &&
+						i != PRIMARY_NODE_ID && i != sc->load_balance_node_id)
+						continue;
 			}
 			query_context->where_to_send[i] = true;
 		}
@@ -323,12 +341,15 @@ pool_is_node_to_be_sent_in_current_query(int node_id)
 int
 pool_virtual_main_db_node_id(void)
 {
+	volatile POOL_REQUEST_INFO	*my_req;
 	POOL_SESSION_CONTEXT *sc;
 
 	/*
-	 * Check whether failover is in progress. If so, just abort this session.
+	 * Check whether failover is in progress and we are child process.
+	 * If so, we will wait for failover to finish.
 	 */
-	if (Req_info->switching)
+	my_req = Req_info;
+	if (processType == PT_CHILD && my_req->switching)
 	{
 #ifdef NOT_USED
 		POOL_SETMASK(&BlockSig);
@@ -338,7 +359,15 @@ pool_virtual_main_db_node_id(void)
 				 errhint("In a moment you should be able to reconnect to the database")));
 		POOL_SETMASK(&UnBlockSig);
 #endif
-		child_exit(POOL_EXIT_AND_RESTART);
+		/*
+		 * Wait for failover to finish
+		 */
+		if (wait_for_failover_to_finish() == -2)
+			/*
+			 * Waiting for failover/failback to finish was timed out.
+			 * Time to exit this process (and session disconnection).
+			 */
+			child_exit(POOL_EXIT_AND_RESTART);
 	}
 
 	sc = pool_get_session_context(true);
@@ -399,27 +428,18 @@ pool_virtual_main_db_node_id(void)
 }
 
 /*
- * The function sets the destination for the current query to the specific backend node
+ * Set the destination for the current query to the specific backend node.
  */
 void
 pool_force_query_node_to_backend(POOL_QUERY_CONTEXT * query_context, int backend_id)
 {
-	int			i;
-
 	CHECK_QUERY_CONTEXT_IS_VALID;
 
 	ereport(DEBUG1,
 			(errmsg("forcing query destination node to backend node:%d", backend_id)));
 
 	pool_set_node_to_be_sent(query_context, backend_id);
-	for (i = 0; i < NUM_BACKENDS; i++)
-	{
-		if (query_context->where_to_send[i])
-		{
-			query_context->virtual_main_node_id = i;
-			break;
-		}
-	}
+	set_virtual_main_node(query_context);
 }
 
 /*
@@ -428,37 +448,12 @@ pool_force_query_node_to_backend(POOL_QUERY_CONTEXT * query_context, int backend
 void
 pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 {
-	POOL_SESSION_CONTEXT *session_context;
-	POOL_CONNECTION_POOL *backend;
-	int			i;
-
 	CHECK_QUERY_CONTEXT_IS_VALID;
-
-	session_context = pool_get_session_context(false);
-	backend = session_context->backend;
 
 	/*
 	 * Zap out DB node map
 	 */
 	pool_clear_node_to_be_sent(query_context);
-
-	/*
-	 * If there is "NO LOAD BALANCE" comment, we send only to main node.
-	 */
-	if (!strncasecmp(query, NO_LOAD_BALANCE, NO_LOAD_BALANCE_COMMENT_SZ))
-	{
-		pool_set_node_to_be_sent(query_context,
-								 MAIN_REPLICA ? PRIMARY_NODE_ID : REAL_MAIN_NODE_ID);
-		for (i = 0; i < NUM_BACKENDS; i++)
-		{
-			if (query_context->where_to_send[i])
-			{
-				query_context->virtual_main_node_id = i;
-				break;
-			}
-		}
-		return;
-	}
 
 	/*
 	 * In raw mode, we send only to main node. Simple enough.
@@ -467,292 +462,35 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 	{
 		pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
 	}
-	else if (MAIN_REPLICA && query_context->is_multi_statement)
-	{
-		/*
-		 * If we are in native replication mode and we have multi statement query,
-		 * we should send it to primary server only. Otherwise it is possible
-		 * to send a write query to standby servers because we only use the
-		 * first element of the multi statement query and don't care about the
-		 * rest.  Typical situation where we are bugged by this is,
-		 * "BEGIN;DELETE FROM table;END". Note that from pgpool-II 3.1.0
-		 * transactional statements such as "BEGIN" is unconditionally sent to
-		 * all nodes(see send_to_where() for more details). Someday we might
-		 * be able to understand all part of multi statement queries, but
-		 * until that day we need this band aid.
-		 */
-		pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-	}
 	else if (MAIN_REPLICA)
 	{
-		POOL_DEST	dest;
-
-		dest = send_to_where(node, query);
-
-		dml_adaptive(node, query);
-
-		ereport(DEBUG1,
-				(errmsg("decide where to send the query"),
-				 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-		/* Should be sent to primary only? */
-		if (dest == POOL_PRIMARY)
+		if (query_context->is_multi_statement)
 		{
+			/*
+			 * If we are in streaming replication mode and we have multi statement query,
+			 * we should send it to primary server only. Otherwise it is possible
+			 * to send a write query to standby servers because we only use the
+			 * first element of the multi statement query and don't care about the
+			 * rest.  Typical situation where we are bugged by this is,
+			 * "BEGIN;DELETE FROM table;END". Note that from pgpool-II 3.1.0
+			 * transactional statements such as "BEGIN" is unconditionally sent to
+			 * all nodes(see send_to_where() for more details). Someday we might
+			 * be able to understand all part of multi statement queries, but
+			 * until that day we need this band aid.
+			 */
 			pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
 		}
-		/* Should be sent to both primary and standby? */
-		else if (dest == POOL_BOTH)
-		{
-			pool_setall_node_to_be_sent(query_context);
-		}
-		else if (pool_is_writing_transaction() &&
-				 pool_config->disable_load_balance_on_write == DLBOW_ALWAYS)
-		{
-			pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-		}
-
-		/*
-		 * Ok, we might be able to load balance the SELECT query.
-		 */
 		else
-		{
-			if (pool_config->load_balance_mode &&
-				is_select_query(node, query) &&
-				MAJOR(backend) == PROTO_MAJOR_V3)
-			{
-				/*
-				 * If (we are outside of an explicit transaction) OR (the
-				 * transaction has not issued a write query yet, AND
-				 * transaction isolation level is not SERIALIZABLE) we might
-				 * be able to load balance.
-				 */
-
-				ereport(DEBUG1,
-						(errmsg("checking load balance precondtions. TSTATE:%c wrting_trancation:%d failed_transaction:%d isolation:%d",
-								TSTATE(backend, PRIMARY_NODE_ID),
-								pool_is_writing_transaction(),
-								pool_is_failed_transaction(),
-								pool_get_transaction_isolation()),
-						 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-				if (TSTATE(backend, PRIMARY_NODE_ID) == 'I' ||
-					(!pool_is_writing_transaction() &&
-					 !pool_is_failed_transaction() &&
-					 pool_get_transaction_isolation() != POOL_SERIALIZABLE))
-				{
-					BackendInfo *bkinfo = pool_get_node_info(session_context->load_balance_node_id);
-
-					/*
-					 * Load balance if possible
-					 */
-
-					/*
-					 * If replication delay is too much, we prefer to send to
-					 * the primary.
-					 */
-					if (STREAM &&
-						pool_config->delay_threshold &&
-						bkinfo->standby_delay > pool_config->delay_threshold)
-					{
-						ereport(DEBUG1,
-								(errmsg("could not load balance because of too much replication delay"),
-								 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-
-					/*
-					 * If system catalog is used in the SELECT, we prefer to
-					 * send to the primary. Example: SELECT * FROM pg_class
-					 * WHERE relname = 't1'; Because 't1' is a constant, it's
-					 * hard to recognize as table name.  Most use case such
-					 * query is against system catalog, and the table name can
-					 * be a temporary table, it's best to query against
-					 * primary system catalog. Please note that this test must
-					 * be done *before* test using pool_has_temp_table.
-					 */
-					else if (pool_has_system_catalog(node))
-					{
-						ereport(DEBUG1,
-								(errmsg("could not load balance because systems catalogs are used"),
-								 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-
-					/*
-					 * If temporary table is used in the SELECT, we prefer to
-					 * send to the primary.
-					 */
-					else if (pool_config->check_temp_table && pool_has_temp_table(node))
-					{
-						ereport(DEBUG1,
-								(errmsg("could not load balance because temporary tables are used"),
-								 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-
-					/*
-					 * If unlogged table is used in the SELECT, we prefer to
-					 * send to the primary.
-					 */
-					else if (pool_config->check_unlogged_table && pool_has_unlogged_table(node))
-					{
-						ereport(DEBUG1,
-								(errmsg("could not load balance because unlogged tables are used"),
-								 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-					/*
-					 * When query match the query patterns in primary_routing_query_pattern_list, we
-					 * send only to main node.
-					 */
-					else if (pattern_compare(query, WRITELIST, "primary_routing_query_pattern_list") == 1)
-					{
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-					/*
-					 * If a writing function call is used, we prefer to send
-					 * to the primary.
-					 */
-					else if (pool_has_function_call(node))
-					{
-						ereport(DEBUG1,
-								(errmsg("could not load balance because writing functions are used"),
-								 errdetail("destination = %d for query= \"%s\"", dest, query)));
-
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-					else if (is_select_object_in_temp_write_list(node, query))
-					{
-						pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-					}
-					else
-					{
-						if (pool_config->statement_level_load_balance)
-							session_context->load_balance_node_id = select_load_balancing_node();
-
-						session_context->query_context->load_balance_node_id = session_context->load_balance_node_id;
-						pool_set_node_to_be_sent(query_context,
-												 session_context->query_context->load_balance_node_id);
-					}
-				}
-				else
-				{
-					/* Send to the primary only */
-					pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-				}
-			}
-			else
-			{
-				/* Send to the primary only */
-				pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
-			}
-		}
+			where_to_send_main_replica(query_context, query, node);
 	}
 	else if (REPLICATION)
 	{
-		if (pool_config->load_balance_mode &&
-			is_select_query(node, query) &&
-			MAJOR(backend) == PROTO_MAJOR_V3)
+		if (query_context->is_multi_statement)
 		{
-			/*
-			 * In snapshot isolation mode, we always load balance if current
-			 * transaction is read only unless load balance mode is off.
-			 */
-			if (pool_config->backend_clustering_mode == CM_SNAPSHOT_ISOLATION &&
-				pool_config->load_balance_mode)
-			{
-				if (TSTATE(backend, MAIN_NODE_ID) == 'T')
-				{
-					/*
-					 * We are in an explicit transaction. If the transaction is
-					 * read only, we can load balance.
-					 */
-					if (session_context->transaction_read_only)
-					{
-						/* Ok, we can load balance. We are done! */
-						set_load_balance_info(query_context);
-						set_virtual_main_node(query_context);
-						return;
-					}
-				}
-				else if (TSTATE(backend, MAIN_NODE_ID) == 'I')
-				{
-					/*
-					 * We are out side transaction. If default transaction is read only,
-					 * we can load balance.
-					 */
-					static	char *si_query = "SELECT current_setting('transaction_read_only')";
-					POOL_SELECT_RESULT *res;
-					bool	load_balance = false;
-
-					do_query(CONNECTION(backend, MAIN_NODE_ID), si_query, &res, MAJOR(backend));
-					if (res)
-					{
-						if (res->data[0] && !strcmp(res->data[0], "on"))
-						{
-							load_balance = true;
-						}
-						free_select_result(res);
-					}
-
-					per_node_statement_log(backend, MAIN_NODE_ID, si_query);
-
-					if (load_balance)
-					{
-						/* Ok, we can load balance. We are done! */
-						set_load_balance_info(query_context);
-						set_virtual_main_node(query_context);
-						return;
-					}
-				}
-			}
-			
-			/*
-			 * If a writing function call is used or replicate_select is true,
-			 * we prefer to send to all nodes.
-			 */
-			if (pool_has_function_call(node) || pool_config->replicate_select)
-			{
-				pool_setall_node_to_be_sent(query_context);
-			}
-
-			/*
-			 * If (we are outside of an explicit transaction) OR (the
-			 * transaction has not issued a write query yet, AND transaction
-			 * isolation level is not SERIALIZABLE) we might be able to load
-			 * balance.
-			 */
-			else if (TSTATE(backend, MAIN_NODE_ID) == 'I' ||
-					 (!pool_is_writing_transaction() &&
-					  !pool_is_failed_transaction() &&
-					  pool_get_transaction_isolation() != POOL_SERIALIZABLE))
-			{
-				set_load_balance_info(query_context);
-			}
-			else
-			{
-				/* only send to main node */
-				pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
-			}
+			pool_setall_node_to_be_sent(query_context);
 		}
 		else
-		{
-			if (is_select_query(node, query) && !pool_config->replicate_select &&
-				!pool_has_function_call(node))
-			{
-				/* only send to main node */
-				pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
-			}
-			else
-			{
-				/* send to all nodes */
-				pool_setall_node_to_be_sent(query_context);
-			}
-		}
+			where_to_send_native_replication(query_context, query, node);
 	}
 	else
 	{
@@ -762,24 +500,9 @@ pool_where_to_send(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
 	}
 
 	/*
-	 * EXECUTE?
+	 * DEALLOCATE or EXECUTE?
 	 */
-	if (IsA(node, ExecuteStmt))
-	{
-		POOL_SENT_MESSAGE *msg;
-
-		msg = pool_get_sent_message('Q', ((ExecuteStmt *) node)->name, POOL_SENT_MESSAGE_CREATED);
-		if (!msg)
-			msg = pool_get_sent_message('P', ((ExecuteStmt *) node)->name, POOL_SENT_MESSAGE_CREATED);
-		if (msg)
-			pool_copy_prep_where(msg->query_context->where_to_send,
-								 query_context->where_to_send);
-	}
-
-	/*
-	 * DEALLOCATE?
-	 */
-	else if (IsA(node, DeallocateStmt))
+	if (IsA(node, DeallocateStmt) || IsA(node, ExecuteStmt))
 	{
 		where_to_send_deallocate(query_context, node);
 	}
@@ -820,9 +543,9 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 
 	/*
 	 * If the query is BEGIN READ WRITE or BEGIN ... SERIALIZABLE in
-	 * native replication mode, we send BEGIN to standbys instead.
-	 * original_query which is BEGIN READ WRITE is sent to primary.
-	 * rewritten_query which is BEGIN is sent to standbys.
+	 * streaming replication mode, we send BEGIN to standbys instead.
+	 * The original_query which is BEGIN READ WRITE is sent to primary.
+	 * The rewritten_query BEGIN is sent to standbys.
 	 */
 	if (pool_need_to_treat_as_if_default_transaction(query_context))
 	{
@@ -853,8 +576,8 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 			continue;
 
 		/*
-		 * If in native replication mode, we do not send COMMIT/ABORT to
-		 * standbys if it's in I(idle) state.
+		 * If we are in streaming replication mode or logical replication mode,
+		 * we do not send COMMIT/ABORT to standbys if it's in I (idle) state.
 		 */
 		if (is_commit && MAIN_REPLICA && !IS_MAIN_NODE_ID(i) && TSTATE(backend, i) == 'I')
 		{
@@ -887,6 +610,7 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 		}
 
 		per_node_statement_log(backend, i, string);
+		per_node_statement_notice(backend, i, string);
 		stat_count_up(i, query_context->parse_tree);
 		send_simplequery_message(CONNECTION(backend, i), len, string, MAJOR(backend));
 	}
@@ -931,8 +655,15 @@ pool_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 		 * Check if some error detected.  If so, emit log. This is useful when
 		 * invalid encoding error occurs. In this case, PostgreSQL does not
 		 * report what statement caused that error and make users confused.
+		 * Also set reset_query_error to true in ERROR case. This does
+		 * anything in normal query processing but when processing reset
+		 * queries, this is important because it might mean DISCARD ALL
+		 * command fails. If so, we need to discard the connection cache so
+		 * that any session object (i.e. named statement) does not remain in
+		 * the last session.
 		 */
-		per_node_error_log(backend, i, string, "pool_send_and_wait: Error or notice message from backend: ", true);
+		if (per_node_error_log(backend, i, string, "pool_send_and_wait: Error or notice message from backend: ", true) == 'E')
+			reset_query_error = true;
 	}
 
 	return POOL_CONTINUE;
@@ -973,9 +704,9 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 
 	/*
 	 * If the query is BEGIN READ WRITE or BEGIN ... SERIALIZABLE in
-	 * native replication mode, we send BEGIN to standbys instead.
-	 * original_query which is BEGIN READ WRITE is sent to primary.
-	 * rewritten_query which is BEGIN is sent to standbys.
+	 * streaming replication mode, we send BEGIN to standbys instead.
+	 * The original_query which is BEGIN READ WRITE is sent to primary.
+	 * The rewritten_query BEGIN is sent to standbys.
 	 */
 	if (pool_need_to_treat_as_if_default_transaction(query_context))
 	{
@@ -1064,6 +795,7 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
 			}
 
 			per_node_statement_log(backend, i, msgbuf);
+			per_node_statement_notice(backend, i, msgbuf);
 		}
 
 		/* if Execute message, count up stats count */
@@ -1155,7 +887,7 @@ pool_extended_send_and_wait(POOL_QUERY_CONTEXT * query_context,
  * From syntactically analysis decide the statement to be sent to the
  * primary, the standby or either or both in native replication+HR/SR mode.
  */
-static POOL_DEST send_to_where(Node *node, char *query)
+static POOL_DEST send_to_where(Node *node)
 
 {
 /* From storage/lock.h */
@@ -1171,381 +903,295 @@ static POOL_DEST send_to_where(Node *node, char *query)
 #define ExclusiveLock			7	/* blocks ROW SHARE/SELECT...FOR UPDATE */
 #define AccessExclusiveLock		8	/* ALTER TABLE, DROP TABLE, VACUUM FULL,
 									 * and unqualified LOCK TABLE */
+	/*
+	 * SELECT INTO SELECT FOR SHARE or UPDATE
+	 */
+	if (IsA(node, SelectStmt))
+	{
+		/* SELECT INTO or SELECT FOR SHARE or UPDATE ? */
+		if (pool_has_insertinto_or_locking_clause(node))
+			return POOL_PRIMARY;
 
-/* From 9.5 include/nodes/node.h ("TAGS FOR STATEMENT NODES" part) */
-	static NodeTag nodemap[] = {
-		T_RawStmt,
-		T_Query,
-		T_PlannedStmt,
-		T_InsertStmt,
-		T_DeleteStmt,
-		T_UpdateStmt,
-		T_SelectStmt,
-		T_AlterTableStmt,
-		T_AlterTableCmd,
-		T_AlterDomainStmt,
-		T_SetOperationStmt,
-		T_GrantStmt,
-		T_GrantRoleStmt,
-		T_AlterDefaultPrivilegesStmt,
-		T_ClosePortalStmt,
-		T_ClusterStmt,
-		T_CopyStmt,
-		T_CreateStmt,			/* CREATE TABLE */
-		T_DefineStmt,			/* CREATE AGGREGATE, OPERATOR, TYPE */
-		T_DropStmt,				/* DROP TABLE etc. */
-		T_TruncateStmt,
-		T_CommentStmt,
-		T_FetchStmt,
-		T_IndexStmt,			/* CREATE INDEX */
-		T_CreateFunctionStmt,
-		T_AlterFunctionStmt,
-		T_DoStmt,
-		T_RenameStmt,			/* ALTER AGGREGATE etc. */
-		T_RuleStmt,				/* CREATE RULE */
-		T_NotifyStmt,
-		T_ListenStmt,
-		T_UnlistenStmt,
-		T_TransactionStmt,
-		T_ViewStmt,				/* CREATE VIEW */
-		T_LoadStmt,
-		T_CreateDomainStmt,
-		T_CreatedbStmt,
-		T_DropdbStmt,
-		T_VacuumStmt,
-		T_ExplainStmt,
-		T_CreateTableAsStmt,
-		T_CreateSeqStmt,
-		T_AlterSeqStmt,
-		T_VariableSetStmt,		/* SET */
-		T_VariableShowStmt,
-		T_DiscardStmt,
-		T_CreateTrigStmt,
-		T_CreatePLangStmt,
-		T_CreateRoleStmt,
-		T_AlterRoleStmt,
-		T_DropRoleStmt,
-		T_LockStmt,
-		T_ConstraintsSetStmt,
-		T_ReindexStmt,
-		T_CheckPointStmt,
-		T_CreateSchemaStmt,
-		T_AlterDatabaseStmt,
-		T_AlterDatabaseSetStmt,
-		T_AlterRoleSetStmt,
-		T_CreateConversionStmt,
-		T_CreateCastStmt,
-		T_CreateOpClassStmt,
-		T_CreateOpFamilyStmt,
-		T_AlterOpFamilyStmt,
-		T_PrepareStmt,
-		T_ExecuteStmt,
-		T_DeallocateStmt,		/* DEALLOCATE */
-		T_DeclareCursorStmt,	/* DECLARE */
-		T_CreateTableSpaceStmt,
-		T_DropTableSpaceStmt,
-		T_AlterObjectSchemaStmt,
-		T_AlterOwnerStmt,
-		T_DropOwnedStmt,
-		T_ReassignOwnedStmt,
-		T_CompositeTypeStmt,	/* CREATE TYPE */
-		T_CreateEnumStmt,
-		T_CreateRangeStmt,
-		T_AlterEnumStmt,
-		T_AlterTSDictionaryStmt,
-		T_AlterTSConfigurationStmt,
-		T_CreateFdwStmt,
-		T_AlterFdwStmt,
-		T_CreateForeignServerStmt,
-		T_AlterForeignServerStmt,
-		T_CreateUserMappingStmt,
-		T_AlterUserMappingStmt,
-		T_DropUserMappingStmt,
-		T_AlterTableSpaceOptionsStmt,
-		T_AlterTableMoveAllStmt,
-		T_SecLabelStmt,
-		T_CreateForeignTableStmt,
-		T_ImportForeignSchemaStmt,
-		T_CreateExtensionStmt,
-		T_AlterExtensionStmt,
-		T_AlterExtensionContentsStmt,
-		T_CreateEventTrigStmt,
-		T_AlterEventTrigStmt,
-		T_RefreshMatViewStmt,
-		T_ReplicaIdentityStmt,
-		T_AlterSystemStmt,
-		T_CreatePolicyStmt,
-		T_AlterPolicyStmt,
-		T_CreateTransformStmt,
-		T_CreateAmStmt,
-		T_CreatePublicationStmt,
-		T_AlterPublicationStmt,
-		T_CreateSubscriptionStmt,
-		T_DropSubscriptionStmt,
-		T_CreateStatsStmt,
-		T_AlterCollationStmt,
-	};
+		/* non-SELECT query in WITH clause ? */
+		if (((SelectStmt *) node)->withClause)
+		{
+			List	   *ctes = ((SelectStmt *) node)->withClause->ctes;
+			ListCell   *cte_item;
 
-	if (bsearch(&nodeTag(node), nodemap, sizeof(nodemap) / sizeof(nodemap[0]),
-				sizeof(NodeTag), compare) != NULL)
+			foreach(cte_item, ctes)
+			{
+				CommonTableExpr *cte = (CommonTableExpr *) lfirst(cte_item);
+
+				if (!IsA(cte->ctequery, SelectStmt))
+					return POOL_PRIMARY;
+			}
+		}
+
+		return POOL_EITHER;
+	}
+
+	/*
+	 * COPY
+	 */
+	else if (IsA(node, CopyStmt))
+	{
+		if (((CopyStmt *) node)->is_from)
+			return POOL_PRIMARY;
+		else
+		{
+			if (((CopyStmt *) node)->query == NULL)
+				return POOL_EITHER;
+			else
+				return (IsA(((CopyStmt *) node)->query, SelectStmt)) ? POOL_EITHER : POOL_PRIMARY;
+		}
+	}
+
+	/*
+	 * LOCK
+	 */
+	else if (IsA(node, LockStmt))
+	{
+		return (((LockStmt *) node)->mode >= RowExclusiveLock) ? POOL_PRIMARY : POOL_BOTH;
+	}
+
+	/*
+	 * Transaction commands
+	 */
+	else if (IsA(node, TransactionStmt))
 	{
 		/*
-		 * SELECT INTO SELECT FOR SHARE or UPDATE
+		 * Check "BEGIN READ WRITE" "START TRANSACTION READ WRITE"
 		 */
-		if (IsA(node, SelectStmt))
+		if (is_start_transaction_query(node))
 		{
-			/* SELECT INTO or SELECT FOR SHARE or UPDATE ? */
-			if (pool_has_insertinto_or_locking_clause(node))
-				return POOL_PRIMARY;
+			/*
+			 * But actually, we send BEGIN to standby if it's BEGIN READ
+			 * WRITE or START TRANSACTION READ WRITE
+			 */
+			if (is_read_write((TransactionStmt *) node))
+				return POOL_BOTH;
 
-			/* non-SELECT query in WITH clause ? */
-			if (((SelectStmt *) node)->withClause)
+			/*
+			 * Other TRANSACTION start commands are sent to both primary
+			 * and standby
+			 */
+			else
+				return POOL_BOTH;
+		}
+		/* SAVEPOINT related commands are sent to both primary and standby */
+		else if (is_savepoint_query(node))
+		{
+			if (SL_MODE && is_tx_started_by_multi_statement_query())
 			{
-				List	   *ctes = ((SelectStmt *) node)->withClause->ctes;
-				ListCell   *cte_item;
+				/*
+				 * But in streaming replication mode, if a transaction was
+				 * started by a multi statement query, SAVEPOINT should be
+				 * sent to primary because the transaction was started on
+				 * primary only.
+				 */
+				return POOL_PRIMARY;
+			}
+			return POOL_BOTH;
+		}
+		/*
+		 * 2PC commands
+		 */
+		else if (is_2pc_transaction_query(node))
+			return POOL_PRIMARY;
+		else
+			/* COMMIT etc. */
+			return POOL_BOTH;
+	}
 
-				foreach(cte_item, ctes)
+	/*
+	 * SET
+	 */
+	else if (IsA(node, VariableSetStmt))
+	{
+		ListCell   *list_item;
+		bool		ret = POOL_BOTH;
+
+		/*
+		 * SET transaction_read_only TO off
+		 */
+		if (((VariableSetStmt *) node)->kind == VAR_SET_VALUE &&
+			!strcmp(((VariableSetStmt *) node)->name, "transaction_read_only"))
+		{
+			List	   *options = ((VariableSetStmt *) node)->args;
+
+			foreach(list_item, options)
+			{
+				A_Const    *v = (A_Const *) lfirst(list_item);
+
+				switch (nodeTag(&v->val))
 				{
-					CommonTableExpr *cte = (CommonTableExpr *) lfirst(cte_item);
+					case T_String:
+						if (!strcasecmp(v->val.sval.sval, "off") ||
+							!strcasecmp(v->val.sval.sval, "f") ||
+							!strcasecmp(v->val.sval.sval, "false"))
+							ret = POOL_PRIMARY;
+						break;
+					case T_Integer:
+						if (v->val.ival.ival)
+							ret = POOL_PRIMARY;
+					default:
+						break;
+				}
+			}
+			return ret;
+		}
 
-					if (!IsA(cte->ctequery, SelectStmt))
+		/*
+		 * SET TRANSACTION ISOLATION LEVEL SERIALIZABLE or SET SESSION
+		 * CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE or
+		 * SET transaction_isolation TO 'serializable' SET
+		 * default_transaction_isolation TO 'serializable'
+		 */
+		else if (is_set_transaction_serializable(node))
+		{
+			return POOL_PRIMARY;
+		}
+
+		/*
+		 * Check "SET TRANSACTION READ WRITE" "SET SESSION CHARACTERISTICS
+		 * AS TRANSACTION READ WRITE"
+		 */
+		else if (((VariableSetStmt *) node)->kind == VAR_SET_MULTI &&
+				 (!strcmp(((VariableSetStmt *) node)->name, "TRANSACTION") ||
+				  !strcmp(((VariableSetStmt *) node)->name, "SESSION CHARACTERISTICS")))
+		{
+			List	   *options = ((VariableSetStmt *) node)->args;
+
+			foreach(list_item, options)
+			{
+				DefElem    *opt = (DefElem *) lfirst(list_item);
+
+				if (!strcmp("transaction_read_only", opt->defname))
+				{
+					bool		read_only;
+
+					read_only = ((A_Const *) opt->arg)->val.ival.ival;
+					if (!read_only)
 						return POOL_PRIMARY;
 				}
 			}
-
-			return POOL_EITHER;
-		}
-
-		/*
-		 * COPY
-		 */
-		else if (IsA(node, CopyStmt))
-		{
-			if (((CopyStmt *) node)->is_from)
-				return POOL_PRIMARY;
-			else
-			{
-				if (((CopyStmt *) node)->query == NULL)
-					return POOL_EITHER;
-				else
-					return (IsA(((CopyStmt *) node)->query, SelectStmt)) ? POOL_EITHER : POOL_PRIMARY;
-			}
-		}
-
-		/*
-		 * LOCK
-		 */
-		else if (IsA(node, LockStmt))
-		{
-			return (((LockStmt *) node)->mode >= RowExclusiveLock) ? POOL_PRIMARY : POOL_BOTH;
-		}
-
-		/*
-		 * Transaction commands
-		 */
-		else if (IsA(node, TransactionStmt))
-		{
-			/*
-			 * Check "BEGIN READ WRITE" "START TRANSACTION READ WRITE"
-			 */
-			if (is_start_transaction_query(node))
-			{
-				/*
-				 * But actually, we send BEGIN to standby if it's BEGIN READ
-				 * WRITE or START TRANSACTION READ WRITE
-				 */
-				if (is_read_write((TransactionStmt *) node))
-					return POOL_BOTH;
-
-				/*
-				 * Other TRANSACTION start commands are sent to both primary
-				 * and standby
-				 */
-				else
-					return POOL_BOTH;
-			}
-			/* SAVEPOINT related commands are sent to both primary and standby */
-			else if (is_savepoint_query(node))
-				return POOL_BOTH;
-
-			/*
-			 * 2PC commands
-			 */
-			else if (is_2pc_transaction_query(node))
-				return POOL_PRIMARY;
-			else
-				/* COMMIT etc. */
-				return POOL_BOTH;
-		}
-
-		/*
-		 * SET
-		 */
-		else if (IsA(node, VariableSetStmt))
-		{
-			ListCell   *list_item;
-			bool		ret = POOL_BOTH;
-
-			/*
-			 * SET transaction_read_only TO off
-			 */
-			if (((VariableSetStmt *) node)->kind == VAR_SET_VALUE &&
-				!strcmp(((VariableSetStmt *) node)->name, "transaction_read_only"))
-			{
-				List	   *options = ((VariableSetStmt *) node)->args;
-
-				foreach(list_item, options)
-				{
-					A_Const    *v = (A_Const *) lfirst(list_item);
-
-					switch (v->val.type)
-					{
-						case T_String:
-							if (!strcasecmp(v->val.val.str, "off") ||
-								!strcasecmp(v->val.val.str, "f") ||
-								!strcasecmp(v->val.val.str, "false"))
-								ret = POOL_PRIMARY;
-							break;
-						case T_Integer:
-							if (v->val.val.ival)
-								ret = POOL_PRIMARY;
-						default:
-							break;
-					}
-				}
-				return ret;
-			}
-
-			/*
-			 * SET TRANSACTION ISOLATION LEVEL SERIALIZABLE or SET SESSION
-			 * CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE or
-			 * SET transaction_isolation TO 'serializable' SET
-			 * default_transaction_isolation TO 'serializable'
-			 */
-			else if (is_set_transaction_serializable(node))
-			{
-				return POOL_PRIMARY;
-			}
-
-			/*
-			 * Check "SET TRANSACTION READ WRITE" "SET SESSION CHARACTERISTICS
-			 * AS TRANSACTION READ WRITE"
-			 */
-			else if (((VariableSetStmt *) node)->kind == VAR_SET_MULTI &&
-					 (!strcmp(((VariableSetStmt *) node)->name, "TRANSACTION") ||
-					  !strcmp(((VariableSetStmt *) node)->name, "SESSION CHARACTERISTICS")))
-			{
-				List	   *options = ((VariableSetStmt *) node)->args;
-
-				foreach(list_item, options)
-				{
-					DefElem    *opt = (DefElem *) lfirst(list_item);
-
-					if (!strcmp("transaction_read_only", opt->defname))
-					{
-						bool		read_only;
-
-						read_only = ((A_Const *) opt->arg)->val.val.ival;
-						if (!read_only)
-							return POOL_PRIMARY;
-					}
-				}
-				return POOL_BOTH;
-			}
-			else
-			{
-				/*
-				 * All other SET command sent to both primary and standby
-				 */
-				return POOL_BOTH;
-			}
-		}
-
-		/*
-		 * DISCARD
-		 */
-		else if (IsA(node, DiscardStmt))
-		{
 			return POOL_BOTH;
 		}
-
-		/*
-		 * PREPARE
-		 */
-		else if (IsA(node, PrepareStmt))
-		{
-			PrepareStmt *prepare_statement = (PrepareStmt *) node;
-
-			char	   *string = nodeToString(prepare_statement->query);
-
-			/* Note that this is a recursive call */
-			return send_to_where((Node *) (prepare_statement->query), string);
-		}
-
-		/*
-		 * EXECUTE
-		 */
-		else if (IsA(node, ExecuteStmt))
+		else
 		{
 			/*
-			 * This is temporary decision. where_to_send will inherit same
-			 * destination AS PREPARE.
+			 * All other SET command sent to both primary and standby
 			 */
-			return POOL_PRIMARY;
+			return POOL_BOTH;
 		}
+	}
 
-		/*
-		 * DEALLOCATE
-		 */
-		else if (IsA(node, DeallocateStmt))
-		{
-			/*
-			 * This is temporary decision. where_to_send will inherit same
-			 * destination AS PREPARE.
-			 */
-			return POOL_PRIMARY;
-		}
+	/*
+	 * DISCARD
+	 */
+	else if (IsA(node, DiscardStmt))
+	{
+		return POOL_BOTH;
+	}
 
-		/*
-		 * SHOW
-		 */
-		else if (IsA(node, VariableShowStmt))
-		{
-			return POOL_EITHER;
-		}
+	/*
+	 * PREPARE
+	 */
+	else if (IsA(node, PrepareStmt))
+	{
+		PrepareStmt *prepare_statement = (PrepareStmt *) node;
 
+		/* Note that this is a recursive call */
+		return send_to_where((Node *) (prepare_statement->query));
+	}
+
+	/*
+	 * EXECUTE
+	 */
+	else if (IsA(node, ExecuteStmt))
+	{
 		/*
-		 * Other statements are sent to primary
+		 * This is a temporary decision. where_to_send will inherit same
+		 * destination as PREPARE.
 		 */
 		return POOL_PRIMARY;
 	}
 
 	/*
-	 * All unknown statements are sent to primary
+	 * DEALLOCATE
+	 */
+	else if (IsA(node, DeallocateStmt))
+	{
+		/*
+		 * This is temporary decision. where_to_send will inherit same
+		 * destination AS PREPARE.
+		 */
+		return POOL_PRIMARY;
+	}
+
+	/*
+	 * SHOW
+	 */
+	else if (IsA(node, VariableShowStmt))
+	{
+		return POOL_EITHER;
+	}
+
+	/*
+	 * All other statements are sent to primary
 	 */
 	return POOL_PRIMARY;
 }
 
+/*
+ * Decide where to send given message.
+ * "node" must be a parse tree of either DEALLOCATE or EXECUTE.
+ */
 static
 void
 where_to_send_deallocate(POOL_QUERY_CONTEXT * query_context, Node *node)
 {
-	DeallocateStmt *d = (DeallocateStmt *) node;
+	DeallocateStmt *d = NULL;
+	ExecuteStmt *e = NULL;
+	char		*name;
 	POOL_SENT_MESSAGE *msg;
 
-	/* DEALLOCATE ALL? */
-	if (d->name == NULL)
+	if (IsA(node, DeallocateStmt))
 	{
-		pool_setall_node_to_be_sent(query_context);
+		d = (DeallocateStmt *) node;
+		name = d->name;
+	}
+	else if (IsA(node, ExecuteStmt))
+	{
+		e = (ExecuteStmt *) node;
+		name = e->name;
 	}
 	else
 	{
-		msg = pool_get_sent_message('Q', d->name, POOL_SENT_MESSAGE_CREATED);
+		ereport(ERROR,
+				(errmsg("invalid node type for where_to_send_deallocate")));
+		return;
+	}
+
+	/* DEALLOCATE ALL? */
+	if (d && (name == NULL))
+	{
+		/* send to all backend node */
+		pool_setall_node_to_be_sent(query_context);
+		return;
+	}
+
+	/* ordinary DEALLOCATE or EXECUTE */
+	else
+	{
+		/* check if message was created by SQL PREPARE */
+		msg = pool_get_sent_message('Q', name, POOL_SENT_MESSAGE_CREATED);
 		if (!msg)
-			msg = pool_get_sent_message('P', d->name, POOL_SENT_MESSAGE_CREATED);
+			/* message may be created by Parse message */
+			msg = pool_get_sent_message('P', name, POOL_SENT_MESSAGE_CREATED);
 		if (msg)
 		{
-			/* Inherit same map from PREPARE or PARSE */
+			/* Inherit same map from PREPARE or Parse */
 			pool_copy_prep_where(msg->query_context->where_to_send,
 								 query_context->where_to_send);
 
@@ -1553,8 +1199,33 @@ where_to_send_deallocate(POOL_QUERY_CONTEXT * query_context, Node *node)
 			query_context->load_balance_node_id = msg->query_context->load_balance_node_id;
 		}
 		else
-			/* prepared statement was not found */
-			pool_setall_node_to_be_sent(query_context);
+		{
+			/*
+			 * prepared statement was not found.
+			 * There are two cases when this could happen.
+			 * (1) mistakes by client. In this case backend will return ERROR
+			 * anyway.
+			 * (2) previous query was issued as multi-statement query. e.g.
+			 * SELECT 1\;PREPARE foo AS SELECT 1;
+			 * In this case pgpool does not know anything about the prepared
+			 * statement "foo".
+			 */
+			if (SL_MODE)
+			{
+				/*
+				 * In streaming replication or logical replication, sent to
+				 * primary node only.
+				 */
+				pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+			}
+			else
+			{
+				/*
+				 * In other mode, sent to all node.
+				 */
+				pool_setall_node_to_be_sent(query_context);
+			}
+		}
 	}
 }
 
@@ -1624,10 +1295,10 @@ is_set_transaction_serializable(Node *node)
 		{
 			A_Const    *v = (A_Const *) lfirst(list_item);
 
-			switch (v->val.type)
+			switch (nodeTag(&v->val))
 			{
 				case T_String:
-					if (!strcasecmp(v->val.val.str, "serializable"))
+					if (!strcasecmp(v->val.sval.sval, "serializable"))
 						return true;
 					break;
 				default:
@@ -1652,7 +1323,7 @@ is_set_transaction_serializable(Node *node)
 			{
 				A_Const    *v = (A_Const *) opt->arg;
 
-				if (!strcasecmp(v->val.val.str, "serializable"))
+				if (!strcasecmp(v->val.sval.sval, "serializable"))
 					return true;
 			}
 		}
@@ -1694,7 +1365,7 @@ is_read_write(TransactionStmt *node)
 		{
 			bool		read_only;
 
-			read_only = ((A_Const *) opt->arg)->val.val.ival;
+			read_only = ((A_Const *) opt->arg)->val.ival.ival;
 			if (read_only)
 				return false;	/* TRANSACTION READ ONLY */
 			else
@@ -1729,8 +1400,8 @@ is_serializable(TransactionStmt *node)
 
 		if (!strcmp("transaction_isolation", opt->defname) &&
 			IsA(opt->arg, A_Const) &&
-			((A_Const *) opt->arg)->val.type == T_String &&
-			!strcmp("serializable", ((A_Const *) opt->arg)->val.val.str))
+			IsA(&((A_Const *) opt->arg)->val, String) &&
+			!strcmp("serializable", ((A_Const *) opt->arg)->val.sval.sval))
 			return true;
 	}
 	return false;
@@ -1738,10 +1409,10 @@ is_serializable(TransactionStmt *node)
 
 /*
  * If the query is BEGIN READ WRITE or
- * BEGIN ... SERIALIZABLE in native replication mode,
+ * BEGIN ... SERIALIZABLE in streaming replication mode,
  * we send BEGIN to standbys instead.
- * original_query which is BEGIN READ WRITE is sent to primary.
- * rewritten_query which is BEGIN is sent to standbys.
+ * The original_query which is BEGIN READ WRITE is sent to primary.
+ * The rewritten_query BEGIN is sent to standbys.
  */
 bool
 pool_need_to_treat_as_if_default_transaction(POOL_QUERY_CONTEXT * query_context)
@@ -2013,16 +1684,16 @@ pool_is_transaction_read_only(Node *node)
 		{
 			A_Const    *v = (A_Const *) lfirst(list_item);
 
-			switch (v->val.type)
+			switch (nodeTag(&v->val))
 			{
 				case T_String:
-					if (!strcasecmp(v->val.val.str, "on") ||
-						!strcasecmp(v->val.val.str, "t") ||
-						!strcasecmp(v->val.val.str, "true"))
+					if (!strcasecmp(v->val.sval.sval, "on") ||
+						!strcasecmp(v->val.sval.sval, "t") ||
+						!strcasecmp(v->val.sval.sval, "true"))
 						ret = true;
 					break;
 				case T_Integer:
-					if (v->val.val.ival)
+					if (v->val.ival.ival)
 						ret = true;
 				default:
 					break;
@@ -2048,7 +1719,7 @@ pool_is_transaction_read_only(Node *node)
 			{
 				bool		read_only;
 
-				read_only = ((A_Const *) opt->arg)->val.val.ival;
+				read_only = ((A_Const *) opt->arg)->val.ival.ival;
 				if (read_only)
 				{
 					ret = true;
@@ -2061,7 +1732,9 @@ pool_is_transaction_read_only(Node *node)
 }
 
 /*
- * Set virtual main node according to the where_to_send map.
+ * Set virtual main node according to the where_to_send map.  If there are
+ * multiple sending requests are in the map, the first node id is set to the
+ * virtual_main_node_id.
  */
 static void
 set_virtual_main_node(POOL_QUERY_CONTEXT *query_context)
@@ -2277,4 +1950,370 @@ dml_adaptive(Node *node, char *query)
 			add_object_into_temp_write_list(node, query);
 
 	}
+}
+
+/*
+ * Decide the backend node to be sent in streaming replication mode, logical
+ * replication mode and slony mode.  Called by pool_where_to_send.
+ */
+static void
+where_to_send_main_replica(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
+{
+	POOL_DEST	dest;
+	POOL_SESSION_CONTEXT *session_context;
+	POOL_CONNECTION_POOL *backend;
+
+	dest = send_to_where(node);
+	session_context = pool_get_session_context(false);
+	backend = session_context->backend;
+
+	dml_adaptive(node, query);
+
+	ereport(DEBUG1,
+			(errmsg("decide where to send the query"),
+			 errdetail("destination = %d for query= \"%s\"", dest, query)));
+
+	/* Should be sent to primary only? */
+	if (dest == POOL_PRIMARY)
+	{
+		pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+	}
+	/* Should be sent to both primary and standby? */
+	else if (dest == POOL_BOTH)
+	{
+		if (is_tx_started_by_multi_statement_query())
+		{
+			/*
+			 * If we are in an explicit transaction and the transaction
+			 * was started by a multi statement query, we should send
+			 * query to primary node only (which was supposed to be sent
+			 * to all nodes) until the transaction gets committed or
+			 * aborted.
+			 */
+			pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+		}
+		else
+		{
+			pool_setall_node_to_be_sent(query_context);
+		}
+	}
+	else if (pool_is_writing_transaction() &&
+			 pool_config->disable_load_balance_on_write == DLBOW_ALWAYS)
+	{
+		pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+	}
+
+	/*
+	 * Ok, we might be able to load balance the SELECT query.
+	 */
+	else
+	{
+		if (pool_config->load_balance_mode &&
+			is_select_query(node, query) &&
+			MAJOR(backend) == PROTO_MAJOR_V3)
+		{
+			/*
+			 * If (we are outside of an explicit transaction) OR (the
+			 * transaction has not issued a write query yet, AND
+			 * transaction isolation level is not SERIALIZABLE) we might
+			 * be able to load balance.
+			 */
+
+			ereport(DEBUG1,
+					(errmsg("checking load balance preconditions. TSTATE:%c writing_transaction:%d failed_transaction:%d isolation:%d",
+							TSTATE(backend, PRIMARY_NODE_ID),
+							pool_is_writing_transaction(),
+							pool_is_failed_transaction(),
+							pool_get_transaction_isolation()),
+					 errdetail("destination = %d for query= \"%s\"", dest, query)));
+
+			if (TSTATE(backend, PRIMARY_NODE_ID) == 'I' ||
+				(!pool_is_writing_transaction() &&
+				 !pool_is_failed_transaction() &&
+				 pool_get_transaction_isolation() != POOL_SERIALIZABLE))
+			{
+				/*
+				 * Load balance if possible
+				 */
+
+				/*
+				 * If system catalog is used in the SELECT, we prefer to
+				 * send to the primary. Example: SELECT * FROM pg_class
+				 * WHERE relname = 't1'; Because 't1' is a constant, it's
+				 * hard to recognize as table name.  Most use case such
+				 * query is against system catalog, and the table name can
+				 * be a temporary table, it's best to query against
+				 * primary system catalog. Please note that this test must
+				 * be done *before* test using pool_has_temp_table.
+				 */
+				if (pool_has_system_catalog(node))
+				{
+					ereport(DEBUG1,
+							(errmsg("could not load balance because systems catalogs are used"),
+							 errdetail("destination = %d for query= \"%s\"", dest, query)));
+
+					pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+				}
+
+				/*
+				 * If temporary table is used in the SELECT, we prefer to
+				 * send to the primary.
+				 */
+				else if (pool_config->check_temp_table && pool_has_temp_table(node))
+				{
+					ereport(DEBUG1,
+							(errmsg("could not load balance because temporary tables are used"),
+							 errdetail("destination = %d for query= \"%s\"", dest, query)));
+
+					pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+				}
+
+				/*
+				 * If unlogged table is used in the SELECT, we prefer to
+				 * send to the primary.
+				 */
+				else if (pool_config->check_unlogged_table && pool_has_unlogged_table(node))
+				{
+					ereport(DEBUG1,
+							(errmsg("could not load balance because unlogged tables are used"),
+							 errdetail("destination = %d for query= \"%s\"", dest, query)));
+
+					pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+				}
+				/*
+				 * When query match the query patterns in primary_routing_query_pattern_list, we
+				 * send only to main node.
+				 */
+				else if (pattern_compare(query, WRITELIST, "primary_routing_query_pattern_list") == 1)
+				{
+					pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+				}
+				/*
+				 * If a writing function call is used, we prefer to send
+				 * to the primary.
+				 */
+				else if (pool_has_function_call(node))
+				{
+					ereport(DEBUG1,
+							(errmsg("could not load balance because writing functions are used"),
+							 errdetail("destination = %d for query= \"%s\"", dest, query)));
+
+					pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+				}
+				else if (is_select_object_in_temp_write_list(node, query))
+				{
+					pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+				}
+				else
+				{
+					if (pool_config->statement_level_load_balance)
+					{
+						session_context->load_balance_node_id = select_load_balancing_node();
+					}
+
+					/*
+					 * As streaming replication delay is too much, if
+					 * prefer_lower_delay_standby is true then elect new
+					 * load balance node which is lowest delayed,
+					 * false then send to the primary.
+					 */
+					if (STREAM && check_replication_delay(session_context->load_balance_node_id))
+					{
+						ereport(DEBUG1,
+								(errmsg("could not load balance because of too much replication delay"),
+								 errdetail("destination = %d for query= \"%s\"", dest, query)));
+
+						if (pool_config->prefer_lower_delay_standby)
+						{
+							int new_load_balancing_node = select_load_balancing_node();
+
+							session_context->load_balance_node_id = new_load_balancing_node;
+							session_context->query_context->load_balance_node_id = session_context->load_balance_node_id;
+							pool_set_node_to_be_sent(query_context, session_context->query_context->load_balance_node_id);
+						}
+						else
+						{
+							pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+						}
+					}
+					else
+					{
+						session_context->query_context->load_balance_node_id = session_context->load_balance_node_id;
+						pool_set_node_to_be_sent(query_context,
+												 session_context->query_context->load_balance_node_id);
+					}
+				}
+			}
+			else
+			{
+				/* Send to the primary only */
+				pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+			}
+		}
+		else
+		{
+			/* Send to the primary only */
+			pool_set_node_to_be_sent(query_context, PRIMARY_NODE_ID);
+		}
+	}
+}
+
+/*
+ * Decide the backend node to be sent in replication mode and snapshot
+ * isolation mode.
+ * Called by pool_where_to_send.
+ */
+static void
+where_to_send_native_replication(POOL_QUERY_CONTEXT * query_context, char *query, Node *node)
+{
+	POOL_SESSION_CONTEXT *session_context;
+	POOL_CONNECTION_POOL *backend;
+
+	session_context = pool_get_session_context(false);
+	backend = session_context->backend;
+
+	/*
+	 * Check to see if we can load balance the SELECT (or any read only query
+	 * from syntactical point of view).
+	 */
+	elog(DEBUG1, "Maybe: load balance mode: %d is_select_query: %d",
+			 pool_config->load_balance_mode, is_select_query(node, query));
+
+	if (pool_config->load_balance_mode &&
+		is_select_query(node, query) &&
+		MAJOR(backend) == PROTO_MAJOR_V3)
+	{
+		/*
+		 * In snapshot isolation mode, we always load balance if current
+		 * transaction is read only unless load balance mode is off.
+		 */
+		if (pool_config->backend_clustering_mode == CM_SNAPSHOT_ISOLATION &&
+			pool_config->load_balance_mode)
+		{
+			if (TSTATE(backend, MAIN_NODE_ID) == 'T')
+			{
+				/*
+				 * We are in an explicit transaction. If the transaction is
+				 * read only, we can load balance.
+				 */
+				if (session_context->transaction_read_only)
+				{
+					/* Ok, we can load balance. We are done! */
+					set_load_balance_info(query_context);
+					set_virtual_main_node(query_context);
+					return;
+				}
+			}
+			else if (TSTATE(backend, MAIN_NODE_ID) == 'I')
+			{
+				/*
+				 * We are out side transaction. If default transaction is read only,
+				 * we can load balance.
+				 */
+				static	char *si_query = "SELECT current_setting('transaction_read_only')";
+				POOL_SELECT_RESULT *res;
+				bool	load_balance = false;
+
+				do_query(CONNECTION(backend, MAIN_NODE_ID), si_query, &res, MAJOR(backend));
+				if (res)
+				{
+					if (res->data[0] && !strcmp(res->data[0], "on"))
+					{
+						load_balance = true;
+					}
+					free_select_result(res);
+				}
+
+				per_node_statement_log(backend, MAIN_NODE_ID, si_query);
+
+				if (load_balance)
+				{
+					/* Ok, we can load balance. We are done! */
+					set_load_balance_info(query_context);
+					set_virtual_main_node(query_context);
+					return;
+				}
+			}
+		}
+			
+		/*
+		 * If a writing function call is used or replicate_select is true, we
+		 * have to send to all nodes since the function may modify database.
+		 */
+		elog(DEBUG1, "Maybe sent to all node: pool_has_function_call: %d pool_config->replicate_select: %d",
+			 pool_has_function_call(node), pool_config->replicate_select);
+		if (pool_has_function_call(node) || pool_config->replicate_select)
+		{
+			pool_setall_node_to_be_sent(query_context);
+		}
+
+		/*
+		 * If (we are outside of an explicit transaction) OR (the
+		 * transaction has not issued a write query yet, AND transaction
+		 * isolation level is not SERIALIZABLE) we might be able to load
+		 * balance.
+		 */
+		else if (TSTATE(backend, MAIN_NODE_ID) == 'I' ||
+				 (!pool_is_writing_transaction() &&
+				  !pool_is_failed_transaction() &&
+				  pool_get_transaction_isolation() != POOL_SERIALIZABLE))
+		{
+			elog(DEBUG1, "load balance TSTATE: %c pool_is_writing_transaction: %d pool_is_failed_transaction: %d pool_get_transaction_isolation: %d",
+				 TSTATE(backend, MAIN_NODE_ID),
+				 pool_is_writing_transaction(),
+				 pool_is_failed_transaction(),
+				 pool_get_transaction_isolation());
+			set_load_balance_info(query_context);
+		}
+		else
+		{
+			/* only send to main node */
+			elog(DEBUG1, "unable to load balance");
+			pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
+		}
+	}
+	else
+	{
+		if (is_select_query(node, query) && !pool_config->replicate_select &&
+			!pool_has_function_call(node))
+		{
+			/* only send to main node */
+			pool_set_node_to_be_sent(query_context, REAL_MAIN_NODE_ID);
+		}
+		else
+		{
+			/* send to all nodes */
+			pool_setall_node_to_be_sent(query_context);
+		}
+	}
+}
+
+/*
+ * Wait for failover/failback to finish.
+ * Return values:
+ * 0: no failover/failback occurred.
+ * -1: failover/failback occurred and finished within certain period.
+ * -2: failover/failback occurred and timed out.
+ */
+int
+wait_for_failover_to_finish(void)
+{
+#define	MAX_FAILOVER_WAIT	30	/* waiting for failover finish timeout in seconds */
+
+	volatile POOL_REQUEST_INFO	*my_req;
+	int		ret = 0;
+	int		i;
+
+	/*
+	 * Wait for failover to finish
+	 */
+	for (i = 0;i < MAX_FAILOVER_WAIT; i++)
+	{
+		my_req = Req_info;
+		if (my_req->switching == 0)
+			return ret;
+		ret = -1;	/* failover/failback finished */
+		sleep(1);
+	}
+	return -2;	/* timed out */
 }

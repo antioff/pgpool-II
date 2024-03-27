@@ -174,6 +174,46 @@ Pgpool-II documentation
      </listitem>
     </varlistentry>
 
+    <varlistentry>
+     <term><option>-e</option></term>
+     <listitem>
+      <para>
+       Omit to create <productname>PostgreSQL</productname> database
+       This option is intended to be used by
+       <command>watchdog_setup</command> and probably useless for
+       other purposes.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>-t</option></term>
+     <listitem>
+      <para>
+       Set some additional parameters to pgpool.conf so that the
+       regression test can performs tests against existing
+       installation.  Currently the parameter is
+       <xref linkend="guc-health-check-test">.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>-c</option></term>
+     <listitem>
+      <para>
+       Use the sample scripts and configuration files installed in
+       <filename>/etc/pgpool-II/</filename> directory.
+      </para>
+      <para>
+       This option was added for the purpose of testing the sample scripts and
+       configuration files contained in <productname>Pgpool-II</productname> RPM packages.
+       Make sure you have installed the sample scripts and configuration files in
+       <filename>/etc/pgpool-II/</filename> directory before you specify this option.
+      </para>
+     </listitem>
+    </varlistentry>
+
    </variablelist>
   </para>
  </refsect1>
@@ -267,6 +307,23 @@ Pgpool-II documentation
      </listitem>
     </varlistentry>
 
+    <varlistentry>
+     <term><option>ENABLE_TEST</option></term>
+     <listitem>
+      <para>
+       If "true", act as if "-t" option is specified.
+      </para>
+     </listitem>
+    </varlistentry>
+
+    <varlistentry>
+     <term><option>TEST_SAMPLES</option></term>
+     <listitem>
+      <para>
+       If "true", act as if "-c" option is specified.
+      </para>
+     </listitem>
+    </varlistentry>
    </variablelist>
 
   </para>

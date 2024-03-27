@@ -3,48 +3,50 @@
 # Testing loadbalance failure using DEALLOCATE and EXECUTE command
 # case with streaming replication mode.
 
-WHOAMI=`whoami`
 source $TESTLIBS
 TESTDIR=testdir
 PSQL=$PGBIN/psql
-num_tests=6
-success_count=0
-
-
-#for mode in s r n
-for mode in s
+for mode in s r i n
 do
-	rm -fr $TESTDIR
-	mkdir $TESTDIR
-	cd $TESTDIR
+    echo "=== starting test in \"$mode\" mode ==="
+    if [ $mode = "n" ];then
+	num_tests=6
+    else
+	num_tests=7
+    fi
+    success_count=0
 
-	# create test environment
-	echo -n "creating test environment..."
-	$PGPOOL_SETUP -m $mode -n 2 || exit 1
-	echo "done."
+    rm -fr $TESTDIR
+    mkdir $TESTDIR
+    cd $TESTDIR
 
-	source ./bashrc.ports
+    # create test environment
+    echo -n "creating test environment..."
+    $PGPOOL_SETUP -m $mode -n 2 || exit 1
+    echo "done."
 
-	export PGPORT=$PGPOOL_PORT
+    source ./bashrc.ports
 
-	# set backend_weight , loadbalance to standby only
-	echo "backend_weight0 = 0" >> etc/pgpool.conf
-	echo "backend_weight1 = 1" >> etc/pgpool.conf
+    export PGPORT=$PGPOOL_PORT
 
-	# start pgpool-II
-	./startall
+    # set backend_weight , loadbalance to standby only
+    echo "backend_weight0 = 0" >> etc/pgpool.conf
+    echo "backend_weight1 = 1" >> etc/pgpool.conf
 
-	sleep 1
+    # start pgpool-II
+    ./startall
 
-	# run test1 select query
-	$PSQL -p 11000 test <<EOF
+    sleep 1
+
+    # run test1 select query
+    $PSQL -p 11000 test <<EOF
 PREPARE test1 AS SELECT 1;
 EXECUTE test1;
 DEALLOCATE test1;
 EOF
 
-	# run test2 update query
-	$PSQL -p 11000 test <<EOF
+    # run test2 update query
+    $PSQL -p 11000 test <<EOF
 CREATE TABLE test_tbl(id int, name text);
 PREPARE test2 AS UPDATE test_tbl SET id =2;
 EXECUTE test2;
@@ -52,54 +54,94 @@ DEALLOCATE test2;
 DEALLOCATE all;
 EOF
 
-	expect1=`fgrep "PREPARE test1" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
-	expect2=`fgrep "PREPARE test2" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    # run test3 multi-statement
+    $PSQL -p 11000 test <<EOF
+SELECT 1\;PREPARE test3 AS SELECT 2;
+DEALLOCATE test3;
+EOF
 
-	#test1 result
-	result=`fgrep "EXECUTE test1" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}' `
-	if [  "$expect1" = "$result" ]; then
-        success_count=$(( success_count + 1 ))
-        echo "PREPARE and EXECUTE with SELECT query successfully."
-	fi
-	result=`fgrep "DEALLOCATE test1" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}' `
-	if [  "$expect1" = "$result" ]; then
-        success_count=$(( success_count + 1 ))
-        echo "PREPARE and DEALLOCATE with SELECT query successfully."
-	fi
+    expect1=`fgrep "PREPARE test1" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    expect2=`fgrep "PREPARE test2" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    expect3=`fgrep "PREPARE test3" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
 
-	#test2 result
-	result=`fgrep "EXECUTE test2" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}' `
-	if [  "$expect2" = "$result" ]; then
+    #test1 result
+    echo -n "case 1: PREPARE and EXECUTE with SELECT query..."
+    result=`fgrep "EXECUTE test1" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    if [  "$expect1" = "$result" ]; then
         success_count=$(( success_count + 1 ))
-        echo "PREPARE and EXECUTE with UPDATE query successfully."
-	fi
-	result=`fgrep "DEALLOCATE test2" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}' `
-	if [  "$expect2" = "$result" ]; then
-        success_count=$(( success_count + 1 ))
-        echo "PREPARE and DEALLOCATE with UPDATE query successfully."
-	fi
+	echo "ok."
+    else
+	echo "failed."
+    fi
 
-	# DEALLOCATE all;
-	grep -E "DB node id: 0 .*DEALLOCATE all" log/pgpool.log
+    echo -n "case 2: PREPARE and DEALLOCATE with SELECT query..."
+    result=`fgrep "DEALLOCATE test1" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    if [  "$expect1" = "$result" ]; then
+        success_count=$(( success_count + 1 ))
+	echo "ok."
+    else
+	echo "failed."
+    fi
+
+    #test2 result
+    echo -n "case 3: PREPARE and EXECUTE with UPDATE query..."
+    result=`fgrep "EXECUTE test2" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    if [  "$expect2" = "$result" ]; then
+        success_count=$(( success_count + 1 ))
+	echo "ok."
+    else
+	echo "failed."
+    fi
+
+    echo -n "case 4: PREPARE and DEALLOCATE with UPDATE query..."
+    result=`fgrep "DEALLOCATE test2" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    if [  "$expect2" = "$result" ]; then
+        success_count=$(( success_count + 1 ))
+	echo "ok."
+    else
+	echo "failed."
+    fi
+
+    # DEALLOCATE all;
+    echo -n "case 5: node0 DEALLOCATE all query..."
+    grep -E "DB node id: 0 .*DEALLOCATE all" log/pgpool.log >/dev/null
+    if [  $? -eq 0 ]; then
+        success_count=$(( success_count + 1 ))
+	echo "ok."
+    else
+	echo "failed."
+    fi
+
+    if [ $mode = "n" ];then
+	echo "this test is not applied to mode \"$mode\" and skipped."
+    else
+	grep -E "DB node id: 1 .*DEALLOCATE all" log/pgpool.log >/dev/null
 	if [  $? -eq 0 ]; then
-        success_count=$(( success_count + 1 ))
-        echo "node0 DEALLOCATE all query successfully."
+            success_count=$(( success_count + 1 ))
+	    echo "ok."
+	else
+	    echo "failed."
 	fi
-	grep -E "DB node id: 1 .*DEALLOCATE all" log/pgpool.log
-	if [  $? -eq 0 ]; then
+    fi
+
+    # DEALLOCATE in multi-statement
+    echo -n "case 6: DEALLOCATE in multi-statement..."
+    result=`fgrep "DEALLOCATE test3" log/pgpool.log  | awk '{print substr($0, index($0, "DB node id:"),13)}'`
+    if [  "$expect3" = "$result" ]; then
         success_count=$(( success_count + 1 ))
-        echo "node1 DEALLOCATE all query successfully."
-	fi
+	echo "ok."
+    else
+	echo "failed."
+    fi
 
-	./shutdownall
+    ./shutdownall
 
-	cd ..
+    if [ $success_count -ne $num_tests ]; then
+	echo "Some tests failed. Exiting..."
+       exit 1
+    fi
+
+    cd ..
 done
 
-echo "$success_count out of $num_tests successfull";
-
-if test $success_count -eq $num_tests
-then
-    exit 0
-fi
-exit 1
+exit 0

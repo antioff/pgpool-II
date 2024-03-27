@@ -85,9 +85,14 @@ Pgpool-II documentation
   <para>
    Here is an example output:
    <programlisting>
-    $ pcp_proc_info -p 11001 1406
-    test t-ishii 2018-07-09 16:43:53 2018-07-09 16:44:08 3 0 1 1435 1 1406 0
-    test t-ishii 2018-07-09 16:43:53 2018-07-09 16:44:08 3 0 1 1436 1 1406 1
+$ pcp_proc_info -p 1100
+test postgres 2021-09-28 04:16:00 (4:56 before process restarting) 1 3 0 2021-09-28 04:16:16 2021-09-28 04:16:16 0 2021-09-28 04:16:33 1 30795 0 30750 0 Wait for connection
+test postgres 2021-09-28 04:16:00 (4:56 before process restarting) 1 3 0 2021-09-28 04:16:16 2021-09-28 04:16:16 0 2021-09-28 04:16:33 1 30796 0 30750 1 Wait for connection
+test kawamoto 2021-09-28 04:16:00 0 3 0 2021-09-28 04:16:03 2021-09-28 04:16:03 34 (4:26 before client disconnected)  1 30763 1 30751 0 Idle
+test kawamoto 2021-09-28 04:16:00 0 3 0 2021-09-28 04:16:03 2021-09-28 04:16:03 34 (4:26 before client disconnected)  1 30764 1 30751 1 Idle
+$ pcp_proc_info -p 11001 30751
+test kawamoto 2021-09-28 04:16:00 0 3 0 2021-09-28 04:16:03 2021-09-28 04:16:03 58 (4:02 before client disconnected)  1 30763 1 30751 0 Idle
+test kawamoto 2021-09-28 04:16:00 0 3 0 2021-09-28 04:16:03 2021-09-28 04:16:03 58 (4:02 before client disconnected)  1 30764 1 30751 1 Idle
    </programlisting>
   </para>
   <para>
@@ -95,15 +100,21 @@ Pgpool-II documentation
    <literallayout class="monospaced">
     1. connected database name
     2. connected user name
-    3. process start-up timestamp
-    4. connection created timestamp
+    3. process start-up timestamp (If <xref linkend="guc-child-life-time"> is set not 0, the time before process restarting is displayed.)
+    4. process-reuse counter for <xref linkend="guc-child-max-connections">
     5. protocol major version
     6. protocol minor version
-    7. connection-reuse counter
-    8. PostgreSQL backend process id
-    9. 1 if frontend conncted 0 if not
-    10. pgpool child process id
-    11. PostgreSQL backend id 
+    7. connection created timestamp
+    8. last client connected timestamp
+    9. client idle duration (sec) (If <xref linkend="guc-client-idle-limit"> is set not 0, the time before client disconnected is displayed.)
+    10. last client disconnected timestamp
+    11. connection-reuse counter
+    12. PostgreSQL backend process id
+    13. 1 if frontend connected 0 if not
+    14. pgpool child process id
+    15. PostgreSQL backend id
+    16. process status
+    17. 1 if backend is load balance node and frontend connected, 0 othewise
    </literallayout>
   </para>
   <para>
@@ -116,29 +127,78 @@ Pgpool-II documentation
    The <option>--verbose</option> option can help understand the output. For example:
   </para>
   <programlisting>
-   $ pcp_proc_info -p 11001 --verbose 1406
-   Database     : test
-   Username     : t-ishii
-   Start time   : 2018-07-09 16:43:53
-   Creation time: 2018-07-09 16:44:08
-   Major        : 3
-   Minor        : 0
-   Counter      : 1
-   Backend PID  : 1435
-   Connected    : 1
-   PID          : 1406
-   Backend ID   : 0
-   Database     : test
-   Username     : t-ishii
-   Start time   : 2018-07-09 16:43:53
-   Creation time: 2018-07-09 16:44:08
-   Major        : 3
-   Minor        : 0
-   Counter      : 1
-   Backend PID  : 1436
-   Connected    : 1
-   PID          : 1406
-   Backend ID   : 1
+$ pcp_proc_info -p 11001 --verbose
+Database                  : test
+Username                  : postgres
+Start time                : 2021-09-28 04:16:00 (2:52 before process restarting)
+Client connection count   : 1
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2021-09-28 04:16:16
+Client connection time    : 2021-09-28 04:16:16
+Client idle duration      : 0
+Client disconnection time : 2021-09-28 04:16:33
+Pool Counter              : 1
+Backend PID               : 30795
+Connected                 : 0
+PID                       : 30750
+Backend ID                : 0
+Status                    : Wait for connection
+Load balance node         : 0
+
+Database                  : test
+Username                  : postgres
+Start time                : 2021-09-28 04:16:00 (2:52 before process restarting)
+Client connection count   : 1
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2021-09-28 04:16:16
+Client connection time    : 2021-09-28 04:16:16
+Client idle duration      : 0
+Client disconnection time : 2021-09-28 04:16:33
+Pool Counter              : 1
+Backend PID               : 30796
+Connected                 : 0
+PID                       : 30750
+Backend ID                : 1
+Status                    : Wait for connection
+Load balance node         : 0
+
+Database                  : test
+Username                  : kawamoto
+Start time                : 2021-09-28 04:16:00
+Client connection count   : 0
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2021-09-28 04:16:03
+Client connection time    : 2021-09-28 04:16:03
+Client idle duration      : 158 (2:22 before client disconnected)
+Client disconnection time :
+Pool Counter              : 1
+Backend PID               : 30763
+Connected                 : 1
+PID                       : 30751
+Backend ID                : 0
+Status                    : Idle
+Load balance node         : 1
+
+Database                  : test
+Username                  : kawamoto
+Start time                : 2021-09-28 04:16:00
+Client connection count   : 0
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2021-09-28 04:16:03
+Client connection time    : 2021-09-28 04:16:03
+Client idle duration      : 158 (2:22 before client disconnected)
+Client disconnection time :
+Pool Counter              : 1
+Backend PID               : 30764
+Connected                 : 1
+PID                       : 30751
+Backend ID                : 1
+Status                    : Idle
+Load balance node         : 1
   </programlisting>
  </refsect1>
 

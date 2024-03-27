@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -31,7 +31,6 @@
 #include "protocol/pool_proto_modules.h"
 #include "protocol/pool_process_query.h"
 #include "parser/pg_config_manual.h"
-#include "parser/pool_string.h"
 #include "pool_config.h"
 #include "context/pool_session_context.h"
 #include "context/pool_query_context.h"
@@ -42,9 +41,9 @@
 
 static int	extract_ntuples(char *message);
 static POOL_STATUS handle_mismatch_tuples(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, char *packet, int packetlen, bool command_complete);
-static int	foward_command_complete(POOL_CONNECTION * frontend, char *packet, int packetlen);
-static int	foward_empty_query(POOL_CONNECTION * frontend, char *packet, int packetlen);
-static int	foward_packet_to_frontend(POOL_CONNECTION * frontend, char kind, char *packet, int packetlen);
+static int	forward_command_complete(POOL_CONNECTION * frontend, char *packet, int packetlen);
+static int	forward_empty_query(POOL_CONNECTION * frontend, char *packet, int packetlen);
+static int	forward_packet_to_frontend(POOL_CONNECTION * frontend, char kind, char *packet, int packetlen);
 
 POOL_STATUS
 CommandComplete(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, bool command_complete)
@@ -64,7 +63,7 @@ CommandComplete(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, bool
 	session_context = pool_get_session_context(false);
 
 	/*
-	 * Handle misc process which is neccessary when query context exists.
+	 * Handle misc process which is necessary when query context exists.
 	 */
 	if (session_context->query_context != NULL && (!SL_MODE || (SL_MODE && !pool_is_doing_extended_query_message())))
 		handle_query_context(backend);
@@ -142,6 +141,36 @@ CommandComplete(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, bool
 	}
 
 	/*
+	 * Check if a transaction start command was issued by a multi statement
+	 * query by looking at the command tag. We cannot look into the parse tree
+	 * because our parse tree is only the first query in the multi statement.
+	 */
+	if (SL_MODE && session_context->query_context &&
+		session_context->query_context->is_multi_statement)
+	{
+		if (!strcmp(p1, "BEGIN"))
+		{
+			/*
+			 * If the query was a transaction starting command, remember it
+			 * until it gets committed or roll backed.
+			 */
+			elog(DEBUG1, "Call set_tx_started_by_multi_statement_query() in CommandComplete");
+			set_tx_started_by_multi_statement_query();
+		}
+		else if (!strcmp(p1, "COMMIT") || !strcmp(p1, "ROLLBACK"))
+		{
+			/*
+			 * It is possible that the multi statement query included both
+			 * BEGIN and COMMIT/ROLLBACK, or just COMMIT/ROLLBACK command.  In
+			 * this case we forget that a transaction was started by multi
+			 * statement query.
+			 */
+			elog(DEBUG1, "Call unset_tx_started_by_multi_statement_query() in CommandComplete");
+			unset_tx_started_by_multi_statement_query();
+		}
+	}
+
+	/*
 	 * If operated in streaming replication mode and extended query mode, just
 	 * forward the packet to frontend and we are done. Otherwise, we need to
 	 * do mismatch tuples process (forwarding to frontend is done in
@@ -158,9 +187,9 @@ CommandComplete(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, bool
 		}
 
 		if (command_complete)
-			status = foward_command_complete(frontend, p1, len1);
+			status = forward_command_complete(frontend, p1, len1);
 		else
-			status = foward_empty_query(frontend, p1, len1);
+			status = forward_empty_query(frontend, p1, len1);
 
 		if (status < 0)
 			return POOL_END;
@@ -210,7 +239,7 @@ CommandComplete(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, bool
 
 	/*
 	 * If we are in streaming replication mode and we are doing extended
-	 * query, reset query in progress flag and prevoius pending message.
+	 * query, reset query in progress flag and previous pending message.
 	 */
 	if (SL_MODE && pool_is_doing_extended_query_message())
 	{
@@ -248,7 +277,7 @@ CommandComplete(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend, bool
 }
 
 /*
- * Handle misc process which is neccessary when query context exists.
+ * Handle misc process which is necessary when query context exists.
  */
 void
 handle_query_context(POOL_CONNECTION_POOL * backend)
@@ -333,13 +362,19 @@ handle_query_context(POOL_CONNECTION_POOL * backend)
 		}
 		else if (stmt->kind == 	TRANS_STMT_COMMIT)
 		{
-			/* Commit ongoing CRETAE/DROP temp table status */
+			/* Commit ongoing CREATE/DROP temp table status */
 			pool_temp_tables_commit_pending();			
+
+			/* Forget a transaction was started by multi statement query */
+			unset_tx_started_by_multi_statement_query();
 		}
 		else if (stmt->kind == TRANS_STMT_ROLLBACK)
 		{
-			/* Remove ongoing CRETAE/DROP temp table status */
+			/* Remove ongoing CREATE/DROP temp table status */
 			pool_temp_tables_remove_pending();
+
+			/* Forget a transaction was started by multi statement query */
+			unset_tx_started_by_multi_statement_query();
 		}
 	}
 	else if (IsA(node, CreateStmt))
@@ -492,42 +527,42 @@ static POOL_STATUS handle_mismatch_tuples(POOL_CONNECTION * frontend, POOL_CONNE
 
 	if (session_context->mismatch_ntuples)
 	{
-		char		msgbuf[128];
+		StringInfoData	msg;
 
-		String	   *msg = init_string("pgpool detected difference of the number of inserted, updated or deleted tuples. Possible last query was: \"");
-
-		string_append_char(msg, query_string_buffer);
-		string_append_char(msg, "\"");
+		initStringInfo(&msg);
+		appendStringInfoString(&msg, "pgpool detected difference of the number of inserted, updated or deleted tuples. Possible last query was: \"");
+		appendStringInfoString(&msg, query_string_buffer);
+		appendStringInfoString(&msg, "\"");
 		pool_send_error_message(frontend, MAJOR(backend),
-								"XX001", msg->data, "",
+								"XX001", msg.data, "",
 								"check data consistency between main and other db node", __FILE__, __LINE__);
 		ereport(LOG,
-				(errmsg("%s", msg->data)));
-		free_string(msg);
+				(errmsg("%s", msg.data)));
 
-		msg = init_string("CommandComplete: Number of affected tuples are:");
+		pfree(msg.data);
+
+		initStringInfo(&msg);
+		appendStringInfoString(&msg, "CommandComplete: Number of affected tuples are:");
 
 		for (i = 0; i < NUM_BACKENDS; i++)
-		{
-			snprintf(msgbuf, sizeof(msgbuf), " %d", session_context->ntuples[i]);
-			string_append_char(msg, msgbuf);
-		}
+			appendStringInfo(&msg, " %d", session_context->ntuples[i]);
+
 		ereport(LOG,
 				(errmsg("processing command complete"),
-				 errdetail("%s", msg->data)));
+				 errdetail("%s", msg.data)));
 
-		free_string(msg);
+		pfree(msg.data);
 	}
 	else
 	{
 		if (command_complete)
 		{
-			if (foward_command_complete(frontend, packet, packetlen) < 0)
+			if (forward_command_complete(frontend, packet, packetlen) < 0)
 				return POOL_END;
 		}
 		else
 		{
-			if (foward_empty_query(frontend, packet, packetlen) < 0)
+			if (forward_empty_query(frontend, packet, packetlen) < 0)
 				return POOL_END;
 		}
 	}
@@ -539,25 +574,25 @@ static POOL_STATUS handle_mismatch_tuples(POOL_CONNECTION * frontend, POOL_CONNE
  * Forward Command complete packet to frontend
  */
 static int
-foward_command_complete(POOL_CONNECTION * frontend, char *packet, int packetlen)
+forward_command_complete(POOL_CONNECTION * frontend, char *packet, int packetlen)
 {
-	return foward_packet_to_frontend(frontend, 'C', packet, packetlen);
+	return forward_packet_to_frontend(frontend, 'C', packet, packetlen);
 }
 
 /*
  * Forward Empty query response to frontend
  */
 static int
-foward_empty_query(POOL_CONNECTION * frontend, char *packet, int packetlen)
+forward_empty_query(POOL_CONNECTION * frontend, char *packet, int packetlen)
 {
-	return foward_packet_to_frontend(frontend, 'I', packet, packetlen);
+	return forward_packet_to_frontend(frontend, 'I', packet, packetlen);
 }
 
 /*
  * Forward packet to frontend
  */
 static int
-foward_packet_to_frontend(POOL_CONNECTION * frontend, char kind, char *packet, int packetlen)
+forward_packet_to_frontend(POOL_CONNECTION * frontend, char kind, char *packet, int packetlen)
 {
 	int			sendlen;
 

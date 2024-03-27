@@ -3,7 +3,7 @@
 * pgpool: a language independent connection pool server for PostgreSQL
 * written by Tatsuo Ishii
 *
-* Copyright (c) 2003-2019	PgPool Global Development Group
+* Copyright (c) 2003-2023	PgPool Global Development Group
 *
 * Permission to use, copy, modify, and distribute this software and
 * its documentation for any purpose and without fee is hereby
@@ -256,7 +256,7 @@ pool_read(POOL_CONNECTION * cp, void *buf, int len)
 			}
 			else
 			{
-				ereport(FRONTEND_ERROR,
+				ereport(FRONTEND_DEBUG,
 						(errmsg("unable to read data from frontend"),
 						 errdetail("socket read failed with error \"%m\"")));
 			}
@@ -281,7 +281,7 @@ pool_read(POOL_CONNECTION * cp, void *buf, int len)
 				 * if backend offers authentication method, frontend could
 				 * close connection
 				 */
-				ereport(FRONTEND_ERROR,
+				ereport(FRONTEND_DEBUG,
 						(errmsg("unable to read data from frontend"),
 						 errdetail("EOF encountered with frontend")));
 			}
@@ -776,7 +776,7 @@ pool_flush(POOL_CONNECTION * cp)
 						(errmsg("unable to flush data to frontend"),
 						 errdetail("pgpool is in replication mode, ignoring error to keep consistency among backends")));
 			else
-				ereport(FRONTEND_ERROR,
+				ereport(FRONTEND_DEBUG,
 						(errmsg("unable to flush data to frontend")));
 
 		}
@@ -802,7 +802,7 @@ pool_flush_noerror(POOL_CONNECTION * cp)
 						 errdetail("pg_terminate_backend was called on the backend")));
 			}
 
-			/* if fail_over_on_backend_erro is true, then trigger failover */
+			/* if fail_over_on_backend_error is true, then trigger failover */
 			if (pool_config->failover_on_backend_error)
 			{
 				notice_backend_error(cp->db_node_id, REQ_DETAIL_SWITCHOVER);
@@ -847,7 +847,7 @@ pool_write_and_flush(POOL_CONNECTION * cp, void *buf, int len)
 }
 
 /*
- * same as pool_write_and_flush() but does not throws ereport when error occures
+ * same as pool_write_and_flush() but does not throws ereport when error occurs
  */
 int
 pool_write_and_flush_noerror(POOL_CONNECTION * cp, void *buf, int len)
@@ -1294,6 +1294,9 @@ pool_stacklen(POOL_CONNECTION * cp)
 static void
 dump_buffer(char *buf, int len)
 {
+	if (!message_level_is_interesting(DEBUG5))
+		return;
+
 	while (--len)
 	{
 		ereport(DEBUG5,

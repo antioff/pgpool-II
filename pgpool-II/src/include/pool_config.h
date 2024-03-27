@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -56,6 +56,19 @@ typedef struct
 	int			flag;
 	regex_t		regexv;
 }			RegPattern;
+
+typedef enum ProcessManagementModes
+{
+	PM_STATIC = 1,
+	PM_DYNAMIC
+}			ProcessManagementModes;
+
+typedef enum ProcessManagementSstrategies
+{
+	PM_STRATEGY_AGGRESSIVE = 1,
+	PM_STRATEGY_GENTLE,
+	PM_STRATEGY_LAZY
+}			ProcessManagementSstrategies;
 
 typedef enum NativeReplicationSubModes
 {
@@ -203,14 +216,21 @@ typedef struct
 typedef struct
 {
 	ClusteringModes	backend_clustering_mode;	/* Backend clustering mode */
-	char	   *listen_addresses;	/* hostnames/IP addresses to listen on */
+	ProcessManagementModes	process_management;
+	ProcessManagementSstrategies process_management_strategy;
+	char	   **listen_addresses;	/* hostnames/IP addresses to listen on */
 	int			port;			/* port # to bind */
-	char	   *pcp_listen_addresses;	/* PCP listen address to listen on */
+	char	   **pcp_listen_addresses;	/* PCP listen address to listen on */
 	int			pcp_port;		/* PCP port # to bind */
-	char	   *socket_dir;		/* pgpool socket directory */
+	char	   **unix_socket_directories;		/* pgpool socket directories */
+	char		*unix_socket_group;			/* owner group of pgpool sockets */
+	int			unix_socket_permissions;	/* pgpool sockets permissions */
 	char	   *wd_ipc_socket_dir;	/* watchdog command IPC socket directory */
-	char	   *pcp_socket_dir; /* PCP socket directory */
-	int			num_init_children;	/* # of children initially pre-forked */
+	char	   **pcp_socket_dir; /* PCP socket directory */
+	int			num_init_children;	/* Maximum number of child to
+										 * accept connections */
+	int			min_spare_children;		/* Minimum number of idle children */
+	int			max_spare_children;		/* Minimum number of idle children */
 	int			listen_backlog_multiplier;	/* determines the size of the
 											 * connection queue */
 	int			reserved_connections;	/* # of reserved connections */
@@ -244,6 +264,7 @@ typedef struct
 	bool		replication_mode;	/* replication mode */
 	bool		log_connections;	/* logs incoming connections */
 	bool		log_disconnections;	/* logs closing connections */
+	bool		log_pcp_processes;	/* logs pcp processes */
 	bool		log_hostname;	/* resolve hostname */
 	bool		enable_pool_hba;	/* enables pool_hba.conf file
 									 * authentication */
@@ -304,6 +325,19 @@ typedef struct
 									 * that health_check_period required to be
 									 * greater than 0 to enable the
 									 * functionality. */
+
+	int		delay_threshold_by_time;	/* If the standby server delays more than
+										* delay_threshold_in_time, any query goes to the
+										* primary only. The unit is in seconds. 0
+										* disables the check. Default is 0.
+										* If delay_threshold_in_time is greater than 0,
+										* delay_threshold will be ignored.
+										* Note that health_check_period required to be
+										* greater than 0 to enable the
+										* functionality. */
+
+	bool		prefer_lower_delay_standby;
+
 	LogStandbyDelayModes log_standby_delay; /* how to log standby lag */
 	bool		connection_cache;	/* cache connection pool? */
 	int			health_check_timeout;	/* health check timeout */
@@ -338,6 +372,8 @@ typedef struct
 											 * set to false, pgpool will
 											 * report an error and disconnect
 											 * the session. */
+	bool		failover_on_backend_shutdown; /* If true, trigger fail over
+												 when backend is going down */
 	bool		detach_false_primary;	/* If true, detach false primary */
 	char	   *recovery_user;	/* PostgreSQL user name for online recovery */
 	char	   *recovery_password;	/* PostgreSQL user password for online
@@ -363,6 +399,8 @@ typedef struct
 	bool		log_statement;	/* logs all SQL statements */
 	bool		log_per_node_statement; /* logs per node detailed SQL
 										 * statements */
+	bool		notice_per_node_statement; /* logs notice message for per node detailed SQL
+										 * statements */
 	bool		log_client_messages;	/* If true, logs any client messages */
 	char	   *lobj_lock_table;	/* table name to lock for rewriting
 									 * lo_creat */
@@ -376,6 +414,10 @@ typedef struct
 
 	/* followings till syslog, does not exist in the configuration file */
 	int			num_reset_queries;	/* number of queries in reset_query_list */
+	int			num_listen_addresses;	/* number of entries in listen_addresses */
+	int			num_pcp_listen_addresses;	/* number of entries in pcp_listen_addresses */
+	int			num_unix_socket_directories;	/* number of entries in unix_socket_directories */
+	int			num_pcp_socket_directories;	/* number of entries in pcp_socket_dir */
 	int			num_read_only_function_list;	/* number of functions in
 											 * read_only_function_list */
 	int			num_write_function_list;	/* number of functions in
@@ -462,13 +504,24 @@ typedef struct
 														 * pattern array */
 
 	/*
+	 * user_redirect_preference_list =
+	 * 'postgres:primary,user[0-4]:1,user[5-9]:2'
+	 */
+	char	   *user_redirect_preference_list;	/* raw string in
+													 * pgpool.conf */
+	RegArray   *redirect_usernames;	/* Precompiled regex patterns for db
+									 * preference list */
+	Left_right_tokens *user_redirect_tokens;	/* db redirect for dbname and node
+											 * string */
+
+	/*
 	 * database_redirect_preference_list =
 	 * 'postgres:primary,mydb[0-4]:1,mydb[5-9]:2'
 	 */
 	char	   *database_redirect_preference_list;	/* raw string in
 													 * pgpool.conf */
 	RegArray   *redirect_dbnames;	/* Precompiled regex patterns for db
-									 * prefrence list */
+									 * preference list */
 	Left_right_tokens *db_redirect_tokens;	/* db redirect for dbname and node
 											 * string */
 
@@ -479,7 +532,7 @@ typedef struct
 	char	   *app_name_redirect_preference_list;	/* raw string in
 													 * pgpool.conf */
 	RegArray   *redirect_app_names; /* Precompiled regex patterns for app name
-									 * prefrence list */
+									 * preference list */
 	Left_right_tokens *app_name_redirect_tokens;	/* app name redirect for
 													 * app_name and node
 													 * string */
@@ -489,7 +542,7 @@ typedef struct
 									 * possible. If off, SQL comments
 									 * effectively prevent the judgment (pre
 									 * 3.4 behavior). For backward
-									 * compatibilty sake, default is off. */
+									 * compatibility sake, default is off. */
 
 	DLBOW_OPTION disable_load_balance_on_write; /* Load balance behavior when
 												 * write query is issued in an
@@ -533,6 +586,18 @@ typedef struct
 											 * votes in a cluster with an even
 											 * number of nodes.
 											 */
+	bool		wd_remove_shutdown_nodes;
+											/* revoke membership of properly shutdown watchdog
+											 * nodes.
+											 */
+	int 		wd_lost_node_removal_timeout;
+											/* timeout in seconds to revoke membership of
+											 * LOST watchdog nodes
+											 */
+	int 		wd_no_show_node_removal_timeout;
+											/* time in seconds to revoke membership of
+											 * NO-SHOW watchdog node
+											 */
 
 	WdLifeCheckMethod wd_lifecheck_method;	/* method of lifecheck.
 											 * 'heartbeat' or 'query' */
@@ -547,7 +612,8 @@ typedef struct
 	int			pgpool_node_id;	/* pgpool (watchdog) node id */
 	WdNodesConfig wd_nodes;		/* watchdog lists */
 	char	   *trusted_servers;	/* icmp reachable server list (A,B,C) */
-	char	   *delegate_IP;	/* delegate IP address */
+	char	   *trusted_server_command;	/* Executes this command when upper servers are observed */
+	char	   *delegate_ip;	/* delegate IP address */
 	int			wd_interval;	/* lifecheck interval (sec) */
 	char	   *wd_authkey;		/* Authentication key for watchdog
 								 * communication */
@@ -573,6 +639,7 @@ typedef struct
 	int			num_hb_dest_if;				/* number of interface devices */
 	char	  **wd_monitoring_interfaces_list;	/* network interface name list
 												 * to be monitored by watchdog */
+	bool		health_check_test;			/* if on, enable health check testing */
 
 }			POOL_CONFIG;
 

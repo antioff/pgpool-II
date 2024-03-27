@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -82,9 +82,10 @@ static bool connect_using_existing_connection(POOL_CONNECTION * frontend,
 								  POOL_CONNECTION_POOL * backend,
 								  StartupPacket *sp);
 static void check_restart_request(void);
+static void check_exit_request(void);
 static void enable_authentication_timeout(void);
 static void disable_authentication_timeout(void);
-static int	wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr);
+static int	wait_for_new_connections(int *fds, SockAddr *saddr);
 static void check_config_reload(void);
 static void get_backends_status(unsigned int *valid_backends, unsigned int *down_backends);
 static void validate_backend_connectivity(int front_end_fd);
@@ -97,6 +98,8 @@ static bool backend_cleanup(POOL_CONNECTION * volatile *frontend, POOL_CONNECTIO
 
 static void child_will_go_down(int code, Datum arg);
 static int opt_sort(const void *a, const void *b);
+
+static bool unix_fds_not_isset(int* fds, int num_unix_fds, fd_set* opt);
 
 /*
  * Non 0 means SIGTERM (smart shutdown) or SIGINT (fast shutdown) has arrived
@@ -147,9 +150,6 @@ do_child(int *fds)
 	POOL_CONNECTION_POOL *volatile backend = NULL;
 	struct timeval now;
 	struct timezone tz;
-	struct timeval timeout;
-	static int	connected = 0;	/* non 0 if has been accepted connections from
-								 * frontend */
 
 	/* counter for child_max_connections.  "volatile" declaration is necessary
 	 * so that this is counted up even if long jump is issued due to
@@ -284,6 +284,8 @@ do_child(int *fds)
 			if (pool_config->child_max_connections > 0)
 				connections_count++;
 
+			pool_get_my_process_info()->client_connection_count++;
+
 			/* check if maximum connections count for this child reached */
 			if ((pool_config->child_max_connections > 0) &&
 				(connections_count >= pool_config->child_max_connections))
@@ -299,16 +301,13 @@ do_child(int *fds)
 			pool_close(child_frontend);
 			child_frontend = NULL;
 		}
-
+		update_pooled_connection_count();
 		MemoryContextSwitchTo(TopMemoryContext);
 		FlushErrorState();
 	}
 
 	/* We can now handle ereport(ERROR) */
 	PG_exception_stack = &local_sigjmp_buf;
-
-	timeout.tv_sec = pool_config->child_life_time;
-	timeout.tv_usec = 0;
 
 	for (;;)
 	{
@@ -327,14 +326,16 @@ do_child(int *fds)
 		/* pgpool stop request already sent? */
 		check_stop_request();
 		check_restart_request();
+		check_exit_request();
 		accepted = 0;
 		/* Destroy session context for just in case... */
 		pool_session_context_destroy();
 
-		front_end_fd = wait_for_new_connections(fds, &timeout, &saddr);
+		front_end_fd = wait_for_new_connections(fds, &saddr);
+		pool_get_my_process_info()->wait_for_connect = 0;
 		if (front_end_fd == OPERATION_TIMEOUT)
 		{
-			if (pool_config->child_life_time > 0 && connected)
+			if (pool_config->child_life_time > 0 && pool_get_my_process_info()->connected)
 			{
 				ereport(DEBUG1,
 						(errmsg("child life %d seconds expired", pool_config->child_life_time)));
@@ -345,6 +346,10 @@ do_child(int *fds)
 
 		if (front_end_fd == RETRY)
 			continue;
+
+		set_process_status(CONNECTING);
+		/* Reset any exit if idle request even if it's pending */
+		pool_get_my_process_info()->exit_if_idle = false;
 
 		con_count = connection_count_up();
 
@@ -396,6 +401,18 @@ do_child(int *fds)
 			backend_timer_expired = 0;
 		}
 
+		/*
+		 * Check whether failover/failback is ongoing and wait for it to
+		 * finish. If it actually happened, update the private backend status
+		 * because it is possible that a backend maybe went down.
+		 */
+		if (wait_for_failover_to_finish() < 0)
+			pool_initialize_private_backend_status();
+
+		/*
+		 * Connect to backend. Also do authentication between
+		 * frontend <--> pgpool and pgpool <--> backend.
+		 */
 		backend = get_backend_connection(child_frontend);
 		if (!backend)
 		{
@@ -405,7 +422,7 @@ do_child(int *fds)
 			child_frontend = NULL;
 			continue;
 		}
-		connected = 1;
+		pool_get_my_process_info()->connected = 1;
 
 		/*
 		 * show ps status
@@ -414,6 +431,7 @@ do_child(int *fds)
 		snprintf(psbuf, sizeof(psbuf), "%s %s %s idle",
 				 sp->user, sp->database, remote_ps_data);
 		set_ps_display(psbuf, false);
+		set_process_status(IDLE);
 
 		/*
 		 * Initialize per session context
@@ -459,18 +477,17 @@ do_child(int *fds)
 
 		/* Mark this connection pool is not connected from frontend */
 		pool_coninfo_unset_frontend_connected(pool_get_process_context()->proc_id, pool_pool_index());
-
+		update_pooled_connection_count();
 		accepted = 0;
 		connection_count_down();
 		if (pool_config->log_disconnections)
 			log_disconnections(sp->database, sp->user);
 
-		timeout.tv_sec = pool_config->child_life_time;
-		timeout.tv_usec = 0;
-
 		/* increment queries counter if necessary */
 		if (pool_config->child_max_connections > 0)
 			connections_count++;
+
+		pool_get_my_process_info()->client_connection_count++;
 
 		/* check if maximum connections count for this child reached */
 		if ((pool_config->child_max_connections > 0) &&
@@ -483,6 +500,8 @@ do_child(int *fds)
 	}
 	child_exit(POOL_EXIT_NO_RESTART);
 }
+
+
 
 /* -------------------------------------------------------------------
  * private functions
@@ -535,8 +554,10 @@ backend_cleanup(POOL_CONNECTION * volatile *frontend, POOL_CONNECTION_POOL * vol
 	if (cache_connection)
 	{
 		/*
-		 * For those special databases, and when frontend client exits
-		 * abnormally, we don't cache connection to backend.
+		 * For those special databases, or when frontend client exits
+		 * abnormally, we don't cache connection to backend.  Also we have to
+		 * check whether reset query failed. If so, the existing connection to
+		 * backend may not be used and we don't want to cache the connection.
 		 */
 		if ((sp &&
 			 (!strcmp(sp->database, "template0") ||
@@ -545,7 +566,8 @@ backend_cleanup(POOL_CONNECTION * volatile *frontend, POOL_CONNECTION_POOL * vol
 			  !strcmp(sp->database, "regression"))) ||
 			(*frontend != NULL &&
 			 ((*frontend)->socket_state == POOL_SOCKET_EOF ||
-			  (*frontend)->socket_state == POOL_SOCKET_ERROR)))
+			  (*frontend)->socket_state == POOL_SOCKET_ERROR)) ||
+			reset_query_error)
 			cache_connection = false;
 	}
 
@@ -553,8 +575,12 @@ backend_cleanup(POOL_CONNECTION * volatile *frontend, POOL_CONNECTION_POOL * vol
 	 * Close frontend connection
 	 */
 	reset_connection();
-	pool_close(*frontend);
-	*frontend = NULL;
+
+	if (*frontend != NULL)
+	{
+		pool_close(*frontend);
+		*frontend = NULL;
+	}
 
 	if (cache_connection == false)
 	{
@@ -740,7 +766,7 @@ read_startup_packet(POOL_CONNECTION * cp)
 				 errdetail("no PostgreSQL user name specified in startup packet")));
 	}
 
-	/* The database defaults to ther user name. */
+	/* The database defaults to their user name. */
 	if (sp->database == NULL || sp->database[0] == '\0')
 	{
 		sp->database = pstrdup(sp->user);
@@ -821,17 +847,31 @@ connect_using_existing_connection(POOL_CONNECTION * frontend,
 			for (i = 0; i < NUM_BACKENDS; i++)
 			{
 				if (VALID_BACKEND(i))
-					if (do_command(frontend, CONNECTION(backend, i),
+				{
+					/*
+					 * We want to catch and ignore errors in do_command if a
+					 * backend is just going down right now. Otherwise
+					 * do_command raises an error and disconnects the
+					 * connection to frontend. We can safely ignore error from
+					 * "SET application_name" command if the backend goes
+					 * down.
+					 */
+					PG_TRY();
+					{
+						do_command(frontend, CONNECTION(backend, i),
 								   command_buf, MAJOR(backend),
 								   MAIN_CONNECTION(backend)->pid,
-								   MAIN_CONNECTION(backend)->key, 0) != POOL_CONTINUE)
-					{
-						ereport(ERROR,
-								(errmsg("unable to process command for backend connection"),
-								 errdetail("do_command returned DEADLOCK status")));
+								   MAIN_CONNECTION(backend)->key, 0);
 					}
+					PG_CATCH();
+					{
+						/* ignore the error message */
+						MemoryContextSwitchTo(oldContext);
+						FlushErrorState();
+					}
+					PG_END_TRY();
+				}
 			}
-
 			pool_add_param(&MAIN(backend)->params, "application_name", sp->application_name);
 			set_application_name_with_string(sp->application_name);
 		}
@@ -963,6 +1003,10 @@ found:
 	}
 }
 
+/*
+ * Copy startup packet and return it.
+ * palloc is used.
+ */
 static StartupPacket *
 StartupPacketCopy(StartupPacket *sp)
 {
@@ -992,6 +1036,10 @@ StartupPacketCopy(StartupPacket *sp)
 	return new_sp;
 }
 
+/*
+ * Create a new connection to backend.
+ * Authentication is performed if requested by backend.
+ */
 static POOL_CONNECTION_POOL * connect_backend(StartupPacket *sp, POOL_CONNECTION * frontend)
 {
 	POOL_CONNECTION_POOL *backend;
@@ -1051,6 +1099,7 @@ static POOL_CONNECTION_POOL * connect_backend(StartupPacket *sp, POOL_CONNECTION
 																ALLOCSET_DEFAULT_SIZES);
 		oldContext = MemoryContextSwitchTo(frontend_auth_cxt);
 
+		/* do authentication against backend */
 		pool_do_auth(frontend, backend);
 
 		MemoryContextSwitchTo(oldContext);
@@ -1075,7 +1124,7 @@ static POOL_CONNECTION_POOL * connect_backend(StartupPacket *sp, POOL_CONNECTION
 }
 
 /*
- * signal handler for SIGTERM, SIGINT and SIGQUUT
+ * signal handler for SIGTERM, SIGINT and SIGQUIT
  */
 static RETSIGTYPE die(int sig)
 {
@@ -1147,7 +1196,7 @@ static RETSIGTYPE close_idle_connection(int sig)
 	int			save_errno = errno;
 
 	/*
-	 * DROP DATABSE is ongoing.
+	 * DROP DATABASE is ongoing.
 	 */
 	if (ignore_sigusr1)
 		return;
@@ -1216,6 +1265,9 @@ static RETSIGTYPE authentication_timeout(int sig)
 	child_exit(POOL_EXIT_AND_RESTART);
 }
 
+/*
+ * Enable authtentication timeout.
+ */
 static void
 enable_authentication_timeout(void)
 {
@@ -1225,6 +1277,9 @@ enable_authentication_timeout(void)
 	alarm_enabled = true;
 }
 
+/*
+ * Disable authtentication timeout.
+ */
 static void
 disable_authentication_timeout(void)
 {
@@ -1235,7 +1290,9 @@ disable_authentication_timeout(void)
 	}
 }
 
-
+/*
+ * Send parameter status message to frontend.
+ */
 static void
 send_params(POOL_CONNECTION * frontend, POOL_CONNECTION_POOL * backend)
 {
@@ -1301,6 +1358,10 @@ child_will_go_down(int code, Datum arg)
 	if (pool_connection_pool)
 		close_all_backend_connections();
 }
+
+/*
+ * Exit child process. Can be called from signal handlers.
+ */
 void
 child_exit(int code)
 {
@@ -1430,10 +1491,27 @@ pool_initialize_private_backend_status(void)
 }
 
 static void
+check_exit_request(void)
+{
+	/*
+	 * Check if exit request is set because of spare children management.
+	 */
+	if (pool_get_my_process_info()->exit_if_idle)
+	{
+		ereport(LOG,
+				(errmsg("Exit flag set"),
+				 errdetail("Exiting myself")));
+
+		pool_get_my_process_info()->exit_if_idle = 0;
+		child_exit(POOL_EXIT_NO_RESTART);
+	}
+}
+
+static void
 check_restart_request(void)
 {
 	/*
-	 * Check if restart request is set because of failback event happend.  If
+	 * Check if restart request is set because of failback event happened.  If
 	 * so, exit myself with exit code 1 to be restarted by pgpool parent.
 	 */
 	if (pool_get_my_process_info()->need_to_restart)
@@ -1442,7 +1520,7 @@ check_restart_request(void)
 				(errmsg("failover or failback event detected"),
 				 errdetail("restarting myself")));
 
-		pool_get_my_process_info()->need_to_restart = 0;
+		pool_get_my_process_info()->need_to_restart = false;
 		child_exit(POOL_EXIT_AND_RESTART);
 	}
 }
@@ -1450,12 +1528,11 @@ check_restart_request(void)
 /*
  * wait_for_new_connections()
  * functions calls select on sockets and wait for new client
- * to connect, on successfull connection returns the socket descriptor
- * and returns -1 if timeout has occured
+ * to connect, on successful connection returns the socket descriptor
+ * and returns -1 if timeout has occurred
  */
-
 static int
-wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
+wait_for_new_connections(int *fds, SockAddr *saddr)
 {
 	fd_set		rmask;
 	int			numfds;
@@ -1473,10 +1550,8 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 	static int	cnt;
 #endif
 
-	struct timeval *timeoutval;
-	struct timeval tv1,
-				tv2,
-				tmback = {0, 0};
+	struct timeval *timeout;
+	struct timeval timeoutdata;
 
 	for (walk = fds; *walk != -1; walk++)
 		socket_set_nonblock(*walk);
@@ -1486,24 +1561,7 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 	else
 		set_ps_display("wait for connection request", false);
 
-	memcpy((char *) &rmask, (char *) &readmask, sizeof(fd_set));
-
-	if (timeout->tv_sec == 0 && timeout->tv_usec == 0)
-		timeoutval = NULL;
-	else
-	{
-		timeoutval = timeout;
-		tmback.tv_sec = timeout->tv_sec;
-		tmback.tv_usec = timeout->tv_usec;
-		gettimeofday(&tv1, NULL);
-
-#ifdef DEBUG
-		ereport(DEBUG3,
-				(errmsg("before select = {%d, %d}", timeoutval->tv_sec, timeoutval->tv_usec)));
-		ereport(DEBUG3,
-				(errmsg("g:before select = {%d, %d}", tv1.tv_sec, tv1.tv_usec)));
-#endif
-	}
+	set_process_status(WAIT_FOR_CONNECT);
 
 	/*
 	 * If child life time is disabled and serialize_accept is on, we serialize
@@ -1560,7 +1618,41 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 				(errmsg("LOCKING select()")));
 	}
 
-	numfds = select(nsocks, &rmask, NULL, NULL, timeoutval);
+	for (;;)
+	{
+		/* check backend timer is expired */
+		if (backend_timer_expired)
+		{
+			pool_backend_timer();
+			backend_timer_expired = 0;
+		}
+
+		/* prepare select */
+		memcpy((char *) &rmask, (char *) &readmask, sizeof(fd_set));
+		if (pool_config->child_life_time > 0)
+		{
+			timeoutdata.tv_sec = 1;
+			timeoutdata.tv_usec = 0;
+			timeout = &timeoutdata;
+		}
+		else
+		{
+			timeout = NULL;
+		}
+
+		numfds = select(nsocks, &rmask, NULL, NULL, timeout);
+
+		/* not timeout*/
+		if (numfds != 0)
+			break;
+
+		/* timeout */
+		pool_get_my_process_info()->wait_for_connect++;
+
+		if (pool_get_my_process_info()->wait_for_connect > pool_config->child_life_time)
+			return OPERATION_TIMEOUT;
+
+	}
 
 	save_errno = errno;
 
@@ -1578,40 +1670,6 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 		backend_timer_expired = 0;
 	}
 
-	/*
-	 * following code fragment computes remaining timeout val in a portable
-	 * way. Linux does this automatically but other platforms do not.
-	 */
-	if (timeoutval)
-	{
-		gettimeofday(&tv2, NULL);
-
-		tmback.tv_usec -= tv2.tv_usec - tv1.tv_usec;
-		tmback.tv_sec -= tv2.tv_sec - tv1.tv_sec;
-
-		if (tmback.tv_usec < 0)
-		{
-			tmback.tv_sec--;
-			if (tmback.tv_sec < 0)
-			{
-				timeout->tv_sec = 0;
-				timeout->tv_usec = 0;
-			}
-			else
-			{
-				tmback.tv_usec += 1000000;
-				timeout->tv_sec = tmback.tv_sec;
-				timeout->tv_usec = tmback.tv_usec;
-			}
-		}
-#ifdef DEBUG
-		ereport(DEBUG3,
-				(errmsg("g:after select = {%d, %d}", tv2.tv_sec, tv2.tv_usec)));
-		ereport(DEBUG3,
-				(errmsg("after select = {%d, %d}", timeout->tv_sec, timeout->tv_usec)));
-#endif
-	}
-
 	errno = save_errno;
 
 	if (numfds == -1)
@@ -1621,12 +1679,6 @@ wait_for_new_connections(int *fds, struct timeval *timeout, SockAddr *saddr)
 		ereport(ERROR,
 				(errmsg("failed to accept user connection"),
 				 errdetail("select on socket failed with error : \"%m\"")));
-	}
-
-	/* timeout */
-	if (numfds == 0)
-	{
-		return OPERATION_TIMEOUT;
 	}
 
 	for (walk = fds; *walk != -1; walk++)
@@ -1656,6 +1708,11 @@ retry_accept:
 	{
 		pause();
 	}
+
+	/* wait for failover/failback to finish */
+	if (wait_for_failover_to_finish() < 0)
+		/* failover/failback occurred. Update private backend status */
+		pool_initialize_private_backend_status();
 
 	afd = accept(fd, (struct sockaddr *) &saddr->addr, &saddr->salen);
 
@@ -1688,7 +1745,7 @@ retry_accept:
 	 * Set no delay if AF_INET socket. Not sure if this is really necessary
 	 * but PostgreSQL does this.
 	 */
-	if (!FD_ISSET(fds[0], &rmask))	/* fds[0] is UNIX domain socket */
+	if (unix_fds_not_isset(fds, pool_config->num_unix_socket_directories, &rmask))
 	{
 		on = 1;
 		if (setsockopt(afd, IPPROTO_TCP, TCP_NODELAY,
@@ -1717,6 +1774,20 @@ retry_accept:
 	}
 #endif
 	return afd;
+}
+
+static bool
+unix_fds_not_isset(int* fds, int num_unix_fds, fd_set* opt)
+{
+	int		i;
+	for (i = 0; i < num_unix_fds; i++)
+	{
+		if (!FD_ISSET(fds[i], opt))
+			continue;
+
+		return false;
+	}
+	return true;
 }
 
 static void
@@ -1890,6 +1961,10 @@ get_connection(int front_end_fd, SockAddr *saddr)
 	return cp;
 }
 
+/*
+ * Connect to backend. Also do authentication between client <--> pgpool and
+ * pgpool <--> backend.
+ */
 static POOL_CONNECTION_POOL *
 get_backend_connection(POOL_CONNECTION * frontend)
 {
@@ -1951,6 +2026,9 @@ retry_startup:
 										ALLOCSET_DEFAULT_SIZES);
 		MemoryContext oldContext = MemoryContextSwitchTo(frontend_auth_cxt);
 
+		/*
+		 * Do frontend <-> pgpool authentication based on pool_hba.conf.
+		 */
 		ClientAuthentication(frontend);
 
 		MemoryContextSwitchTo(oldContext);
@@ -2027,7 +2105,10 @@ retry_startup:
 
 	if (backend == NULL)
 	{
-		/* create a new connection to backend */
+		/*
+		 * Create a new connection to backend.
+		 * Authentication is performed if requested by backend.
+		 */
 		backend = connect_backend(sp, frontend);
 	}
 	else
@@ -2128,4 +2209,10 @@ pg_frontend_exists(void)
 static int opt_sort(const void *a, const void *b)
 {
 	return strcmp( *(char **)a, *(char **)b);
+}
+
+void
+set_process_status(ProcessStatus status)
+{
+	pool_get_my_process_info()->status = status;
 }

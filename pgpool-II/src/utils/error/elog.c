@@ -43,7 +43,7 @@
  * overflow.)
  *
  *
- * Portions Copyright (c) 2003-2018, PgPool Global Development Group
+ * Portions Copyright (c) 2003-2023, PgPool Global Development Group
  * Portions Copyright (c) 1996-2015, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -188,8 +188,92 @@ static const char *error_severity(int elevel, bool for_frontend);
 static const char *process_name(void);
 static void append_with_tabs(StringInfo buf, const char *str);
 static bool is_log_level_output(int elevel, int log_min_level);
+static inline bool should_output_to_server(int elevel);
+static inline bool should_output_to_client(int elevel);
 
+/*
+ * is_log_level_output -- is elevel logically >= log_min_level?
+ *
+ * We use this for tests that should consider LOG to sort out-of-order,
+ * between ERROR and FATAL.  Generally this is the right thing for testing
+ * whether a message should go to the pgpool log, whereas a simple >=
+ * test is correct for testing whether the message should go to the client.
+ */
+static bool
+is_log_level_output(int elevel, int log_min_level)
+{
+	if (elevel == LOG || elevel == COMMERROR || elevel == FRONTEND_ONLY_ERROR || elevel == FRONTEND_LOG)
+	{
+		if (log_min_level == LOG || log_min_level <= ERROR)
+			return true;
+	}
+	else if (elevel == FRONTEND_DEBUG)
+	{
+		if (log_min_level <= DEBUG1)
+			return true;
+	}
+	else if (log_min_level == LOG)
+	{
+		/* elevel != LOG */
+		if (elevel >= FATAL)
+			return true;
+	}
+	/* Neither is LOG */
+	else if (elevel >= log_min_level)
+		return true;
 
+	return false;
+}
+/*
+ * should_output_to_server --- should message of given elevel go to the log?
+ */
+static inline bool
+should_output_to_server(int elevel)
+{
+	return is_log_level_output(elevel, pool_config->log_min_messages);
+}
+
+/*
+ * should_output_to_client --- should message of given elevel go to the client?
+ */
+static inline bool
+should_output_to_client(int elevel)
+{
+	/* Determine whether message is enabled for client output */
+	if (elevel != COMMERROR)
+	{
+		/*
+		 * client_min_messages is honored only after we complete the
+		 * authentication handshake.  This is required both for security
+		 * reasons and because many clients can't handle NOTICE messages
+		 * during authentication.
+		 */
+		return (elevel >= pool_config->client_min_messages ||
+							elevel == INFO || elevel == FRONTEND_ONLY_ERROR);
+	}
+	return false;
+}
+
+/*
+ * message_level_is_interesting --- would ereport/elog do anything?
+ *
+ * Returns true if ereport/elog with this elevel will not be a no-op.
+ * This is useful to short-circuit any expensive preparatory work that
+ * might be needed for a logging message.  There is no point in
+ * prepending this to a bare ereport/elog call, however.
+ */
+bool
+message_level_is_interesting(int elevel)
+{
+	/*
+	 * Keep this in sync with the decision-making in errstart().
+	 */
+	if (elevel >= ERROR ||
+		should_output_to_server(elevel) ||
+		should_output_to_client(elevel))
+		return true;
+	return false;
+}
 /*
  * in_error_recursion_trouble --- are we at risk of infinite error recursion?
  *
@@ -234,6 +318,10 @@ errstart(int elevel, const char *filename, int lineno,
 		frontend_invalid = true;
 		elevel = ERROR;
 	}
+	else if (elevel == FRONTEND_DEBUG || elevel == FRONTEND_LOG)
+	{
+		frontend_invalid = true;
+	}
 
 	if (elevel >= ERROR && elevel != FRONTEND_ONLY_ERROR)
 	{
@@ -249,7 +337,7 @@ errstart(int elevel, const char *filename, int lineno,
 		 * proc_exit's responsibility to see that this doesn't turn into
 		 * infinite recursion!)
 		 */
-		if (elevel == ERROR)
+		if (elevel == ERROR || elevel == FRONTEND_LOG || elevel == FRONTEND_DEBUG)
 		{
 			if (PG_exception_stack == NULL ||
 				proc_exit_inprogress)
@@ -275,21 +363,9 @@ errstart(int elevel, const char *filename, int lineno,
 	 */
 
 	/* Determine whether message is enabled for server log output */
-	output_to_server = is_log_level_output(elevel, pool_config->log_min_messages);
+	output_to_server = should_output_to_server(elevel);
+	output_to_client = should_output_to_client(elevel);
 
-
-	/* Determine whether message is enabled for client output */
-	if (elevel != COMMERROR)
-	{
-		/*
-		 * client_min_messages is honored only after we complete the
-		 * authentication handshake.  This is required both for security
-		 * reasons and because many clients can't handle NOTICE messages
-		 * during authentication.
-		 */
-		output_to_client = (elevel >= pool_config->client_min_messages ||
-							elevel == INFO || elevel == FRONTEND_ONLY_ERROR);
-	}
 
 	/* Skip processing effort if non-error message will not be output */
 	if (elevel < ERROR && !output_to_server && !output_to_client)
@@ -302,7 +378,7 @@ errstart(int elevel, const char *filename, int lineno,
 	if (recursion_depth++ > 0 && elevel >= ERROR && elevel != FRONTEND_ONLY_ERROR)
 	{
 		/*
-		 * Ooops, error during error processing.  Clear ErrorContext as
+		 * Oops, error during error processing.  Clear ErrorContext as
 		 * discussed at top of file.  We will not return to the original
 		 * error's reporter or handler, so we don't need it.
 		 */
@@ -410,7 +486,7 @@ errfinish(int dummy,...)
 	 * If ERROR (not more nor less) we pass it off to the current handler.
 	 * Printing it and popping the stack is the responsibility of the handler.
 	 */
-	if (elevel == ERROR)
+	if (elevel == ERROR || elevel == FRONTEND_LOG || elevel == FRONTEND_DEBUG)
 	{
 		/*
 		 * We do some minimal cleanup before longjmp'ing so that handlers can
@@ -1349,8 +1425,8 @@ pg_re_throw(void)
 		Assert(edata->elevel == ERROR);
 		edata->elevel = FATAL;
 
-		edata->output_to_server = (FATAL >= pool_config->log_min_messages);
-		edata->output_to_client = (FATAL >= pool_config->client_min_messages);
+		edata->output_to_server = should_output_to_server(FATAL);
+		edata->output_to_client = should_output_to_client(FATAL);
 
 		/*
 		 * We can use errfinish() for the rest, but we don't want it to call
@@ -1624,6 +1700,8 @@ write_eventlog(int level, const char *line, int len)
 		case DEBUG1:
 		case LOG:
 		case COMMERROR:
+		case FRONTEND_LOG:
+		case FRONTEND_DEBUG:
 		case INFO:
 		case NOTICE:
 			eventlevel = EVENTLOG_INFORMATION_TYPE;
@@ -1737,7 +1815,7 @@ write_console(const char *line, int len)
 	/*
 	 * Conversion on non-win32 platforms is not implemented yet. It requires
 	 * non-throw version of pg_do_encoding_conversion(), that converts
-	 * unconvertable characters to '?' without errors.
+	 * unconvertible characters to '?' without errors.
 	 */
 #endif
 
@@ -2000,6 +2078,8 @@ log_line_prefix(StringInfo buf, const char *line_prefix, ErrorData *edata)
 	POOL_CONNECTION *frontend = NULL;
 	POOL_SESSION_CONTEXT *session = pool_get_session_context(true);
 
+	char		strbuf[129];
+
 	if (session)
 		frontend = session->frontend;
 
@@ -2122,10 +2202,29 @@ log_line_prefix(StringInfo buf, const char *line_prefix, ErrorData *edata)
 				break;
 			case 't':
 				{
-					char		strbuf[129];
 					time_t		now = time(NULL);
 
-					strftime(strbuf, 128, "%Y-%m-%d %H:%M:%S", localtime(&now));
+					strftime(strbuf, sizeof(strbuf), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+					if (padding != 0)
+						appendStringInfo(buf, "%*s", padding, strbuf);
+					else
+						appendStringInfoString(buf, strbuf);
+				}
+				break;
+			case 'm':
+				{
+					struct timeval timeval;
+					time_t seconds;
+					struct tm *now;
+					char		msbuf[13];
+
+					gettimeofday(&timeval, NULL);
+					seconds = timeval.tv_sec;
+					now = localtime(&seconds);
+					strftime(strbuf, sizeof(strbuf), "%Y-%m-%d %H:%M:%S", now);
+					snprintf(msbuf, sizeof(msbuf), ".%03d", (int) (timeval.tv_usec / 1000));
+					memcpy(strbuf + 19, msbuf, 5);
 
 					if (padding != 0)
 						appendStringInfo(buf, "%*s", padding, strbuf);
@@ -2237,11 +2336,13 @@ send_message_to_server_log(ErrorData *edata)
 			case DEBUG3:
 			case DEBUG2:
 			case DEBUG1:
+			case FRONTEND_DEBUG:
 				syslog_level = LOG_DEBUG;
 				break;
 			case LOG:
 			case COMMERROR:
 			case INFO:
+			case FRONTEND_LOG:
 				syslog_level = LOG_INFO;
 				break;
 			case NOTICE:
@@ -2384,10 +2485,12 @@ error_severity(int elevel, bool for_frontend)
 		case DEBUG3:
 		case DEBUG4:
 		case DEBUG5:
+		case FRONTEND_DEBUG:
 			prefix = _("DEBUG");
 			break;
 		case LOG:
 		case COMMERROR:
+		case FRONTEND_LOG:
 			prefix = _("LOG");
 			break;
 		case INFO:
@@ -2536,34 +2639,6 @@ write_stderr(const char *fmt,...)
 }
 
 
-/*
- * is_log_level_output -- is elevel logically >= log_min_level?
- *
- * We use this for tests that should consider LOG to sort out-of-order,
- * between ERROR and FATAL.  Generally this is the right thing for testing
- * whether a message should go to the pgpool log, whereas a simple >=
- * test is correct for testing whether the message should go to the client.
- */
-static bool
-is_log_level_output(int elevel, int log_min_level)
-{
-	if (elevel == LOG || elevel == COMMERROR || elevel == FRONTEND_ONLY_ERROR)
-	{
-		if (log_min_level == LOG || log_min_level <= ERROR)
-			return true;
-	}
-	else if (log_min_level == LOG)
-	{
-		/* elevel != LOG */
-		if (elevel >= FATAL)
-			return true;
-	}
-	/* Neither is LOG */
-	else if (elevel >= log_min_level)
-		return true;
-
-	return false;
-}
 
 /* error cleanup routines */
 
@@ -2624,7 +2699,7 @@ proc_exit_prepare(int code)
 	error_context_stack = NULL;
 
 	/*
-	 * call on exit prepare if some function is specified this extention is
+	 * call on exit prepare if some function is specified this extension is
 	 * added by pgpool
 	 */
 	if (on_exit_prepare.function)

@@ -47,7 +47,7 @@
    <!--
    Before going further, you should properly set
    up <filename>pgpool.conf</filename> with streaming replication
-   mode. Sample configulations are provided with
+   mode. Sample configurations are provided with
    <productname>Pgpool-II</productname>, there configuration file
    are located at /usr/local/etc with default installation from
    source code. you can copy
@@ -56,9 +56,9 @@
    先に進む前に、ストリーミングレプリケーションモードで<filename>pgpool.conf</filename>を設定しましょう。
    <productname>Pgpool-II</productname>では設定のサンプルが用意されています。
    これらの設定ファイルはデフォルトのソースコードからのインストールでは/usr/local/etcに配置されています。
-   <filename>pgpool.conf.sample-stream</filename>を<filename>pgpool.conf</filename>としてコピーします。
+   <filename>pgpool.conf.sample</filename>を<filename>pgpool.conf</filename>としてコピーします。
    <programlisting>
-    cp /usr/local/etc/pgpool.conf.sample-stream pgpool.conf
+    cp /usr/local/etc/pgpool.conf.sample pgpool.conf
    </programlisting>
   </para>
   <para>
@@ -450,7 +450,7 @@
    installation. The argument -p is to specify the port number
    assigned to the command, which is 11001 set
    by <command>pgpool_setup</command>. The argument -n is to
-   specify the node id to be receovered. After executing the command,
+   specify the node id to be recovered. After executing the command,
    node 0 returned to "up" status.
    -->
    <xref linkend="pcp-recovery-node">は、インストールされた<productname>Pgpool-II</productname>に含まれる管理コマンドの一つです。
@@ -578,14 +578,14 @@
    また、メインプロセスからforkされるいくつかのワーカープロセスがあります。
    ワーカープロセスは、ストリーミングレプリケーションの遅延を検出する役目があります。
    また、「PCPプロセス」と呼ばれる特殊なプロセスがあります。これは、<productname>Pgpool-II</productname>の管理専用に使用されます。
-   <productname>Pgpool-II</productname>には、組み込みの"watchdog"と呼ばれる組み込みの高可用性機能があります。
+   <productname>Pgpool-II</productname>には、"watchdog"と呼ばれる組み込みの高可用性機能があります。
    watchdogはいくつかのプロセスから構成されています。
    watchdogの詳細については<xref linkend="tutorial-watchdog">をご覧ください。
   </para>
   <para>
    <figure>
     <!--
-    <title>Process architecure of <productname>Pgpool-II</productname></title>
+    <title>Process architecture of <productname>Pgpool-II</productname></title>
     -->
     <title><productname>Pgpool-II</productname>のプロセス構造</title>
     <mediaobject>

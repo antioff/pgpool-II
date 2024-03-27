@@ -22,8 +22,8 @@
  * Postgres 9.2, this check is made automatically by the Makefile.)
  *
  *
- * Portions Copyright (c) 2003-2020, PgPool Global Development Group
- * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+ * Portions Copyright (c) 2003-2023, PgPool Global Development Group
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -67,6 +67,9 @@ fprintf_to_ereport(const char *fmt, const char *msg)
  * head of gram.y, ie flex/bison code must not depend on any GUC variables;
  * as such, changing their values can induce very unintuitive behavior.
  * But we shall have to live with it until we can remove these variables.
+ *
+ * standard_conforming_strings is overridden by parser_set_param()
+ * while connecting to backend by receiving parameter status message.
  */
 int			backslash_quote = BACKSLASH_QUOTE_SAFE_ENCODING;
 bool		escape_string_warning = true;
@@ -79,7 +82,7 @@ bool		standard_conforming_strings = true;
  * callers need to pass it to scanner_init, if they are using the
  * standard keyword list ScanKeywords.
  */
-#define PG_KEYWORD(kwname, value, category) value,
+#define PG_KEYWORD(kwname, value, category, collabel) value,
 
 const uint16 ScanKeywordTokens[] = {
 #include "kwlist.h"
@@ -129,7 +132,7 @@ static void addlit(char *ytext, int yleng, core_yyscan_t yyscanner);
 static void addlitchar(unsigned char ychar, core_yyscan_t yyscanner);
 static char *litbufdup(core_yyscan_t yyscanner);
 static unsigned char unescape_single_char(unsigned char c, core_yyscan_t yyscanner);
-static int	process_integer_literal(const char *token, YYSTYPE *lval);
+static int	process_integer_literal(const char *token, YYSTYPE *lval, int base);
 static void addunicode(pg_wchar c, yyscan_t yyscanner);
 
 #define yyerror(msg)  scanner_yyerror(msg, yyscanner)
@@ -179,7 +182,7 @@ extern void core_yyset_column(int column_no, yyscan_t yyscanner);
  *  <xb> bit string literal
  *  <xc> extended C-style comments
  *  <xd> delimited identifiers (double-quoted identifiers)
- *  <xh> hexadecimal numeric string
+ *  <xh> hexadecimal byte string
  *  <xq> standard quoted strings
  *  <xqs> quote stop (detect continued strings)
  *  <xe> extended quoted strings (support backslash escape sequences)
@@ -267,7 +270,7 @@ quotecontinuefail	{whitespace}*"-"?
 xbstart			[bB]{quote}
 xbinside		[^']*
 
-/* Hexadecimal number */
+/* Hexadecimal byte string */
 xhstart			[xX]{quote}
 xhinside		[^']*
 
@@ -346,7 +349,6 @@ xcstart			\/\*{op_chars}*
 xcstop			\*+\/
 xcinside		[^*/]+
 
-digit			[0-9]
 ident_start		[A-Za-z\200-\377_]
 ident_cont		[A-Za-z\200-\377_0-9\$]
 
@@ -385,24 +387,46 @@ self			[,()\[\].;\:\+\-\*\/\%\^\<\>\=]
 op_chars		[\~\!\@\#\^\&\|\`\?\+\-\*\/\%\<\>\=]
 operator		{op_chars}+
 
-/* we no longer allow unary minus in numbers.
- * instead we pass it separately to parser. there it gets
- * coerced via doNegate() -- Leon aug 20 1999
+/*
+ * Numbers
  *
- * {decimalfail} is used because we would like "1..10" to lex as 1, dot_dot, 10.
+ * Unary minus is not part of a number here.  Instead we pass it separately to
+ * the parser, and there it gets coerced via doNegate().
  *
- * {realfail1} and {realfail2} are added to prevent the need for scanner
+ * {numericfail} is used because we would like "1..10" to lex as 1, dot_dot, 10.
+ *
+ * {realfail} is added to prevent the need for scanner
  * backup when the {real} rule fails to match completely.
  */
+decdigit		[0-9]
+hexdigit		[0-9A-Fa-f]
+octdigit		[0-7]
+bindigit		[0-1]
 
-integer			{digit}+
-decimal			(({digit}*\.{digit}+)|({digit}+\.{digit}*))
-decimalfail		{digit}+\.\.
-real			({integer}|{decimal})[Ee][-+]?{digit}+
-realfail1		({integer}|{decimal})[Ee]
-realfail2		({integer}|{decimal})[Ee][-+]
+decinteger		{decdigit}(_?{decdigit})*
+hexinteger		0[xX](_?{hexdigit})+
+octinteger		0[oO](_?{octdigit})+
+bininteger		0[bB](_?{bindigit})+
 
-param			\${integer}
+hexfail			0[xX]_?
+octfail			0[oO]_?
+binfail			0[bB]_?
+
+numeric			(({decinteger}\.{decinteger}?)|(\.{decinteger}))
+numericfail		{decdigit}+\.\.
+
+real			({decinteger}|{numeric})[Ee][-+]?{decinteger}
+realfail		({decinteger}|{numeric})[Ee][-+]
+
+decinteger_junk	{decinteger}{ident_start}
+hexinteger_junk	{hexinteger}{ident_start}
+octinteger_junk	{octinteger}{ident_start}
+bininteger_junk	{bininteger}{ident_start}
+numeric_junk	{numeric}{ident_start}
+real_junk		{real}{ident_start}
+
+param			\${decinteger}
+param_junk		\${decinteger}{ident_start}
 
 other			.
 
@@ -979,41 +1003,82 @@ other			.
 					yylval->ival = atol(yytext + 1);
 					return PARAM;
 				}
-
-{integer}		{
+{param_junk}	{
 					SET_YYLLOC();
-					return process_integer_literal(yytext, yylval);
+					yyerror("trailing junk after parameter");
 				}
-{decimal}		{
+
+{decinteger}	{
+					SET_YYLLOC();
+					return process_integer_literal(yytext, yylval, 10);
+				}
+{hexinteger}	{
+					SET_YYLLOC();
+					return process_integer_literal(yytext, yylval, 16);
+				}
+{octinteger}	{
+					SET_YYLLOC();
+					return process_integer_literal(yytext, yylval, 8);
+				}
+{bininteger}	{
+					SET_YYLLOC();
+					return process_integer_literal(yytext, yylval, 2);
+				}
+{hexfail}		{
+					SET_YYLLOC();
+					yyerror("invalid hexadecimal integer");
+				}
+{octfail}		{
+					SET_YYLLOC();
+					yyerror("invalid octal integer");
+				}
+{binfail}		{
+					SET_YYLLOC();
+					yyerror("invalid binary integer");
+				}
+{numeric}		{
 					SET_YYLLOC();
 					yylval->str = pstrdup(yytext);
 					return FCONST;
 				}
-{decimalfail}	{
+{numericfail}	{
 					/* throw back the .., and treat as integer */
 					yyless(yyleng - 2);
 					SET_YYLLOC();
-					return process_integer_literal(yytext, yylval);
+					return process_integer_literal(yytext, yylval, 10);
 				}
 {real}			{
 					SET_YYLLOC();
 					yylval->str = pstrdup(yytext);
 					return FCONST;
 				}
-{realfail1}		{
-					/*
-					 * throw back the [Ee], and figure out whether what
-					 * remains is an {integer} or {decimal}.
-					 */
-					yyless(yyleng - 1);
+{realfail}		{
 					SET_YYLLOC();
-					return process_integer_literal(yytext, yylval);
+					yyerror("trailing junk after numeric literal");
 				}
-{realfail2}		{
-					/* throw back the [Ee][+-], and proceed as above */
-					yyless(yyleng - 2);
+{decinteger_junk}	{
 					SET_YYLLOC();
-					return process_integer_literal(yytext, yylval);
+					yyerror("trailing junk after numeric literal");
+				}
+{hexinteger_junk}	{
+					SET_YYLLOC();
+					yyerror("trailing junk after numeric literal");
+				}
+{octinteger_junk}	{
+					SET_YYLLOC();
+					yyerror("trailing junk after numeric literal");
+				}
+{bininteger_junk}	{
+					SET_YYLLOC();
+					yyerror("trailing junk after numeric literal");
+				}
+{numeric_junk}	{
+					SET_YYLLOC();
+					yyerror("trailing junk after numeric literal");
+				}
+{real_junk}		{
+					SET_YYLLOC();
+					yyerror("trailing junk after numeric literal");
 				}
 
 
@@ -1311,15 +1376,15 @@ litbufdup(core_yyscan_t yyscanner)
 }
 
 /*
- * Process {integer}.  Note this will also do the right thing with {decimal},
- * ie digits and a decimal point.
+ * Process {decinteger}, {hexinteger}, etc.  Note this will also do the right
+ * thing with {numeric}, ie digits and a decimal point.
  */
 static int
-process_integer_literal(const char *token, YYSTYPE *lval)
+process_integer_literal(const char *token, YYSTYPE *lval, int base)
 {
-	int 		val;
+	int32 		val;
 	long		val_long;
-	char	   *endptr;
+	char		*endptr;
 
 	errno = 0;
 	val_long = strtol(token, &endptr, 10);
@@ -1389,21 +1454,25 @@ check_string_escape_warning(unsigned char ychar, core_yyscan_t yyscanner)
 	if (ychar == '\'')
 	{
 		if (yyextra->warn_on_first_escape && yyextra->escape_string_warning)
+#ifdef NOT_USED
 			ereport(WARNING,
 					(errcode(ERRCODE_NONSTANDARD_USE_OF_ESCAPE_CHARACTER),
 					 errmsg("nonstandard use of \\' in a string literal"),
 					 errhint("Use '' to write quotes in strings, or use the escape string syntax (E'...')."),
 					 lexer_errposition()));
+#endif
 		yyextra->warn_on_first_escape = false;	/* warn only once per string */
 	}
 	else if (ychar == '\\')
 	{
 		if (yyextra->warn_on_first_escape && yyextra->escape_string_warning)
+#ifdef NOT_USED
 			ereport(WARNING,
 					(errcode(ERRCODE_NONSTANDARD_USE_OF_ESCAPE_CHARACTER),
 					 errmsg("nonstandard use of \\\\ in a string literal"),
 					 errhint("Use the escape string syntax for backslashes, e.g., E'\\\\'."),
 					 lexer_errposition()));
+#endif
 		yyextra->warn_on_first_escape = false;	/* warn only once per string */
 	}
 	else
@@ -1414,11 +1483,13 @@ static void
 check_escape_warning(core_yyscan_t yyscanner)
 {
 	if (yyextra->warn_on_first_escape && yyextra->escape_string_warning)
+#ifdef NOT_USED
 		ereport(WARNING,
 				(errcode(ERRCODE_NONSTANDARD_USE_OF_ESCAPE_CHARACTER),
 				 errmsg("nonstandard use of escape in a string literal"),
 		errhint("Use the escape string syntax for escapes, e.g., E'\\r\\n'."),
 				 lexer_errposition()));
+#endif
 	yyextra->warn_on_first_escape = false;		/* warn only once per string */
 }
 

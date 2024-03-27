@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2012	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -32,7 +32,6 @@
 #include "parser/makefuncs.h"
 
 #define POOL_MAX_SELECT_OIDS 128
-#define POOL_NAMEDATALEN 64		/* from NAMEDATALEN of PostgreSQL */
 
 typedef struct
 {
@@ -42,7 +41,7 @@ typedef struct
 	bool		has_view;		/* True if view is used */
 	bool		has_function_call;	/* True if write function call is used */
 	int			pg_terminate_backend_pid;	/* pid argument of
-											 * pg_terminate_backedn_call(if
+											 * pg_terminate_backend_call(if
 											 * used) */
 	bool		has_non_immutable_function_call;	/* True if non immutable
 													 * functions are used */
@@ -51,7 +50,7 @@ typedef struct
 													 * SHARE/UPDATE */
 	int			num_oids;		/* number of oids */
 	int			table_oids[POOL_MAX_SELECT_OIDS];	/* table oids */
-	char		table_names[POOL_MAX_SELECT_OIDS][POOL_NAMEDATALEN];	/* table names */
+	char		table_names[POOL_MAX_SELECT_OIDS][NAMEDATALEN];	/* table names */
 }			SelectContext;
 
 extern int	pool_get_terminate_backend_pid(Node *node);

@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -29,6 +29,7 @@ pid_t		mypid;				/* pgpool parent process id */
 pid_t		myProcPid;		/* process pid */
 ProcessType processType;
 ProcessState processState;
+bool		reset_query_error;	/* true if error returned from backend while processing reset queries */
 
 /*
  * Application name
@@ -54,7 +55,7 @@ char	*application_names[] = {"main",
 };
 
 char *
-get_application_name_for_procees(ProcessType ptype)
+get_application_name_for_process(ProcessType ptype)
 {
 	if (ptype < 0 || ptype >= PT_LAST_PTYPE)
 	{
@@ -70,7 +71,7 @@ get_application_name_for_procees(ProcessType ptype)
 void
 set_application_name(ProcessType ptype)
 {
-	process_application_name = get_application_name_for_procees(ptype);
+	process_application_name = get_application_name_for_process(ptype);
 }
 
 /*
@@ -90,7 +91,7 @@ void
 set_application_name_with_suffix(ProcessType ptype, int suffix)
 {
 	static char	appname_buf[POOLCONFIG_MAXNAMELEN +1];
-	snprintf(appname_buf, POOLCONFIG_MAXNAMELEN, "%s%d", get_application_name_for_procees(ptype), suffix);
+	snprintf(appname_buf, POOLCONFIG_MAXNAMELEN, "%s%d", get_application_name_for_process(ptype), suffix);
 	set_application_name_with_string(appname_buf);
 }
 

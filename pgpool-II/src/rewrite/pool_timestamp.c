@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2016	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -58,7 +58,7 @@ typedef struct
 	char	   *relname;
 	int			num_params;		/* num of original params (for Parse) */
 	bool		rewrite_to_params;	/* true if timestamp is rewritten to param
-									 * insread of const */
+									 * instead of const */
 	bool		rewrite;		/* has rewritten? */
 	List	   *params;			/* list of additional params */
 }			TSRewriteContext;
@@ -139,14 +139,14 @@ static TSRel *
 relcache_lookup(TSRewriteContext * ctx)
 {
 #define ATTRDEFQUERY (Pgversion(ctx->backend)->major >= 73 ? \
-	"SELECT attname, pg_get_expr(d.adbin, d.adrelid), coalesce((pg_get_expr(d.adbin, d.adrelid) LIKE '%%now()%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%''now''::text%%' OR" \
-	" pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIMESTAMP%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIME%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_DATE%%' OR" \
-	" pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIME%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIMESTAMP%%')" \
-	" AND (a.atttypid = 'timestamp'::regtype::oid OR" \
-	" a.atttypid = 'timestamp with time zone'::regtype::oid OR" \
-	" a.atttypid = 'date'::regtype::oid OR" \
-	" a.atttypid = 'time'::regtype::oid OR" \
-	" a.atttypid = 'time with time zone'::regtype::oid)" \
+	"SELECT attname, pg_catalog.pg_get_expr(d.adbin, d.adrelid), coalesce((pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%now()%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%''now''::text%%' OR" \
+	" pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIMESTAMP%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIME%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_DATE%%' OR" \
+	" pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIME%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIMESTAMP%%')" \
+	" AND (a.atttypid = 'timestamp'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'timestamp with time zone'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'date'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time with time zone'::pg_catalog.regtype::pg_catalog.oid)" \
     " , false)" \
 	" FROM pg_catalog.pg_class c, pg_catalog.pg_attribute a " \
 	" LEFT JOIN pg_catalog.pg_attrdef d ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)" \
@@ -155,11 +155,11 @@ relcache_lookup(TSRewriteContext * ctx)
 	"SELECT attname, d.adsrc, coalesce((d.adsrc LIKE '%%now()%%' OR d.adsrc LIKE '%%''now''::text%%' OR" \
 	" d.adsrc LIKE '%%CURRENT_TIMESTAMP%%' OR d.adsrc LIKE '%%CURRENT_TIME%%' OR d.adsrc LIKE '%%CURRENT_DATE%%' OR" \
 	" d.adsrc LIKE '%%LOCALTIME%%' OR d.adsrc LIKE '%%LOCALTIMESTAMP%%')" \
-	" AND (a.atttypid = 'timestamp'::regtype::oid OR" \
-	" a.atttypid = 'timestamp with time zone'::regtype::oid OR" \
-	" a.atttypid = 'date'::regtype::oid OR" \
-	" a.atttypid = 'time'::regtype::oid OR" \
-	" a.atttypid = 'time with time zone'::regtype::oid)" \
+	" AND (a.atttypid = 'timestamp'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'timestamp with time zone'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'date'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time with time zone'::pg_catalog.regtype::pg_catalog.oid)" \
     " , false)" \
 	" FROM pg_catalog.pg_class c, pg_catalog.pg_attribute a " \
 	" LEFT JOIN pg_catalog.pg_attrdef d ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)" \
@@ -167,14 +167,14 @@ relcache_lookup(TSRewriteContext * ctx)
 	" ORDER BY a.attnum")
 
 #define ATTRDEFQUERY2 (Pgversion(ctx->backend)->major >= 73 ? \
-	"SELECT attname, pg_get_expr(d.adbin, d.adrelid), coalesce((pg_get_expr(d.adbin, d.adrelid) LIKE '%%now()%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%''now''::text%%' OR" \
-	" pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIMESTAMP%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIME%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_DATE%%' OR" \
-	" pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIME%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIMESTAMP%%')" \
-	" AND (a.atttypid = 'timestamp'::regtype::oid OR" \
-	" a.atttypid = 'timestamp with time zone'::regtype::oid OR" \
-	" a.atttypid = 'date'::regtype::oid OR" \
-	" a.atttypid = 'time'::regtype::oid OR" \
-	" a.atttypid = 'time with time zone'::regtype::oid)" \
+	"SELECT attname, pg_catalog.pg_get_expr(d.adbin, d.adrelid), coalesce((pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%now()%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%''now''::text%%' OR" \
+	" pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIMESTAMP%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIME%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_DATE%%' OR" \
+	" pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIME%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIMESTAMP%%')" \
+	" AND (a.atttypid = 'timestamp'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'timestamp with time zone'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'date'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time with time zone'::pg_catalog.regtype::pg_catalog.oid)" \
     " , false)" \
 	" FROM pg_catalog.pg_class c, pg_catalog.pg_attribute a " \
 	" LEFT JOIN pg_catalog.pg_attrdef d ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)" \
@@ -183,11 +183,11 @@ relcache_lookup(TSRewriteContext * ctx)
 	"SELECT attname, d.adsrc, coalesce((d.adsrc LIKE '%%now()%%' OR d.adsrc LIKE '%%''now''::text%%' OR" \
 	" d.adsrc LIKE '%%CURRENT_TIMESTAMP%%' OR d.adsrc LIKE '%%CURRENT_TIME%%' OR d.adsrc LIKE '%%CURRENT_DATE%%' OR" \
 	" d.adsrc LIKE '%%LOCALTIME%%' OR d.adsrc LIKE '%%LOCALTIMESTAMP%%')" \
-	" AND (a.atttypid = 'timestamp'::regtype::oid OR" \
-	" a.atttypid = 'timestamp with time zone'::regtype::oid OR" \
-	" a.atttypid = 'date'::regtype::oid OR" \
-	" a.atttypid = 'time'::regtype::oid OR" \
-	" a.atttypid = 'time with time zone'::regtype::oid)" \
+	" AND (a.atttypid = 'timestamp'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'timestamp with time zone'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'date'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time with time zone'::pg_catalog.regtype::pg_catalog.oid)" \
     " , false)" \
 	" FROM pg_catalog.pg_class c, pg_catalog.pg_attribute a " \
 	" LEFT JOIN pg_catalog.pg_attrdef d ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)" \
@@ -195,31 +195,31 @@ relcache_lookup(TSRewriteContext * ctx)
 	" ORDER BY a.attnum")
 
 #define ATTRDEFQUERY3 (Pgversion(ctx->backend)->major >= 73 ? \
-	"SELECT attname, pg_get_expr(d.adbin, d.adrelid), coalesce((pg_get_expr(d.adbin, d.adrelid) LIKE '%%now()%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%''now''::text%%' OR" \
-	" pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIMESTAMP%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIME%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_DATE%%' OR" \
-	" pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIME%%' OR pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIMESTAMP%%')" \
-	" AND (a.atttypid = 'timestamp'::regtype::oid OR" \
-	" a.atttypid = 'timestamp with time zone'::regtype::oid OR" \
-	" a.atttypid = 'date'::regtype::oid OR" \
-	" a.atttypid = 'time'::regtype::oid OR" \
-	" a.atttypid = 'time with time zone'::regtype::oid)" \
+	"SELECT attname, pg_catalog.pg_get_expr(d.adbin, d.adrelid), coalesce((pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%now()%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%''now''::text%%' OR" \
+	" pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIMESTAMP%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_TIME%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%CURRENT_DATE%%' OR" \
+	" pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIME%%' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%%LOCALTIMESTAMP%%')" \
+	" AND (a.atttypid = 'timestamp'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'timestamp with time zone'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'date'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time with time zone'::pg_catalog.regtype::pg_catalog.oid)" \
     " , false)" \
 	" FROM pg_catalog.pg_class c, pg_catalog.pg_attribute a " \
 	" LEFT JOIN pg_catalog.pg_attrdef d ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)" \
-	" WHERE c.oid = a.attrelid AND a.attnum >= 1 AND a.attisdropped = 'f' AND c.oid = to_regclass('%s')" \
+	" WHERE c.oid = a.attrelid AND a.attnum >= 1 AND a.attisdropped = 'f' AND c.oid = pg_catalog.to_regclass('%s')" \
 	" ORDER BY a.attnum" : \
 	"SELECT attname, d.adsrc, coalesce((d.adsrc LIKE '%%now()%%' OR d.adsrc LIKE '%%''now''::text%%' OR" \
 	" d.adsrc LIKE '%%CURRENT_TIMESTAMP%%' OR d.adsrc LIKE '%%CURRENT_TIME%%' OR d.adsrc LIKE '%%CURRENT_DATE%%' OR" \
 	" d.adsrc LIKE '%%LOCALTIME%%' OR d.adsrc LIKE '%%LOCALTIMESTAMP%%')" \
-	" AND (a.atttypid = 'timestamp'::regtype::oid OR" \
-	" a.atttypid = 'timestamp with time zone'::regtype::oid OR" \
-	" a.atttypid = 'date'::regtype::oid OR" \
-	" a.atttypid = 'time'::regtype::oid OR" \
-	" a.atttypid = 'time with time zone'::regtype::oid)" \
+	" AND (a.atttypid = 'timestamp'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'timestamp with time zone'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'date'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time'::pg_catalog.regtype::pg_catalog.oid OR" \
+	" a.atttypid = 'time with time zone'::pg_catalog.regtype::pg_catalog.oid)" \
     " , false)" \
 	" FROM pg_catalog.pg_class c, pg_catalog.pg_attribute a " \
 	" LEFT JOIN pg_catalog.pg_attrdef d ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)" \
-	" WHERE c.oid = a.attrelid AND a.attnum >= 1 AND a.attisdropped = 'f' AND c.oid = to_regclass('%s')" \
+	" WHERE c.oid = a.attrelid AND a.attnum >= 1 AND a.attisdropped = 'f' AND c.oid = pg_catalog.to_regclass('%s')" \
 	" ORDER BY a.attnum")
 
 	char	   *query;
@@ -256,7 +256,7 @@ relcache_lookup(TSRewriteContext * ctx)
 	return (TSRel *) pool_search_relcache(ts_relcache, ctx->backend, table_name);
 }
 
-/* If timestamp valus is required then return ts_const. Otherwize make
+/* If timestamp value is required then return ts_const. Otherwize make
  * a new ParamRef, whose number member is 0 and is overwritten at last,
  * and add it into params list in context.
  */
@@ -279,15 +279,15 @@ static bool
 isStringConst(Node *node, const char *str)
 {
 	A_Const    *a_const;
-	Value		val;
 
 	if (!IsA(node, A_Const))
 		return false;
 
 	a_const = (A_Const *) node;
-	val = a_const->val;
 
-	if (val.type == T_String && val.val.str && strcmp(str, val.val.str) == 0)
+	if (IsA(&a_const->val, String) &&
+		a_const->val.sval.sval &&
+		strcmp(str, a_const->val.sval.sval) == 0)
 		return true;
 
 	return false;
@@ -307,7 +307,9 @@ isSystemType(Node *node, const char *name)
 		strcmp("pg_catalog", strVal(linitial(typename->names))) == 0 &&
 		strcmp(name, strVal(lsecond(typename->names))) == 0)
 		return true;
-
+	else if (list_length(typename->names) == 1 &&
+			 strcmp(name, strVal(linitial(typename->names))) == 0)
+		return true;
 	return false;
 }
 
@@ -486,7 +488,7 @@ get_current_timestamp(POOL_CONNECTION_POOL * backend)
 	POOL_SELECT_RESULT *res;
 	static char timestamp[64];
 
-	do_query(MAIN(backend), "SELECT now()", &res, MAJOR(backend));
+	do_query(MAIN(backend), "SELECT pg_catalog.now()", &res, MAJOR(backend));
 
 	if (res->numrows != 1)
 	{
@@ -801,7 +803,7 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 
 	/* init context */
 	ctx.ts_const = makeNode(A_Const);
-	ctx.ts_const->val.type = T_String;
+	ctx.ts_const->val.sval.type = T_String;
 	ctx.rewrite_to_params = rewrite_to_params;
 	ctx.backend = backend;
 	ctx.num_params = 0;
@@ -904,6 +906,36 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 		rewrite = ctx.rewrite;
 
 	}
+	else if (IsA(stmt, MergeStmt))
+	{
+		MergeStmt *m_stmt = (MergeStmt *) stmt;
+		ListCell   *temp;
+
+		/* USING data_source */
+		raw_expression_tree_walker(
+								   (Node *) m_stmt->sourceRelation,
+								   rewrite_timestamp_walker, (void *) &ctx);
+
+		/* ON join_condition */
+		raw_expression_tree_walker(
+								   (Node *) m_stmt->joinCondition,
+								   rewrite_timestamp_walker, (void *) &ctx);
+
+		foreach(temp, m_stmt->mergeWhenClauses)
+		{
+			raw_expression_tree_walker(
+				lfirst(temp),
+				rewrite_timestamp_walker, (void *) &ctx);
+		}
+
+		raw_expression_tree_walker(
+								   (Node *) m_stmt->withClause,
+								   rewrite_timestamp_walker, (void *) &ctx);
+
+		rewrite = ctx.rewrite;
+
+
+	}
 	else if (IsA(stmt, ExecuteStmt))
 	{
 		ExecuteStmt *e_stmt = (ExecuteStmt *) stmt;
@@ -937,7 +969,7 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 		/*
 		 * CREATE TABLE t1 AS SELECT now();
 		 */
-		if (IsA(c_stmt->query, SelectStmt) && c_stmt->relkind == OBJECT_TABLE)
+		if (IsA(c_stmt->query, SelectStmt) && c_stmt->objtype == OBJECT_TABLE)
 		{
 			/* rewrite params */
 			raw_expression_tree_walker(
@@ -985,7 +1017,7 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 		return NULL;
 
 	/*
-	 * PREPARE or Parse: handle additinal parameters for timestamps
+	 * PREPARE or Parse: handle additional parameters for timestamps
 	 */
 	if (ctx.rewrite_to_params && message)
 	{
@@ -1024,7 +1056,7 @@ rewrite_timestamp(POOL_CONNECTION_POOL * backend, Node *node,
 			return NULL;
 		}
 
-		ctx.ts_const->val.val.str = timestamp;
+		ctx.ts_const->val.sval.sval = timestamp;
 	}
 	rewrite_query = nodeToString(node);
 
@@ -1103,14 +1135,14 @@ bind_rewrite_timestamp(POOL_CONNECTION_POOL * backend,
 	{
 		/*
 		 * If num_formats is 0, the original message has no parameters or the parameter formats are all text,
-		 * so we don't need additional format codes since timestamp parametes use text as its format.
+		 * so we don't need additional format codes since timestamp parameters use text as its format.
 		 */
 		num_formats_new = 0;
 	}
 	else
 	{
 		/* If num formats is 1, this means the specified format code is applied for all original parameters,
-		 * so enlarge message length to specify format codes for each of original paramters. */
+		 * so enlarge message length to specify format codes for each of original parameters. */
 		if (num_formats == 1)
 			*len += (num_org_params - 1) * sizeof(int16);
 
@@ -1241,8 +1273,8 @@ makeStringConstFromQuery(POOL_CONNECTION_POOL * backend, char *expression)
 	free_select_result(res);
 
 	con = makeNode(A_Const);
-	con->val.type = T_String;
-	con->val.val.str = str;
+	con->val.sval.type = T_String;
+	con->val.sval.sval = str;
 	return con;
 }
 
@@ -1354,7 +1386,6 @@ raw_expression_tree_walker(Node *node,
 		case T_Float:
 		case T_String:
 		case T_BitString:
-		case T_Null:
 		case T_ParamRef:
 		case T_A_Const:
 		case T_A_Star:
@@ -1452,6 +1483,28 @@ raw_expression_tree_walker(Node *node,
 			foreach(temp, (List *) node)
 			{
 				if (walker((Node *) lfirst(temp), context))
+					return true;
+			}
+			break;
+		case T_MergeWhenClause:
+			{
+				MergeWhenClause *mergeWhenClause = (MergeWhenClause *) node;
+
+				if (walker(mergeWhenClause->condition, context))
+					return true;
+				if (walker(mergeWhenClause->targetList, context))
+					return true;
+				if (walker(mergeWhenClause->values, context))
+					return true;
+			}
+			break;
+		case T_MergeAction:
+			{
+				MergeAction *action = (MergeAction *) node;
+
+				if (walker(action->targetList, context))
+					return true;
+				if (walker(action->qual, context))
 					return true;
 			}
 			break;

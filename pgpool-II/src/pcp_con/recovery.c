@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2021	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -94,8 +94,18 @@ start_recovery(int recovery_node)
 
 	conn = connect_backend_libpq(backend);
 	if (conn == NULL)
+	{
+		if(chceck_password_type_is_not_md5(pool_config->recovery_user, pool_config->recovery_password) == -1)
+		{
+			ereport(ERROR,
+					(errmsg("the password of recovery_user %s is invalid format",
+							pool_config->recovery_user),
+					errdetail("recovery_password is not allowed to be md5 hashed format")));
+		}
 		ereport(ERROR,
 				(errmsg("node recovery failed, unable to connect to main node: %d ", node_id)));
+	}
+
 
 	PG_TRY();
 	{
@@ -232,6 +242,9 @@ exec_checkpoint(PGconn *conn)
 
 /*
  * Call pgpool_recovery() function.
+ *
+ * "main_backend" is either primary backend node (in streaming replication
+ * mode) or main backend node (in other mode).
  */
 static void
 exec_recovery(PGconn *conn, BackendInfo * main_backend, BackendInfo * recovery_backend, char stage, int recovery_node)
@@ -239,11 +252,17 @@ exec_recovery(PGconn *conn, BackendInfo * main_backend, BackendInfo * recovery_b
 	PGresult   *result;
 	char	   *hostname;
 	char	   *script;
+	char	   *main_hostname;
 
 	if (strlen(recovery_backend->backend_hostname) == 0 || *(recovery_backend->backend_hostname) == '/')
 		hostname = "localhost";
 	else
 		hostname = recovery_backend->backend_hostname;
+
+	if (strlen(main_backend->backend_hostname) == 0 || *(main_backend->backend_hostname) == '/')
+		main_hostname = "localhost";
+	else
+		main_hostname = main_backend->backend_hostname;
 
 	script = (stage == FIRST_STAGE) ?
 		pool_config->recovery_1st_stage_command : pool_config->recovery_2nd_stage_command;
@@ -259,13 +278,14 @@ exec_recovery(PGconn *conn, BackendInfo * main_backend, BackendInfo * recovery_b
 	 */
 	snprintf(recovery_command,
 			 sizeof(recovery_command),
-			 "SELECT pgpool_recovery('%s', '%s', '%s', '%d', %d, '%d')",
+			 "SELECT pgpool_recovery('%s', '%s', '%s', '%d', %d, '%d', '%s')",
 			 script,
 			 hostname,
 			 recovery_backend->backend_data_directory,
 			 main_backend->backend_port,
 			 recovery_node,
-			 recovery_backend->backend_port
+			 recovery_backend->backend_port,
+			 main_hostname
 		);
 
 	ereport(LOG,
@@ -510,7 +530,7 @@ int ensure_conn_counter_validity(void)
 		 pool_config->recovery_timeout >= pool_config->client_idle_limit_in_recovery))
 	{
 		ereport(LOG,
-				(errmsg("wait_connection_closed: mulformed conn_counter (%d) detected. reset it to 0",
+				(errmsg("wait_connection_closed: malformed conn_counter (%d) detected. reset it to 0",
 						Req_info->conn_counter)));
 		Req_info->conn_counter = 0;
 		return 0;

@@ -3,7 +3,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2021	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -143,9 +143,6 @@ do_worker_child(void)
 
 	MemoryContextSwitchTo(TopMemoryContext);
 
-	/* Initialize my backend status */
-	pool_initialize_private_backend_status();
-
 	/* Initialize per process context */
 	pool_init_process_context();
 
@@ -284,7 +281,7 @@ establish_persistent_connection(void)
 															 bkinfo->backend_port,
 															 pool_config->sr_check_database,
 															 pool_config->sr_check_user,
-															 password ? password : "", true);
+															 password ? password : "", false);
 		}
 	}
 
@@ -322,13 +319,15 @@ check_replication_time_lag(void)
 	int			i;
 	POOL_SELECT_RESULT *res;
 	POOL_SELECT_RESULT *res_rep;	/* query results of pg_stat_replication */
-	unsigned long long int lsn[MAX_NUM_BACKENDS];
+	uint64	lsn[MAX_NUM_BACKENDS];
 	char	   *query;
 	char	   *stat_rep_query;
 	BackendInfo *bkinfo;
-	unsigned long long int lag;
+	uint64	lag;
+	uint64	delay_threshold_by_time;
 	ErrorContextCallback callback;
 	int		active_standby_node;
+	bool	replication_delay_by_time;
 
 	/* clear replication state */
 	for (i = 0; i < NUM_BACKENDS; i++)
@@ -351,6 +350,20 @@ check_replication_time_lag(void)
 		return;
 	}
 
+	if (!VALID_BACKEND(REAL_PRIMARY_NODE_ID))
+	{
+		/*
+		 * No need to check replication delay if primary is down. This could
+		 * happen if ALWAYS_PRIMARY flag is on because REAL_PRIMARY_NODE_ID
+		 * macro returns the node id which ALWAYS_PRIMARY flag is set to.  If
+		 * we do not check this, subsequent test (i == PRIMARY_NODE_ID) in the
+		 * for loop below will return unexpected result because
+		 * PRIMARY_NODE_ID macro returns MAIN_NODE_ID, which could be a
+		 * standby server.
+		 */
+		return;
+	}
+
 	/*
 	 * Register a error context callback to throw proper context message
 	 */
@@ -360,6 +373,7 @@ check_replication_time_lag(void)
 	error_context_stack = &callback;
 	stat_rep_query = NULL;
 	active_standby_node = 0;
+	replication_delay_by_time = false;
 
 	for (i = 0; i < NUM_BACKENDS; i++)
 	{
@@ -379,7 +393,7 @@ check_replication_time_lag(void)
 
 		if (server_version[i] == 0)
 		{
-			query = "SELECT current_setting('server_version_num')";
+			query = "SELECT pg_catalog.current_setting('server_version_num')";
 
 			/*
 			 * Get backend server version. If the query fails, keep previous
@@ -397,21 +411,27 @@ check_replication_time_lag(void)
 		if (PRIMARY_NODE_ID == i)
 		{
 			if (server_version[i] >= PG10_SERVER_VERSION)
-				query = "SELECT pg_current_wal_lsn()";
+				query = "SELECT pg_catalog.pg_current_wal_lsn()";
 			else
-				query = "SELECT pg_current_xlog_location()";
+				query = "SELECT pg_catalog.pg_current_xlog_location()";
 
 			if (server_version[i] == PG91_SERVER_VERSION)
-				stat_rep_query = "SELECT application_name, state, '' AS sync_state FROM pg_stat_replication";
+				stat_rep_query = "SELECT application_name, state, '' AS sync_state, '' AS replay_lag FROM pg_catalog.pg_stat_replication";
+			else if (server_version[i] >= PG10_SERVER_VERSION)
+			{
+				stat_rep_query = "SELECT application_name, state, sync_state,(EXTRACT(EPOCH FROM replay_lag)*1000000)::BIGINT FROM pg_catalog.pg_stat_replication";
+				if (pool_config->delay_threshold_by_time > 0)
+					replication_delay_by_time = true;
+			}
 			else if (server_version[i] > PG91_SERVER_VERSION)
-				stat_rep_query = "SELECT application_name, state, sync_state FROM pg_stat_replication";
+				stat_rep_query = "SELECT application_name, state, sync_state, '' AS replay_lag FROM pg_catalog.pg_stat_replication";
 		}
 		else
 		{
 			if (server_version[i] >= PG10_SERVER_VERSION)
-				query = "SELECT pg_last_wal_replay_lsn()";
+				query = "SELECT pg_catalog.pg_last_wal_replay_lsn()";
 			else
-				query = "SELECT pg_last_xlog_replay_location()";
+				query = "SELECT pg_catalog.pg_last_xlog_replay_location()";
 
 			active_standby_node++;
 		}
@@ -435,7 +455,7 @@ check_replication_time_lag(void)
 		if (status == -1 || (status == -2 && active_standby_node > 0))
 		{
 			ereport(LOG,
-					(errmsg("get_query_result falied: status: %d", status)));
+					(errmsg("get_query_result failed: status: %d", status)));
 		}
 
 		for (i = 0; i < NUM_BACKENDS; i++)
@@ -452,10 +472,11 @@ check_replication_time_lag(void)
 			{
 				int		j;
 				char	*s;
+#define	NUM_COLS 4
 
 				for (j = 0; j < res_rep->numrows; j++)
 				{
-					if (strcmp(res_rep->data[j*3], bkinfo->backend_application_name) == 0)
+					if (strcmp(res_rep->data[j*NUM_COLS], bkinfo->backend_application_name) == 0)
 					{
 						/*
 						 * If sr_check_user has enough privilege, it should return
@@ -463,10 +484,21 @@ check_replication_time_lag(void)
 						 * res_rep->data[1] and [2]. So we need to prepare for the
 						 * latter case.
 						 */
-						s = res_rep->data[j*3+1]? res_rep->data[j*3+1] : "";
+						s = res_rep->data[j*NUM_COLS+1]? res_rep->data[j*NUM_COLS+1] : "";
 						strlcpy(bkinfo->replication_state, s, NAMEDATALEN);
-						s = res_rep->data[j*3+2]? res_rep->data[j*3+2] : "";
+
+						s = res_rep->data[j*NUM_COLS+2]? res_rep->data[j*NUM_COLS+2] : "";
 						strlcpy(bkinfo->replication_sync_state, s, NAMEDATALEN);
+
+						s = res_rep->data[j*NUM_COLS+3];
+						if (s)
+						{
+							bkinfo->standby_delay = atol(s);
+							ereport(DEBUG1,
+									(errmsg("standby delay in milli seconds * 1000: " UINT64_FORMAT "", bkinfo->standby_delay)));
+						}
+						else
+							bkinfo->standby_delay = 0;
 					}
 				}
 			}
@@ -490,17 +522,52 @@ check_replication_time_lag(void)
 		}
 		else
 		{
-			bkinfo->standby_delay = lag;
+			if (replication_delay_by_time)
+			{
+				/*
+				 * If replication delay is measured by time, indicate it in
+				 * shared memory area.
+				 */
+				bkinfo->standby_delay_by_time = true;
+			}
+			else
+			{
+				/*
+				 * If replication delay is not measured by time, set the LSN
+				 * lag to shared memory area.
+				 */
+				bkinfo->standby_delay = lag;
+				bkinfo->standby_delay_by_time = false;
+			}
 
 			/* Log delay if necessary */
-			if ((pool_config->log_standby_delay == LSD_ALWAYS && lag > 0) ||
-				(pool_config->delay_threshold &&
-				 pool_config->log_standby_delay == LSD_OVER_THRESHOLD &&
-				 lag > pool_config->delay_threshold))
+			if (replication_delay_by_time)
 			{
-				ereport(LOG,
-						(errmsg("Replication of node:%d is behind %llu bytes from the primary server (node:%d)",
-								i, lsn[PRIMARY_NODE_ID] - lsn[i], PRIMARY_NODE_ID)));
+				lag = bkinfo->standby_delay;
+				delay_threshold_by_time = pool_config->delay_threshold_by_time;
+				delay_threshold_by_time *= 1000;	/* convert from milli seconds to micro seconds */
+
+				/* Log delay if necessary */
+				if ((pool_config->log_standby_delay == LSD_ALWAYS && lag > 0) ||
+					(pool_config->log_standby_delay == LSD_OVER_THRESHOLD &&
+					 lag > delay_threshold_by_time))
+				{
+					ereport(LOG,
+							(errmsg("Replication of node: %d is behind %.6f second(s) from the primary server (node: %d)",
+									i, ((float)lag)/1000000, PRIMARY_NODE_ID)));
+				}
+			}
+			else
+			{
+				if ((pool_config->log_standby_delay == LSD_ALWAYS && lag > 0) ||
+					(pool_config->delay_threshold &&
+					 pool_config->log_standby_delay == LSD_OVER_THRESHOLD &&
+					 lag > pool_config->delay_threshold))
+				{
+					ereport(LOG,
+							(errmsg("Replication of node: %d is behind " UINT64_FORMAT " bytes from the primary server (node: %d)",
+									i, (uint64)(lsn[PRIMARY_NODE_ID] - lsn[i]), PRIMARY_NODE_ID)));
+				}
 			}
 		}
 	}

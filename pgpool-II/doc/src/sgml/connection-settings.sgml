@@ -16,13 +16,26 @@
     </term>
     <listitem>
      <para>
-      Specifies the hostname or IP address, on
-      which <productname>Pgpool-II</productname> will accept
-      TCP/IP connections. <literal>'*'</literal> accepts all
-      incoming connections. <literal>''</literal> disables
-      TCP/IP connections. Default
-      is <literal>'localhost'</literal>. Connections via UNIX
-      domain socket are always accepted.
+      Specifies the TCP/IP address(es) on which the server is
+      to listen for connections from client applications.
+      The value takes the form of a comma-separated list of host names
+      and/or numeric IP addresses.  The special entry <literal>*</literal>
+      corresponds to all available IP interfaces.  The entry
+      <literal>0.0.0.0</literal> allows listening for all IPv4 addresses and
+      <literal>::</literal> allows listening for all IPv6 addresses.
+      If the list is empty, the server does not listen on any IP interface
+      at all, in which case only Unix-domain sockets can be used to connect
+      to it.
+      The default value
+      is <systemitem class="systemname">localhost</systemitem>, which
+      allows only local TCP/IP <quote>loopback</quote> connections to
+      be made.  While client authentication
+      (<xref linkend="auth-pool-hba-conf">) allows fine-grained
+      control over who can access the
+      server, <varname>listen_addresses</varname> controls which
+      interfaces accept connection attempts, which can help prevent
+      repeated malicious connection requests on insecure network
+      interfaces.  This parameter can only be set at server start.
      </para>
      <para>
       This parameter can only be set at server start.
@@ -48,20 +61,69 @@
     </listitem>
    </varlistentry>
 
-   <varlistentry id="guc-socket-dir" xreflabel="socket_dir">
-    <term><varname>socket_dir</varname> (<type>string</type>)
+   <varlistentry id="guc-unix-socket-directories" xreflabel="unix_socket_directories">
+    <term><varname>unix_socket_directories</varname> (<type>string</type>)
      <indexterm>
-      <primary><varname>socket_dir</varname> configuration parameter</primary>
+      <primary><varname>unix_socket_directories</varname> configuration parameter</primary>
      </indexterm>
     </term>
     <listitem>
      <para>
-      The directory where the UNIX domain socket accepting connections for
-      <productname>Pgpool-II</productname> will be
-      created. Default is <literal>/tmp</literal>. Be aware that
-      this socket might be deleted by a cron job. We recommend
-      to set this value to <literal>/var/run</literal> or such
-      directory.
+      The directory where the UNIX domain socket(s) accepting connections for
+      <productname>Pgpool-II</productname> will be created. Multiple sockets
+      can be created by listing multiple directories separated by commas. Default
+      is <literal>/tmp</literal>. Be aware that this sockets might be deleted
+      by a cron job. We recommend to set this value to <literal>/var/run</literal>
+      or such directory.
+     </para>
+     <para>
+      This parameter can only be set at server start.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-unix-socket-group" xreflabel="unix_socket_group">
+    <term><varname>unix_socket_group</varname> (<type>string</type>)
+     <indexterm>
+      <primary><varname>unix_socket_group</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Sets the owning group of the Unix-domain socket(s). (The owning user of
+      the sockets is always the user that starts the server.) In combination
+      with the parameter <varname>unix_socket_permissions</varname> this can be
+      used as an additional access control mechanism for Unix-domain connections.
+      By default this is the empty string, which uses the default group of the
+      server user.
+     </para>
+     <para>
+      This parameter can only be set at server start.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-unix-socket-permissions" xreflabel="unix_socket_permissions">
+    <term><varname>unix_socket_permissions</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>unix_socket_permissions</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Sets the access permissions of the Unix-domain socket(s). Unix-domain
+      sockets use the usual Unix file system permission set. The parameter value
+      is expected to be a numeric mode specified in the format accepted by the
+      chmod and umask system calls. (To use the customary octal format the number
+      must start with a <literal>0</literal> (zero).)
+     </para>
+     <para>
+      The default permissions are <literal>0777</literal>, meaning anyone can
+      connect. Reasonable alternatives are <literal>0770</literal> (only user
+      and group, see also <varname>unix_socket_group</varname>) and
+      <literal>0700</literal> (only user). (Note that for a Unix-domain socket,
+      only write permission matters, so there is no point in setting or revoking
+      read or execute permissions.)
      </para>
      <para>
       This parameter can only be set at server start.
@@ -77,15 +139,26 @@
     </term>
     <listitem>
      <para>
-      Specifies the hostname or IP address, on which pcp process
-      will accept TCP/IP connections. <literal>*</literal>
-      accepts all incoming connections. <literal>"" </literal>
-      disables TCP/IP connections. Default
-      is <literal>*</literal>. Connections via UNIX domain
-      socket are always accepted.
-     </para>
-     <para>
-      This parameter can only be set at server start.
+      Specifies the TCP/IP address(es) on which the pcp server is
+      to listen for connections from client applications.
+      The value takes the form of a comma-separated list of host names
+      and/or numeric IP addresses.  The special entry <literal>*</literal>
+      corresponds to all available IP interfaces.  The entry
+      <literal>0.0.0.0</literal> allows listening for all IPv4 addresses and
+      <literal>::</literal> allows listening for all IPv6 addresses.
+      If the list is empty, the server does not listen on any IP interface
+      at all, in which case only Unix-domain sockets can be used to connect
+      to it.
+      The default value
+      is <systemitem class="systemname">localhost</systemitem>, which
+      allows only local TCP/IP <quote>loopback</quote> connections to
+      be made.  While client authentication
+      (<xref linkend="auth-pool-hba-conf">) allows fine-grained
+      control over who can access the
+      server, <varname>pcp_listen_addresses</varname> controls which
+      interfaces accept connection attempts, which can help prevent
+      repeated malicious connection requests on insecure network
+      interfaces.  This parameter can only be set at server start.
      </para>
     </listitem>
    </varlistentry>
@@ -116,8 +189,9 @@
     <listitem>
      <para>
       The directory where the UNIX domain socket accepting
-      connections for PCP process will be created. Default
-      is <literal>/tmp</literal>. Be aware that this socket
+      connections for PCP process will be created. Multiple sockets
+      can be created by listing multiple directories separated by commas.
+      Default is <literal>/tmp</literal>. Be aware that this socket
       might be deleted by a cron job. We recommend to set this
       value to <literal>/var/run</literal> or such directory.
      </para>
@@ -384,6 +458,170 @@
  </sect2>
 </sect1>
 
+<sect1 id="runtime-config-process-management">
+ <title>Process Management</title>
+
+  <para>
+  <variablelist>
+
+   <varlistentry id="guc-process-management-mode" xreflabel="process_management_mode">
+    <term><varname>process_management_mode</varname> (<type>enum</type>)
+     <indexterm>
+      <primary><varname>process_management_mode</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Specify the idle process management method for
+      <productname>Pgpool-II</productname> child processes.
+      Valid options:
+      <table id="process-management-mode-table">
+      <title>Possible Process Management Modes</title>
+
+      <tgroup cols="2">
+       <tbody>
+        <row>
+         <entry>static</entry>
+         <entry>
+          All children are pre-forked at startup.
+	  Number of child processes is fixed (<xref linkend="guc-num-init-children">).
+         </entry>
+        </row>
+
+       <row>
+         <entry>dynamic</entry>
+         <entry>child processes are spawned on demand up to <xref linkend="guc-num-init-children">.
+          Number of idle child processes at any time depends on
+          min_spare_children and max_spare_children
+         </entry>
+        </row>
+
+       </tbody>
+      </tgroup>
+     </table>
+     </para>
+     <para>
+       Default is <literal>static</literal>, that is compatible with pre <emphasis>V4.4</emphasis>.
+     </para>
+
+     <para>
+      <varname>process_management_mode</varname> is not available prior to
+      <productname>Pgpool-II </productname><emphasis>V4.4</emphasis>.
+     </para>
+
+     <para>
+      See <xref linkend="process-management-mode"> for more details.
+     </para>
+
+    </listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-process-management-strategy" xreflabel="process_management_strategy">
+    <term><varname>process_management_strategy</varname> (<type>enum</type>)
+     <indexterm>
+      <primary><varname>process_management_strategy</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Specify the process management strategy to satisfy spare (idle) processes count
+      Valid options:
+      <table id="process-management-strategy-table">
+      <title>Possible Process Management Strategies</title>
+
+      <tgroup cols="2">
+       <tbody>
+        <row>
+         <entry>lazy</entry>
+         <entry>With this strategy the scale-down is performed gradually
+         and only gets triggered when excessive spare processes count
+         remains high for more than 5 mins
+         </entry>
+        </row>
+
+       <row>
+         <entry>gentle</entry>
+         <entry>With this strategy the scale-down is performed gradually
+         and only gets triggered when excessive spare processes count
+         remains high for more than 2 mins
+         </entry>
+        </row>
+
+       <row>
+         <entry>aggressive</entry>
+         <entry>With this strategy the scale-down is performed aggressively
+         and gets triggered more frequently in case of higher spare processes.
+         This mode uses faster and slightly less smart process selection criteria
+         to identify the child processes that can be serviced to satisfy
+         max_spare_children
+         </entry>
+        </row>
+
+       </tbody>
+      </tgroup>
+     </table>
+     </para>
+     <para>
+       Default is <literal>gentle</literal>.
+     </para>
+          <para>
+       <varname>process_management_strategy</varname> is not available prior to
+       <productname>Pgpool-II </productname><emphasis>V4.4</emphasis>.
+      </para>
+
+    </listitem>
+   </varlistentry>
+
+ <varlistentry id="guc-min-spare-children" xreflabel="min_spare_children">
+    <term><varname>min_spare_children</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>min_spare_children</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Specify the minimum number of spare (idle) child processes to keep.
+      If the idle process count falls below min_spare_children,
+      Pgpool-II will spawn new child processes unless it hits the total allowed child process ceiling (num_init_children).
+      Default value is 5.
+     </para>
+     <para>
+      This parameter can be changed by reloading
+      the <productname>Pgpool-II</productname> configurations.
+     </para>
+     <para>
+      This parameter is only applicable for <emphasis>dynamic</emphasis> process management mode.
+     </para>
+    </listitem>
+   </varlistentry>
+
+ <varlistentry id="guc-max-spare-children" xreflabel="max_spare_children">
+    <term><varname>max_spare_children</varname> (<type>integer</type>)
+     <indexterm>
+      <primary><varname>max_spare_children</varname> configuration parameter</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      Specify the maximum number of spare (idle) child processes to keep.
+       If the idle process count increases from max_spare_children, Pgpool-II will kill the excessive child processes.
+      Default value is 10.
+     </para>
+     <para>
+      This parameter can be changed by reloading
+      the <productname>Pgpool-II</productname> configurations.
+     </para>
+     <para>
+      This parameter is only applicable for <emphasis>dynamic</emphasis> process management mode.
+     </para>
+    </listitem>
+   </varlistentry>
+
+    </variablelist>
+
+ </para>
+</sect1>
+
 <sect1 id="runtime-config-running-mode">
  <title>Clustering mode</title>
  <para>
@@ -407,7 +645,7 @@
   </variablelist>
  </para>
 
- <sect2 id="runtime-config-streaming-replication-mode">
+ <sect2 id="runtime-config-streaming-replication-mode" xreflabel="streaming replication mode">
   <title>Streaming replication mode</title>
 
   <para>
@@ -423,44 +661,23 @@ backend_clustering_mode = 'streaming_replication'
    Also it is possible not to have standby server at all.
   </para>
   <para>
+   The drawback of this mode is, it is necessary to consider the
+   replication delay while distributing read queries. The visibility
+   consistency among nodes is not guaranteed either. To mitigate these
+   problems lots of additional parameters are prepared but it may make
+   the administration task harder. Also it may take sometime to
+   perform failover when the primary server goes down and one of
+   standbys is promoted. If you want to avoid these problems, consider
+   <link linkend="guc-snapshot-isolation-mode">snapshot isolation
+   mode</link>.
+  </para>
+  <para>
    See <xref linkend="runtime-streaming-replication-check"> for
     additional parameters for streaming replication mode.
   </para>
  </sect2>
  
- <sect2 id="runtime-config-logical-replication-mode">
-  <title>Logical replication mode</title>
-
-  <para>
-   This mode is recently added. In this mode
-   <productname>PostgreSQL</productname> is responsible to replicate
-   each servers. To enable this mode, use 'logical_replication' for
-   <varname>backend_clustering_mode</varname>.
-    <programlisting>
-backend_clustering_mode = 'logical_replication'
-    </programlisting>
-   In this mode you can have up to 127 logical replication standby servers.
-   Also it is possible not to have standby server at all.
-  </para>
- </sect2>
-
- <sect2 id="runtime-config-slony-mode">
-  <title>Slony mode</title>
-
-  <para>
-   This mode is used to couple <productname>Pgpool-II</productname>
-   with <acronym>Slony-I</acronym>.  Slony-I is responsible for doing
-   the actual data replication. To enable this mode, use 'slony' for
-   <varname>backend_clustering_mode</varname>.
-    <programlisting>
-backend_clustering_mode = 'slony'
-    </programlisting>
-   In this mode you can have up to 127 replica servers.  Also it is
-   possible not to have replica server at all.
-  </para>
- </sect2>
-
- <sect2 id="guc-replication-mode" xreflabel="native_replication_mode">
+ <sect2 id="guc-replication-mode" xreflabel="native replication mode">
   <title>Native replication mode</title>
 
   <para>
@@ -473,6 +690,20 @@ backend_clustering_mode = 'native_replication'
     </programlisting>
    In this mode you can have up to 127 standby replication servers.
    Also it is possible not to have standby server at all.
+  </para>
+
+  <para>
+   Load balancing (see <xref linkend="runtime-config-load-balancing"> ) can
+   also be used with replication mode to distribute the load to the
+   attached backend nodes.
+  </para>
+
+  <para>
+   The drawback of this mode is, visibility consistency among nodes is
+   not guaranteed. This could bring inconsistency among nodes and read
+   inconsistent data.  If you want to avoid these problems, consider
+   <link linkend="guc-snapshot-isolation-mode">snapshot isolation
+   mode</link>.
   </para>
 
   <para>
@@ -785,7 +1016,7 @@ backend_clustering_mode = 'native_replication'
       </para>
      </note>
      <para>
-      Default is off.
+      Default is on.
      </para>
      <para>
       This parameter can be changed by reloading
@@ -876,12 +1107,12 @@ backend_clustering_mode = 'native_replication'
   </variablelist>
  </sect2>
 
- <sect2 id="guc-snapshot-isolation-mode" xreflabel="snapshot_isolation_mode">
+ <sect2 id="guc-snapshot-isolation-mode" xreflabel="snapshot isolation mode">
   <title>Snapshot isolation mode</title>
 
   <para>
    This mode is similar to the native replication mode except it adds
-   the visibility consistency among nodes. The implemenation is based
+   the visibility consistency among nodes. The implementation is based
    on a research paper <xref linkend="mishima2009">.
    To enable this mode, use 'snapshot_isolation' for
    <varname>backend_clustering_mode</varname>.
@@ -938,11 +1169,6 @@ S2/N1: COMMIT;
 S2/N2: COMMIT;
    </programlisting>
 
-   Please note that there are some limitations in this mode and
-   currently (in <productname>Pgpool-II</productname> 4.2) this mode
-   is regarded as "experimental implementation. Be warned that careful
-   testings are required before you implement this in a production
-   system.
   </para>
   <itemizedlist>
    <listitem>
@@ -956,16 +1182,63 @@ default_transaction_isolation = 'repeatable read'
     </para>
    </listitem>
 
-   <listitem>
-    <para>
-     Consistent visibility in SERIAL data type and sequences are not
-     guaranteed.
-    </para>
-   </listitem>
   </itemizedlist>
  </sect2>
 
- <sect2 id="guc-raw-mode" xreflabel="raw_mode">
+ <sect2 id="runtime-config-logical-replication-mode">
+  <title>Logical replication mode</title>
+
+  <para>
+   In this mode
+   <productname>PostgreSQL</productname> is responsible to replicate
+   each servers. To enable this mode, use 'logical_replication' for
+   <varname>backend_clustering_mode</varname>.
+    <programlisting>
+backend_clustering_mode = 'logical_replication'
+    </programlisting>
+   In this mode you can have up to 127 logical replication standby servers.
+   Also it is possible not to have standby server at all.
+  </para>
+
+  <para>
+   The drawback of this mode is, it is necessary to consider the
+   replication delay while distributing read queries. The visibility
+   consistency among nodes is not guaranteed either.  Also certain
+   kind of objects such as DDL and large objects are not replicated.
+  </para>
+
+ </sect2>
+
+ <sect2 id="runtime-config-slony-mode">
+  <title>Slony mode</title>
+
+  <para>
+   This mode is used to couple <productname>Pgpool-II</productname>
+   with <acronym>Slony-I</acronym>.  Slony-I is responsible for doing
+   the actual data replication. To enable this mode, use 'slony' for
+   <varname>backend_clustering_mode</varname>.
+    <programlisting>
+backend_clustering_mode = 'slony'
+    </programlisting>
+   In this mode you can have up to 127 replica servers.  Also it is
+   possible not to have replica server at all.
+  </para>
+
+  <para>
+   The drawback of this mode is, it is necessary to consider the
+   replication delay while distributing read queries. The visibility
+   consistency among nodes is not guaranteed either.  Also certain
+   kind of objects such as DDL and large objects are not replicated.
+  </para>
+
+  <para>
+   After streaming replication and logical replication are introduced,
+   there are few systems that employ Slony-I.  If there's no
+   particular reason, it is not recommended to use this mode.
+  </para>
+ </sect2>
+
+ <sect2 id="guc-raw-mode" xreflabel="raw mode">
   <title>Raw mode</title>
   <para>
    In this mode, <productname>Pgpool-II</> does not care about the database synchronization.
@@ -1234,13 +1507,15 @@ backend_clustering_mode = 'raw'
       Also this parameter is required to if you want to show
       "replication_state" and "replication_sync_state" column
       in <xref linkend="SQL-SHOW-POOL-NODES"> and <xref linkend="PCP-NODE-INFO"> commands.
+      Moreover <xref linkend="guc-delay-threshold-by-time"> requires
+      this parameter too.
      </para>
      <para>
       For example, suppose the primary node is backend0 (its host name
       is "host0"), the standby node in question is backend1 and the
       backend_application_name for backend1 is "server1", then
       <literal>primary_conninfo</literal> parameter of
-      <filename>postgresql.conf</filename> should like like:
+      <filename>postgresql.conf</filename> should look like:
       <programlisting>
 primary_conninfo = 'host=host0 port=5432 user=postgres application_name='server1''
       </programlisting>

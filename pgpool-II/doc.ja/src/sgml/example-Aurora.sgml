@@ -38,9 +38,17 @@
      <para>
       <!--
       Create <filename>pgpool.conf</filename>
-      from <filename>pgpool.conf.sample-stream</filename>.
+      from <filename>pgpool.conf.sample</filename>.
+      Make sure your <filename>pgpool.conf</filename> includes following line:
+      <programlisting>
+backend_clustering_mode = 'streaming_replication'
+      </programlisting>
       -->
-      <filename>pgpool.conf.sample-stream</filename>をコピーして<filename>pgpool.conf</filename>を作ります。
+      <filename>pgpool.conf.sample</filename>をコピーして<filename>pgpool.conf</filename>を作ります。
+      以下の行が<filename>pgpool.conf</filename>に含まれていることを確認してください。
+      <programlisting>
+backend_clustering_mode = 'streaming_replication'
+      </programlisting>
      </para>
     </listitem>
     <listitem>
@@ -49,7 +57,7 @@
       Set <xref linkend="guc-sr-check-period"> to 0 to
       disable streaming replication delay checking.  This
       is because <productname>Aurora</productname> does
-      not provide neccessary functions to check the
+      not provide necessary functions to check the
       replication delay.
       -->
       <xref linkend="guc-sr-check-period">を0にして、ストリーミングレプリケーション遅延チェックを無効にします。

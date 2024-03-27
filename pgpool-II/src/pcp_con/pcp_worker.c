@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2022	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -48,6 +48,7 @@
 #include "auth/md5.h"
 #include "auth/pool_auth.h"
 #include "context/pool_process_context.h"
+#include "context/pool_session_context.h"
 #include "utils/pool_process_reporting.h"
 #include "utils/palloc.h"
 #include "utils/memutils.h"
@@ -75,7 +76,7 @@ static void send_md5salt(PCP_CONNECTION * frontend, char *salt);
 
 static void pcp_process_command(char tos, char *buf, int buf_len);
 
-static int	pool_detach_node(int node_id, bool gracefully);
+static int	pool_detach_node(int node_id, bool gracefully, bool switchover);
 static int	pool_promote_node(int node_id, bool gracefully);
 static void inform_process_count(PCP_CONNECTION * frontend);
 static void inform_process_info(PCP_CONNECTION * frontend, char *buf);
@@ -89,8 +90,8 @@ static void process_attach_node(PCP_CONNECTION * frontend, char *buf);
 static void process_recovery_request(PCP_CONNECTION * frontend, char *buf);
 static void process_status_request(PCP_CONNECTION * frontend);
 static void process_promote_node(PCP_CONNECTION * frontend, char *buf, char tos);
-static void process_shutown_request(PCP_CONNECTION * frontend, char mode, char tos);
-static void process_set_configration_parameter(PCP_CONNECTION * frontend, char *buf, int len);
+static void process_shutdown_request(PCP_CONNECTION * frontend, char mode, char tos);
+static void process_set_configuration_parameter(PCP_CONNECTION * frontend, char *buf, int len);
 
 static void pcp_worker_will_go_down(int code, Datum arg);
 
@@ -227,8 +228,10 @@ pcp_worker_main(int port)
 static void
 pcp_process_command(char tos, char *buf, int buf_len)
 {
+	/* The request is recovery or pcp shutdown request? */
 	if (tos == 'O' || tos == 'T')
 	{
+		/* Prevent those pcp requests while processing failover/failback request */
 		if (Req_info->switching)
 		{
 			if (Req_info->request_queue_tail != Req_info->request_queue_head)
@@ -260,8 +263,8 @@ pcp_process_command(char tos, char *buf, int buf_len)
 	switch (tos)
 	{
 		case 'A':				/* set configuration parameter */
-			set_ps_display("PCP: processing set configration parameter request", false);
-			process_set_configration_parameter(pcp_frontend, buf, buf_len);
+			set_ps_display("PCP: processing set configuration parameter request", false);
+			process_set_configuration_parameter(pcp_frontend, buf, buf_len);
 			break;
 
 		case 'L':				/* node count */
@@ -308,7 +311,7 @@ pcp_process_command(char tos, char *buf, int buf_len)
 		case 'T':
 		case 't':
 			set_ps_display("PCP: processing shutdown request", false);
-			process_shutown_request(pcp_frontend, buf[0], tos);
+			process_shutdown_request(pcp_frontend, buf[0], tos);
 			break;
 
 		case 'O':				/* recovery request */
@@ -521,11 +524,16 @@ user_authenticate(char *buf, char *passwd_file, char *salt, int salt_len)
 
 /* Detach a node */
 static int
-pool_detach_node(int node_id, bool gracefully)
+pool_detach_node(int node_id, bool gracefully, bool switchover)
 {
+	int		flag = 0;
+
+	if (switchover)
+		flag = REQ_DETAIL_PROMOTE;
+
 	if (!gracefully)
 	{
-		degenerate_backend_set_ex(&node_id, 1, REQ_DETAIL_SWITCHOVER | REQ_DETAIL_CONFIRMED, true, false);
+		degenerate_backend_set_ex(&node_id, 1, flag | REQ_DETAIL_SWITCHOVER | REQ_DETAIL_CONFIRMED, true, false);
 		return 0;
 	}
 
@@ -537,7 +545,7 @@ pool_detach_node(int node_id, bool gracefully)
 	/*
 	 * Wait until all frontends exit
 	 */
-	*InRecovery = RECOVERY_DETACH;	/* This wiil ensure that new incoming
+	*InRecovery = RECOVERY_DETACH;	/* This will ensure that new incoming
 									 * connection requests are blocked */
 
 	if (wait_connection_closed())
@@ -552,7 +560,7 @@ pool_detach_node(int node_id, bool gracefully)
 	/*
 	 * Now all frontends have gone. Let's do failover.
 	 */
-	degenerate_backend_set_ex(&node_id, 1, REQ_DETAIL_SWITCHOVER | REQ_DETAIL_CONFIRMED, false, false);
+	degenerate_backend_set_ex(&node_id, 1, flag | REQ_DETAIL_SWITCHOVER | REQ_DETAIL_CONFIRMED, false, false);
 
 	/*
 	 * Wait for failover completed.
@@ -588,7 +596,7 @@ pool_promote_node(int node_id, bool gracefully)
 	/*
 	 * Wait until all frontends exit
 	 */
-	*InRecovery = RECOVERY_PROMOTE; /* This wiil ensure that new incoming
+	*InRecovery = RECOVERY_PROMOTE; /* This will ensure that new incoming
 									 * connection requests are blocked */
 
 	if (wait_connection_closed())
@@ -638,14 +646,13 @@ inform_process_count(PCP_CONNECTION * frontend)
 
 	process_list = pool_get_process_list(&process_count);
 
-	mesg = (char *) palloc(7 * process_count);	/* PID is at most 6 characters
-												 * long */
+	mesg = (char *) palloc(8 * process_count);	/* PID is at most 7 characters long */
 
 	snprintf(process_count_str, sizeof(process_count_str), "%d", process_count);
 
 	for (i = 0; i < process_count; i++)
 	{
-		char		process_id[7];
+		char		process_id[8];
 
 		snprintf(process_id, sizeof(process_id), "%d", process_list[i]);
 		snprintf(mesg + total_port_len, strlen(process_id) + 1, "%s", process_id);
@@ -671,6 +678,9 @@ inform_process_count(PCP_CONNECTION * frontend)
 			 errdetail("%d process(es) found", process_count)));
 }
 
+/*
+ * pcp_process_info
+ */
 static void
 inform_process_info(PCP_CONNECTION * frontend, char *buf)
 {
@@ -678,6 +688,9 @@ inform_process_info(PCP_CONNECTION * frontend, char *buf)
 	int			wsize;
 	int			num_proc = pool_config->num_init_children;
 	int			i;
+	int			*offsets;
+	int			n;
+	POOL_REPORT_POOLS *pools;
 
 	proc_id = atoi(buf);
 
@@ -696,7 +709,7 @@ inform_process_info(PCP_CONNECTION * frontend, char *buf)
 		/* Finally, indicate that all data is sent */
 		char		fin_code[] = "CommandComplete";
 
-		POOL_REPORT_POOLS *pools = get_pools(&num_proc);
+		pools = get_pools(&num_proc);
 
 		if (proc_id == 0)
 		{
@@ -716,60 +729,41 @@ inform_process_info(PCP_CONNECTION * frontend, char *buf)
 		pcp_write(frontend, con_info_size, strlen(con_info_size) + 1);
 		do_pcp_flush(frontend);
 
+		offsets = pool_report_pools_offsets(&n);
+
 		/* Second, send process information for all connection_info */
 		for (i = 0; i < num_proc; i++)
 		{
+			int			j;
 			char		code[] = "ProcessInfo";
-			char		proc_pid[16];
-			char		proc_start_time[20];
-			char		proc_create_time[20];
-			char		majorversion[5];
-			char		minorversion[5];
-			char		pool_counter[16];
-			char		backend_id[16];
-			char		backend_pid[16];
-			char		connected[2];
+			int			pool_pid;
 
-			if (proc_id != 0 && proc_id != pools[i].pool_pid)
+			pool_pid = atoi(pools[i].pool_pid);
+
+			if (proc_id != 0 && pool_pid != proc_id)
 				continue;
 
-			snprintf(proc_pid, sizeof(proc_pid), "%d", pools[i].pool_pid);
-			snprintf(proc_start_time, sizeof(proc_start_time), "%ld", pools[i].start_time);
-			snprintf(proc_create_time, sizeof(proc_create_time), "%ld", pools[i].create_time);
-			snprintf(majorversion, sizeof(majorversion), "%d", pools[i].pool_majorversion);
-			snprintf(minorversion, sizeof(minorversion), "%d", pools[i].pool_minorversion);
-			snprintf(pool_counter, sizeof(pool_counter), "%d", pools[i].pool_counter);
-			snprintf(backend_id, sizeof(backend_pid), "%d", pools[i].backend_id);
-			snprintf(backend_pid, sizeof(backend_pid), "%d", pools[i].pool_backendpid);
-			snprintf(connected, sizeof(connected), "%d", pools[i].pool_connected);
-
 			pcp_write(frontend, "p", 1);
-			wsize = htonl(sizeof(code) +
-						  strlen(proc_pid) + 1 +
-						  strlen(pools[i].database) + 1 +
-						  strlen(pools[i].username) + 1 +
-						  strlen(proc_start_time) + 1 +
-						  strlen(proc_create_time) + 1 +
-						  strlen(majorversion) + 1 +
-						  strlen(minorversion) + 1 +
-						  strlen(pool_counter) + 1 +
-						  strlen(backend_id) + 1 +
-						  strlen(backend_pid) + 1 +
-						  strlen(connected) + 1 +
-						  sizeof(int));
+
+			wsize = 0;
+			for (j = 0; j < n; j++)
+			{
+				wsize += strlen((char *)&pools[i] + offsets[j]) + 1;
+			}
+			wsize += sizeof(code) + sizeof(int);
+			wsize = htonl(wsize);
+
+			/* send packet length to frontend */
 			pcp_write(frontend, &wsize, sizeof(int));
+			/* send "this is a record" to frontend */
 			pcp_write(frontend, code, sizeof(code));
-			pcp_write(frontend, proc_pid, strlen(proc_pid) + 1);
-			pcp_write(frontend, pools[i].database, strlen(pools[i].database) + 1);
-			pcp_write(frontend, pools[i].username, strlen(pools[i].username) + 1);
-			pcp_write(frontend, proc_start_time, strlen(proc_start_time) + 1);
-			pcp_write(frontend, proc_create_time, strlen(proc_create_time) + 1);
-			pcp_write(frontend, majorversion, strlen(majorversion) + 1);
-			pcp_write(frontend, minorversion, strlen(minorversion) + 1);
-			pcp_write(frontend, pool_counter, strlen(pool_counter) + 1);
-			pcp_write(frontend, backend_id, strlen(backend_id) + 1);
-			pcp_write(frontend, backend_pid, strlen(backend_pid) + 1);
-			pcp_write(frontend, connected, strlen(connected) + 1);
+
+			/* send each process info data to frontend */
+			for (j = 0; j < n; j++)
+			{
+				pcp_write(frontend, (char *)&pools[i] + offsets[j], strlen((char *)&pools[i] + offsets[j]) + 1);
+			}
+
 			do_pcp_flush(frontend);
 		}
 
@@ -799,7 +793,7 @@ inform_watchdog_info(PCP_CONNECTION * frontend, char *buf)
 	if (!pool_config->use_watchdog)
 		ereport(ERROR,
 				(errmsg("PCP: informing watchdog info failed"),
-				 errdetail("watcdhog is not enabled")));
+				 errdetail("watchdog is not enabled")));
 
 	wd_index = atoi(buf);
 
@@ -814,8 +808,8 @@ inform_watchdog_info(PCP_CONNECTION * frontend, char *buf)
 			 errdetail("retrieved node information from IPC socket")));
 
 	/*
-	 * This is the voilation of PCP protocol but I think in future we should
-	 * shift to more adaptable protocol for data transmition.
+	 * This is the violation of PCP protocol but I think in future we should
+	 * shift to more adaptable protocol for data transmission.
 	 */
 	json_data_len = strlen(json_data);
 	wsize = htonl(sizeof(code) +
@@ -835,80 +829,148 @@ inform_watchdog_info(PCP_CONNECTION * frontend, char *buf)
 static void
 inform_node_info(PCP_CONNECTION * frontend, char *buf)
 {
+	POOL_REPORT_NODES *nodes;
+	int			nrows;
 	int			node_id;
 	int			wsize;
-	char		port_str[6];
-	char		status[2];
-	char		weight_str[20];
-	char		role_str[10];
-	char		standby_delay_str[20];
-	char		status_changed_time_str[20];
-	char		code[] = "CommandComplete";
-	BackendInfo *bi = NULL;
-	SERVER_ROLE role;
+	int			i;
+
 
 	node_id = atoi(buf);
 
-	bi = pool_get_node_info(node_id);
-
-	if (bi == NULL)
+	if ((node_id != -1) && (pool_get_node_info(node_id) == NULL))
+	{
 		ereport(ERROR,
 				(errmsg("informing node info failed"),
-				 errdetail("invalid node ID")));
-
-	ereport(DEBUG2,
-			(errmsg("PCP: informing node info"),
-			 errdetail("retrieved node information from shared memory")));
-
-	snprintf(port_str, sizeof(port_str), "%d", bi->backend_port);
-	snprintf(status, sizeof(status), "%d", bi->backend_status);
-	snprintf(weight_str, sizeof(weight_str), "%f", bi->backend_weight);
-
-	if (STREAM)
-	{
-		if (Req_info->primary_node_id == node_id)
-			role = ROLE_PRIMARY;
-		else
-			role = ROLE_STANDBY;
+				 errdetail("invalid node ID : %s", buf)));
 	}
 	else
 	{
-		if (Req_info->main_node_id == node_id)
-			role = ROLE_MAIN;
+		/* First, send array size of node_info */
+		char		arr_code[] = "ArraySize";
+		char		node_info_size[16];
+
+		/* Finally, indicate that all data is sent */
+		char		fin_code[] = "CommandComplete";
+
+		nodes = get_nodes(&nrows, node_id);
+
+		if (node_id == -1)
+		{
+			snprintf(node_info_size, sizeof(node_info_size), "%d", NUM_BACKENDS);
+		}
 		else
-			role = ROLE_REPLICA;
+		{
+			snprintf(node_info_size, sizeof(node_info_size), "%d", 1);
+		}
+
+		pcp_write(frontend, "i", 1);
+		wsize = htonl(sizeof(arr_code) +
+					  strlen(node_info_size) + 1 +
+					  sizeof(int));
+		pcp_write(frontend, &wsize, sizeof(int));
+		pcp_write(frontend, arr_code, sizeof(arr_code));
+		pcp_write(frontend, node_info_size, strlen(node_info_size) + 1);
+		do_pcp_flush(frontend);
+
+		/* Second, send process information for all connection_info */
+		for (i = 0; i < NUM_BACKENDS ; i++)
+		{
+			char		port_str[6];
+			char		status[2];
+			char		quarantine[2];
+			char		weight_str[20];
+			char		role_str[10];
+			char		standby_delay_str[20];
+			char		standby_delay_by_time_str[4];
+			char		status_changed_time_str[20];
+			char		code[] = "NodeInfo";
+			BackendInfo *bi = NULL;
+			SERVER_ROLE role;
+
+			if (node_id != -1 && node_id != i)
+				continue;
+
+			bi = pool_get_node_info(i);
+
+			if (bi == NULL)
+				ereport(ERROR,
+						(errmsg("informing node info failed"),
+						errdetail("invalid node ID")));
+
+			snprintf(port_str, sizeof(port_str), "%d", bi->backend_port);
+			snprintf(status, sizeof(status), "%d", bi->backend_status);
+			snprintf(quarantine, sizeof(quarantine), "%d", bi->quarantine);
+			snprintf(weight_str, sizeof(weight_str), "%f", bi->backend_weight);
+
+			if (STREAM)
+			{
+				if (Req_info->primary_node_id == i)
+					role = ROLE_PRIMARY;
+				else
+					role = ROLE_STANDBY;
+			}
+			else
+			{
+				if (Req_info->main_node_id == i)
+					role = ROLE_MAIN;
+				else
+					role = ROLE_REPLICA;
+			}
+			snprintf(role_str, sizeof(role_str), "%d", role);
+
+			snprintf(standby_delay_by_time_str, sizeof(standby_delay_by_time_str), "%d", bi->standby_delay_by_time);
+
+			snprintf(standby_delay_str, sizeof(standby_delay_str), UINT64_FORMAT, bi->standby_delay);
+
+			snprintf(status_changed_time_str, sizeof(status_changed_time_str), UINT64_FORMAT, bi->status_changed_time);
+
+			pcp_write(frontend, "i", 1);
+			wsize = htonl(sizeof(code) +
+						  strlen(bi->backend_hostname) + 1 +
+						  strlen(port_str) + 1 +
+						  strlen(status) + 1 +
+						  strlen(quarantine) + 1 +
+						  strlen(nodes[i].pg_status) + 1 +
+						  strlen(weight_str) + 1 +
+						  strlen(role_str) + 1 +
+						  strlen(nodes[i].pg_role) + 1 +
+						  strlen(standby_delay_by_time_str) + 1 +
+						  strlen(standby_delay_str) + 1 +
+						  strlen(bi->replication_state) + 1 +
+						  strlen(bi->replication_sync_state) + 1 +
+						  strlen(status_changed_time_str) + 1 +
+						  sizeof(int));
+			pcp_write(frontend, &wsize, sizeof(int));
+			pcp_write(frontend, code, sizeof(code));
+			pcp_write(frontend, bi->backend_hostname, strlen(bi->backend_hostname) + 1);
+			pcp_write(frontend, port_str, strlen(port_str) + 1);
+			pcp_write(frontend, status, strlen(status) + 1);
+			pcp_write(frontend, quarantine, strlen(quarantine) + 1);
+			pcp_write(frontend, nodes[i].pg_status, strlen(nodes[i].pg_status) + 1);
+			pcp_write(frontend, weight_str, strlen(weight_str) + 1);
+			pcp_write(frontend, role_str, strlen(role_str) + 1);
+			pcp_write(frontend, nodes[i].pg_role, strlen(nodes[i].pg_role) + 1);
+			pcp_write(frontend, standby_delay_by_time_str, strlen(standby_delay_by_time_str) + 1);
+			pcp_write(frontend, standby_delay_str, strlen(standby_delay_str) + 1);
+			pcp_write(frontend, bi->replication_state, strlen(bi->replication_state) + 1);
+			pcp_write(frontend, bi->replication_sync_state, strlen(bi->replication_sync_state) + 1);
+			pcp_write(frontend, status_changed_time_str, strlen(status_changed_time_str) + 1);
+			do_pcp_flush(frontend);
+		}
+
+		pcp_write(frontend, "i", 1);
+		wsize = htonl(sizeof(fin_code) +
+					  sizeof(int));
+		pcp_write(frontend, &wsize, sizeof(int));
+		pcp_write(frontend, fin_code, sizeof(fin_code));
+		do_pcp_flush(frontend);
+		ereport(DEBUG1,
+				(errmsg("PCP informing node info"),
+				 errdetail("retrieved node information from shared memory")));
+
+		pfree(nodes);
 	}
-	snprintf(role_str, sizeof(role_str), "%d", role);
-
-	snprintf(standby_delay_str, sizeof(standby_delay_str), UINT64_FORMAT, bi->standby_delay);
-
-	snprintf(status_changed_time_str, sizeof(status_changed_time_str), UINT64_FORMAT, bi->status_changed_time);
-
-	pcp_write(frontend, "i", 1);
-	wsize = htonl(sizeof(code) +
-				  strlen(bi->backend_hostname) + 1 +
-				  strlen(port_str) + 1 +
-				  strlen(status) + 1 +
-				  strlen(weight_str) + 1 +
-				  strlen(role_str) + 1 +
-				  strlen(standby_delay_str) + 1 +
-				  strlen(bi->replication_state) + 1 +
-				  strlen(bi->replication_sync_state) + 1 +
-				  strlen(status_changed_time_str) + 1 +
-				  sizeof(int));
-	pcp_write(frontend, &wsize, sizeof(int));
-	pcp_write(frontend, code, sizeof(code));
-	pcp_write(frontend, bi->backend_hostname, strlen(bi->backend_hostname) + 1);
-	pcp_write(frontend, port_str, strlen(port_str) + 1);
-	pcp_write(frontend, status, strlen(status) + 1);
-	pcp_write(frontend, weight_str, strlen(weight_str) + 1);
-	pcp_write(frontend, role_str, strlen(role_str) + 1);
-	pcp_write(frontend, standby_delay_str, strlen(standby_delay_str) + 1);
-	pcp_write(frontend, bi->replication_state, strlen(bi->replication_state) + 1);
-	pcp_write(frontend, bi->replication_sync_state, strlen(bi->replication_sync_state) + 1);
-	pcp_write(frontend, status_changed_time_str, strlen(status_changed_time_str) + 1);
-
-	do_pcp_flush(frontend);
 }
 
 /*
@@ -917,7 +979,7 @@ inform_node_info(PCP_CONNECTION * frontend, char *buf)
  *
  * The protocol starts with 'h', followed by 4-byte packet length integer in
  * network byte order including self.  Each data is represented as a null
- * terminted string. The order of each data is defined in
+ * terminated string. The order of each data is defined in
  * POOL_HEALTH_CHECK_STATS struct.
  */
 static void
@@ -1061,7 +1123,7 @@ process_detach_node(PCP_CONNECTION * frontend, char *buf, char tos)
 			(errmsg("PCP: processing detach node"),
 			 errdetail("detaching Node ID %d", node_id)));
 
-	pool_detach_node(node_id, gracefully);
+	pool_detach_node(node_id, gracefully, false);
 
 	pcp_write(frontend, "d", 1);
 	wsize = htonl(sizeof(code) + sizeof(int));
@@ -1204,6 +1266,11 @@ process_status_request(PCP_CONNECTION * frontend)
 			 errdetail("retrieved status information")));
 }
 
+/*
+ * Process promote node request.  This function is tricky. If promote option
+ * is sent from client, calls pool_detach_node() so that failover script
+ * actually promote the specified node and detach current primary.
+ */
 static void
 process_promote_node(PCP_CONNECTION * frontend, char *buf, char tos)
 {
@@ -1211,22 +1278,34 @@ process_promote_node(PCP_CONNECTION * frontend, char *buf, char tos)
 	int			wsize;
 	char		code[] = "CommandComplete";
 	bool		gracefully;
+	char		node_id_buf[64];
+	char		*p;
+	char		promote_option;
 
 	if (tos == 'J')
 		gracefully = false;
 	else
 		gracefully = true;
 
-	node_id = atoi(buf);
+	p = node_id_buf;
+	while (*buf && *buf != ' ')
+		*p++ = *buf++;
+	*p = '\0';
+	buf += 2;
+	promote_option = *buf;
+
+	node_id = atoi(node_id_buf);
+
 	if ((node_id < 0) || (node_id >= pool_config->backend_desc->num_backends))
 		ereport(ERROR,
-				(errmsg("could not process recovery request"),
+				(errmsg("could not process promote request"),
 				 errdetail("node id %d is not valid", node_id)));
-	/* promoting node is reserved to Streaming Replication */
+
+	/* Promoting node is only possible in Streaming Replication mode */
 	if (!STREAM)
 	{
 		ereport(FATAL,
-				(errmsg("invalid pgpool mode for process recovery request"),
+				(errmsg("invalid pgpool mode for process promote request"),
 				 errdetail("not in streaming replication mode, can't promote node id %d", node_id)));
 
 	}
@@ -1234,14 +1313,27 @@ process_promote_node(PCP_CONNECTION * frontend, char *buf, char tos)
 	if (node_id == REAL_PRIMARY_NODE_ID)
 	{
 		ereport(FATAL,
-				(errmsg("invalid pgpool mode for process recovery request"),
+				(errmsg("invalid promote request"),
 				 errdetail("specified node is already primary node, can't promote node id %d", node_id)));
 
 	}
-	ereport(DEBUG1,
+
+	ereport(LOG, (errmsg("pcp_promote_node: promote option: %c", promote_option)));
+
+	if (promote_option == 's')
+	{
+		ereport(DEBUG1,
 			(errmsg("PCP: processing promote node"),
-			 errdetail("promoting Node ID %d", node_id)));
-	pool_promote_node(node_id, gracefully);
+			 errdetail("promoting Node ID %d and shutdown primary node %d", node_id, REAL_PRIMARY_NODE_ID)));
+		pool_detach_node(node_id, gracefully, true);
+	}
+	else
+	{
+		ereport(DEBUG1,
+				(errmsg("PCP: processing promote node"),
+				 errdetail("promoting Node ID %d", node_id)));
+		pool_promote_node(node_id, gracefully);
+	}
 
 	pcp_write(frontend, "d", 1);
 	wsize = htonl(sizeof(code) + sizeof(int));
@@ -1303,7 +1395,7 @@ send_md5salt(PCP_CONNECTION * frontend, char *salt)
 }
 
 static void
-process_shutown_request(PCP_CONNECTION * frontend, char mode, char tos)
+process_shutdown_request(PCP_CONNECTION * frontend, char mode, char tos)
 {
 	char		code[] = "CommandComplete";
 	int			len;
@@ -1351,7 +1443,7 @@ process_shutown_request(PCP_CONNECTION * frontend, char mode, char tos)
 }
 
 static void
-process_set_configration_parameter(PCP_CONNECTION * frontend, char *buf, int len)
+process_set_configuration_parameter(PCP_CONNECTION * frontend, char *buf, int len)
 {
 	char	   *param_name;
 	char	   *param_value;

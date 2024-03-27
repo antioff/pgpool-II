@@ -56,6 +56,12 @@ pool_init_pool_passwd(char *pool_passwd_filename, POOL_PASSWD_MODE mode)
 	if (passwd_fd)
 		return;
 
+	if (pool_passwd_filename == NULL)
+	{
+		saved_passwd_filename[0] = '\0'; /* indicate pool_passwd is disabled */
+		return;
+	}
+
 	pool_passwd_mode = mode;
 
 	if (saved_passwd_filename[0] == '\0')
@@ -194,8 +200,13 @@ pool_get_passwd(char *username)
 				(errmsg("unable to get password, username is NULL")));
 
 	if (!passwd_fd)
-		ereport(ERROR,
+	{
+		if (strlen(saved_passwd_filename))
+			ereport(ERROR,
 				(errmsg("unable to get password, password file descriptor is NULL")));
+		else
+			return NULL;
+	}
 
 	rewind(passwd_fd);
 	name[0] = '\0';
@@ -329,7 +340,7 @@ userMatchesString(char *buf, char *user)
 }
 
 /*
- * user:passwod[:user:password]
+ * user:password[:user:password]
  */
 PasswordMapping *
 pool_get_user_credentials(char *username)
@@ -340,13 +351,14 @@ pool_get_user_credentials(char *username)
 	if (!username)
 		ereport(ERROR,
 				(errmsg("unable to get password, username is NULL")));
-
 	if (!passwd_fd)
 	{
-		ereport(WARNING,
+		if (strlen(saved_passwd_filename))
+			ereport(WARNING,
 				(errmsg("unable to get password, password file descriptor is NULL")));
 		return NULL;
 	}
+
 	rewind(passwd_fd);
 
 	while (!feof(passwd_fd) && !ferror(passwd_fd))
@@ -464,7 +476,7 @@ get_pgpool_config_user_password(char *username, char *password_in_config)
 	PasswordMapping *password_mapping = NULL;
 
 	/*
-	 * if the password specified in config is empty strin or NULL look for the
+	 * if the password specified in config is empty string or NULL look for the
 	 * password in pool_passwd file
 	 */
 	if (password_in_config == NULL || strlen(password_in_config) == 0)
@@ -650,7 +662,7 @@ read_pool_key(char *key_file_path)
 	if (stat_buf.st_mode & (S_IRWXG | S_IRWXO))
 	{
 		ereport(WARNING,
-				(errmsg("pool key file \"%s\" has group or world access; permissions should be u=rw (0600) or less\n",
+				(errmsg("pool key file \"%s\" has group or world access; permissions should be u=rw (0600) or less",
 						key_file_path)));
 		/* do we want to allow unsecure pool key file ? */
 		/* fclose(fp); */
@@ -679,4 +691,46 @@ read_pool_key(char *key_file_path)
 	return key;
 
 #undef LINELEN
+}
+
+/*
+ * Check password type is md5 hashed or not. recovery_password and
+ * wd_lifecheck_password are not allowed to be md5 hashed format.
+ * The kind of returns of this function is follow;
+ *  0: password is not md5 hashed
+ * -1: password is md5 hashed
+ * -2: password is not found
+ */
+int
+chceck_password_type_is_not_md5(char *username, char *password_in_config)
+{
+	PasswordType passwordType = PASSWORD_TYPE_UNKNOWN;
+
+	/*
+	 * if the password specified in config is empty string or NULL look for the
+	 * password in pool_passwd file
+	 */
+	if (password_in_config == NULL || strlen(password_in_config) == 0)
+	{
+		PasswordMapping *password_mapping = NULL;
+		password_mapping = pool_get_user_credentials(username);
+		if (password_mapping == NULL)
+		{
+			return -2;
+		}
+		passwordType = password_mapping->pgpoolUser.passwordType;
+		delete_passwordMapping(password_mapping);
+	}
+	else
+	{
+		passwordType = get_password_type(password_in_config);
+	}
+
+	/* if the password type is MD5 hash return -1*/
+	if (passwordType == PASSWORD_TYPE_MD5)
+	{
+		return -1;
+	}
+
+	return 0;
 }

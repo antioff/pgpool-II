@@ -5,7 +5,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -43,6 +43,7 @@
 #include <stdlib.h>
 
 #include "pool.h"
+#include "context/pool_query_context.h"
 #include "utils/pool_stream.h"
 #include "utils/palloc.h"
 #include "pool_config.h"
@@ -158,6 +159,13 @@ pool_get_cp(char *user, char *database, int protoMajor, int check_socket)
 					ereport(LOG,
 							(errmsg("connection closed."),
 							 errdetail("retry to create new connection pool")));
+					/*
+					 * It is possible that one of backend just broke.  sleep 1
+					 * second to wait for failover occurres, then wait for the
+					 * failover finishes.
+					 */
+					sleep(1);
+					wait_for_failover_to_finish();
 
 					for (j = 0; j < NUM_BACKENDS; j++)
 					{
@@ -471,7 +479,7 @@ pool_backend_timer(void)
 			nearest = 1;
 		pool_alarm(pool_backend_timer_handler, nearest);
 	}
-
+	update_pooled_connection_count();
 	POOL_SETMASK(&UnBlockSig);
 }
 
@@ -559,7 +567,7 @@ connect_unix_domain_socket_by_port(int port, char *socket_dir, bool retry)
 }
 
 /*
- * Connet to backend using pool_config->connect_timeout.
+ * Connect to backend using pool_config->connect_timeout.
  *
  * fd: the socket
  * walk: backend address to connect
@@ -668,7 +676,7 @@ connect_with_timeout(int fd, struct addrinfo *walk, char *host, int port, bool r
 				 * If read data or write data was set, either connect
 				 * succeeded or error.  We need to figure it out. This is the
 				 * hardest part in using non blocking connect(2).  See W.
-				 * Richar Stevens's "UNIX Network Programming: Volume 1,
+				 * Richard Stevens's "UNIX Network Programming: Volume 1,
 				 * Second Edition" section 15.4.
 				 */
 				if (FD_ISSET(fd, &rset) || FD_ISSET(fd, &wset))
@@ -968,6 +976,7 @@ static POOL_CONNECTION_POOL * new_connection(POOL_CONNECTION_POOL * p)
 		else
 		{
 			p->info[i].create_time = time(NULL);
+			p->info[i].client_idle_duration = 0;
 			p->slots[i] = s;
 
 			pool_init_params(&s->con->params);
@@ -1064,4 +1073,17 @@ close_all_backend_connections(void)
 	}
 
 	POOL_SETMASK(&oldmask);
+}
+
+void update_pooled_connection_count(void)
+{
+	int i;
+	int count = 0;
+	POOL_CONNECTION_POOL *p = pool_connection_pool;
+	for (i = 0; i < pool_config->max_pool; i++)
+	{
+		if (MAIN_CONNECTION(p))
+			count++;
+	}
+	pool_get_my_process_info()->pooled_connections = count;
 }

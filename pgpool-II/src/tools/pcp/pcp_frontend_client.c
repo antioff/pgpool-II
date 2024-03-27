@@ -4,7 +4,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2020	PgPool Global Development Group
+ * Copyright (c) 2003-2022	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -48,7 +48,7 @@ static void output_watchdog_info_result(PCPResultInfo * pcpResInfo, bool verbose
 static void output_procinfo_result(PCPResultInfo * pcpResInfo, bool all, bool verbose);
 static void output_proccount_result(PCPResultInfo * pcpResInfo, bool verbose);
 static void output_poolstatus_result(PCPResultInfo * pcpResInfo, bool verbose);
-static void output_nodeinfo_result(PCPResultInfo * pcpResInfo, bool verbose);
+static void output_nodeinfo_result(PCPResultInfo * pcpResInfo, bool all,  bool verbose);
 static void output_health_check_stats_result(PCPResultInfo * pcpResInfo, bool verbose);
 static void output_nodecount_result(PCPResultInfo * pcpResInfo, bool verbose);
 static char *backend_status_to_string(BackendInfo * bi);
@@ -85,12 +85,12 @@ struct AppTypes AllAppTypes[] =
 	{"pcp_attach_node", PCP_ATTACH_NODE, "n:h:p:U:wWvd", "attach a node from pgpool-II"},
 	{"pcp_detach_node", PCP_DETACH_NODE, "n:h:p:U:gwWvd", "detach a node from pgpool-II"},
 	{"pcp_node_count", PCP_NODE_COUNT, "h:p:U:wWvd", "display the total number of nodes under pgpool-II's control"},
-	{"pcp_node_info", PCP_NODE_INFO, "n:h:p:U:wWvd", "display a pgpool-II node's information"},
+	{"pcp_node_info", PCP_NODE_INFO, "n:h:p:U:awWvd", "display a pgpool-II node's information"},
 	{"pcp_health_check_stats", PCP_HEALTH_CHECK_STATS, "n:h:p:U:wWvd", "display a pgpool-II health check stats data"},
 	{"pcp_pool_status", PCP_POOL_STATUS, "h:p:U:wWvd", "display pgpool configuration and status"},
 	{"pcp_proc_count", PCP_PROC_COUNT, "h:p:U:wWvd", "display the list of pgpool-II child process PIDs"},
 	{"pcp_proc_info", PCP_PROC_INFO, "h:p:P:U:awWvd", "display a pgpool-II child process' information"},
-	{"pcp_promote_node", PCP_PROMOTE_NODE, "n:h:p:U:gwWvd", "promote a node as new main from pgpool-II"},
+	{"pcp_promote_node", PCP_PROMOTE_NODE, "n:h:p:U:gswWvd", "promote a node as new main from pgpool-II"},
 	{"pcp_recovery_node", PCP_RECOVERY_NODE, "n:h:p:U:wWvd", "recover a node"},
 	{"pcp_stop_pgpool", PCP_STOP_PGPOOL, "m:h:p:U:s:wWvda", "terminate pgpool-II"},
 	{"pcp_watchdog_info", PCP_WATCHDOG_INFO, "n:h:p:U:wWvd", "display a pgpool-II watchdog's information"},
@@ -115,8 +115,9 @@ main(int argc, char **argv)
 	int			i;
 	bool		all = false;
 	bool		debug = false;
-	bool		need_password = true;
+	bool		need_password = false;
 	bool		gracefully = false;
+	bool		switchover = false;
 	bool		verbose = false;
 	PCPConnInfo *pcpConn;
 	PCPResultInfo *pcpResInfo;
@@ -135,6 +136,7 @@ main(int argc, char **argv)
 		{"mode", required_argument, NULL, 'm'},
 		{"scope", required_argument, NULL, 's'},
 		{"gracefully", no_argument, NULL, 'g'},
+		{"switchover", no_argument, NULL, 's'},
 		{"verbose", no_argument, NULL, 'v'},
 		{"all", no_argument, NULL, 'a'},
 		{"node-id", required_argument, NULL, 'n'},
@@ -207,14 +209,21 @@ main(int argc, char **argv)
 						command_scope = 'l';
 					else
 					{
-						fprintf(stderr, "%s: Invalid command socpe \"%s\", must be either \"cluster\" or \"local\" \n", progname, optarg);
+						fprintf(stderr, "%s: Invalid command scope \"%s\", must be either \"cluster\" or \"local\" \n", progname, optarg);
 						exit(1);
 					}
 				}
 				else
 				{
-					fprintf(stderr, "Invalid argument \"%s\", Try \"%s --help\" for more information.\n", optarg, progname);
-					exit(1);
+					if (current_app_type->app_type == PCP_PROMOTE_NODE)
+					{
+						switchover = true;
+					}
+					else
+					{
+						fprintf(stderr, "Invalid argument \"%s\", Try \"%s --help\" for more information.\n", optarg, progname);
+						exit(1);
+					}
 				}
 				break;
 
@@ -294,7 +303,7 @@ main(int argc, char **argv)
 			default:
 
 				/*
-				 * getopt_long whould already have emitted a complaint
+				 * getopt_long should already have emitted a complaint
 				 */
 				fprintf(stderr, "Try \"%s --help\" for more information.\n\n", progname);
 				exit(1);
@@ -324,7 +333,7 @@ main(int argc, char **argv)
 				exit(0);
 			}
 		}
-		else if (app_require_nodeID() && nodeID < 0)
+		else if ((app_require_nodeID() || current_app_type->app_type == PCP_NODE_INFO) && nodeID < 0)
 		{
 			nodeID = atoi(argv[optind]);
 			if (nodeID < 0 || nodeID > MAX_NUM_BACKENDS)
@@ -348,7 +357,7 @@ main(int argc, char **argv)
 			fprintf(stderr, "Try \"%s --help\" for more information.\n\n", progname);
 			exit(1);
 		}
-		else if (current_app_type->app_type == PCP_WATCHDOG_INFO)
+		else if (current_app_type->app_type == PCP_WATCHDOG_INFO || current_app_type->app_type == PCP_NODE_INFO)
 		{
 			nodeID = -1;
 		}
@@ -417,9 +426,9 @@ main(int argc, char **argv)
 	else if (current_app_type->app_type == PCP_PROMOTE_NODE)
 	{
 		if (gracefully)
-			pcpResInfo = pcp_promote_node_gracefully(pcpConn, nodeID);
+			pcpResInfo = pcp_promote_node_gracefully(pcpConn, nodeID, switchover);
 		else
-			pcpResInfo = pcp_promote_node(pcpConn, nodeID);
+			pcpResInfo = pcp_promote_node(pcpConn, nodeID, switchover);
 	}
 
 	else if (current_app_type->app_type == PCP_RECOVERY_NODE)
@@ -465,7 +474,7 @@ main(int argc, char **argv)
 			output_nodecount_result(pcpResInfo, verbose);
 
 		if (current_app_type->app_type == PCP_NODE_INFO)
-			output_nodeinfo_result(pcpResInfo, verbose);
+			output_nodeinfo_result(pcpResInfo, all, verbose);
 
 		if (current_app_type->app_type == PCP_HEALTH_CHECK_STATS)
 			output_health_check_stats_result(pcpResInfo, verbose);
@@ -505,48 +514,75 @@ output_nodecount_result(PCPResultInfo * pcpResInfo, bool verbose)
 }
 
 static void
-output_nodeinfo_result(PCPResultInfo * pcpResInfo, bool verbose)
+output_nodeinfo_result(PCPResultInfo * pcpResInfo, bool all, bool verbose)
 {
-	BackendInfo *backend_info = (BackendInfo *) pcp_get_binary_data(pcpResInfo, 0);
+	bool		printed = false;
+	int			i;
 	char		last_status_change[20];
 	struct tm	tm;
-
-	localtime_r(&backend_info->status_changed_time, &tm);
-	strftime(last_status_change, sizeof(last_status_change), "%F %T", &tm);
+	char	   *frmt;
+	int         array_size = pcp_result_slot_count(pcpResInfo);
+	char		standby_delay_str[64];
 
 	if (verbose)
 	{
-		const char *titles[] = {"Hostname", "Port", "Status", "Weight", "Status Name", "Role", "Replication Delay", "Replication State", "Replication Sync State", "Last Status Change"};
-		const char *types[] = {"s", "d", "d", "f", "s", "s", "lu", "s", "s", "s"};
-		char *format_string;
+		const char *titles[] = {"Hostname", "Port", "Status", "Weight", "Status Name", "Backend Status Name", "Role", "Backend Role", "Replication Delay", "Replication State", "Replication Sync State", "Last Status Change"};
+		const char *types[] = {"s", "d", "d", "f", "s", "s", "s", "s", "s", "s", "s", "s"};
 
-		format_string = format_titles(titles, types, sizeof(titles)/sizeof(char *));
-		printf(format_string,
-			   backend_info->backend_hostname,
-			   backend_info->backend_port,
-			   backend_info->backend_status,
-			   backend_info->backend_weight / RAND_MAX,
-			   backend_status_to_string(backend_info),
-			   role_to_str(backend_info->role),
-			   backend_info->standby_delay,
-			   backend_info->replication_state,
-			   backend_info->replication_sync_state,
-			   last_status_change);
+		frmt = format_titles(titles, types, sizeof(titles)/sizeof(char *));
 	}
 	else
 	{
-		printf("%s %d %d %f %s %s %lu %s %s %s\n",
+		frmt = "%s %d %d %f %s %s %s %s %s %s %s %s\n";
+	}
+
+	for (i = 0; i < array_size; i++)
+	{
+
+		BackendInfo *backend_info = (BackendInfo *) pcp_get_binary_data(pcpResInfo, i);
+
+		if (backend_info == NULL)
+			break;
+		if ((!all) && (backend_info->backend_hostname[0] == '\0'))
+			continue;
+
+		printed = true;
+		localtime_r(&backend_info->status_changed_time, &tm);
+		strftime(last_status_change, sizeof(last_status_change), "%F %T", &tm);
+
+		if (backend_info->standby_delay_by_time)
+		{
+			snprintf(standby_delay_str, sizeof(standby_delay_str), "%.6f", ((float)backend_info->standby_delay)/1000000);
+			if (verbose)
+			{
+				if (backend_info->standby_delay >= 2*1000*1000)
+					strcat(standby_delay_str, " seconds");
+				else
+					strcat(standby_delay_str, " second");
+			}
+		}
+		else
+		{
+			snprintf(standby_delay_str, sizeof(standby_delay_str), "%lu", backend_info->standby_delay);
+		}
+
+		printf(frmt,
 			   backend_info->backend_hostname,
 			   backend_info->backend_port,
 			   backend_info->backend_status,
 			   backend_info->backend_weight / RAND_MAX,
 			   backend_status_to_string(backend_info),
+			   backend_info->pg_backend_status,
 			   role_to_str(backend_info->role),
-			   backend_info->standby_delay,
-			   backend_info->replication_state,
-			   backend_info->replication_sync_state,
+			   backend_info->pg_role,
+			   standby_delay_str,
+			   backend_info->replication_state[0] == '\0' ? "none" : backend_info->replication_state,
+			   backend_info->replication_sync_state[0] == '\0' ? "none" : backend_info->replication_sync_state,
 			   last_status_change);
 	}
+
+	if (printed == false)
+		printf("No node information available\n\n");
 }
 
 /*
@@ -678,59 +714,59 @@ output_procinfo_result(PCPResultInfo * pcpResInfo, bool all, bool verbose)
 {
 	bool		printed = false;
 	int			i;
-	char	   *frmt;
-	char		strcreatetime[128];
-	char		strstarttime[128];
+	char	   *format;
 	int			array_size = pcp_result_slot_count(pcpResInfo);
 
+	const char *titles[] = {
+		"Database", "Username", "Start time", "Client connection count",
+		"Major", "Minor", "Backend connection time", "Client connection time",
+		"Client idle duration", "Client disconnection time", "Pool Counter", "Backend PID",
+		"Connected", "PID", "Backend ID", "Status", "Load balance node"
+	};
+	const char *types[] = {
+		"s", "s", "s", "s",
+		"s", "s", "s", "s",
+		"s", "s", "s", "s",
+		"s", "s", "s", "s",
+		"s"
+	};
+
+
 	if (verbose)
-	{
-		frmt = "Database     : %s\n"
-			"Username     : %s\n"
-			"Start time   : %s\n"
-			"Creation time: %s\n"
-			"Major        : %d\n"
-			"Minor        : %d\n"
-			"Counter      : %d\n"
-			"Backend PID  : %d\n"
-			"Connected    : %d\n"
-			"PID          : %d\n"
-			"Backend ID   : %d\n";
-	}
+		format = format_titles(titles, types, sizeof(titles)/sizeof(char *));
 	else
 	{
-		frmt = "%s %s %s %s %d %d %d %d %d %d %d\n";
+		format = "%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n";
 	}
 
 	for (i = 0; i < array_size; i++)
 	{
 
-		ProcessInfo *process_info = (ProcessInfo *) pcp_get_binary_data(pcpResInfo, i);
+		POOL_REPORT_POOLS *pools = (POOL_REPORT_POOLS *) pcp_get_binary_data(pcpResInfo, i);
 
-		if (process_info == NULL)
+		if (pools == NULL)
 			break;
-		if ((!all) && (process_info->connection_info->database[0] == '\0'))
+		if (((!all) && (pools->database[0] == '\0')) || (pools->pool_pid[0] == '\0'))
 			continue;
 		printed = true;
-		*strcreatetime = *strstarttime = '\0';
-
-		if (process_info->start_time)
-			strftime(strstarttime, 128, "%Y-%m-%d %H:%M:%S", localtime(&process_info->start_time));
-		if (process_info->connection_info->create_time)
-			strftime(strcreatetime, 128, "%Y-%m-%d %H:%M:%S", localtime(&process_info->connection_info->create_time));
-
-		printf(frmt,
-			   process_info->connection_info->database,
-			   process_info->connection_info->user,
-			   strstarttime,
-			   strcreatetime,
-			   process_info->connection_info->major,
-			   process_info->connection_info->minor,
-			   process_info->connection_info->counter,
-			   process_info->connection_info->pid,
-			   process_info->connection_info->connected,
-			   process_info->pid,
-			   process_info->connection_info->backend_id);
+		printf(format,
+			   pools->database,
+			   pools->username,
+			   pools->process_start_time,
+			   pools->client_connection_count,
+			   pools->pool_majorversion,
+			   pools->pool_minorversion,
+			   pools->backend_connection_time,
+			   pools->client_connection_time,
+			   pools->client_idle_duration,
+			   pools->client_disconnection_time,
+			   pools->pool_counter,
+			   pools->pool_backendpid,
+			   pools->pool_connected,
+			   pools->pool_pid,
+			   pools->backend_id,
+			   pools->status,
+			   pools->load_balance_node);
 	}
 	if (printed == false)
 		printf("No process information available\n\n");
@@ -758,33 +794,37 @@ output_watchdog_info_result(PCPResultInfo * pcpResInfo, bool verbose)
 			quorumStatus = "UNKNOWN";
 
 		printf("Watchdog Cluster Information \n");
-		printf("Total Nodes          : %d\n", cluster->remoteNodeCount + 1);
-		printf("Remote Nodes         : %d\n", cluster->remoteNodeCount);
-		printf("Quorum state         : %s\n", quorumStatus);
-		printf("Alive Remote Nodes   : %d\n", cluster->aliveNodeCount);
-		printf("VIP up on local node : %s\n", cluster->escalated ? "YES" : "NO");
-		printf("Leader Node Name     : %s\n", cluster->leaderNodeName);
-		printf("Leader Host Name     : %s\n\n", cluster->leaderHostName);
+		printf("Total Nodes              : %d\n", cluster->remoteNodeCount + 1);
+		printf("Remote Nodes             : %d\n", cluster->remoteNodeCount);
+		printf("Member Remote Nodes      : %d\n", cluster->memberRemoteNodeCount);
+		printf("Alive Remote Nodes       : %d\n", cluster->aliveNodeCount);
+		printf("Nodes required for quorum: %d\n", cluster->nodesRequiredForQuorum);
+		printf("Quorum state             : %s\n", quorumStatus);
+		printf("Local node escalation    : %s\n", cluster->escalated ? "YES" : "NO");
+		printf("Leader Node Name         : %s\n", cluster->leaderNodeName);
+		printf("Leader Host Name         : %s\n\n", cluster->leaderHostName);
 
 		printf("Watchdog Node Information \n");
 		for (i = 0; i < cluster->nodeCount; i++)
 		{
 			PCPWDNodeInfo *watchdog_info = &cluster->nodeList[i];
 
-			printf("Node Name      : %s\n", watchdog_info->nodeName);
-			printf("Host Name      : %s\n", watchdog_info->hostName);
-			printf("Delegate IP    : %s\n", watchdog_info->delegate_ip);
-			printf("Pgpool port    : %d\n", watchdog_info->pgpool_port);
-			printf("Watchdog port  : %d\n", watchdog_info->wd_port);
-			printf("Node priority  : %d\n", watchdog_info->wd_priority);
-			printf("Status         : %d\n", watchdog_info->state);
-			printf("Status Name    : %s\n\n", watchdog_info->stateName);
+			printf("Node Name         : %s\n", watchdog_info->nodeName);
+			printf("Host Name         : %s\n", watchdog_info->hostName);
+			printf("Delegate IP       : %s\n", watchdog_info->delegate_ip);
+			printf("Pgpool port       : %d\n", watchdog_info->pgpool_port);
+			printf("Watchdog port     : %d\n", watchdog_info->wd_port);
+			printf("Node priority     : %d\n", watchdog_info->wd_priority);
+			printf("Status            : %d\n", watchdog_info->state);
+			printf("Status Name       : %s\n", watchdog_info->stateName);
+			printf("Membership Status : %s\n\n", watchdog_info->membership_status_string);
 		}
 	}
 	else
 	{
-		printf("%d %s %s %s\n\n",
+		printf("%d %d %s %s %s\n\n",
 			   cluster->remoteNodeCount + 1,
+			   cluster->memberRemoteNodeCount + 1,
 			   cluster->escalated ? "YES" : "NO",
 			   cluster->leaderNodeName,
 			   cluster->leaderHostName);
@@ -793,13 +833,15 @@ output_watchdog_info_result(PCPResultInfo * pcpResInfo, bool verbose)
 		{
 			PCPWDNodeInfo *watchdog_info = &cluster->nodeList[i];
 
-			printf("%s %s %d %d %d %s\n",
+			printf("%s %s %d %d %d %s %d %s\n",
 				   watchdog_info->nodeName,
 				   watchdog_info->hostName,
 				   watchdog_info->pgpool_port,
 				   watchdog_info->wd_port,
 				   watchdog_info->state,
-				   watchdog_info->stateName);
+				   watchdog_info->stateName,
+				   watchdog_info->membership_status,
+				   watchdog_info->membership_status_string);
 		}
 	}
 }
@@ -810,7 +852,6 @@ app_require_nodeID(void)
 {
 	return (current_app_type->app_type == PCP_ATTACH_NODE ||
 			current_app_type->app_type == PCP_DETACH_NODE ||
-			current_app_type->app_type == PCP_NODE_INFO ||
 			current_app_type->app_type == PCP_HEALTH_CHECK_STATS ||
 			current_app_type->app_type == PCP_PROMOTE_NODE ||
 			current_app_type->app_type == PCP_RECOVERY_NODE);
@@ -851,6 +892,13 @@ usage(void)
 	{
 		fprintf(stderr, "  -n, --node-id=NODEID   ID of a backend node\n");
 	}
+
+	if (current_app_type->app_type == PCP_NODE_INFO)
+	{
+		fprintf(stderr, "  -n, --node-id=NODEID   ID of a backend node\n");
+		fprintf(stderr, "  -a, --all              display all backend nodes information\n");
+	}
+
 	if (current_app_type->app_type == PCP_STOP_PGPOOL)
 	{
 		fprintf(stderr, "  -m, --mode=MODE        MODE can be \"smart\", \"fast\", or \"immediate\"\n");
@@ -865,7 +913,12 @@ usage(void)
 	if (current_app_type->app_type == PCP_PROMOTE_NODE ||
 		current_app_type->app_type == PCP_DETACH_NODE)
 	{
-		fprintf(stderr, "  -g, --gracefully       promote gracefully(optional)\n");
+		fprintf(stderr, "  -g, --gracefully       promote gracefully (optional)\n");
+	}
+
+	if (current_app_type->app_type == PCP_PROMOTE_NODE)
+	{
+		fprintf(stderr, "  -s, --switchover       switchover primary to specified node (optional)\n");
 	}
 
 	if (current_app_type->app_type == PCP_WATCHDOG_INFO)
@@ -972,7 +1025,7 @@ role_to_str(SERVER_ROLE role)
  *
  * titles: title string array
  * types:  printf format type string array (example: "d")
- * ntitles: size of the arrary
+ * ntitles: size of the array
  */
 static char *
 format_titles(const char **titles, const char **types, int ntitles)
@@ -999,5 +1052,6 @@ format_titles(const char **titles, const char **types, int ntitles)
 		strncat(formatbuf, buf2, sizeof(formatbuf) - strlen(formatbuf) - 2);
 		strcat(formatbuf, "\n");
 	}
+	strcat(formatbuf, "\n");
 	return formatbuf;
 }

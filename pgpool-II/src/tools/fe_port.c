@@ -2,7 +2,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2014	PgPool Global Development Group
+ * Copyright (c) 2003-2024	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -118,10 +118,12 @@ error_severity(int elevel)
 		case DEBUG3:
 		case DEBUG4:
 		case DEBUG5:
+		case FRONTEND_DEBUG:
 			prefix = "DEBUG";
 			break;
 		case LOG:
 		case COMMERROR:
+		case FRONTEND_LOG:
 			prefix = "LOG";
 			break;
 		case INFO:
@@ -160,14 +162,13 @@ nowsec(void)
 	return strbuf;
 }
 
-int
-errstart(int elevel, const char *filename, int lineno,
-		 const char *funcname)
+bool errstart(int elevel, const char *filename, int lineno,
+		 const char *funcname, const char *domain)
 {
 	_fe_error_level = elevel;
 
 	/*
-	 * This is a basic version and for now we just supress all messages below
+	 * This is a basic version and for now we just suppress all messages below
 	 * WARNING for frontend
 	 */
 	if (_fe_error_level < WARNING)

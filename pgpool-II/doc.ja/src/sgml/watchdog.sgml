@@ -244,10 +244,10 @@
       Specifies the authentication key used for all watchdog communications.
       All <productname>Pgpool-II</productname> must have the same key.
       Packets from watchdog having different key will get rejected.
-      This authentication is also applied to the heatrbeat singals
+      This authentication is also applied to the heartbeat signals
       when the <literal>heartbeat</> mode is used as a lifecheck method.
       -->
-      wachdog間通信で用いられる認証キーを指定します。
+      watchdog間通信で用いられる認証キーを指定します。
       全ての<productname>Pgpool-II</productname>で同じキーを指定する必要があります。
       認証キーが異なるwatchdogからの通信は拒絶されます。
       死活監視を<literal>heartbeat</>モードで行う場合には、この認証はハートビート信号にも適用されます。
@@ -327,24 +327,26 @@
     </listitem>
    </varlistentry>
 
-   <varlistentry id="guc-ping-path" xreflabel="ping_path">
-    <term><varname>ping_path</varname> (<type>string</type>)
+   <varlistentry id="guc-trusted-server-command" xreflabel="trusted_server_command">
+    <term><varname>trusted_server_command</varname> (<type>string</type>)
      <indexterm>
       <!--
-      <primary><varname>ping_path</varname> configuration parameter</primary>
+      <primary><varname>trusted_server_command</varname> configuration parameter</primary>
       -->
-      <primary><varname>ping_path</varname>設定パラメータ</primary>
+      <primary><varname>trusted_server_command</varname>設定パラメータ</primary>
      </indexterm>
     </term>
     <listitem>
      <para>
       <!--
-      Specifies the path of a ping command for monitoring
-      connection to the upper servers. Set the only path of the directory containing the
-      ping utility, such as <literal>"/bin"</literal> or such directory.
+      Specifies a user command to run when <productname>Pgpool-II</productname> check
+      that trusted servers respond to ping. Any %h in the string is replaced by each host
+      name specified <varname>trusted_servers</varname>. Default is
+      <literal>ping -q -c3 %h</literal>.
       -->
-      上位サーバへの接続監視に利用するpingコマンドのパスを指定します。
-      <literal>"/bin"</literal>のようにパスだけを指定します。
+      信頼できるサーバのping応答を確認するユーザコマンドを指定します。
+      %hは<varname>trusted_servers</varname>で指定された各ホスト名に置換されます。
+      デフォルトは<literal>ping -q -c3 %h</literal>です。
      </para>
      <para>
       <!--
@@ -365,13 +367,13 @@
 
   <variablelist>
 
-   <varlistentry id="guc-delegate-IP" xreflabel="delegate_IP">
-    <term><varname>delegate_IP</varname> (<type>string</type>)
+   <varlistentry id="guc-delegate-ip" xreflabel="delegate_ip">
+    <term><varname>delegate_ip</varname> (<type>string</type>)
      <indexterm>
       <!--
-      <primary><varname>delegate_IP</varname> configuration parameter</primary>
+      <primary><varname>delegate_ip</varname> configuration parameter</primary>
       -->
-      <primary><varname>delegate_IP</varname>設定パラメータ</primary>
+      <primary><varname>delegate_ip</varname>設定パラメータ</primary>
      </indexterm>
     </term>
     <listitem>
@@ -453,7 +455,7 @@
       to run <command>sudo</command> command without a password, and specify it such as
       <literal>"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0"</literal>.
       <literal>$_IP_$</literal> will get replaced by the IP address
-      specified in the <xref linkend="guc-delegate-IP">.
+      specified in the <xref linkend="guc-delegate-ip">.
       -->
       仮想IPを起動するために実行するコマンドを指定します。
       <command>"ip addr add $_IP_$/24 dev eth0 label eth0:0"</command>のようにコマンドとパラメータを指定します。
@@ -461,7 +463,7 @@
       <command>ip</command>コマンドに<command>setuid</command>を設定するか、
       <productname>Pgpool-II</productname>起動ユーザ(デフォルトでは<literal>postgres</literal>)がパスワードなしに<command>sudo</command>を実行できるように設定し、
       <command>sudo</command>を介したコマンドを<literal>"/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev eth0 label eth0:0"</literal>のように指定します。
-      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-IP">で指定されたIPアドレスに置換されます。
+      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-ip">で指定されたIPアドレスに置換されます。
      </para>
      <para>
       このパラメータは、サーバ起動時にのみ設定できます。
@@ -490,7 +492,7 @@
       to run <command>sudo</command> command without a password, and specify it such as
       <literal>"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0"</literal>.
       <literal>$_IP_$</literal> will get replaced by the IP address
-      specified in the <xref linkend="guc-delegate-IP">.
+      specified in the <xref linkend="guc-delegate-ip">.
       -->
       仮想IPを停止するために実行するコマンドを指定します。
       <literal>"ip addr del $_IP_$/24 dev eth0"</literal>のようにコマンドとパラメータを指定します。
@@ -498,7 +500,7 @@
       <command>ip</command>コマンドに<command>setuid</command>を設定するか、
       <productname>Pgpool-II</productname>起動ユーザ(デフォルトでは<literal>postgres</literal>)がパスワードなしに<command>sudo</command>を実行できるように設定し、
       <command>sudo</command>を介したコマンドを<literal>"/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev eth0"</literal>のように指定します。
-      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-IP">で指定されたIPアドレスに置換されます。
+      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-ip">で指定されたIPアドレスに置換されます。
      </para>
      <para>
       <!--
@@ -564,7 +566,7 @@
       to run <command>sudo</command> command without a password, and specify it such as
       <literal>"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0"</literal>.
       <literal>$_IP_$</literal> will get replaced by
-      the IP address specified in the <varname>delegate_IP</varname>.
+      the IP address specified in the <varname>delegate_ip</varname>.
       -->
       IPアドレス切り替え後にARPリクエストを送信するコマンドです。
       <literal>"arping -U $_IP_$ -w 1 -I eth0"</literal>のようにコマンドとパラメータを指定します。
@@ -572,7 +574,7 @@
       <command>arping</command>コマンドに<literal>setuid</literal>を設定するか、
       <productname>Pgpool-II</productname>起動ユーザ(デフォルトでは<literal>postgres</literal>ユーザ)がパスワードなしに<command>sudo</command>を実行できるように設定し、
       <command>sudo</command>を介したコマンドを<literal>"/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I eth0"</literal>のように設定します。
-      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-IP">で指定されたIPアドレスに置換されます。
+      <literal>$_IP_$</literal>は<xref linkend="guc-delegate-ip">で指定されたIPアドレスに置換されます。
      </para>
      <para>
       <!--
@@ -583,12 +585,39 @@
     </listitem>
    </varlistentry>
 
+   <varlistentry id="guc-ping-path" xreflabel="ping_path">
+    <term><varname>ping_path</varname> (<type>string</type>)
+     <indexterm>
+      <!--
+      <primary><varname>ping_path</varname> configuration parameter</primary>
+      -->
+      <primary><varname>ping_path</varname>設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+      <!--
+      Specifies the path of a ping command to check startup of the virtual IP.
+      Set the only path of the directory containing the ping utility,
+      such as <literal>"/bin"</literal> or such directory.
+      -->
+      仮想IPの起動を確認するために利用するpingコマンドのパスを指定します。
+      <literal>"/bin"</literal>のようにパスだけを指定します。
+     </para>
+     <para>
+      <!--
+      This parameter can only be set at server start.
+      -->
+      このパラメータは、サーバ起動時にのみ設定できます。
+     </para>
+    </listitem>
+   </varlistentry>
   </variablelist>
  </sect2>
 
  <sect2 id="config-watchdog-escalation-de-escalation">
   <!--
-  <title>Behaivor on escalation and de-escalation</title>
+  <title>Behavior on escalation and de-escalation</title>
   -->
   <title>昇格および降格時の振る舞い</title>
   <para>
@@ -614,8 +643,8 @@
      <para>
       <!--
       When set to on, watchdog clears all the query cache in the shared memory
-      when pgpool-II escaltes to active. This prevents the new active <productname>Pgpool-II</productname>
-      from using old query caches inconsistence to the old active.
+      when pgpool-II escalates to active. This prevents the new active <productname>Pgpool-II</productname>
+      from using old query caches inconsistences to the old active.
       -->
       このオプションがonの場合、pgpool-II がアクティブに昇格した時に、共有メモリ上のクエリキャッシュを全て削除します。
       これにより、新しいアクティブの<productname>Pgpool-II</productname>が旧アクティブと非整合な古いクエリキャッシュを使うことを防止します。
@@ -798,7 +827,7 @@
       -->
       隔離とフェイルオーバ操作には多くの類似点がありますが、どちらも非常に基本的な方法で異なります。
       隔離操作は<xref linkend="guc-failover-command">を実行せず、障害の発生したノードを隔離します。
-       この隔離されたノードがマスタの場合、<productname>Pgpool-II</productname>はスタンバイをマスタに昇格させないので、マスタノードが隔離されている間は、使用可能なマスタバックエンドノードはありません。
+       この隔離されたノードがプライマリの場合、<productname>Pgpool-II</productname>はスタンバイをプライマリに昇格させないので、プライマリノードが隔離されている間は、使用可能なプライマリバックエンドノードはありません。
      </para>
      <para>
       更に、障害ノードとは違い、<productname>Pgpool-II</productname>は隔離されたノードに対してはヘルスチェックを実行し続けます。
@@ -808,11 +837,11 @@
      </para>
 
      <para>
-      <productname>Pgpool-II </productname><emphasis>V4.1</emphasis>以後では、プライマリノードのフェイルオーバに関してwatchdogのマスタノードが合意形成に失敗し、その結果プライマリバックエンドが隔離状態になった場合、そのマスタノードはマスタ/コーディネータの役割を辞退し、次のリーダの選挙の際にwd_priorityを引き下げることにより、クラスタが新しいリーダを選ぶように仕向けます。
+      <productname>Pgpool-II </productname><emphasis>V4.1</emphasis>以後では、プライマリノードのフェイルオーバに関してwatchdogのリーダノードが合意形成に失敗し、その結果プライマリバックエンドが隔離状態になった場合、そのリーダノードはリーダ/コーディネータの役割を辞退し、次のリーダの選挙の際にwd_priorityを引き下げることにより、クラスタが新しいリーダを選ぶように仕向けます。
       <note>
        <para>
-	スタンバイバックエンドの障害時にマスタノードが合意形成に失敗した場合は、特にアクションは起こしません。
-	watchdogマスタが管理する隔離されたスタンバイバックエンドは新しいリーダの選挙を引き起こしません。
+	スタンバイバックエンドの障害時にリーダノードが合意形成に失敗した場合は、特にアクションは起こしません。
+	watchdogリーダが管理する隔離されたスタンバイバックエンドは新しいリーダの選挙を引き起こしません。
        </para>
       </note>
      </para>
@@ -1032,7 +1061,7 @@
       このパラメータがオンのときは、split-brainが発生するリスクがあることに注意してください。
       たとえば、ノードA, B, C, Dからなる4ノードのクラスタでは、(A, B)と(C, D)の分断された2つのネットワークになる可能性があります。
       (A, B)と(C, D)にとっては、それぞれ生きた2つのノードが存在するので、クォーラムは依然として存在します。
-      各々のグループはそれぞれのマスタwatchdogを選び、これはすなわちsplit-brainです。
+      各々のグループはそれぞれのリーダwatchdogを選び、これはすなわちsplit-brainです。
      </para>
      <para>
       デフォルト値はオフです。
@@ -1046,6 +1075,186 @@
      </para>
     </listitem>
    </varlistentry>
+  </variablelist>
+ </sect2>
+
+ <sect2 id="config-watchdog-cluster-membership">
+<!--
+  <title>Controlling the watchdog cluster membership </title>
+-->
+  <title>watchdogクラスタメンバーシップの管理</title>
+  <para>
+<!--
+	By default the watchdog cluster consists of all watchdog nodes
+	that are defined in the <filename>pgpool.conf</filename> file
+	irrespective of the current state of the node. Whether the node
+	is <literal>LOST</literal>, <literal>SHUTDOWN</literal>
+	or never started, the node is considered as the member of the
+	watchdog cluster definition as long as it is configured in the
+	configuration file.
+	All the majority rule computations for identifying the existence
+	of a quorum and resolving the consensus are made based on the
+	number of watchdog nodes that makes up the watchdog cluster.
+-->
+   デフォルトではwatchdogクラスタは、現在のノードの状態とは無関係に<filename>pgpool.conf</filename>ファイルに定義されたすべてのwatchdogノードから構成されます。
+   ノードが<literal>LOST</literal>、<literal>SHUTDOWN</literal>、あるいはノードが起動されなかった場合でも、設定ファイルにて設定されている限りはそのノードはwatchdogクラスタの定義に含まれると考えられます。
+   クォーラムの存在と、合意の解決のためのすべての多数決ルールの計算は、watchdogクラスタを構成するwatchdogノードの数に基づいて行われます。
+  </para>
+
+  <para>
+<!--
+	<productname>Pgpool-II</productname> <emphasis>V4.3</emphasis> enables
+	dynamic cluster definition by introducing the concept of
+	<emphasis>Member</emphasis> and <emphasis>Nonmember</emphasis>.
+	If the node's membership gets revoked from the watchdog cluster,
+	then the cluster re-calibrate itself dynamically to adjust all
+	subsequent majority rule computations.
+-->
+    <productname>Pgpool-II</productname> <emphasis>V4.3</emphasis>では<emphasis>メンバー</emphasis>と<emphasis>非メンバー</emphasis>の概念を導入することにより動的にクラスタの定義を変えることができるようになりました。
+	</para>
+	<para>
+<!--
+	All majority rule computations are done based on the number of
+	member watchdog nodes instead of total number of configured nodes.
+-->
+   設定されたノードの合計数ではなく、メンバーwatchdogの数に基づいてすべての多数決ルールの計算が行われます。
+  </para>
+
+  <para>
+<!--
+	For example: In a five node cluster (<filename>pgpool.conf</filename> has five
+	watchdog nodes defined) at-least three nodes need to be alive to make the quorum.
+	With the dynamic cluster membership mechanism the cluster can re-adjust
+	itself to only count the <emphasis>MEMBER</emphasis> nodes
+	(Member node doesn't necessarily need to be alive).
+	That means effectively a single alive node
+	can also fulfill the quorum requirements (depending on the membership criteria settings)
+	if at some point in time the cluster only has one or two member nodes.
+-->
+   たとえば5つのノードのクラスタ(<filename>pgpool.conf</filename>に5つのwatchdogノードが定義されています)では、クォーラムを作成するためには少なくとも3つのノードが生きていることが必要です。
+   動的なクラスタメンバー管理の機構では、クラスタは<emphasis>メンバー</emphasis>ノード(メンバーノードは必ずしも生きている必要はありません)だけを数えるために、自分自身を再調整できます。
+   このことは、ある時点でクラスタが1つあるいは2つのノードだけから構成されているときに、実質的に単一の生きているノードが（メンバーシップ管理の設定によって）クォーラム存在の条件を満たすことができることを意味します。
+  </para>
+
+  <para>
+	<caution>
+		<para>
+<!--
+		Using the dynamic cluster membership has an associated risk of causing a split-brain.
+		So it is strongly recommended to carefully review if the setup requires the dynamic cluster
+		membership and consider using conservative values for related settings.
+-->
+      動的クラスタメンバーシップを使うことにより、split-brainが起こるリスクがあります。
+      設定において動的クラスタメンバーシップが必要かどうかを注意深くレビューし、関連する設定に保守的な設定を行うことを検討することを強く推奨します。
+		</para>
+	</caution>
+  </para>
+
+  <para>
+<!--
+  These settings configures when the node is marked as Nonmember.
+  Leaving all these settings to default values retains the
+  pre <emphasis>V4.3</emphasis> behaviour.
+-->
+   これらの設定項目は非メンバーであると印をつけられたノードを設定します。
+   これらの設定をデフォルト値のままにしておくと、<emphasis>V4.3</emphasis>以前の振る舞いになります。
+  </para>
+
+  <variablelist>
+
+   <varlistentry id="guc-wd-remove-shutdown-nodes" xreflabel="wd_remove_shutdown_nodes">
+    <term><varname>wd_remove_shutdown_nodes</varname> (<type>boolean</type>)
+     <indexterm>
+<!--
+      <primary><varname>wd_remove_shutdown_nodes</varname> configuration parameter</primary>
+-->
+      <primary><varname>wd_remove_shutdown_nodes</varname>設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+<!--
+	 When enabled, the <literal>SHUTDOWN</literal> nodes are immediately marked as Nonmember
+	 and removed from the cluster. If the previously shutdown node starts again,
+	 it gets added to cluster automatically.
+-->
+      有効ならば、<literal>SHUTDOWN</literal>ノードは直ちに非メンバーであると印を付けられ、クラスタから削除されます。
+      以前停止されたノードが再起動すると、自動的にクラスタに追加されます。
+     </para>
+<!--
+	 <para> Default is off. </para>
+-->
+	 <para>デフォルトはoffです。</para>
+	</listitem>
+   </varlistentry>
+
+
+   <varlistentry id="guc-wd-lost-node-removal-timeout" xreflabel="wd_lost_node_removal_timeout">
+    <term><varname>wd_lost_node_removal_timeout</varname> (<type>integer</type>)
+     <indexterm>
+<!--
+      <primary><varname>wd_lost_node_removal_timeout</varname> configuration parameter</primary>
+-->
+      <primary><varname>wd_lost_node_removal_timeout</varname>設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+<!--
+      Timeout in seconds to mark the <literal>LOST</literal> watchdog node as
+	  Nonmember and remove from the cluster.
+	  When LOST node re-connects to the cluster, its cluster membership is restored.
+-->
+      <literal>LOST</literal>状態のwatchdogノードに非メンバーであると印を付けて、クラスタから削除するまでのタイムアウトの秒単位の時間です。
+      LOSTノードが再接続すると、クラスタメンバーシップは復元されます。
+     </para>
+	 <para>
+<!--
+	 Setting the timeout to <literal>0</literal> disables the removal
+	 of LOST nodes from cluster.
+-->
+      タイムアウトを<literal>0</literal>にすると、LOSTノードをクラスタから削除しません。
+	 </para>
+<!--
+	 <para> Default is 0. </para>
+-->
+
+	 <para>デフォルトは0です。</para>
+	</listitem>
+   </varlistentry>
+
+   <varlistentry id="guc-wd-no-show-node-removal-timeout" xreflabel="wd_no_show_node_removal_timeout">
+    <term><varname>wd_no_show_node_removal_timeout</varname> (<type>integer</type>)
+     <indexterm>
+<!--
+      <primary><varname>wd_no_show_node_removal_timeout</varname> configuration parameter</primary>
+-->
+      <primary><varname>wd_no_show_node_removal_timeout</varname>設定パラメータ</primary>
+     </indexterm>
+    </term>
+    <listitem>
+     <para>
+<!--
+      Timeout in seconds to mark the node as Nonmember if it doesn't show up
+	  at cluster initialisation. Nonmember node becomes the cluster Member as
+	  soon as it starts up and connects to the cluster.
+-->
+      クラスタ起動時にノードが現れない(NO-SHOW)場合に、非メンバーであると印を付けるまでのタイムアウトの秒単位の時間です。
+      そのノードが起動してクラスタに接続すると、直ちにその非メンバーノードはクラスタメンバーになります。
+	 </para>
+	 <para>
+<!--
+	 Setting the timeout to <literal>0</literal> disables the removal
+	 of <literal>NO-SHOW</literal> nodes from cluster.
+-->
+      タイムアウトを<literal>0</literal>にすると、<literal>NO-SHOW</literal>ノードをクラスタから削除しません。
+	 </para>
+<!--
+	 <para> Default is 0. </para>
+-->
+	 <para>デフォルトは0です。</para>
+	</listitem>
+  </varlistentry>
 
   </variablelist>
  </sect2>
@@ -1086,7 +1295,7 @@
      </para>
      <para>
       <!--
-      <literal>heartbeat</literal>: In this mode, watchdog sends the heartbeat singals (<acronym>UDP</acronym> packets)
+      <literal>heartbeat</literal>: In this mode, watchdog sends the heartbeat signals (<acronym>UDP</acronym> packets)
       periodically to other <productname>Pgpool-II</productname>. Similarly watchdog also receives the signals
       from other <productname>Pgpool-II</productname> .
       If there are no signal for a certain period, watchdog regards is as failure
@@ -1240,12 +1449,15 @@
       value is selected as a leader node.
       So we should start watchdog nodes in order of <varname>wd_priority</varname> priority to prevent 
       unintended nodes from being selected as leader.
+      If <varname>wd_priority</varname> of each nodes has the same value,
+      leader node will be decided on base of starting time of watchdog.
       -->
       このパラメータによってローカルのwatchdogノードがリーダーに選ばれる優先度を上げることができます。
       古いリーダーノードが故障した状況でクラスタがリーダーノードの選択を行う際に、<varname>wd_priority</varname>が高いノードがリーダーwatchdogノードに選ばれます。
       <varname>wd_priority</varname>はクラスタの初期起動時にも有効なので、
       複数のwatchdogノードを同時に起動した場合、<varname>wd_priority</varname>が高いノードがリーダーwatchdogノードに選ばれます。
       このため、watchdogノードは意図しないノードがリーダーに選ばれることが無いように<varname>wd_priority</varname>の優先順位が高い順に起動するべきです。
+      もし<varname>wd_priority</varname>が同じなら、早いもの勝ちでリーダーになります。
      </para>
      <para>
       <!--
@@ -1328,7 +1540,7 @@
       <!--
       Specifies the <acronym>IP</acronym> address or <acronym>hostname</acronym> of
       for sending and receiving the heartbeat signals.
-      Multiple destinations can be configured for the heartbeat singnals,
+      Multiple destinations can be configured for the heartbeat signals,
       the number at the end of the parameter name is
       referred as the "pgpool node id", that starts from 0.
       -->
@@ -1365,7 +1577,7 @@
      <para>
       <!--
       Specifies the port number for sending the heartbeat signals.
-      Multiple destinations can be configured for the heartbeat singnals,
+      Multiple destinations can be configured for the heartbeat signals,
       the number at the end of the parameter name is
       referred as the "pgpool node id", that starts from 0.
       -->

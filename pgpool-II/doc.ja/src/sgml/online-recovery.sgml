@@ -5,7 +5,12 @@
  <title>Online Recovery</title>
  -->
  <title>オンラインリカバリ</title>
-
+ <indexterm>
+  <primary>online recovery</primary>
+ </indexterm>
+ <indexterm>
+  <primary>オンラインリカバリ</primary>
+ </indexterm>
  <para>
   <!--
   <productname>Pgpool-II</productname> can synchronize database
@@ -23,7 +28,7 @@
   For online recovery, the recovery target node must be in detached
   state. This means the node must be either manually detached by
   <xref linkend="pcp-detach-node"> or automatically detached
-  by <productname>Pgpool-II</productname> as a consequnece of
+  by <productname>Pgpool-II</productname> as a consequence of
   failover.
   -->
   オンラインリカバリを実施するためには、リカバリ対象のノードは<productname>Pgpool-II</productname>から切り離された状態になっていなければなりません。
@@ -109,8 +114,8 @@
  </para>
  <para>
   <!--
-  Connections from cliens are not allowd only in the second stage
-  while the data can be updated or retrieved during the first statge.
+  Connections from clients are not allowed only in the second stage
+  while the data can be updated or retrieved during the first stage.
   -->
   ファーストステージではデータの更新や読み取りができますが、セカンドステージではクライアントからの接続は許されていません。
  </para>
@@ -217,9 +222,10 @@
   <para>
    <!--
    There is a restriction in the online recovery in
-   <xref linkend="guc-replication-mode">. If
-   <productname>Pgpool-II</productname> itself is installed
-   on multiple hosts, online recovery does not work correctly,
+   <xref linkend="guc-replication-mode"> and <xref linkend="guc-snapshot-isolation-mode">.
+   If <productname>Pgpool-II</productname> itself is installed
+   on multiple hosts without enabling watchdog,
+   online recovery does not work correctly,
    because <productname>Pgpool-II</productname> has to stop all
    the clients during the 2nd stage of online recovery.
    If there are several <productname>Pgpool-II</productname> hosts,
@@ -227,8 +233,8 @@
    block the connections from clients.
    -->
    <xref linkend="guc-replication-mode">あるいは<xref linkend="guc-snapshot-isolation-mode">でのオンラインリカバリには制限事項があります。
-    <productname>Pgpool-II</productname>が複数のホストにインストールされている場合、<productname>Pgpool-II</productname>はオンラインリカバリの2ndステージの間全てのクライアントを止める必要があるため、オンラインリカバリは正しく動作しません。
-    複数の<productname>Pgpool-II</productname>ホストがある場合、そのうちの１台のみがオンラインリカバコマンドを受け取り、クライアントからの接続をブロックします。
+   Watchdogを有効にせずに<productname>Pgpool-II</productname>を複数のホストにインストールしている場合、<productname>Pgpool-II</productname>はオンラインリカバリの2ndステージの間全てのクライアントを止める必要があるため、オンラインリカバリは正しく動作しません。
+   複数の<productname>Pgpool-II</productname>ホストがある場合、そのうちの１台のみがオンラインリカバコマンドを受け取り、クライアントからの接続をブロックします。
   </para>
  </note>
  <variablelist>
@@ -247,7 +253,7 @@
      <!--
      Specifies the <productname>PostgreSQL</> user name to perform online recovery.
      <varname>recovery_user</varname> must specify superuser,
-     beacause <function>pgpool_recovery</function> function is executed
+     because <function>pgpool_recovery</function> function is executed
      during online recovery, require superuser privilege.
      -->
      オンラインリカバリを行うための<productname>PostgreSQL</>ユーザ名です。
@@ -355,7 +361,7 @@
      database cluster directory for security reasons.
      For example, if <varname>recovery_1st_stage_command</varname> = <literal>
      'sync-command'</literal>, then <productname>Pgpool-II</productname> will
-     look for the command scrit in <literal>$PGDATA</literal> directory and will
+     look for the command script in <literal>$PGDATA</literal> directory and will
      try to execute <command>$PGDATA/sync-command</command>.
      -->
      オンラインリカバリのファーストステージでメイン（プライマリ）ノードで実行されるコマンドを指定します。
@@ -364,9 +370,9 @@
     </para>
     <para>
      <!--
-     <varname>recovery_1st_stage_command</varname> receives following 6 parameters:
+     <varname>recovery_1st_stage_command</varname> receives following 7 parameters:
      -->
-     <varname>recovery_1st_stage_command</varname>は次の6つの引数を受けとります。 
+     <varname>recovery_1st_stage_command</varname>は次の7つの引数を受けとります。 
     </para>
 
     <itemizedlist>
@@ -416,6 +422,42 @@
        Port number to be recovered (<productname>Pgpool-II</productname> 4.1 or after)
        -->
        リカバリされるノードのポート番号（<productname>Pgpool-II</productname> 4.1以降）
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+	<!--
+       Hostname of the main (primary) node
+       (<productname>Pgpool-II</productname> 4.3 or after)
+	-->
+	main (primary)ノードのホスト名（<productname>Pgpool-II</productname> 4.3以降)
+      </para>
+      <para>
+	<!--
+       Before the hostname of the main (primary) node was obtained by
+       using <command>hostname</command> command. This is mostly ok
+       since the script runs on the main (primary) node
+       anyway. However in some systems the hostname obtained
+       by <command>hostname</command> command is different from the
+       hostname defined in backend_hostname configuration parameter.
+       This could cause a trouble
+       in <xref linkend="guc-detach-false-primary"> because it checks
+       connectivity between primary and standby node by
+       using <literal>host</literal> parameter
+       in <varname>primary_conninfo</varname> parameter, which is
+       generated
+       by <varname>recovery_1st_stage_command</varname>. Thus it is
+       strongly recommended to use this parameter instead of
+       using <command>hostname</command> command to obtain the
+       hostname of the primary node
+       in <varname>recovery_1st_stage_command</varname>.
+       -->
+       以前はmain (primary)ノードのホスト名は<command>hostname</command>コマンドを使って取得されていました。
+       スクリプトがmain (primary)ノードで実行されるため、これはほとんどの場合問題になりません。
+       しかし、ある種のシステムでは、<command>hostname</command>コマンドを使って取得したホスト名とbackend_hostname設定パラメータが一致しません。
+       これは<xref linkend="guc-detach-false-primary">で問題になります。
+       なぜなら、<varname>recovery_1st_stage_command</varname>が生成する<varname>primary_conninfo</varname> の<literal>host</literal>パラメータを使ってプライマリとスタンバイの接続性を確認するからです。
+       ですから、<varname>recovery_1st_stage_command</varname>においては、<command>hostname</command>コマンドではなく、このパラメータを使ってプライマリノードのホスト名を得るようにすることを強くおすすめします。
       </para>
      </listitem>
     </itemizedlist>
@@ -460,7 +502,7 @@
      database cluster directory for security reasons.
      For example, if <varname>recovery_2nd_stage_command</varname> = <literal>
      'sync-command'</literal>, then <productname>Pgpool-II</productname> will
-     look for the command scrit in <literal>$PGDATA</literal> directory and will
+     look for the command script in <literal>$PGDATA</literal> directory and will
      try to execute <command>$PGDATA/sync-command</command>.
      -->
      オンラインリカバリのセカンドステージでメインノードで実行されるコマンドを指定します。
@@ -470,9 +512,9 @@
     </para>
     <para>
      <!--
-     <varname>recovery_2nd_stage_command</varname> receives following 6 parameters:
+     <varname>recovery_2nd_stage_command</varname> receives following 7 parameters:
      -->
-     <varname>recovery_2nd_stage_command</varname>は次の6つの引数を受けとります。 
+     <varname>recovery_2nd_stage_command</varname>は次の7つの引数を受けとります。 
     </para>
 
     <itemizedlist>
@@ -522,6 +564,15 @@
        Port number to be recovered (<productname>Pgpool-II</productname> 4.1 or after)
        -->
        リカバリされるノードのポート番号（<productname>Pgpool-II</productname> 4.1以降）
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+	<!--
+       Hostname of the main (primary) node
+       (<productname>Pgpool-II</productname> 4.3 or after)
+	-->
+	main (primary)ノードのホスト名（<productname>Pgpool-II</productname> 4.3以降)
       </para>
      </listitem>
     </itemizedlist>

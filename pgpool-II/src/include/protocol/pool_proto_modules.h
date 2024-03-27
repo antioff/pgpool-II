@@ -6,7 +6,7 @@
  * pgpool: a language independent connection pool server for PostgreSQL
  * written by Tatsuo Ishii
  *
- * Copyright (c) 2003-2017	PgPool Global Development Group
+ * Copyright (c) 2003-2023	PgPool Global Development Group
  *
  * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby
@@ -115,6 +115,10 @@ extern POOL_STATUS ProcessBackendResponse(POOL_CONNECTION * frontend,
 
 extern void handle_query_context(POOL_CONNECTION_POOL * backend);;
 
+extern void pool_emit_log_for_message_length_diff(int *length_array, char *name);
+
+extern void per_node_statement_notice(POOL_CONNECTION_POOL * backend, int node_id, char *query);
+
 /*
  * modules defined in pool_proto2.c
  */
@@ -151,6 +155,7 @@ extern bool is_select_query(Node *node, char *sql);
 extern bool is_commit_query(Node *node);
 extern bool is_rollback_query(Node *node);
 extern bool is_commit_or_rollback_query(Node *node);
+extern bool is_rollback_to_query(Node *node);
 extern bool is_strict_query(Node *node);	/* returns non 0 if this is strict
 											 * query */
 extern int	need_insert_lock(POOL_CONNECTION_POOL * backend, char *query, Node *node);
@@ -165,7 +170,8 @@ extern int	detect_deadlock_error(POOL_CONNECTION * backend, int major);
 extern int	detect_serialization_error(POOL_CONNECTION * backend, int major, bool unread);
 extern int	detect_active_sql_transaction_error(POOL_CONNECTION * backend, int major);
 extern int	detect_query_cancel_error(POOL_CONNECTION * backend, int major);
-extern int	detect_idle_in_transaction_sesion_timeout_error(POOL_CONNECTION * backend, int major);
+extern int	detect_idle_in_transaction_session_timeout_error(POOL_CONNECTION * backend, int major);
+extern int	detect_idle_session_timeout_error(POOL_CONNECTION * backend, int major);
 extern bool is_partition_table(POOL_CONNECTION_POOL * backend, Node *node);
 extern POOL_STATUS pool_discard_packet(POOL_CONNECTION_POOL * cp);
 extern void query_cache_register(char kind, POOL_CONNECTION * frontend, char *database, char *data, int data_len);
@@ -202,7 +208,7 @@ extern POOL_STATUS ErrorResponse(POOL_CONNECTION * frontend,
 extern void NoticeResponse(POOL_CONNECTION * frontend,
 			   POOL_CONNECTION_POOL * backend);
 
-extern void per_node_error_log(POOL_CONNECTION_POOL * backend, int node_id,
-char *query, char *prefix, bool unread);
+extern char per_node_error_log(POOL_CONNECTION_POOL * backend, int node_id,
+							   char *query, char *prefix, bool unread);
 
 #endif

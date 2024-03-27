@@ -16,7 +16,6 @@ POOL_REQUEST_INFO *Req_info = &_req_info;
 
 POOL_CONFIG _pool_config;
 POOL_CONFIG *pool_config = &_pool_config;
-ProcessType processType;
 bool redirection_done = false;
 typedef struct
 {
@@ -150,11 +149,11 @@ main(int argc, char **argv)
 
 	if (argc != 2)
 	{
-		fprintf(stderr, "./timestmp-test query\n");
+		fprintf(stderr, "./timestamp-test query\n");
 		exit(1);
 	}
 
-    tree = raw_parser(argv[1], strlen(argv[1]), &error, false);
+    tree = raw_parser(argv[1], RAW_PARSE_DEFAULT, strlen(argv[1]), &error, false);
 	if (tree == NULL)
 	{
 		printf("syntax error: %s\n", argv[1]);
