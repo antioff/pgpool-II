@@ -1,8 +1,7 @@
+tar: pgpool-II
 copy?: *.conf
 copy?: *.init
 copy?: *.service
 copy?: *.sysconfig
 copy?: *.tmpfiles
 copy?: *.patch
-copy?: *.d
-tar: pgpool-II
