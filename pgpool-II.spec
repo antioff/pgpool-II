@@ -1,8 +1,7 @@
 %define sname pgpool
 # select postgres version pro-1c-16, 16, 15, 15-1C ...
 %define pg_pkg_ver 15
-#%define pgpool_commit_git %(git describe --abbrev=1 --tags | cut -d'-' -f3- | tr - .)
-%define pgpool_commit gbf258
+
 
 %if "%(echo %pg_pkg_ver | cut -d- -f1)" == "pro"
 %define pg_pro 1
@@ -22,8 +21,8 @@ BuildRequires: %pg_name-server-devel
 %define pg_v10 %(c=%pg_ver; echo $((${c//.})))
 
 Name: pgpool-II
-Version: 4.6.0
-Release: alt0.%pgpool_commit
+Version: 4.5.1
+Release: alt1
 Summary: Pgpool is a connection pooling/replication server for PostgreSQL
 License: BSD
 Group: Databases
@@ -191,7 +190,6 @@ install doc/src/sgml/man3/*.3 %buildroot%_man3dir
 
 install -d %buildroot%_man8dir
 install doc/src/sgml/man8/*.8 %buildroot%_man8dir
-echo end_install
 
 # nuke libtool archive and static lib
 rm -f %buildroot%_libdir/*.{a,la}
@@ -205,8 +203,7 @@ rm -f %buildroot%_libdir/*.{a,la}
 %dir %_datadir/%sname
 %doc README TODO COPYING INSTALL AUTHORS ChangeLog html src/sample
 %_bindir/*
-%_datadir/%sname/insert_lock.sql
-%_datadir/%sname/pgpool.pam
+%_datadir/*
 %_man1dir/*.1.xz
 %_man3dir/*.3.xz
 %_man8dir/*.8.xz
@@ -218,8 +215,7 @@ rm -f %buildroot%_libdir/*.{a,la}
 %dir %attr(750,root,postgres) %_sysconfdir/%sname
 %attr(640,root,postgres) %config(noreplace) %_sysconfdir/%sname/*
 %config(noreplace) %_sysconfdir/sysconfig/%sname
-
-%attr(1775,root,%sname) %dir %_logdir/%sname
+%dir %attr(1775,root,%sname) %_logdir/%sname
 
 %files -n libpcp-devel
 %_includedir/*
@@ -237,8 +233,8 @@ rm -f %buildroot%_libdir/*.{a,la}
 %endif
 
 %changelog
-* Sat Mar 23 2024 Anton Zamilov <az@drevprof.com> 4.6.0-alt0.%pgpool_commit
-- 4.6.0
+* Sat Mar 23 2024 Anton Zamilov <az@drevprof.com> %EVR
+- 4.5.1
 - build for postgres 15
 - build for postgrespro 16-1c
 
@@ -270,7 +266,7 @@ rm -f %buildroot%_libdir/*.{a,la}
 
 * Mon Feb 06 2012 Alexander V Openkin <open@altlinux.ru> 3.1.2-alt2
 - 3.1.2 init script fixed
-
+hasher
 * Thu Feb 02 2012 Alexander V Openkin <open@altlinux.ru> 3.1.2-alt1
 - 3.1.2 release
 
