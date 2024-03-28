@@ -1,6 +1,6 @@
 %define sname pgpool
 # select postgres version pro-1c-16, 16, 15, 15-1C ...
-%define pg_pkg_ver 15
+%define pg_pkg_ver pro-1с-16
 
 
 %if "%(echo %pg_pkg_ver | cut -d- -f1)" == "pro"
