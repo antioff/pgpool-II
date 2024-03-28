@@ -5,176 +5,166 @@
 # processname: pgpool
 # Do not load RH compatibility interface.
 WITHOUT_RC_COMPAT=1
+
 # Source function library.
-. /etc/init.d/functions
+INITD=/etc/rc.d/init.d
+. $INITD/functions
 
-PGUSER=postgres
-BINARY="/usr/bin/pgpool"
-#OPTIONS="-f /etc/pgpool.conf"
-STOP_OPTIONS="-m fast stop"
-#PIDFILE=/var/run/pgpool/pgpool.pid
-#LOCKFILE=/var/lock/subsys/pgpool
-RETVAL=0
+# For SELinux we need to use 'runuser' not 'su'
+if [ -x /sbin/runuser ]
+then
+    SU=runuser
+else
+    SU=su
+fi
 
-CFGS=$(/bin/ls -1 /etc/pgpool.d/*)
-CFGS="${CFGS//\/etc\/pgpool.d\//}"
+# Set defaults for configuration variables
+PGPOOLUSER=postgres
+PGPOOLENGINE=/usr/bin
+PGPOOLDAEMON=$PGPOOLENGINE/pgpool
+PGPOOLCONF=/etc/pgpool/pgpool.conf
+PGPOOLPIDDIR=/var/run/pgpool
+PGPOOLLOG=/var/log/pgpool.log
 
-#echo $CFGS
+PIDFILE=/var/run/pgpool/pgpool.pid
+LOCKFILE=/var/lock/subsys/pgpool
 
-buildenv()
-{
-			CONFIG="/etc/pgpool.d/$1"
-			PIDFILE="${CONFIG%.conf}.pid"
-			PIDFILE="/var/run/pgpool/${PIDFILE#/etc/pgpool.d/}"
-			LOCKFILE="${CONFIG/.conf/}"
-			LOCKFILE="/var/lock/subsys/${LOCKFILE#/etc/pgpool.d/}"
+
+# Check whether the config file exists or not
+if [ ! -r $PGPOOLCONF ]
+then
+    	echo "$PGPOOLCONF not found"
+        echo_failure
+        echo
+        exit 1
+fi
+
+# Create the log file if it does not exist
+if [ ! -x $PGPOOLLOG ]
+then
+    	touch $PGPOOLLOG
+        chown ${PGPOOLUSER}: $PGPOOLLOG
+fi
+
+if [ ! -d $PGPOOLPIDDIR ]
+then
+    	mkdir $PGPOOLPIDDIR
+        chown ${PGPOOLUSER}: $PGPOOLPIDDIR
+fi
+
+script_result=0
+
+start(){
+        PGPOOL_START=$"Starting ${NAME} service: "
+
+        echo -n "$PGPOOL_START"
+        if [ -n "`pidofproc -p $PIDFILE $PGPOOLDAEMON`" ]
+        then
+                echo_success
+                echo
+                exit 0
+        fi
+
+	$SU -l $PGPOOLUSER -c "$PGPOOLDAEMON -f $PGPOOLCONF $OPTS & " >> "$PGPOOLLOG" 2>&1 < /dev/null
+        sleep 2
+
+        if [ -n "`pidofproc -p $PIDFILE $PGPOOLDAEMON`" ]
+        then
+            	success "$PGPOOL_START"
+                touch "$LOCKFILE"
+                echo
+        else
+            	failure "$PGPOOL_START"
+                echo
+                script_result=1
+        fi
 }
 
+stop(){
+       	PGPOOL_STOP=$"Stopping ${NAME} service: "
 
-noargs_start()
-{
-	for CONFIG in $CFGS ; do
-		buildenv $CONFIG
+        echo -n "$PGPOOL_STOP"
+        if [ -e "$LOCKFILE" ]
+        then
+            	$SU -l $PGPOOLUSER -c "$PGPOOLDAEMON -f $PGPOOLCONF -m fast stop" >> "$PGPOOLLOG" 2>&1 < /dev/null
 
-
-			if [ -f "$PIDFILE" ]; then
-				failure "$PIDFILE exists. Probably another instance of pgpool is running ?..."
-			else
-			    if start_daemon --user "$PGUSER"  --expect-user root --displayname pgpool -- "$BINARY" "-f $CONFIG 2>&1|logger -t pgpool -p local0.info "
-#				action "Starting pgpool:" "su -s /bin/sh -c '/usr/bin/pgpool -n -f $CONFIG  2>&1|logger -t pgpool -p local0.info &' $PGUSER"
-				then
-					echo_success
-			    else
-				echo_failure
-			    fi
-			fi
-
-	done
-	RETVAL=$?
-    return $RETVAL
-
-}
-
-noargs_stop()
-{
-		for CONFIG in $CFGS ; do
-				buildenv $CONFIG
-			if [ -f "$PIDFILE" ]; then
-					stop_daemon --pidfile "$PIDFILE" --expect-user "$PGUSER" --displayname pgpool -- "$BINARY" "$STOP_OPTIONS"
-			fi
-		done
-}
-
-
-noargs_reload()
-{
-        for CONFIG in $CFGS ; do
-                buildenv $CONFIG
-            if [ -f "$PIDFILE" ]; then
-                    		if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" $PGUSER 2> /dev/null > /dev/null; then
-                    	        echo_success
-                        	        else
-                            	echo_failure
-                        	fi
-            fi
-        done
-}
-
-
-
-
-
-start()
-{
-	if [ $# -eq 0 ]; then
-							
-							noargs_start		
-		else
-			buildenv $1
-			if [ -f "$PIDFILE" ]; then
-				failure "$PIDFILE exists. Probably another instance of pgool is running ?..."
-			else
-				if 
-					start_daemon --user "$PGUSER"  --expect-user root --displayname pgpool -- "$BINARY" " -f $CONFIG 2>&1|logger -t pgpool -p local0.info"; 
-				then
-					echo_success
-				else
-					echo_failure
-				fi
-			fi
-	fi
-
-	RETVAL=$?
-	return $RETVAL					 
-}
-
-
-stop()
-{
-	if [ $# -eq 0 ]; then
-					
-					noargs_stop
-						else
-	buildenv $1
-	stop_daemon --pidfile "$PIDFILE" --expect-user "$PGUSER" --displayname pgpool -- "$BINARY" "$STOP_OPTIONS"
-	fi
-	RETVAL=$?
-	return $RETVAL
-}
-
-restart()
-{
-   stop $1
-   start $1
-}
-
-reload()
-{
-	if [ $# -eq 0 ]; then
-        
-        noargs_reload
-		
-					else
-					buildenv $1
-						if /bin/su -s /bin/sh -c "/bin/kill -HUP $(/bin/cat $PIDFILE)" $PGUSER 2> /dev/null > /dev/null; then
-							echo_success
-								else
-							echo_failure
-						fi
-	fi
+                RETVAL=$?
+                if [ $RETVAL -eq 0 ]
+                then
+                        success "$PGPOOL_STOP"
+                        rm -f "$LOCKFILE"
+                else
+                    	failure "$PGPOOL_STOP"
+                        script_result=1
+                fi
+        else
+            	echo_success
+        fi
 	echo
 }
 
+restart(){
+    stop
+    start
+}
+reload(){
+        PGPOOL_RELOAD=$"Reloading ${NAME} configuration: "
+
+        echo -n "$PGPOOL_RELOAD"
+        if [ -n "`pidofproc -p $PIDFILE $PGPOOLDAEMON`" ]
+        then
+            	$SU -l $PGPOOLUSER -c "$PGPOOLDAEMON -f $PGPOOLCONF reload" >> "$PGPOOLLOG" 2>&1 < /dev/null
+        else
+            	failure "$PGPOOL_RELOAD"
+                echo
+                exit 1
+        fi
+	RETVAL=$?
+        if [ $RETVAL -eq 0 ]; then
+                success "$PGPOOL_RELOAD"
+        else
+            	failure "$PGPOOL_RELOAD"
+                script_result=1
+        fi
+        echo
+}
+
+condrestart(){
+	[ -e "$LOCKFILE" ] && restart
+}
+
+condstop(){
+	[ -e "$LOCKFILE" ] && stop
+}
+
+# See how we were called.
 case "$1" in
-   start)
-	shift
-   	start "$@"
-   ;;
-   stop)
-   	shift
-   	stop "$@"
-   ;;
-   restart)
-   	shift
-   	restart "$@"
-    ;;
-   reload)
-    shift
-   	reload "$@"
-   ;;
-   condrestart)
-   if [ -e "$LOCKFILE" ]; then
-		   restart
-   fi
-   ;;
-   condreload)
-   if [ -e "$LOCKFILE" ]; then
-		   reload
-   fi
-   ;;
-   *)
-    msg_usage "${0##*/} {start|stop|restart|reload|condrestart|condreload}"
-    RETVAL=1
+  start)
+        start
+	;;
+  stop)
+       	stop
+        ;;
+  status)
+	status -p $PIDFILE pgpool
+        script_result=$?
+        ;;
+  restart)
+        restart
+        ;;
+  reload|force-reload)
+        reload
+	;;
+  condrestart|try-restart)
+        condrestart
+        ;;
+  condstop)
+	condstop
+        ;;
+  *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|condstop|reload|force-reload}"
+        exit 2
 esac
 
-exit $RETVAL
+exit $script_result
+

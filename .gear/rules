@@ -5,3 +5,4 @@ copy?: *.service
 copy?: *.sysconfig
 copy?: *.tmpfiles
 copy?: *.patch
+copy?: *.d
