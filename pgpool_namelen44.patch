@@ -1,0 +1,406 @@
+diff --git a/pgpool-II/doc/src/sgml/advanced.sgml b/pgpool-II/doc/src/sgml/advanced.sgml
+index 74cf9f17..9fc3ff6e 100644
+--- a/pgpool-II/doc/src/sgml/advanced.sgml
++++ b/pgpool-II/doc/src/sgml/advanced.sgml
+@@ -3,7 +3,7 @@
+ <chapter id="tutorial-watchdog">
+  <title>Watchdog</title>
+ 
+- <sect1 id="tutorial-watchdog-intro">
++ <sect1 id="tutorial-WD-intro">
+   <title>Introduction</title>
+ 
+   <para>
+@@ -27,10 +27,10 @@
+     and greater than or equal to 3.</emphasis>
+   </para>
+ 
+-  <sect2 id="tutorial-watchdog-coordinating-nodes">
++  <sect2 id="tutorial-WD-coordinating-nodes">
+    <title>Coordinating multiple <productname>Pgpool-II</productname> nodes</title>
+ 
+-   <indexterm zone="tutorial-watchdog-coordinating-nodes">
++   <indexterm zone="tutorial-WD-coordinating-nodes">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -55,10 +55,10 @@
+ 
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-lifechecking">
++  <sect2 id="tutorial-WD-lifechecking">
+    <title>Life checking of other <productname>Pgpool-II</productname> nodes</title>
+ 
+-   <indexterm zone="tutorial-watchdog-lifechecking">
++   <indexterm zone="tutorial-WD-lifechecking">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -113,10 +113,10 @@
+ 
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-consistency-of-config">
++  <sect2 id="tutorial-WD-consistency-of-config">
+    <title>Consistency of configuration parameters on all <productname>Pgpool-II</productname> nodes</title>
+ 
+-   <indexterm zone="tutorial-watchdog-consistency-of-config">
++   <indexterm zone="tutorial-WD-consistency-of-config">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -128,10 +128,10 @@
+    </para>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-changing-active">
++  <sect2 id="tutorial-WD-changing-active">
+    <title>Changing active/standby state when certain fault is detected</title>
+ 
+-   <indexterm zone="tutorial-watchdog-changing-active">
++   <indexterm zone="tutorial-WD-changing-active">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -143,10 +143,10 @@
+    </para>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-automatic-vip">
++  <sect2 id="tutorial-WD-auto-vip">
+    <title>Automatic virtual IP switching</title>
+ 
+-   <indexterm zone="tutorial-watchdog-automatic-vip">
++   <indexterm zone="tutorial-WD-auto-vip">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -158,10 +158,10 @@
+    </para>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-changing-automatic-register-in-recovery">
++  <sect2 id="tutorial-WD-changing-auto-reg-in-recovery">
+    <title>Automatic registration of a server as a standby in recovery</title>
+ 
+-   <indexterm zone="tutorial-watchdog-changing-automatic-register-in-recovery">
++   <indexterm zone="tutorial-WD-changing-auto-reg-in-recovery">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -172,10 +172,10 @@
+    </para>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-start-stop">
++  <sect2 id="tutorial-WD-start-stop">
+    <title>Starting/stopping watchdog</title>
+ 
+-   <indexterm zone="tutorial-watchdog-start-stop">
++   <indexterm zone="tutorial-WD-start-stop">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -211,7 +211,7 @@
+   </sect2>
+  </sect1>
+ 
+- <sect1 id="tutorial-watchdog-integrating-external-lifecheck">
++ <sect1 id="tutorial-WD-integrating-external-lifecheck">
+   <title>Integrating external lifecheck with watchdog</title>
+ 
+   <para>
+@@ -227,10 +227,10 @@
+    placed in the <xref linkend="guc-wd-ipc-socket-dir"> directory.
+   </para>
+ 
+-  <sect2 id="tutorial-watchdog-ipc-command-packet">
++  <sect2 id="tutorial-WD-ipc-command-packet">
+    <title>Watchdog IPC command packet format</title>
+ 
+-   <indexterm zone="tutorial-watchdog-ipc-command-packet">
++   <indexterm zone="tutorial-WD-ipc-command-packet">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -271,10 +271,10 @@
+    </table>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-ipc-result-packet">
++  <sect2 id="tutorial-WD-ipc-result-packet">
+    <title>Watchdog IPC result packet format</title>
+ 
+-   <indexterm zone="tutorial-watchdog-ipc-result-packet">
++   <indexterm zone="tutorial-WD-ipc-result-packet">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -315,10 +315,10 @@
+    </table>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-ipc-command-packet-types">
++  <sect2 id="tutorial-WD-ipc-command-packet-types">
+    <title>Watchdog IPC command packet types</title>
+ 
+-   <indexterm zone="tutorial-watchdog-ipc-command-packet-types">
++   <indexterm zone="tutorial-WD-ipc-command-packet-types">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -389,10 +389,10 @@
+    </table>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-external-lifecheck-ipc">
++  <sect2 id="tutorial-WD-external-lifecheck-ipc">
+    <title>External lifecheck IPC packets and data</title>
+ 
+-   <indexterm zone="tutorial-watchdog-external-lifecheck-ipc">
++   <indexterm zone="tutorial-WD-external-lifecheck-ipc">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -402,10 +402,10 @@
+     also uses the same channel and technique.
+    </para>
+ 
+-   <sect3 id="tutorial-watchdog-external-lifecheck-get-nodes">
++   <sect3 id="tutorial-WD-external-lifecheck-get-nodes">
+     <title>Getting list of configured watchdog nodes</title>
+ 
+-    <indexterm zone="tutorial-watchdog-external-lifecheck-get-nodes">
++    <indexterm zone="tutorial-WD-external-lifecheck-get-nodes">
+      <primary>WATCHDOG</primary>
+     </indexterm>
+     <para>
+@@ -502,16 +502,16 @@
+    </sect3>
+   </sect2>
+  </sect1>
+- <sect1 id="tutorial-watchdog-restrictions">
++ <sect1 id="tutorial-WD-restrictions">
+   <title>Restrictions on watchdog</title>
+ 
+-  <indexterm zone="tutorial-watchdog-restrictions">
++  <indexterm zone="tutorial-WD-restrictions">
+    <primary>WATCHDOG</primary>
+   </indexterm>
+ 
+-  <sect2 id="tutorial-watchdog-restrictions-query-mode">
++  <sect2 id="tutorial-WD-restrictions-query-mode">
+    <title>Watchdog restriction with query mode lifecheck</title>
+-   <indexterm zone="tutorial-watchdog-restrictions-query-mode">
++   <indexterm zone="tutorial-WD-restrictions-query-mode">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+ 
+@@ -529,9 +529,9 @@
+    </para>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-restrictions-down-watchdog-mode">
++  <sect2 id="tutorial-WD-restrictions-down-WD-mode">
+    <title>Connecting to <productname>Pgpool-II</productname> whose watchdog status is down</title>
+-   <indexterm zone="tutorial-watchdog-restrictions-down-watchdog-mode">
++   <indexterm zone="tutorial-WD-restrictions-down-WD-mode">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -543,9 +543,9 @@
+    </para>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-restrictions-down-watchdog-require-restart">
++  <sect2 id="tutorial-WD-restrictions-down-WD-req-restart">
+    <title><productname>Pgpool-II</productname> whose watchdog status is down requires restart</title>
+-   <indexterm zone="tutorial-watchdog-restrictions-down-watchdog-require-restart">
++   <indexterm zone="tutorial-WD-restrictions-down-WD-req-restart">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -555,9 +555,9 @@
+    </para>
+   </sect2>
+ 
+-  <sect2 id="tutorial-watchdog-restrictions-active-take-time">
++  <sect2 id="tutorial-WD-restrictions-active-take-time">
+    <title>Watchdog promotion to active takes few seconds</title>
+-   <indexterm zone="tutorial-watchdog-restrictions-active-take-time">
++   <indexterm zone="tutorial-WD-restrictions-active-take-time">
+     <primary>WATCHDOG</primary>
+    </indexterm>
+    <para>
+@@ -701,7 +701,7 @@
+      to interact with watchdog.
+     </para>
+     <para>
+-     See <xref linkend="tutorial-watchdog-integrating-external-lifecheck"> for details
++     See <xref linkend="tutorial-WD-integrating-external-lifecheck"> for details
+       on how to use watchdog IPC interface for integrating external/3rd party systems.
+     </para>
+    </sect3>
+diff --git a/pgpool-II/doc/src/sgml/connection-settings.sgml b/pgpool-II/doc/src/sgml/connection-settings.sgml
+index 5b0af0a4..651c16cc 100644
+--- a/pgpool-II/doc/src/sgml/connection-settings.sgml
++++ b/pgpool-II/doc/src/sgml/connection-settings.sgml
+@@ -1521,7 +1521,7 @@ primary_conninfo = 'host=host0 port=5432 user=postgres application_name='server1
+       </programlisting>
+       The <xref linkend="guc-recovery-1st-stage-command"> should
+       generate the parameter. See <xref
+-      linkend="example-cluster-pgpool-config-online-recovery"> for a
++      linkend="example-cluster-pgpool-cfg-online-recovery"> for a
+       complete example of the command.
+      </para>
+      <para>
+diff --git a/pgpool-II/doc/src/sgml/example-cluster.sgml b/pgpool-II/doc/src/sgml/example-cluster.sgml
+index c4785af4..3760c65d 100644
+--- a/pgpool-II/doc/src/sgml/example-cluster.sgml
++++ b/pgpool-II/doc/src/sgml/example-cluster.sgml
+@@ -645,7 +645,7 @@ backend_clustering_mode = 'streaming_replication'
+    </programlisting>
+   </sect3>
+ 
+-  <sect3 id="example-cluster-pgpool-config-listen-addresses">
++  <sect3 id="example-cluster-pgpool-config-listen-addr">
+    <title>listen_addresses</title>
+    <para>
+     To allow Pgpool-II and PCP to accept all incoming connections, set the following
+@@ -703,7 +703,7 @@ health_check_max_retries = 3
+    </programlisting>
+   </sect3>
+ 
+-  <sect3 id="example-cluster-pgpool-config-backend-settings">
++  <sect3 id="example-cluster-pgpool-cfg-backend-settings">
+    <title>Backend Settings</title>
+    <para>
+     Specify the <productname>PostgreSQL</productname> backend information.
+@@ -838,7 +838,7 @@ PCP_USER=pgpool
+    </note>
+   </sect3>
+ 
+-  <sect3 id="example-cluster-pgpool-config-online-recovery">
++  <sect3 id="example-cluster-pgpool-cfg-online-recovery">
+    <title>Pgpool-II Online Recovery Configurations</title>
+    <para>
+     Next, configure the required parameters to perform online recovery.
+diff --git a/pgpool-II/doc/src/sgml/example-replication-si-mode.sgml b/pgpool-II/doc/src/sgml/example-replication-si-mode.sgml
+index e06b91e7..b8141fed 100644
+--- a/pgpool-II/doc/src/sgml/example-replication-si-mode.sgml
++++ b/pgpool-II/doc/src/sgml/example-replication-si-mode.sgml
+@@ -71,7 +71,7 @@
+    </tgroup>
+   </table>
+ 
+-  <table id="example-replication-mode-table-postgresql-config">
++  <table id="example-replication-mode-table-pgsql-cfg">
+    <title>PostgreSQL version and Configuration</title>
+    <tgroup cols="3">
+     <thead>
+diff --git a/pgpool-II/doc/src/sgml/installation.sgml b/pgpool-II/doc/src/sgml/installation.sgml
+index 4f9caa82..5cd7baca 100644
+--- a/pgpool-II/doc/src/sgml/installation.sgml
++++ b/pgpool-II/doc/src/sgml/installation.sgml
+@@ -69,7 +69,7 @@
+      each other. One of them is called "leader" and it has a virtual
+      IP. Clients do not need to aware that there are multiple
+      <productname>Pgpool-II</productname> because they always access
+-     the same VIP.  (See <xref linkend="tutorial-watchdog-intro"> for
++     the same VIP.  (See <xref linkend="tutorial-WD-intro"> for
+      watchdog). If one of <productname>Pgpool-II</productname> goes
+      down, other <productname>Pgpool-II</productname> takes over the
+      leader role.
+diff --git a/pgpool-II/doc/src/sgml/loadbalance.sgml b/pgpool-II/doc/src/sgml/loadbalance.sgml
+index c09a5dbf..8e948916 100644
+--- a/pgpool-II/doc/src/sgml/loadbalance.sgml
++++ b/pgpool-II/doc/src/sgml/loadbalance.sgml
+@@ -154,7 +154,7 @@
+ 
+  </sect2>
+ 
+- <sect2 id="runtime-config-writing-queries-may-affect-load-balancing">
++ <sect2 id="runtime-cfg-w-queries-affect-load-balancing">
+ 
+   <title>Writing queries may affect Load Balancing</title>
+   <para>
+@@ -223,7 +223,7 @@
+   </para>
+  </sect2>
+ 
+- <sect2 id="runtime-config-load-balancing-in-streaming-replication">
++ <sect2 id="runtime-cfg-load-balancing-in-stream-repl">
+ 
+   <title>Load Balancing in Streaming Replication</title>
+ 
+@@ -1123,7 +1123,7 @@ app_name_redirect_preference_list &gt; database_redirect_preference_list &gt; us
+ 	 <replaceable>"[object]:[dependent-object]"</replaceable>
+      In an explicit transaction block after a WRITE statement has been issues, this will prevent
+ 	 load balancing of any READ statements containing references of dependent object(s).
+-	 <example id="example-dml-adaptive-object-relationship-list-1">
++	 <example id="example-dml-adapt-obj-relationship-list-1">
+ 	 <title>Configuring dml adaptive object relationship</title>
+ 	   <para>
+ 	    If you have a trigger installed on table_1 that do INSERT in  <literal>table_2</> for each
+diff --git a/pgpool-II/doc/src/sgml/memcache.sgml b/pgpool-II/doc/src/sgml/memcache.sgml
+index c6290955..c948eeb7 100644
+--- a/pgpool-II/doc/src/sgml/memcache.sgml
++++ b/pgpool-II/doc/src/sgml/memcache.sgml
+@@ -528,7 +528,7 @@
+   </variablelist>
+  </sect2>
+ 
+- <sect2 id="runtime-in-memory-query-cache-memcached-config">
++ <sect2 id="runtime-in-mem-query-cache-memcached-config">
+   <title>Configurations to use memcached</title>
+ 
+   <para>
+diff --git a/pgpool-II/doc/src/sgml/online-recovery.sgml b/pgpool-II/doc/src/sgml/online-recovery.sgml
+index 38a9611c..4de8e9d4 100644
+--- a/pgpool-II/doc/src/sgml/online-recovery.sgml
++++ b/pgpool-II/doc/src/sgml/online-recovery.sgml
+@@ -88,7 +88,7 @@
+   and <ulink
+   url="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=blob_plain;f=src/sample/scripts/recovery_2nd_stage.sample;hb=refs/heads/master">/etc/pgpool-II/recovery_2nd_stage.sample</ulink>.
+   Example installation using those scripts can be found in <xref
+-  linkend="example-cluster-pgpool-config-online-recovery">.
++  linkend="example-cluster-pgpool-cfg-online-recovery">.
+  </para>
+ 
+  <para>
+@@ -149,7 +149,7 @@
+       </para>
+      </listitem>
+     </itemizedlist>
+-    The script example can be found in <xref linkend="example-cluster-pgpool-config-online-recovery">.
++    The script example can be found in <xref linkend="example-cluster-pgpool-cfg-online-recovery">.
+      <note>
+       <para>
+        The script path and filename are hard coded, <command>$PGDATA/pgpool_remote_start</command> is executed on main(primary) node.
+diff --git a/pgpool-II/doc/src/sgml/performance.sgml b/pgpool-II/doc/src/sgml/performance.sgml
+index 8657ea97..c824b582 100644
+--- a/pgpool-II/doc/src/sgml/performance.sgml
++++ b/pgpool-II/doc/src/sgml/performance.sgml
+@@ -216,7 +216,7 @@
+    mode, so from now on we focus on the mode.
+   </para>
+ 
+-  <sect2 id="session-level-load-balancing-vs-statement-level-load-balancing">
++  <sect2 id="session-level-LB-vs-statement-level-LB">
+    <title>Session Level Load Balancing vs. Statement Level Load Balancing</title>
+    <para>
+     By default load balance mode is "session level" which means
+diff --git a/pgpool-II/doc/src/sgml/watchdog.sgml b/pgpool-II/doc/src/sgml/watchdog.sgml
+index 5f8512a2..df5182b0 100644
+--- a/pgpool-II/doc/src/sgml/watchdog.sgml
++++ b/pgpool-II/doc/src/sgml/watchdog.sgml
+@@ -688,7 +688,7 @@ pgpool_port2 = 9999
+     </listitem>
+    </varlistentry>
+ 
+-   <varlistentry id="guc-allow-multiple-failover-requests-from-node" xreflabel="allow_multiple_failover_requests_from_node">
++   <varlistentry id="guc-allow-multiple-failover-req-from-node" xreflabel="allow_multiple_failover_requests_from_node">
+     <term><varname>allow_multiple_failover_requests_from_node</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>allow_multiple_failover_requests_from_node</varname> configuration parameter</primary>
