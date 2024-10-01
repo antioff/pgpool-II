@@ -1,7 +1,8 @@
-tar: pgpool-II
+specsubst: pgver
 copy?: *.conf
 copy?: *.init
 copy?: *.service
 copy?: *.sysconfig
 copy?: *.tmpfiles
 copy?: *.patch
+tar: V4_2_19:. name=pgpool-II-@version@ base=pgpool-II-@version@
