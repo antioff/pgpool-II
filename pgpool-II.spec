@@ -7,6 +7,8 @@
 %def_with jit
 %endif
 
+%set_gcc_version      13
+
 Name: postgresql%pg_ver-%prog_name
 Version: 4.5.4
 Release: alt1
@@ -53,6 +55,9 @@ Postgresql extensions libraries and sql files for pgpool-II.
 %patch0 -p1
 
 %build
+export CC=%__cc
+export CXX=%__cxx
+
 %autoreconf
 %configure \
     --disable-static \
@@ -129,6 +134,7 @@ fi
 %changelog
 * Tue Nov 05 2024 Alexei Takaseev <taf@altlinux.org> 4.5.4-alt1
 - 4.5.4
+- Use GCC 13
 
 * Tue Oct 01 2024 Alexei Takaseev <taf@altlinux.org> 4.2.19-alt1
 - 4.2.19 (Fixes CVE-2023-22332, CVE-2024-45624)
