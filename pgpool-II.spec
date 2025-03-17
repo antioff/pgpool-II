@@ -134,7 +134,7 @@ fi
 %_tmpfilesdir/*
 %_man1dir/*
 %_man8dir/*
-%attr(1775,root,%sname) %dir %_logdir/%sname
+%attr(1775,root,postgres) %dir %_logdir/%sname
 
 %changelog
 * Tue Mar 04 2025 Alexei Takaseev <taf@altlinux.org> 4.6.0-alt1
