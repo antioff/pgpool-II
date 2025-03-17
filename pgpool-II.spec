@@ -6,7 +6,7 @@
 
 Name: postgresql%pg_ver-%prog_name
 Version: 4.6.0
-Release: alt1
+Release: alt2
 Summary: Pgpool is a connection pooling/replication server for PostgreSQL
 License: BSD
 Group: Databases
@@ -132,6 +132,11 @@ fi
 %attr(1775,root,postgres) %dir %_logdir/%sname
 
 %changelog
+* Mon Mar 17 2025 Alexei Takaseev <taf@altlinux.org> 4.6.0-alt2
+- Fix build documentation with DocBook 4.5
+- Fix permissions for /var/log/pgpool (ALT #53450)
+- Enable JIT for loongarch64
+
 * Tue Mar 04 2025 Alexei Takaseev <taf@altlinux.org> 4.6.0-alt1
 - 4.6.0
 
