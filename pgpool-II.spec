@@ -1,11 +1,6 @@
 %define pg_ver @pgver@
 %define prog_name pgpool-II
 %define sname pgpool
-%ifarch loongarch64
-%def_without jit
-%else
-%def_with jit
-%endif
 
 %set_gcc_version      13
 
