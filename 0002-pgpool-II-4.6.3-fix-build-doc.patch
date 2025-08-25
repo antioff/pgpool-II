@@ -1,6 +1,6 @@
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/advanced.sgml pgpool-II-4.6.0/doc/src/sgml/advanced.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/advanced.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/advanced.sgml	2025-03-05 04:29:30.498067815 +0000
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/advanced.sgml pgpool-II-4.6.3/doc/src/sgml/advanced.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/advanced.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/advanced.sgml	2025-08-25 03:37:22.468047638 +0000
 @@ -158,10 +158,10 @@
     </para>
    </sect2>
@@ -81,10 +81,10 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/advanced.sgml pgpool-II-4.6.0/doc/sr
        on how to use watchdog IPC interface for integrating external/3rd party systems.
      </para>
     </sect3>
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/connection-settings.sgml pgpool-II-4.6.0/doc/src/sgml/connection-settings.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/connection-settings.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/connection-settings.sgml	2025-03-05 04:29:49.844140656 +0000
-@@ -1525,7 +1525,7 @@
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/connection-settings.sgml pgpool-II-4.6.3/doc/src/sgml/connection-settings.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/connection-settings.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/connection-settings.sgml	2025-08-25 03:37:22.468156914 +0000
+@@ -1524,7 +1524,7 @@
        </programlisting>
        The <xref linkend="guc-recovery-1st-stage-command"> should
        generate the parameter. See <xref
@@ -93,9 +93,9 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/connection-settings.sgml pgpool-II-4
        complete example of the command.
       </para>
       <para>
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/example-cluster.sgml pgpool-II-4.6.0/doc/src/sgml/example-cluster.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/example-cluster.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/example-cluster.sgml	2025-03-05 04:33:48.538042873 +0000
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/example-cluster.sgml pgpool-II-4.6.3/doc/src/sgml/example-cluster.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/example-cluster.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/example-cluster.sgml	2025-08-25 03:37:22.468258947 +0000
 @@ -683,7 +683,7 @@
     </programlisting>
    </sect3>
@@ -123,9 +123,9 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/example-cluster.sgml pgpool-II-4.6.0
     <title>Pgpool-II Online Recovery Configurations</title>
     <para>
      Next, configure the required parameters to perform online recovery.
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/example-replication-si-mode.sgml pgpool-II-4.6.0/doc/src/sgml/example-replication-si-mode.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/example-replication-si-mode.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/example-replication-si-mode.sgml	2025-03-05 04:34:14.754142187 +0000
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/example-replication-si-mode.sgml pgpool-II-4.6.3/doc/src/sgml/example-replication-si-mode.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/example-replication-si-mode.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/example-replication-si-mode.sgml	2025-08-25 03:37:22.468336815 +0000
 @@ -71,7 +71,7 @@
     </tgroup>
    </table>
@@ -135,10 +135,10 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/example-replication-si-mode.sgml pgp
     <title>PostgreSQL version and Configuration</title>
     <tgroup cols="3">
      <thead>
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/loadbalance.sgml pgpool-II-4.6.0/doc/src/sgml/loadbalance.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/loadbalance.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/loadbalance.sgml	2025-03-05 04:30:40.101330096 +0000
-@@ -154,7 +154,7 @@
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/loadbalance.sgml pgpool-II-4.6.3/doc/src/sgml/loadbalance.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/loadbalance.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/loadbalance.sgml	2025-08-25 03:37:22.468399744 +0000
+@@ -158,7 +158,7 @@
  
   </sect2>
  
@@ -147,7 +147,7 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/loadbalance.sgml pgpool-II-4.6.0/doc
  
    <title>Writing queries may affect Load Balancing</title>
    <para>
-@@ -223,7 +223,7 @@
+@@ -227,7 +227,7 @@
    </para>
   </sect2>
  
@@ -156,7 +156,7 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/loadbalance.sgml pgpool-II-4.6.0/doc
  
    <title>Load Balancing in Streaming Replication</title>
  
-@@ -1123,7 +1123,7 @@
+@@ -1127,7 +1127,7 @@
  	 <replaceable>"[object]:[dependent-object]"</replaceable>
       In an explicit transaction block after a WRITE statement has been issues, this will prevent
  	 load balancing of any READ statements containing references of dependent object(s).
@@ -165,10 +165,10 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/loadbalance.sgml pgpool-II-4.6.0/doc
  	 <title>Configuring dml adaptive object relationship</title>
  	   <para>
  	    If you have a trigger installed on table_1 that do INSERT in  <literal>table_2</> for each
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/memcache.sgml pgpool-II-4.6.0/doc/src/sgml/memcache.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/memcache.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/memcache.sgml	2025-03-05 04:31:46.637581518 +0000
-@@ -586,7 +586,7 @@
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/memcache.sgml pgpool-II-4.6.3/doc/src/sgml/memcache.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/memcache.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/memcache.sgml	2025-08-25 03:37:22.468469265 +0000
+@@ -599,7 +599,7 @@
    </variablelist>
   </sect2>
  
@@ -177,9 +177,9 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/memcache.sgml pgpool-II-4.6.0/doc/sr
    <title>Configurations to use memcached</title>
  
    <para>
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/online-recovery.sgml pgpool-II-4.6.0/doc/src/sgml/online-recovery.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/online-recovery.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/online-recovery.sgml	2025-03-05 04:31:23.493494057 +0000
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/online-recovery.sgml pgpool-II-4.6.3/doc/src/sgml/online-recovery.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/online-recovery.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/online-recovery.sgml	2025-08-25 03:37:22.468517656 +0000
 @@ -88,7 +88,7 @@
    and <ulink
    url="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=blob_plain;f=src/sample/scripts/recovery_2nd_stage.sample;hb=refs/heads/master">/etc/pgpool-II/recovery_2nd_stage.sample</ulink>.
@@ -198,9 +198,9 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/online-recovery.sgml pgpool-II-4.6.0
       <note>
        <para>
         The script path and filename are hard coded, <command>$PGDATA/pgpool_remote_start</command> is executed on main(primary) node.
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/performance.sgml pgpool-II-4.6.0/doc/src/sgml/performance.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/performance.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/performance.sgml	2025-03-05 04:32:53.103832877 +0000
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/performance.sgml pgpool-II-4.6.3/doc/src/sgml/performance.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/performance.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/performance.sgml	2025-08-25 03:37:22.468555548 +0000
 @@ -216,7 +216,7 @@
     mode, so from now on we focus on the mode.
    </para>
@@ -210,9 +210,21 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/performance.sgml pgpool-II-4.6.0/doc
     <title>Session Level Load Balancing vs. Statement Level Load Balancing</title>
     <para>
      By default load balance mode is "session level" which means
-diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/watchdog.sgml pgpool-II-4.6.0/doc/src/sgml/watchdog.sgml
---- pgpool-II-4.6.0.orig/doc/src/sgml/watchdog.sgml	2025-02-27 07:09:05.000000000 +0000
-+++ pgpool-II-4.6.0/doc/src/sgml/watchdog.sgml	2025-03-05 04:32:13.630683520 +0000
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/ref/pcp_node_info.sgml pgpool-II-4.6.3/doc/src/sgml/ref/pcp_node_info.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/ref/pcp_node_info.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/ref/pcp_node_info.sgml	2025-08-25 03:37:41.836344519 +0000
+@@ -175,7 +175,7 @@
+       sample scripts, please ensure that the value of
+       <varname>backend_application_nameX</varname> matches that of
+       <varname>backend_hostnameX</varname>. For specific configuration examples,
+-      please refer to <xref linkend="example-cluster-pgpool-config-backend-settings">.
++      please refer to <xref linkend="pgpool-config-backend-settings">.
+      </para>
+     </listitem>
+     <listitem>
+diff -ruN pgpool-II-4.6.3.orig/doc/src/sgml/watchdog.sgml pgpool-II-4.6.3/doc/src/sgml/watchdog.sgml
+--- pgpool-II-4.6.3.orig/doc/src/sgml/watchdog.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc/src/sgml/watchdog.sgml	2025-08-25 03:37:22.468607747 +0000
 @@ -713,7 +713,7 @@
      </listitem>
     </varlistentry>
@@ -222,3 +234,27 @@ diff -ruN pgpool-II-4.6.0.orig/doc/src/sgml/watchdog.sgml pgpool-II-4.6.0/doc/sr
      <term><varname>allow_multiple_failover_requests_from_node</varname> (<type>boolean</type>)
       <indexterm>
        <primary><varname>allow_multiple_failover_requests_from_node</varname> configuration parameter</primary>
+diff -ruN pgpool-II-4.6.3.orig/doc.ja/src/sgml/example-cluster.sgml pgpool-II-4.6.3/doc.ja/src/sgml/example-cluster.sgml
+--- pgpool-II-4.6.3.orig/doc.ja/src/sgml/example-cluster.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc.ja/src/sgml/example-cluster.sgml	2025-08-25 03:37:34.060246678 +0000
+@@ -691,7 +691,7 @@
+    </programlisting>
+   </sect3>
+ 
+-  <sect3 id="example-cluster-pgpool-config-backend-settings">
++  <sect3 id="pgpool-config-backend-settings">
+    <title>バックエンドの設定</title>
+    <para>
+     また、バックエンド情報を前述の<literal>server1</literal>、<literal>server2</literal>
+diff -ruN pgpool-II-4.6.3.orig/doc.ja/src/sgml/ref/pcp_node_info.sgml pgpool-II-4.6.3/doc.ja/src/sgml/ref/pcp_node_info.sgml
+--- pgpool-II-4.6.3.orig/doc.ja/src/sgml/ref/pcp_node_info.sgml	2025-08-19 02:09:51.000000000 +0000
++++ pgpool-II-4.6.3/doc.ja/src/sgml/ref/pcp_node_info.sgml	2025-08-25 03:37:37.851954038 +0000
+@@ -216,7 +216,7 @@
+      </para>
+      <para>
+       特に、<productname>Pgpool-II</productname>の<xref linkend="pcp-recovery-node">コマンドを用いてスタンバイノードを構築し、コミュニティ提供のサンプルスクリプトを使用している場合は、<varname>backend_application_nameX</varname>の値を<varname>backend_hostnameX</varname>と一致させてください。
+-      具体的な設定例については<xref linkend="example-cluster-pgpool-config-backend-settings">をご参照ください。
++      具体的な設定例については<xref linkend="pgpool-config-backend-settings">をご参照ください。
+      </para>
+     </listitem>
+     <listitem>

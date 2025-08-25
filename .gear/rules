@@ -5,4 +5,4 @@ copy?: *.service
 copy?: *.sysconfig
 copy?: *.tmpfiles
 copy?: *.patch
-tar: V4_6_2:. name=pgpool-II-@version@ base=pgpool-II-@version@
+tar: V4_6_3:. name=pgpool-II-@version@ base=pgpool-II-@version@
