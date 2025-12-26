@@ -1,7 +1,14 @@
-diff -ruN pgpool-II-4.5.5.orig/src/include/pool.h pgpool-II-4.5.5/src/include/pool.h
---- pgpool-II-4.5.5.orig/src/include/pool.h	2024-11-27 05:14:11.000000000 +0000
-+++ pgpool-II-4.5.5/src/include/pool.h	2024-11-28 07:06:50.601739440 +0000
-@@ -56,13 +56,13 @@
+From e8cdbf589cfd4e74f3097d9f050d9aa60543e2f2 Mon Sep 17 00:00:00 2001
+From: Alexei Takaseev <taf@altlinux.org>
+Date: Fri, 26 Dec 2025 19:54:03 +0800
+Subject: Update path for socket and log
+
+
+diff --git a/src/include/pool.h b/src/include/pool.h
+index ea6f87e12..40f5dd574 100644
+--- a/src/include/pool.h
++++ b/src/include/pool.h
+@@ -58,13 +58,13 @@
  #define HBA_CONF_FILE_NAME "pool_hba.conf"
  
  /* pid file directory */
@@ -18,10 +25,11 @@ diff -ruN pgpool-II-4.5.5.orig/src/include/pool.h pgpool-II-4.5.5/src/include/po
  
  /* pid file name */
  #define DEFAULT_PID_FILE_NAME "/var/run/pgpool/pgpool.pid"
-diff -ruN pgpool-II-4.5.5.orig/src/sample/pgpool.conf.sample-stream pgpool-II-4.5.5/src/sample/pgpool.conf.sample-stream
---- pgpool-II-4.5.5.orig/src/sample/pgpool.conf.sample-stream	2024-11-27 05:14:11.000000000 +0000
-+++ pgpool-II-4.5.5/src/sample/pgpool.conf.sample-stream	2024-11-28 07:10:48.481757081 +0000
-@@ -40,7 +40,7 @@
+diff --git a/src/sample/pgpool.conf.sample-stream b/src/sample/pgpool.conf.sample-stream
+index ba6b923b0..0f48618d7 100644
+--- a/src/sample/pgpool.conf.sample-stream
++++ b/src/sample/pgpool.conf.sample-stream
+@@ -40,7 +40,7 @@ backend_clustering_mode = streaming_replication
  #port = 9999
                                     # Port number
                                     # (change requires restart)
@@ -30,7 +38,7 @@ diff -ruN pgpool-II-4.5.5.orig/src/sample/pgpool.conf.sample-stream pgpool-II-4.
                                     # Unix domain socket path(s)
                                     # The Debian package defaults to
                                     # /var/run/postgresql
-@@ -67,7 +67,7 @@
+@@ -67,7 +67,7 @@ backend_clustering_mode = streaming_replication
  #pcp_port = 9898
                                     # Port number for pcp
                                     # (change requires restart)
@@ -39,7 +47,7 @@ diff -ruN pgpool-II-4.5.5.orig/src/sample/pgpool.conf.sample-stream pgpool-II-4.
                                     # Unix domain socket path(s) for pcp
                                     # The Debian package defaults to
                                     # /var/run/postgresql
-@@ -307,7 +307,7 @@
+@@ -312,7 +312,7 @@ backend_clustering_mode = streaming_replication
  
  # -- Only used if logging_collector is on ---
  
@@ -48,12 +56,3 @@ diff -ruN pgpool-II-4.5.5.orig/src/sample/pgpool.conf.sample-stream pgpool-II-4.
                                          # directory where log files are written,
                                          # can be absolute
  #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'
-@@ -346,7 +346,7 @@
-                                    # location of pgpool.conf file or
-                                    # as an absolute path
-                                    # (change requires restart)
--#logdir = '/tmp'
-+logdir = '/var/run/pgpool'
-                                    # Directory of pgPool status file
-                                    # (change requires restart)
- 
