@@ -135,6 +135,7 @@ fi
 %changelog
 * Fri Dec 26 2025 Alexei Takaseev <taf@altlinux.org> 4.7.0-alt1
 - 4.7.0
+- 0001-Update-path-for-socket-and-log.patch
 
 * Mon Dec 15 2025 Alexei Takaseev <taf@altlinux.org> 4.6.5-alt1
 - 4.6.5
