@@ -1,8 +1,12 @@
 %define pg_ver @pgver@
 %define prog_name pgpool-II
 %define sname pgpool
+%if %pg_ver > 17
+ExcludeArch: %ix86
+%else
 %ifnarch %e2k
 %set_gcc_version      13
+%endif
 %endif
 
 Name: postgresql%pg_ver-%prog_name
