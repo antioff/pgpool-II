@@ -77,12 +77,14 @@ export CXX=%__cxx
 %make_build -j1
 %make_build -C src/sql/pgpool-recovery
 %make_build -C src/sql/pgpool-regclass
+%make_build -C src/sql/pgpool_adm
 %make_build -C doc all
 
 %install
 %make DESTDIR=%buildroot install
 %make DESTDIR=%buildroot install -C src/sql/pgpool-recovery
 %make DESTDIR=%buildroot install -C src/sql/pgpool-regclass
+%make DESTDIR=%buildroot install -C src/sql/pgpool_adm
 
 mkdir -p %buildroot{{%_logdir,%_datadir}/%sname,%_unitdir,%_initdir,%_tmpfilesdir,%_man1dir,%_man8dir}
 
@@ -140,6 +142,8 @@ fi
 * Fri Dec 26 2025 Alexei Takaseev <taf@altlinux.org> 4.7.0-alt1
 - 4.7.0
 - 0001-Update-path-for-socket-and-log.patch
+- Build only for 64-bit arch's and PG > 17
+- Enable pgpool_adm PostgreSQL extention
 
 * Mon Dec 15 2025 Alexei Takaseev <taf@altlinux.org> 4.6.5-alt1
 - 4.6.5
