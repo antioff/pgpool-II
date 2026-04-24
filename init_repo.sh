@@ -10,7 +10,9 @@ rm -f pgpool-II-$PGPOOL_VER.tar.gz
 git add pgpool-II
 git commit -m "Initial repo"
 
-git branch upstream
+git checkout -b upstream
+git tag v$PGPOOL_VER
+git checkout main
 git merge -s ours upstream
 
 
