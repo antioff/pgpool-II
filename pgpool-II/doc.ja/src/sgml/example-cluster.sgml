@@ -659,7 +659,7 @@ backend_clustering_mode = streaming_replication
    </programlisting>
   </sect3>
 
-  <sect3 id="example-cluster-pgpool-config-listen-addresses">
+  <sect3 id="example-cluster-config-listen-addresses">
    <title>listen_addresses</title>
    <para>
     <productname>Pgpool-II</productname>およびPCPが全てのIPアドレスから接続を受け付けるように、以下のパラメータを<literal>'*'</literal>に設定します。
@@ -719,7 +719,7 @@ health_check_max_retries = 3
    </programlisting>
   </sect3>
 
-  <sect3 id="example-cluster-pgpool-config-backend-settings">
+  <sect3 id="example-cluster-config-backend-settings">
    <title>バックエンドの設定</title>
    <para>
     また、バックエンド情報を前述の<literal>server1</literal>、<literal>server2</literal>
@@ -838,7 +838,7 @@ PCP_USER=pgpool
    </note>
   </sect3>
 
-  <sect3 id="example-cluster-pgpool-config-online-recovery">
+  <sect3 id="example-cluster-pgpool-online-recovery">
    <title>オンラインリカバリの設定</title>
    <para>
     続いて、オンラインリカバリ（<xref linkend="runtime-online-recovery">）を実行する<productname>PostgreSQL</productname>ユーザ及びオンラインリカバリ時に呼び出されるスクリプトを設定します。

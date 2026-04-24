@@ -158,10 +158,10 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-changing-automatic-register-in-recovery">
+  <sect2 id="changing-automatic-register-in-recovery">
    <title>Automatic registration of a server as a standby in recovery</title>
 
-   <indexterm zone="tutorial-watchdog-changing-automatic-register-in-recovery">
+   <indexterm zone="changing-automatic-register-in-recovery">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -211,7 +211,7 @@
   </sect2>
  </sect1>
 
- <sect1 id="tutorial-watchdog-integrating-external-lifecheck">
+ <sect1 id="watchdog-integrating-external-lifecheck">
   <title>Integrating external lifecheck with watchdog</title>
 
   <para>
@@ -402,10 +402,10 @@
     also uses the same channel and technique.
    </para>
 
-   <sect3 id="tutorial-watchdog-external-lifecheck-get-nodes">
+   <sect3 id="watchdog-external-lifecheck-get-nodes">
     <title>Getting list of configured watchdog nodes</title>
 
-    <indexterm zone="tutorial-watchdog-external-lifecheck-get-nodes">
+    <indexterm zone="watchdog-external-lifecheck-get-nodes">
      <primary>WATCHDOG</primary>
     </indexterm>
     <para>
@@ -529,9 +529,9 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-restrictions-down-watchdog-mode">
+  <sect2 id="watchdog-restrictions-down-watchdog-mode">
    <title>Connecting to <productname>Pgpool-II</productname> whose watchdog status is down</title>
-   <indexterm zone="tutorial-watchdog-restrictions-down-watchdog-mode">
+   <indexterm zone="watchdog-restrictions-down-watchdog-mode">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -543,9 +543,9 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-restrictions-down-watchdog-require-restart">
+  <sect2 id="restrictions-down-watchdog-require-restart">
    <title><productname>Pgpool-II</productname> whose watchdog status is down requires restart</title>
-   <indexterm zone="tutorial-watchdog-restrictions-down-watchdog-require-restart">
+   <indexterm zone="restrictions-down-watchdog-require-restart">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -555,9 +555,9 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-restrictions-active-take-time">
+  <sect2 id="watchdog-restrictions-active-take-time">
    <title>Watchdog promotion to active takes few seconds</title>
-   <indexterm zone="tutorial-watchdog-restrictions-active-take-time">
+   <indexterm zone="watchdog-restrictions-active-take-time">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -701,7 +701,7 @@
      to interact with watchdog.
     </para>
     <para>
-     See <xref linkend="tutorial-watchdog-integrating-external-lifecheck"> for details
+     See <xref linkend="watchdog-integrating-external-lifecheck"> for details
       on how to use watchdog IPC interface for integrating external/3rd party systems.
     </para>
    </sect3>

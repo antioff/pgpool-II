@@ -88,7 +88,7 @@
   and <ulink
   url="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=blob_plain;f=src/sample/scripts/recovery_2nd_stage.sample;hb=refs/heads/master">/etc/pgpool-II/recovery_2nd_stage.sample</ulink>.
   Example installation using those scripts can be found in <xref
-  linkend="example-cluster-pgpool-config-online-recovery">.
+  linkend="example-cluster-pgpool-online-recovery">.
  </para>
 
  <para>
@@ -149,7 +149,7 @@
       </para>
      </listitem>
     </itemizedlist>
-    The script example can be found in <xref linkend="example-cluster-pgpool-config-online-recovery">.
+    The script example can be found in <xref linkend="example-cluster-pgpool-online-recovery">.
      <note>
       <para>
        The script path and filename are hard coded, <command>$PGDATA/pgpool_remote_start</command> is executed on main(primary) node.

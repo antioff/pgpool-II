@@ -40,7 +40,7 @@ backend_clustering_mode = streaming_replication
 #port = 9999
                                    # Port number
                                    # (change requires restart)
-#unix_socket_directories = '/tmp'
+unix_socket_directories = '/var/run/pgpool'
                                    # Unix domain socket path(s)
                                    # The Debian package defaults to
                                    # /var/run/postgresql
@@ -67,7 +67,7 @@ backend_clustering_mode = streaming_replication
 #pcp_port = 9898
                                    # Port number for pcp
                                    # (change requires restart)
-#pcp_socket_dir = '/tmp'
+pcp_socket_dir = '/var/run/pgpool'
                                    # Unix domain socket path(s) for pcp
                                    # The Debian package defaults to
                                    # /var/run/postgresql
@@ -312,7 +312,7 @@ backend_clustering_mode = streaming_replication
 
 # -- Only used if logging_collector is on ---
 
-#log_directory = '/tmp/pgpool_logs'
+log_directory = '/var/log/pgpool'
                                         # directory where log files are written,
                                         # can be absolute
 #log_filename = 'pgpool-%Y-%m-%d_%H%M%S.log'

@@ -64,7 +64,7 @@
    </tgroup>
   </table>
 
-  <table id="example-replication-mode-table-postgresql-config">
+  <table id="replication-mode-table-postgresql-config">
    <title>PostgreSQLのバージョンと設定情報</title>
    <tgroup cols="3">
     <thead>

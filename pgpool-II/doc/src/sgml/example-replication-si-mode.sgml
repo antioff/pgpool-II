@@ -70,7 +70,7 @@
    </tgroup>
   </table>
 
-  <table id="example-replication-mode-table-postgresql-config">
+  <table id="replication-mode-table-postgresql-config">
    <title>PostgreSQL version and Configuration</title>
    <tgroup cols="3">
     <thead>

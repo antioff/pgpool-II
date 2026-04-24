@@ -216,7 +216,7 @@ $ pcp_node_info -w -p 11001 -n 1
      </para>
      <para>
       特に、<productname>Pgpool-II</productname>の<xref linkend="pcp-recovery-node">コマンドを用いてスタンバイノードを構築し、コミュニティ提供のサンプルスクリプトを使用している場合は、<varname>backend_application_nameX</varname>の値を<varname>backend_hostnameX</varname>と一致させてください。
-      具体的な設定例については<xref linkend="example-cluster-pgpool-config-backend-settings">をご参照ください。
+      具体的な設定例については<xref linkend="example-cluster-config-backend-settings">をご参照ください。
      </para>
     </listitem>
     <listitem>

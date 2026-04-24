@@ -216,7 +216,7 @@
    mode, so from now on we focus on the mode.
   </para>
 
-  <sect2 id="session-level-load-balancing-vs-statement-level-load-balancing">
+  <sect2 id="session-level-vs-statement-level-balancing">
    <title>Session Level Load Balancing vs. Statement Level Load Balancing</title>
    <para>
     By default load balance mode is "session level" which means

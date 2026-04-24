@@ -156,7 +156,7 @@
 
  </sect2>
 
- <sect2 id="runtime-config-writing-queries-may-affect-load-balancing">
+ <sect2 id="writing-queries-may-affect-load-balancing">
 
   <title>Writing queries may affect Load Balancing</title>
   <para>
@@ -225,7 +225,7 @@
   </para>
  </sect2>
 
- <sect2 id="runtime-config-load-balancing-in-streaming-replication">
+ <sect2 id="load-balancing-in-streaming-replication">
 
   <title>Load Balancing in Streaming Replication</title>
 
@@ -1125,7 +1125,7 @@ app_name_redirect_preference_list &gt; database_redirect_preference_list &gt; us
 	 <replaceable>"[object]:[dependent-object]"</replaceable>
      In an explicit transaction block after a WRITE statement has been issues, this will prevent
 	 load balancing of any READ statements containing references of dependent object(s).
-	 <example id="example-dml-adaptive-object-relationship-list-1">
+	 <example id="example-dml-adaptive-object-relationship">
 	 <title>Configuring dml adaptive object relationship</title>
 	   <para>
 	    If you have a trigger installed on table_1 that do INSERT in  <literal>table_2</> for each

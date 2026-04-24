@@ -231,13 +231,13 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-changing-automatic-register-in-recovery">
+  <sect2 id="changing-automatic-register-in-recovery">
    <!--
    <title>Automatic registration of a server as a standby in recovery</title>
    -->
    <title>リカバリ時にサーバをスタンバイとして自動的に登録</title>
 
-   <indexterm zone="tutorial-watchdog-changing-automatic-register-in-recovery">
+   <indexterm zone="changing-automatic-register-in-recovery">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -315,7 +315,7 @@
   </sect2>
  </sect1>
 
- <sect1 id="tutorial-watchdog-integrating-external-lifecheck">
+ <sect1 id="watchdog-integrating-external-lifecheck">
   <!--
   <title>Integrating external lifecheck with watchdog</title>
   -->
@@ -636,13 +636,13 @@
     pgpoolの組み込み死活監視も同じチャンネルと技術を使っていることに注意してください。
    </para>
 
-   <sect3 id="tutorial-watchdog-external-lifecheck-get-nodes">
+   <sect3 id="watchdog-external-lifecheck-get-nodes">
     <!--
     <title>Getting list of configured watchdog nodes</title>
     -->
     <title>構成されているwatchdogノードのリストの取得</title>
 
-    <indexterm zone="tutorial-watchdog-external-lifecheck-get-nodes">
+    <indexterm zone="watchdog-external-lifecheck-get-nodes">
      <primary>WATCHDOG</primary>
     </indexterm>
     <para>
@@ -788,12 +788,12 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-restrictions-down-watchdog-mode">
+  <sect2 id="watchdog-restrictions-down-watchdog-mode">
    <!--
    <title>Connecting to <productname>Pgpool-II</productname> whose watchdog status is down</title>
    -->
    <title>watchdogが停止している<productname>Pgpool-II</productname>に接続する</title>
-   <indexterm zone="tutorial-watchdog-restrictions-down-watchdog-mode">
+   <indexterm zone="watchdog-restrictions-down-watchdog-mode">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -809,12 +809,12 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-restrictions-down-watchdog-require-restart">
+  <sect2 id="restrictions-down-watchdog-require-restart">
    <!--
    <title><productname>Pgpool-II</productname> whose watchdog status is down requires restart</title>
    -->
    <title>watchdogが停止している<productname>Pgpool-II</productname>は再起動が必要です</title>
-   <indexterm zone="tutorial-watchdog-restrictions-down-watchdog-require-restart">
+   <indexterm zone="restrictions-down-watchdog-require-restart">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -828,12 +828,12 @@
    </para>
   </sect2>
 
-  <sect2 id="tutorial-watchdog-restrictions-active-take-time">
+  <sect2 id="watchdog-restrictions-active-take-time">
    <!--
    <title>Watchdog promotion to active takes few seconds</title>
    -->
    <title>watchdogの昇格には数秒を要します</title>
-   <indexterm zone="tutorial-watchdog-restrictions-active-take-time">
+   <indexterm zone="watchdog-restrictions-active-take-time">
     <primary>WATCHDOG</primary>
    </indexterm>
    <para>
@@ -1049,10 +1049,10 @@
     </para>
     <para>
      <!--
-     See <xref linkend="tutorial-watchdog-integrating-external-lifecheck"> for details
+     See <xref linkend="watchdog-integrating-external-lifecheck"> for details
      on how to use watchdog IPC interface for integrating external/3rd party systems.
      -->
-     外部/サードパーティシステムと統合するための、watchdog IPCインターフェイスの使い方の詳細は<xref linkend="tutorial-watchdog-integrating-external-lifecheck">をご覧ください。
+     外部/サードパーティシステムと統合するための、watchdog IPCインターフェイスの使い方の詳細は<xref linkend="watchdog-integrating-external-lifecheck">をご覧ください。
     </para>
    </sect3>
   </sect2>

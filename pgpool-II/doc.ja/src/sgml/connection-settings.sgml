@@ -2061,7 +2061,7 @@ primary_conninfo = 'host=host0 port=5432 user=postgres application_name=''server
 primary_conninfo = 'host=host0 port=5432 user=postgres application_name=''server1'''
       </programlisting>
       <xref linkend="guc-recovery-1st-stage-command">がそのパラメータを生成します。
-      コマンドの完全な例に関しては、<xref linkend="example-cluster-pgpool-config-online-recovery">をご覧ください。
+      コマンドの完全な例に関しては、<xref linkend="example-cluster-pgpool-online-recovery">をご覧ください。
      </para>
      <para>
       このパラメータは<productname>Pgpool-II</>の設定を再読み込みすることで変更可能です。

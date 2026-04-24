@@ -90,7 +90,7 @@
   provide a script for the stage
   in <xref linkend="guc-recovery-2nd-stage-command">. i.e. you can
   safely leave it as an empty string. Those scripts example can be found in
-  <xref linkend="example-cluster-pgpool-config-online-recovery">.
+  <xref linkend="example-cluster-pgpool-online-recovery">.
   -->
   オンラインリカバリは2段階に分けて実施されます。
   第1段階は「ファーストステージ」、第2段階は「セカンドステージ」と呼ばれます。
@@ -110,7 +110,7 @@
  <para>
   それぞれのステージ用にスクリプトを用意する必要があります。
   完全なサンプルスクリプトが<ulink url="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=blob_plain;f=src/sample/scripts/recovery_1st_stage.sample;hb=refs/heads/master">/etc/pgpool-II/recovery_1st_stage.sample</ulink>および<ulink url="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=blob_plain;f=src/sample/scripts/recovery_2nd_stage.sample;hb=refs/heads/master">/etc/pgpool-II/recovery_2nd_stage.sample</ulink>に用意されています。
-  これらのスクリプトを使ったインストール例は<xref linkend="example-cluster-pgpool-config-online-recovery">にあります。
+  これらのスクリプトを使ったインストール例は<xref linkend="example-cluster-pgpool-online-recovery">にあります。
  </para>
  <para>
   <!--
@@ -194,9 +194,9 @@
      </listitem>
     </itemizedlist>
     <!--
-    The script example can be found in <xref linkend="example-cluster-pgpool-config-online-recovery">.
+    The script example can be found in <xref linkend="example-cluster-pgpool-online-recovery">.
     -->
-    スクリプトの例は<xref linkend="example-cluster-pgpool-config-online-recovery">にあります。
+    スクリプトの例は<xref linkend="example-cluster-pgpool-online-recovery">にあります。
      <note>
       <para>
        <!--

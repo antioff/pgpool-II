@@ -1077,7 +1077,7 @@
     </listitem>
    </varlistentry>
 
-   <varlistentry id="guc-allow-multiple-failover-requests-from-node" xreflabel="allow_multiple_failover_requests_from_node">
+   <varlistentry id="allow-multiple-failover-requests-from-node" xreflabel="allow_multiple_failover_requests_from_node">
     <term><varname>allow_multiple_failover_requests_from_node</varname> (<type>boolean</type>)
      <indexterm>
       <!--

@@ -58,13 +58,13 @@
 #define HBA_CONF_FILE_NAME "pool_hba.conf"
 
 /* pid file directory */
-#define DEFAULT_LOGDIR "/tmp"
+#define DEFAULT_LOGDIR "/var/log/pgpool"
 
 /* Unix domain socket directory */
-#define DEFAULT_SOCKET_DIR "/tmp"
+#define DEFAULT_SOCKET_DIR "/var/run/pgpool"
 
 /* Unix domain socket directory for watchdog IPC */
-#define DEFAULT_WD_IPC_SOCKET_DIR "/tmp"
+#define DEFAULT_WD_IPC_SOCKET_DIR "/var/run/pgpool"
 
 /* pid file name */
 #define DEFAULT_PID_FILE_NAME "/var/run/pgpool/pgpool.pid"

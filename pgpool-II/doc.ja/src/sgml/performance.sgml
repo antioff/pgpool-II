@@ -150,7 +150,7 @@
    今の所、非常に多くのシステムがストリーミングレプリケーションモードを使用しているので、以後このモードに焦点を当てて説明します。
   </para>
 
-  <sect2 id="session-level-load-balancing-vs-statement-level-load-balancing">
+  <sect2 id="session-level-vs-statement-level-balancing">
    <title>セッションレベルのロードバランスとステートメントレベルのロードバランス</title>
    <para>
     デフォルトではロードバランスモードは「セッションレベル」で、読み出しクエリを送るノードはクライアントが<productname>Pgpool-II</productname>に接続した時に決定されます。

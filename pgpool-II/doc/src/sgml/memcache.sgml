@@ -599,7 +599,7 @@
   </variablelist>
  </sect2>
 
- <sect2 id="runtime-in-memory-query-cache-memcached-config">
+ <sect2 id="in-memory-query-cache-memcached-config">
   <title>Configurations to use memcached</title>
 
   <para>

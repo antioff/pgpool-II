@@ -715,7 +715,7 @@ backend_clustering_mode = streaming_replication
    </programlisting>
   </sect3>
 
-  <sect3 id="example-cluster-pgpool-config-listen-addresses">
+  <sect3 id="example-cluster-config-listen-addresses">
    <title>listen_addresses</title>
    <para>
     To allow Pgpool-II and PCP to accept all incoming connections, set the following
@@ -773,7 +773,7 @@ health_check_max_retries = 3
    </programlisting>
   </sect3>
 
-  <sect3 id="example-cluster-pgpool-config-backend-settings">
+  <sect3 id="example-cluster-config-backend-settings">
    <title>Backend Settings</title>
    <para>
     Specify the <productname>PostgreSQL</productname> backend information.
@@ -895,7 +895,7 @@ PCP_USER=pgpool
    </note>
   </sect3>
 
-  <sect3 id="example-cluster-pgpool-config-online-recovery">
+  <sect3 id="example-cluster-pgpool-online-recovery">
    <title>Pgpool-II Online Recovery Configurations</title>
    <para>
     Next, configure the required parameters to perform online recovery
