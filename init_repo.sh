@@ -13,6 +13,7 @@ git commit -m "Initial repo"
 git checkout -b upstream
 git tag v$PGPOOL_VER
 git checkout main
+gear-store-tags -ac
 git merge -s ours upstream
 
 
