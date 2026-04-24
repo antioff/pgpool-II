@@ -1,0 +1,162 @@
+'\" t
+.\"     Title: SHOW POOL_CACHE
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: Pgpool-II 4.7.1 文書
+.\"    Source: Pgpool-II 4.7.1
+.\"  Language: Japanese
+.\"
+.TH "SHOW POOL_CACHE" "1" "2023" "Pgpool-II 4.7.1" "Pgpool-II 4.7.1 文書"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "名前"
+SHOW_POOL_CACHE \- クエリキャッシュのヒット率や、キャッシュストレージの状況を表示する
+.SH "概要"
+.sp
+.nf
+   SHOW POOL_CACHE
+  
+.fi
+.SH "説明"
+.PP
+\fBSHOW POOL_CACHE\fR
+は
+インメモリクエリキャッシュ
+が有効である場合に、 クエリキャッシュのヒット率や、キャッシュストレージの状況を表示します。 例を示します。 各項目の説明は表28「show pool_cacheの表示項目」をご覧ください。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    test=# \ex
+    \ex
+    Expanded display is on\&.
+    test=# show pool_cache;
+    show pool_cache;
+    \-[ RECORD 1 ]\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-
+    num_cache_hits              | 891703
+    num_selects                 | 99995
+    cache_hit_ratio             | 0\&.90
+    num_hash_entries            | 131072
+    used_hash_entries           | 99992
+    num_cache_entries           | 99992
+    used_cache_entries_size     | 12482600
+    free_cache_entries_size     | 54626264
+    fragment_cache_entries_size | 0
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.sp
+.\}
+.RS 4
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fB注記\fR
+.ps -1
+.br
+.PP
+キャッシュストレージがmemcachedのときは、num_cache_hits, num_selects, cache_hit_ratio以外の列の値は0になります。
+.sp .5v
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B 表28 show pool_cacheの表示項目
+.TS
+allbox tab(:);
+lB lB.
+T{
+名称
+T}:T{
+説明
+T}
+.T&
+l l
+l l
+l l
+l l
+l l
+l l
+l l
+l l.
+T{
+num_cache_hits
+T}:T{
+クエリキャッシュにヒットした回数です。
+T}
+T{
+num_selects
+T}:T{
+キャッシュにヒットしなかったSELECTクエリの回数です。
+T}
+T{
+cache_hit_ratio
+T}:T{
+キャッシュのヒット率です。
+     num_cache_hits/(num_cache_hits+num_selects)で計算されます。
+T}
+T{
+num_hash_entries
+T}:T{
+キャッシュを管理するハッシュテーブルのエントリ数です。
+     大量のキャッシュを効率よく管理するため、Pgpool\-IIはハッシュテーブルを使っています。
+     ハッシュテーブルのエントリ数は、memqcache_max_num_cache以上で、かつその数に最も近い2のべき乗になる数が自動的に設定されます。
+     たとえば、memqcache_max_num_cacheのデフォルトである100,000では、131,072 (2の17乗)が設定されます。
+T}
+T{
+used_hash_entries
+T}:T{
+使用済みのハッシュエントリ数です。
+     これがnum_hash_entriesに近くなる場合は、num_hash_entriesを増やすことをお勧めします。
+     ハッシュテーブルを使い切ってもエラーにはなりませんが、登録済みのハッシュテーブルエントリとキャッシュを削除して新しいキャッシュを登録するため、性能が低下します。
+T}
+T{
+num_cache_entries
+T}:T{
+使用済みのキャッシュエントリ数です。
+     現在の実装ではused_hash_entriesと同じ値になります。
+T}
+T{
+free_cache_entries_size
+T}:T{
+未使用のキャッシュのバイト単位のサイズです。
+     この値が0に近づくと、登録済みのキャッシュを削除して新しいキャッシュを登録するため、エラーにはなりませんが性能が低下します。
+     memqcache_total_sizeを増やすことを検討してください。
+T}
+T{
+fragment_cache_entries_size
+T}:T{
+断片化しているキャッシュのバイト単位のサイズです。
+     Pgpool\-IIはmemqcache_cache_block_sizeで指定される固定長のブロックにキャッシュを書き込みます。
+     登録されたキャッシュが削除されると、次にそのブロックを再利用するまではその領域は断片化します。
+      fragment_cache_entries_sizeはそうした断片化した領域の合計サイズを表示します。
+T}
+.TE
+.sp 1

@@ -1,0 +1,601 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>RPMからのインストール</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="Pgpool-IIのインストール"
+HREF="installation.html"><LINK
+REL="PREVIOUS"
+TITLE="ドキュメントのコンパイルとインストール"
+HREF="install-docs.html"><LINK
+REL="NEXT"
+TITLE="インストールのヒント"
+HREF="installation-tips.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="ドキュメントのコンパイルとインストール"
+HREF="install-docs.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="installation.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>第 2章<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のインストール</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="インストールのヒント"
+HREF="installation-tips.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="INSTALL-RPM"
+>2.10. RPMからのインストール</A
+></H1
+><P
+>  
+  この章では、RPMから<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>をインストールする方法について説明します。
+  ソースコードからインストールする場合は、<A
+HREF="install-source.html"
+>項2.2</A
+>を参照してください。
+ </P
+><P
+>   
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>コミュニティはRHEL10/9/8および互換OS向けにRPMパッケージを提供しています。
+   パッケージファイルは<A
+HREF="https://www.pgpool.net/yum/"
+TARGET="_top"
+>Pgpool-IIの公式リポジトリ</A
+>から入手できます。
+  </P
+><P
+>   
+   以下のパッケージがあります。
+  </P
+><DIV
+CLASS="TABLE"
+><A
+NAME="RPM-PACKAGES"
+></A
+><P
+><B
+>表 2-1. Pgpool-II RPM Packages</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL><COL><THEAD
+><TR
+><TH
+>パッケージ名</TH
+><TH
+>説明</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+>pgpool-II-pgXX</TD
+><TD
+>Pgpool-IIの動作上に必要なライブラリやバイナリが含まれる</TD
+></TR
+><TR
+><TD
+>pgpool-II-pgXX-extensions</TD
+><TD
+>オンラインリカバリ機能を使用する場合、このパッケージをすべてのPostgreSQLサーバにインストールする必要がある</TD
+></TR
+><TR
+><TD
+>pgpool-II-pgXX-debuginfo</TD
+><TD
+>デバッグ情報が含まれる</TD
+></TR
+><TR
+><TD
+>pgpool-II-pgXX-debugsource</TD
+><TD
+>RHEL10/9/8の場合のみ。デバッグ情報が含まれる</TD
+></TR
+><TR
+><TD
+>pgpool-II-pgXX-extensions-debuginfo</TD
+><TD
+>RHEL10/9/8の場合のみ。デバッグ情報が含まれる</TD
+></TR
+><TR
+><TD
+>pgpool-II-pgXX-devel</TD
+><TD
+>開発者向けのヘッダーファイルが含まれる</TD
+></TR
+></TBODY
+></TABLE
+></DIV
+><P
+>   
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のライブラリと拡張のディレクトリが必要です。
+   そのディレクトリへのパスは<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のバージョンごとに異なっているので、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はPostgreSQLバージョンごとにパッケージを提供しています。
+   上記パッケージの「XX」はPostgreSQLのバージョンを表す2桁の数値です。<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>バージョンに対応する<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のRPMを選んでください。(例えば、PostgreSQL 18を利用している場合は、<TT
+CLASS="FILENAME"
+>pgpool-II-pg18</TT
+>を使用してください)
+  </P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="BEFORE-INSTALLING"
+>2.10.1. 事前準備</A
+></H2
+><P
+>   
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>関連のパッケージは<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>コミュニティのリポジトリにもあるため、
+   <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のリポジトリパッケージがすでにインストールされている場合は、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>コミュニティのリポジトリから<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>をインストールしないように<TT
+CLASS="FILENAME"
+>/etc/yum.repos.d/pgdg-redhat-all.repo</TT
+>にexclude設定を追加します。<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>と<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>をそれぞれ別のサーバにインストールする場合は、以下の設定は不要です。
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>vi /etc/yum.repos.d/pgdg-redhat-all.repo
+  </PRE
+><P
+>   
+   以下は、<TT
+CLASS="FILENAME"
+>/etc/yum.repos.d/pgdg-redhat-all.repo</TT
+>の設定例です。
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[pgdg-common]
+...
+exclude=pgpool*
+
+
+[pgdg18]
+...
+exclude=pgpool*
+
+[pgdg17]
+...
+exclude=pgpool*
+
+[pgdg16]
+...
+exclude=pgpool*
+
+[pgdg15]
+...
+exclude=pgpool*
+
+[pgdg14]
+...
+exclude=pgpool*
+
+[pgdg13]
+...
+exclude=pgpool*
+  </PRE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="INSTALLING-RPM"
+>2.10.2. RPMのインストール</A
+></H2
+><P
+>   
+   ここでは<A
+HREF="https://www.pgpool.net/yum"
+TARGET="_top"
+><SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の公式YUMレポジトリ</A
+>を使用してPgpool-IIをインストールします。
+  </P
+><P
+>   
+   以下の手順はRHEL10に<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL 18</SPAN
+>に対応した<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II 4.7.x</SPAN
+>をインストールすることが前提となります。
+   他のバージョンの<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>を利用している場合は、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のバージョンに応じて「pgXX」を適宜置き換えてください。
+  </P
+><P
+>   
+   まず、Pgpool-IIバージョンとディストリビューションに対応するレポジトリをインストールします。
+   REHL9/8の場合は、<A
+HREF="https://www.pgpool.net/mediawiki/index.php/Yum_Repository"
+TARGET="_top"
+>こちら</A
+>を参照してください。
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>dnf install https://www.pgpool.net/yum/rpms/4.7/redhat/rhel-10-x86_64/pgpool-II-release-4.7-1.noarch.rpm
+  </PRE
+><P
+>   
+   Rocky Linux 10で<SPAN
+CLASS="PRODUCTNAME"
+>PgPool-II</SPAN
+>をインストールするには、依存関係を満たすためにEPELリポジトリの有効化とlibmemcached-awesome-develが必要です。
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>インストール前に以下コマンドを実行してください。
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>dnf install epel-release
+dnf install libmemcached-awesome-devel
+  </PRE
+><P
+>   
+   次に、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>をインストールします。
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>dnf install pgpool-II-pg18
+  </PRE
+><P
+>   
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のオンラインリカバリ機能を利用するには、<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>すべての<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバに</I
+></SPAN
+>、<TT
+CLASS="FILENAME"
+>pgpool-II-pgXX-extensions</TT
+>をインストールします。また、<TT
+CLASS="FILENAME"
+>pgpool-II-pgXX-extensions</TT
+>は<TT
+CLASS="FILENAME"
+>pgpool-II-pgXX</TT
+>パッケージに依存しているため、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>と<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>をそれぞれ別のサーバにインストールしている場合は、<TT
+CLASS="FILENAME"
+>pgpool-II-pgXX</TT
+>も<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>が稼働しているサーバにインストールする必要があります。
+  </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>    
+   <TT
+CLASS="FILENAME"
+>pgpool-II-pgXX-extensions</TT
+>は<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>PostgreSQLサーバ側にインストールするパッケージ</I
+></SPAN
+>となります。<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>と<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>をそれぞれ別のサーバにインストールしている場合は、<TT
+CLASS="FILENAME"
+>pgpool-II-pgXX-extensions</TT
+>は<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が稼働しているサーバにインストールする必要はありません。
+   </P
+></BLOCKQUOTE
+></DIV
+><PRE
+CLASS="PROGRAMLISTING"
+>dnf install pgpool-II-pg18-extensions pgpool-II-pg18
+  </PRE
+><P
+>    
+   必要に応じて、開発者向けのオプションパッケージdebuginfoおよびdevelパッケージをインストールします。
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>dnf install pgpool-II-pg18-debuginfo pgpool-II-pg18-devel
+  </PRE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="CONFIGURE-RPM"
+>2.10.3. Pgpool-IIの設定</A
+></H2
+><P
+>   
+   すべての<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>設定ファイルは<TT
+CLASS="FILENAME"
+>/etc/pgpool-II</TT
+>にあります。
+   設定方法については<A
+HREF="configuring-pgpool.html"
+>項3.4</A
+>を参照ください。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="START-RPM"
+>2.10.4. Pgpool-IIの起動と停止</A
+></H2
+><P
+>   
+   RHEL10/9/8では、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の自動起動を設定する場合、以下を実行してください。
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>systemctl enable pgpool.service
+   </PRE
+><P>
+
+   
+   この後<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を起動するには、システム全体を再起動するか、以下を実行してください。
+   <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバは、これよりも前に起動済みでなければならないことに注意してください。
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>systemctl start pgpool.service 
+   </PRE
+><P>
+
+   
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を停止するには、以下を実行してください。<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>を停止する場合、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を先に停止する必要があります。
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>systemctl stop pgpool.service 
+   </PRE
+><P>
+
+   
+   この後、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバを停止しても構いません。
+  </P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="install-docs.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="installation-tips.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>ドキュメントのコンパイルとインストール</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="installation.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>インストールのヒント</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

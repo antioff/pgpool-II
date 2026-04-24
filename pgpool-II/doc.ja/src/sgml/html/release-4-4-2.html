@@ -1,0 +1,457 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.4.2</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.4.3"
+HREF="release-4-4-3.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.4.1"
+HREF="release-4-4-1.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.3"
+HREF="release-4-4-3.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.1"
+HREF="release-4-4-1.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-4-2"
+>A.36. リリース 4.4.2</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2023-01-23</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15597"
+>A.36.1. 概要</A
+></H2
+><P
+>   このリリースには、セキュリティ修正が含まれています。
+  </P
+><P
+>   以下の条件をすべて満たす場合、<A
+HREF="sql-show-pool-status.html"
+>SHOW POOL_STATUS</A
+>コマンドにより<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-USER"
+>wd_lifecheck_user</A
+>のパスワードが公開されます。このコマンドは、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>に接続できるすべてのユーザーが実行できます。(CVE-2023-22332)
+  </P
+><P
+></P
+><UL
+><LI
+><P
+>     バージョン3.3以降
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-USE-WATCHDOG"
+>use_watchdog</A
+>が<TT
+CLASS="LITERAL"
+>on</TT
+>に設定されている
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
+>wd_lifecheck_method</A
+>に<TT
+CLASS="LITERAL"
+>query</TT
+>が設定されている
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>にプレーンテキストのパスワードが設定されている
+    </P
+></LI
+></UL
+><P
+>   上記条件のすべてに該当するユーザは、このバージョンにアップグレードするか (show pool_statusコマンドで<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>が表示されなくなる)、次の回避策のいずれかを使用することを強くお勧めします。
+  </P
+><P
+>   4.0.x～4.4.xユーザ向けの回避策:
+  </P
+><P
+></P
+><UL
+><LI
+><P
+>     Watchdogを無効にする。(<A
+HREF="runtime-watchdog-config.html#GUC-USE-WATCHDOG"
+>use_watchdog</A
+>を<TT
+CLASS="LITERAL"
+>off</TT
+>に設定する)
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
+>wd_lifecheck_method</A
+>に<TT
+CLASS="LITERAL"
+>heartbeat</TT
+>を設定する。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>には空文字を設定し、パスワードはpool_passwdファイルに設定する。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>にAESで暗号化したパスワードを設定する。
+    </P
+></LI
+></UL
+><P
+>   いずれにせよ、PostgreSQLで<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>を変更することをお勧めします。
+  </P
+><P
+>   3.3.x～3.7.xユーザ向けの回避策:
+  </P
+><P
+></P
+><UL
+><LI
+><P
+>     Watchdogを無効にする。(<A
+HREF="runtime-watchdog-config.html#GUC-USE-WATCHDOG"
+>use_watchdog</A
+>を<TT
+CLASS="LITERAL"
+>off</TT
+>に設定する)
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-METHOD"
+>wd_lifecheck_method</A
+>に<TT
+CLASS="LITERAL"
+>heartbeat</TT
+>を設定する。
+    </P
+></LI
+></UL
+><P
+>   いずれにせよ、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>で<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>を変更することをお勧めします。
+  </P
+><P
+>   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 3.7.xおよび以前のバージョンはサポートが終了しているため、これらのバージョンのマイナーアップデートはリリースされません。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15653"
+>A.36.2. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <A
+HREF="sql-show-pool-status.html"
+>SHOW POOL_STATUS</A
+>、<A
+HREF="pcp-pool-status.html"
+>pcp_pool_status</A
+>および<A
+HREF="pgpool-adm-pcp-pool-status.html"
+>pgpool_adm_pcp_pool_status</A
+>コマンドでwd_lifecheck_passwordを表示しないように修正しました。(CVE-2023-22332) (Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     ドキュメントに記載されているように、<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>のデフォルト値を空の文字列に変更しました。(Bo Peng)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15664"
+>A.36.3. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     pgpool_adm: pcp_pool_status関数が<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 15で失敗する問題を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     pcp_pool_status関数は実際にはSETOF recordを返しますが、「RETURNS record」と宣言されていました。
+     これは<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 14までは許容されていましたが、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 15ではより厳しくなりました。
+     これを修正するために、pcp_pool_statusの戻り値の型を「RETURNS record」から「RETURNS SETOF record」に変更しました。
+    </P
+><P
+>     また、pgpool_adm拡張機能のバージョンを1.5に上げました。
+    </P
+></LI
+><LI
+><P
+>     ストリーミングレプリケーションチェックでの整数オーバーフローを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     <A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+> が有効で、レプリケーションの遅延が約36分を超えると、整数オーバーフローエラーがログに記録され、レプリケーションチェックが失敗しました。
+    </P
+></LI
+><LI
+><P
+>     pgpool-regclass.cのコンパイラ警告を修正しました。(Florian Weimer, Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     Coverityによって指摘された初期化されていない変数を修正しました。(Takuma Hoshiai)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15682"
+>A.36.4. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <A
+HREF="runtime-in-memory-query-cache.html#RUNTIME-IN-MEMORY-QUERY-CACHE-SHMEM-CONFIG"
+>共有メモリ使用時の設定</A
+>の章のいくつかの誤りを修正し、説明を強化しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+>の説明を強化しました。(zam bak, Tatsuo Ishii)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-4-3.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-4-1.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.4.3</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.4.1</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

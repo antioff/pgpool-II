@@ -1,0 +1,567 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.6.0</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.6.1"
+HREF="release-4-6-1.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.5.11"
+HREF="release-4-5-11.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.6.1"
+HREF="release-4-6-1.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.11"
+HREF="release-4-5-11.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-6-0"
+>A.9. リリース 4.6.0</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2025-02-28</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN13258"
+>A.9.1. 概要</A
+></H2
+><P
+>   このリリースでは、ログ取得や<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の管理のための便利な機能を追加しました。
+   新しいPCPコマンドを使って、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を再起動したり、シグナルを送ることなくログをローテートできます。
+   <A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>関連のパラメータが設定ファイルの再読込で変更できるようになりました。
+   また、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を再起動せずにクエリキャッシュを削除するための新しいPCPコマンドが追加されました。
+   他の新しいクエリキャッシュの機能としては、クエリキャッシュのエントリを強制的に作成すること、指定したクエリキャッシュのエントリを削除できるようになりました。
+   新しい設定パラメータの<A
+HREF="runtime-config-logging.html#GUC-LOG-BACKEND-MESSAGES"
+>log_backend_messages</A
+>により、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>と<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>の間の通信を容易に分析することができるようになりました。
+   SQLパーサは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL 17</SPAN
+>バージョンと同期していつものように更新されました。
+   最後に、watchdogのhostnameとheartbeat_hostname設定パラメータでIPv6が使えるようになりました。
+  </P
+><P
+>   主な機能の改良は以下の通りです。
+  </P
+><P
+></P
+><UL
+><LI
+><P
+>     ログのローテーションを指示する<A
+HREF="pcp-log-rotate.html"
+>新しいPCPコマンド</A
+>
+    </P
+></LI
+><LI
+><P
+>     リロードによる<A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>関連のパラメータの変更
+    </P
+></LI
+><LI
+><P
+>     クエリキャッシュを削除する<A
+HREF="pcp-invalidate-query-cache.html"
+>新しいPCPコマンド</A
+>
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-in-memory-query-cache.html"
+>クエリキャッシュ</A
+>の強制的な作成
+    </P
+></LI
+><LI
+><P
+>     新しい<A
+HREF="sql-pgpool-set-cache.html"
+>PGPOOL SET CACHE DELETE</A
+>コマンド
+    </P
+></LI
+><LI
+><P
+>     新しい設定パラメータ<A
+HREF="runtime-config-logging.html#GUC-LOG-BACKEND-MESSAGES"
+>log_backend_messages</A
+>
+    </P
+></LI
+><LI
+><P
+>     PostgreSQL 17のSQLパーサの導入
+    </P
+></LI
+><LI
+><P
+>     watchdogの<A
+HREF="runtime-watchdog-config.html#GUC-HOSTNAME"
+>hostname</A
+>と<A
+HREF="runtime-watchdog-config.html#GUC-HEARTBEAT-HOSTNAME"
+>heartbeat_hostname</A
+>パラメータのIPv6対応
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="MIGRATION-4-6-0"
+>A.9.2. バージョン4.6への移行</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <A
+HREF="runtime-config-health-check.html#GUC-HEALTH-CHECK-USER"
+>health_check_user</A
+>、<A
+HREF="runtime-online-recovery.html#GUC-RECOVERY-USER"
+>recovery_user</A
+>、<A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+>、<A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-USER"
+>wd_lifecheck_user</A
+>のデフォルト値が'nobody'から''(空文字)に変更されました。
+     4.6ではそれらに適切な値をセットする必要があります。さもなければエラーが生じます。
+    </P
+></LI
+><LI
+><P
+>     文字列型の設定パラメータ、たとえば<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES"
+>unix_socket_directories</A
+>や<A
+HREF="runtime-config-connection.html#GUC-PCP-SOCKET-DIR"
+>pcp_socket_dir</A
+>で、先頭/末尾の空白を無視するようにしました。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-config-connection-pooling.html#GUC-CHILD-LIFE-TIME"
+>child_life_time</A
+>や<A
+HREF="runtime-config-connection-pooling.html#GUC-CHILD-MAX-CONNECTIONS"
+>child_max_connections</A
+>を設定していると以下のログメッセージが記録されました。これらは正常時のメッセージであるため、DEBUG1にダウングレードされました。
+     </P><PRE
+CLASS="PROGRAMLISTING"
+>  reaper handler
+  reaper handler: exiting normally
+     </PRE
+><P>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN13313"
+>A.9.3. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     ログをローテートする<A
+HREF="pcp-log-rotate.html"
+>pcp_log_rotate</A
+>を追加しました。(Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の設定を再ロードすることにより、<A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>関連のパラメータを変更できるようにしました。 (Bo Peng)
+    </P
+><P
+>     以下の<A
+HREF="runtime-config-logging.html#GUC-LOGGING-COLLECTOR"
+>logging_collector</A
+>関連のパラメータは再ロードで変更できます。
+     <P
+></P
+></P><UL
+><LI
+><P
+>	log_truncate_on_rotation
+       </P
+></LI
+><LI
+><P
+>	log_directory
+       </P
+></LI
+><LI
+><P
+>	log_filename
+       </P
+></LI
+><LI
+><P
+>	log_rotation_age
+       </P
+></LI
+><LI
+><P
+>	log_rotation_size
+       </P
+></LI
+><LI
+><P
+>	log_file_mode
+       </P
+></LI
+></UL
+><P>
+    </P
+></LI
+><LI
+><P
+>     クエリキャッシュを削除する<A
+HREF="pcp-invalidate-query-cache.html"
+>pcp_invalidate_query_cache</A
+>を追加しました。 (Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     指定のクエリキャッシュを削除する<A
+HREF="sql-pgpool-set-cache.html"
+>PGPOOL SET CACHE DELETE</A
+>コマンドを追加しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     バックエンドからのプロトコルメッセージをログする新しい設定パラメータの<A
+HREF="runtime-config-logging.html#GUC-LOG-BACKEND-MESSAGES"
+>log_backend_messages</A
+>を追加しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 17の新しいパーサを取り込みました。(Bo Peng)
+    </P
+><P
+>     <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 17パーサの変更点には以下のものがあります。
+
+     </P><PRE
+CLASS="PROGRAMLISTING"
+>- MERGEでNOT MATCHED BY SOURCEとRETURNING句が使えるようになりました。
+
+    MERGE INTO ... WHEN NOT MATCHED BY SOURCE ...
+    MERGE INTO ... RETURNING ...
+
+- 新しいCOPYオプションのON_ERROR ignoreとLOG_VERBOSITYが追加されました。
+
+  COPY ... WITH (ON_ERROR ignore);
+  COPY ... WITH (LOG_VERBOSITY verbose);
+
+- すべての列に対して'*'を使ってCOPY FROMオプションのFORCE_NOT_NULLとFORCE_NULLが指定できるようになりました。
+
+  COPY ... WITH (FORCE_NOT_NULL *);
+  COPY ... WITH (FORCE_NULL *);
+
+- EXPLAINにオプションのSERIALIZEとMEMORYが追加されました。
+
+  EXPLAIN (MEMORY) ...
+  EXPLAIN (ANALYZE, SERIALIZE ...) ...
+
+- ALTER TABLEでSET STATISTICS DEFAULTを使って指定の列をデフォルトの統計上情報ターゲットにできるようになりました。
+
+  ALTER TABLE ... ALTER COLUMN ... SET STATISTICS DEFAULT;
+
+- ALTER TABLEで列の生成式を変更できるようになりました。
+
+  ALTER TABLE ... ALTER COLUMN ... SET EXPRESSION;
+
+- ALTER TABLEで .. SET ACCESS METHODのデフォルトを指定できるようになりました。
+
+  ALTER TABLE ... SET ACCESS METHOD new_access_method DEFAULT;
+
+- イベントトリガでログインイベントを扱えるようになりました。
+
+  CREATE EVENT TRIGGER ... ON login ...
+
+- イベントトリガでREINDEXを扱えるようになりました。
+     </PRE
+><P>
+    </P
+></LI
+><LI
+><P
+>     パラメータの<A
+HREF="runtime-watchdog-config.html#GUC-HOSTNAME"
+>hostname</A
+>と<A
+HREF="runtime-watchdog-config.html#GUC-HEARTBEAT-HOSTNAME"
+>heartbeat_hostname</A
+>でIPv6をサポートしました。(Kwangwon Seo)
+    </P
+></LI
+><LI
+><P
+>     文字列型の設定パラメータで、先頭/末尾の空白を無視するようにしました。(Bo Peng)
+    </P
+><P
+>     文字列型のパラメータ（たとえば<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES"
+>unix_socket_directories</A
+>や<A
+HREF="runtime-config-connection.html#GUC-PCP-SOCKET-DIR"
+>pcp_socket_dir</A
+>）に空白が含まれると、起動に失敗することがありました。
+    </P
+></LI
+><LI
+><P
+>     reaper handlerのログをダウングレードしました。(Bo Peng)
+    </P
+><P
+>     以下のメッセージは、たとえばchild_life_timeやchild_max_connectionsの設定で子プロセスが終了する時に現れます。
+     これらは正常なメッセージなので、DEBUG1にダウングレードしました。
+     </P><PRE
+CLASS="PROGRAMLISTING"
+>  reaper handler
+  reaper handler: exiting normally
+     </PRE
+><P>
+    </P
+></LI
+><LI
+><P
+>     拡張問い合わせプロトコルを処理する時の不必要なメモリ獲得を防ぐようにしました。(Tatsuo Ishii)
+     これは、ストリーミングレプリケーションモードに対してのみ関係します。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN13368"
+>A.9.4. バグ修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     このリリースでは、他のマイナーリリースと同じバグ修正がすでに適用されています。
+     これらの修正の詳細については、<A
+HREF="release.html"
+>付録A</A
+>を参照してください。
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-6-1.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-5-11.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.6.1</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.5.11</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

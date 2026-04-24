@@ -1,0 +1,404 @@
+'\" t
+.\"     Title: SHOW POOL_POOLS
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: pgpool-II 4.7.1 Documentation
+.\"    Source: pgpool-II 4.7.1
+.\"  Language: English
+.\"
+.TH "SHOW POOL_POOLS" "1" "2023" "pgpool-II 4.7.1" "pgpool-II 4.7.1 Documentation"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+SHOW_POOL_POOLS \- sends back a list of pools handled by Pgpool\-II\&.
+.SH "SYNOPSIS"
+.sp
+.nf
+   SHOW POOL_POOLS
+  
+.fi
+.SH "DESCRIPTION"
+.PP
+\fBSHOW POOL_POOLS\fR
+sends back a list of pools handled by
+Pgpool\-II
+.PP
+It has 20 columns:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+pool_pid
+is the PID of the displayed
+Pgpool\-II
+process\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+start_time
+is the timestamp of when this process was launched\&.
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+If
+child_life_time
+is set not 0, the time before process restarting is displayed\&.
+.RE
+.sp
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+client_connection_count
+counts the number of times this process has been used by clients\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+pool_id
+is the pool identifier (should be between 0 and
+max_pool
+\- 1)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+backend_id
+is the backend identifier (should be between 0 and the number of configured backends minus one)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+database
+is the database name for this process\*(Aqs pool id connection\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+username
+is the user name for this process\*(Aqs pool id connection\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+backend_connection_time
+is the creation time and date of the connection\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+client_connection_time
+is the date when a client last used this connection\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+client_disconnection_time
+is the date when a client last disconnected from this connection\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+client_idle_duration
+is the time (sec) that a client is in idle\&.
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+If
+client_idle_limit
+is set not 0, the time before client disconnected is displayed\&.
+.RE
+.sp
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+majorversion
+and
+minorversion
+are the protocol version numbers used in this connection\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+pool_counter
+counts the number of times this pool of connections (process) has been used by clients\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+pool_backendpid
+is the PID of the PostgreSQL process\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+pool_connected
+is true (1) if a frontend is currently using this backend\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+status
+is current status of this process\&. Possible values are:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Execute command: Executing a command\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Idle: The process is waiting for a new client command\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Idle in transaction: The process is waiting for a new client command in a transaction\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Wait for connection: The process is waiting for a new client connection\&.
+.RE
+.sp
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+load_balance_node
+is true (1) if a frontend is currently using this backend and the backend is load balance node\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+client_host
+is client\*(Aqs host name or IP address\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+client_port
+is client\*(Aqs port number\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+statement
+is the SQL statement last executed\&.
+.RE
+.PP
+It\*(Aqll always return
+num_init_children
+*
+max_pool
+* number_of_backends lines\&. Here is an example session:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+test=# show pool_pools;
+ pool_pid |                      start_time                      | client_connection_count | pool_id | backend_id | database | username | backend_connection_time | client_connection_time | client_disconnection_time | client_idle_duration | majorversion | minorversion | pool_counter | pool_backendpid | pool_connected |       status        | load_balance_node |  client_host  | client_port |  statement  
+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-
+[snip]
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 0       | 0          | test     | t\-ishii  | 2025\-06\-24 10:55:58     | 2025\-06\-24 10:55:59    |                           | 0                    | 3            | 0            | 1            | 1336703         | 1              | Idle                | 0                 | 192\&.168\&.10\&.11 | 39216       | 
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 0       | 1          | test     | t\-ishii  | 2025\-06\-24 10:55:58     | 2025\-06\-24 10:55:59    |                           | 0                    | 3            | 0            | 1            | 1336704         | 1              | Idle                | 1                 | 192\&.168\&.10\&.11 | 39216       | select 1;
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 1       | 0          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Idle                | 0                 | 192\&.168\&.10\&.11 | 39216       | 
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 1       | 1          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Idle                | 0                 | 192\&.168\&.10\&.11 | 39216       | select 1;
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 2       | 0          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Idle                | 0                 | 192\&.168\&.10\&.11 | 39216       | 
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 2       | 1          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Idle                | 0                 | 192\&.168\&.10\&.11 | 39216       | select 1;
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 3       | 0          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Idle                | 0                 | 192\&.168\&.10\&.11 | 39216       | 
+ 1336537  | 2025\-06\-24 10:53:35                                  | 0                       | 3       | 1          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Idle                | 0                 | 192\&.168\&.10\&.11 | 39216       | select 1;
+[snip]
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 0       | 0          | test     | t\-ishii  | 2025\-06\-24 10:53:42     | 2025\-06\-24 10:53:42    | 2025\-06\-24 10:55:37       | 0                    | 3            | 0            | 1            | 1336573         | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | DISCARD ALL
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 0       | 1          | test     | t\-ishii  | 2025\-06\-24 10:53:42     | 2025\-06\-24 10:53:42    | 2025\-06\-24 10:55:37       | 0                    | 3            | 0            | 1            | 1336574         | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | 
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 1       | 0          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | DISCARD ALL
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 1       | 1          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | 
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 2       | 0          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | DISCARD ALL
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 2       | 1          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | 
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 3       | 0          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | DISCARD ALL
+ 1336544  | 2025\-06\-24 10:53:35 (0:23 before process restarting) | 1                       | 3       | 1          |          |          |                         |                        |                           | 0                    | 0            | 0            | 0            | 0               | 0              | Wait for connection | 0                 | 192\&.168\&.10\&.11 | 39162       | 
+[snip]
+(256 rows)
+     
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

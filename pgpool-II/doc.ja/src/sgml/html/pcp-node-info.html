@@ -1,0 +1,622 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>pcp_node_info</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="PCP コマンド"
+HREF="pcp-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="pcp_node_count"
+HREF="pcp-node-count.html"><LINK
+REL="NEXT"
+TITLE="pcp_health_check_stats"
+HREF="pcp-health-check-stats.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="pcp_node_count"
+HREF="pcp-node-count.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="pcp-commands.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="pcp_health_check_stats"
+HREF="pcp-health-check-stats.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="PCP-NODE-INFO"
+></A
+>pcp_node_info</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN9299"
+></A
+><H2
+>名前</H2
+>pcp_node_info&nbsp;--&nbsp;   
+   指定されたノードの情報を表示する</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN9302"
+></A
+><H2
+>概要</H2
+><P
+><TT
+CLASS="COMMAND"
+>pcp_node_info</TT
+> [<TT
+CLASS="REPLACEABLE"
+><I
+>option</I
+></TT
+>...] [<TT
+CLASS="REPLACEABLE"
+><I
+>node_id</I
+></TT
+>]</P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="R1-PCP-NODE-INFO-1"
+></A
+><H2
+>説明</H2
+><P
+>   <TT
+CLASS="COMMAND"
+>pcp_node_info</TT
+>
+   
+   指定されたノードの情報を表示します。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN9313"
+></A
+><H2
+>オプション</H2
+><P
+>   <P
+></P
+></P><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="OPTION"
+>-n <TT
+CLASS="REPLACEABLE"
+><I
+>node_id</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--node-id=<TT
+CLASS="REPLACEABLE"
+><I
+>node_id</I
+></TT
+></TT
+></DT
+><DD
+><P
+>       
+       情報を表示するバックエンドノードのインデックスを指定します。
+      </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-a</TT
+><BR><TT
+CLASS="OPTION"
+>--all</TT
+></DT
+><DD
+><P
+>       
+       すべてのバックエンドノードの情報を表示します。
+      </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>その他 </TT
+></DT
+><DD
+><P
+>       
+       <A
+HREF="pcp-common-options.html"
+>pcp_common_options</A
+> を参照してください。
+      </P
+></DD
+></DL
+></DIV
+><P>
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN9339"
+></A
+><H2
+>例</H2
+><P
+>   
+   ここでは例を示します。
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>$ pcp_node_info -w -p 11001 -n 1
+/tmp 11003 1 0.500000 waiting up standby standby 0 streaming async 2021-02-27 14:51:30
+   </PRE
+><P>
+  </P
+><P
+>   
+   結果は以下の順のとおりです。
+   </P><PRE
+CLASS="LITERALLAYOUT"
+>    
+1. ノードのホスト名
+2. ノードのポート番号
+3. ステータス
+4. ロードバランスウェイト
+5. バックエンドステータス名
+6. 実際のバックエンドの状態 (Pgpool-II 4.3以降。PQpingParamsで取得)
+7. バックエンドの役割
+8. 実際のバックエンドの役割(Pgpool-II 4.3以降。pg_is_in_recoveryで取得)
+9. レプリケーションの遅延
+10. レプリケーション状態 (Pgpool-II 4.1以降。pg_stat_replicationから取得)
+11. 同期レプリケーション状態 (Pgpool-II 4.1以降。pg_stat_replicationから取得)
+12. 最終ステータス変更時刻
+   </PRE
+><P>
+  </P
+><P
+>   
+   <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>3（ステータス）</I
+></SPAN
+>は [0..3] までの数字で表わされます。各数字の意味は以下のとおりです。
+  </P
+><P
+>   <P
+></P
+></P><UL
+><LI
+><P
+>0 - 初期化時のみに表われる。PCP コマンドで表示されることはない。 </P
+></LI
+><LI
+><P
+>1 - ノード稼働中。接続無し </P
+></LI
+><LI
+><P
+>2 - ノード稼働中。接続有り </P
+></LI
+><LI
+><P
+>3 -  ノードダウン </P
+></LI
+></UL
+><P>
+  </P
+><P
+>   
+   <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>4（ロードバランスウェイト）</I
+></SPAN
+>は0から1に正規化されたフォーマットで出力されます。
+  </P
+><P
+>   
+   <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>5（バックエンドステータス名）</I
+></SPAN
+>は<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>から見た<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>ノードのステータス名を示します。
+   これは、上記「<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>3（ステータス）</I
+></SPAN
+>」の数値に対応する状態名（文字列）であり、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が内部的に保持しているノードの状態を、可読性の高い形式で表現したものです。
+  </P
+><P
+>   <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>6（実際のバックエンドの状態）</I
+></SPAN
+>は実際のバックエンドの状態をリアルタイムで取得して表示します。
+   情報の取得は、このコマンドが実行された時に<CODE
+CLASS="FUNCTION"
+>PQpingParams</CODE
+>を呼び出すことによって行われます。
+   <CODE
+CLASS="FUNCTION"
+>PQpingParams</CODE
+>は<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.1以降でのみサポートされています。
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.0以前とともに構築されると、この列は"unknown"と表示されます。
+   また、<A
+HREF="runtime-config-health-check.html"
+>ヘルスチェック</A
+>が無効になっている場合も"unknown"と表示されます。
+   <A
+HREF="pcp-detach-node.html"
+>pcp_detach_node</A
+>でバックエンドノードを切り離すと、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が管理する状態は"down"になりますが、バックエンドの実際の状態は"up"なので、5と6が一致しないことはあり得ます。
+    逆に、5が"up"なのに、6が"down"というのは起こらないはずです。
+  </P
+><P
+>   <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>7（バックエンドの役割）</I
+></SPAN
+>は<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>から見た<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>ノードの役割（primaryまたはstandby）を示します。<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が内部的に保持している情報に基づいて表示されます。
+  </P
+><P
+>   <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>8（実際のバックエンドの役割）</I
+></SPAN
+>は実際のバックエンドの役割（primaryまたはstandby）をリアルタイムで取得して表示します。
+   その結果はストリーミングレプリケーションモードでは、"primary"か"standby"ですが、情報が取得できなければ"unknown"と表示します。
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はノードID順にバックエンドノードを調べ、最後に見つけたスタンバイ以外のノードをプライマリとするので、誤ってスタンバイ以外のノードが複数できたときなどには、7と8が一致しないことはありえます。
+   （このコマンドはそのような状態を見つけるのに役立ちます。)
+   それ以外のモードでは、"main"あるいは"replica"と表示されます。
+   ストリーミングレプリケーションモードと違って、<CODE
+CLASS="FUNCTION"
+>pg_is_in_recovery</CODE
+>は呼び出されず、7と8が異なる値になることはありません。
+  </P
+><P
+>   <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>9, 10, 11</I
+></SPAN
+>を正しく表示させるに、<A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-PERIOD"
+>sr_check_period</A
+>が0以外に設定されている必要があります。
+    さらに10, 11を正しく表示させるには、以下の追加設定が必要です。
+   <P
+></P
+></P><UL
+><LI
+><P
+>      <A
+HREF="runtime-config-backend-settings.html#GUC-BACKEND-APPLICATION-NAME"
+>backend_application_name</A
+>パラメータを設定する必要があります。
+     </P
+><P
+>      各<TT
+CLASS="VARNAME"
+>backend_application_nameX</TT
+>に設定された値が、該当ノードの<TT
+CLASS="VARNAME"
+>primary_conninfo</TT
+>の<TT
+CLASS="VARNAME"
+>application_name</TT
+>に指定された値と一致している必要があります。
+     </P
+><P
+>      特に、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の<A
+HREF="pcp-recovery-node.html"
+>pcp_recovery_node</A
+>コマンドを用いてスタンバイノードを構築し、コミュニティ提供のサンプルスクリプトを使用している場合は、<TT
+CLASS="VARNAME"
+>backend_application_nameX</TT
+>の値を<TT
+CLASS="VARNAME"
+>backend_hostnameX</TT
+>と一致させてください。
+      具体的な設定例については<A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-PGPOOL-CONFIG-BACKEND-SETTINGS"
+>項8.2.7.6</A
+>をご参照ください。
+     </P
+></LI
+><LI
+><P
+>      <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+>が<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のスーパーユーザーであるか、もしくは<TT
+CLASS="LITERAL"
+>pg_monitor</TT
+>ロールの権限が付与されている必要があります。
+     </P
+></LI
+></UL
+><P>
+   </P><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>    <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+>に<TT
+CLASS="LITERAL"
+>pg_monitor</TT
+>ロールの権限を付与するには、以下のSQLコマンドを<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>スーパーユーザーで実行してください（"sr_check_user"を<A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+>の設定値で置き換えてください）
+	 </P><PRE
+CLASS="PROGRAMLISTING"
+>GRANT pg_monitor TO sr_check_user;
+	 </PRE
+><P>
+	<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 9.6にはpg_monitorグループがないので、<A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+>は<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のスーパーユーザーでなければなりません。
+    </P
+></BLOCKQUOTE
+></DIV
+><P>
+  </P
+><P
+>  
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.4から、9 (レプリケーション遅延)はバイトもしくは秒単位で表示されます。
+    詳細は<A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+>を参照ください。
+  </P
+><P
+>   
+   <TT
+CLASS="OPTION"
+>-a</TT
+>または <TT
+CLASS="OPTION"
+>--all</TT
+>オプションはすべてのバックエンドノードの情報を表示します。
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>$ pcp_node_info -w -p 11001 -a
+/tmp 11002 1 0.500000 waiting up primary primary 0 none none 2021-02-27 14:51:30
+/tmp 11003 1 0.500000 waiting up standby standby 0 streaming async 2021-02-27 14:51:30
+  </PRE
+><P
+>   
+   <TT
+CLASS="OPTION"
+>--verbose</TT
+> オプションは出力内容を理解するのに役に立ちます。例を示します：
+  </P
+><PRE
+CLASS="PROGRAMLISTING"
+>$ pcp_node_info -w -p 11001 --verbose 1
+Hostname               : /tmp
+Port                   : 11003
+Status                 : 1
+Weight                 : 0.500000
+Status Name            : waiting
+Backend Status Name    : up
+Role                   : standby
+Backend Role           : standby
+Replication Delay      : 0
+Replication State      : streaming
+Replication Sync State : async
+Last Status Change     : 2021-02-27 14:51:30
+  </PRE
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="pcp-node-count.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="pcp-health-check-stats.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>pcp_node_count</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="pcp-commands.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>pcp_health_check_stats</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

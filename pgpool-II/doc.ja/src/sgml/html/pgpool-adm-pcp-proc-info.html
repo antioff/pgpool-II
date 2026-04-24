@@ -1,0 +1,555 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>pgpool_adm_pcp_proc_info</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="pgpool_admエクステンション"
+HREF="pgpool-adm.html"><LINK
+REL="PREVIOUS"
+TITLE="pgpool_adm_pcp_detach_node"
+HREF="pgpool-adm-pcp-detach-node.html"><LINK
+REL="NEXT"
+TITLE="付録"
+HREF="appendixes.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="pgpool_adm_pcp_detach_node"
+HREF="pgpool-adm-pcp-detach-node.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="pgpool-adm.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="付録"
+HREF="appendixes.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="PGPOOL-ADM-PCP-PROC-INFO"
+></A
+>pgpool_adm_pcp_proc_info</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN12196"
+></A
+><H2
+>名前</H2
+>pgpool_adm_pcp_proc_info&nbsp;--&nbsp;   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の子プロセスの情報を表示する関数
+   </DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN12200"
+></A
+><H2
+>概要</H2
+><DIV
+CLASS="FUNCSYNOPSIS"
+><P
+></P
+><A
+NAME="AEN12201"
+></A
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>pcp_proc_info returns record</CODE
+>(text <TT
+CLASS="PARAMETER"
+>host</TT
+>, integer <TT
+CLASS="PARAMETER"
+>port</TT
+>, text <TT
+CLASS="PARAMETER"
+>username</TT
+>, text <TT
+CLASS="PARAMETER"
+>password</TT
+>, out <TT
+CLASS="PARAMETER"
+>database text</TT
+>, out <TT
+CLASS="PARAMETER"
+>username text</TT
+>, out <TT
+CLASS="PARAMETER"
+>start_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_connection_count text</TT
+>, out <TT
+CLASS="PARAMETER"
+>major text</TT
+>, out <TT
+CLASS="PARAMETER"
+>minor text</TT
+>, out <TT
+CLASS="PARAMETER"
+>backend_connection_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_connection_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_idle_duration text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_disconnection_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>pool_counter text</TT
+>, out <TT
+CLASS="PARAMETER"
+>backend_pid text</TT
+>, out <TT
+CLASS="PARAMETER"
+>connected text</TT
+>, out <TT
+CLASS="PARAMETER"
+>pid text</TT
+>, out <TT
+CLASS="PARAMETER"
+>backend_id text</TT
+>, out <TT
+CLASS="PARAMETER"
+>status text</TT
+>, out <TT
+CLASS="PARAMETER"
+>load_balance_node text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_host text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_port text</TT
+>, out <TT
+CLASS="PARAMETER"
+>statement </TT
+>);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>pcp_proc_info returns record</CODE
+>(integer <TT
+CLASS="PARAMETER"
+>node_id</TT
+>, text <TT
+CLASS="PARAMETER"
+>pcp_server</TT
+>, out <TT
+CLASS="PARAMETER"
+>database text</TT
+>, out <TT
+CLASS="PARAMETER"
+>username text</TT
+>, out <TT
+CLASS="PARAMETER"
+>start_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_connection_count text</TT
+>, out <TT
+CLASS="PARAMETER"
+>major text</TT
+>, out <TT
+CLASS="PARAMETER"
+>minor text</TT
+>, out <TT
+CLASS="PARAMETER"
+>backend_connection_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_connection_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_idle_duration text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_disconnection_time text</TT
+>, out <TT
+CLASS="PARAMETER"
+>pool_counter text</TT
+>, out <TT
+CLASS="PARAMETER"
+>backend_pid text</TT
+>, out <TT
+CLASS="PARAMETER"
+>connected text</TT
+>, out <TT
+CLASS="PARAMETER"
+>pid text</TT
+>, out <TT
+CLASS="PARAMETER"
+>backend_id text</TT
+>, out <TT
+CLASS="PARAMETER"
+>status text</TT
+>, out <TT
+CLASS="PARAMETER"
+>load_balance_node text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_host text</TT
+>, out <TT
+CLASS="PARAMETER"
+>client_port text</TT
+>, out <TT
+CLASS="PARAMETER"
+>statement </TT
+>);</CODE
+></P
+><P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="R3-PCP-PROC-INFO-3"
+></A
+><H2
+>説明</H2
+><P
+>   <CODE
+CLASS="FUNCTION"
+>pcp_proc_info</CODE
+>
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の子プロセスの情報を表示します。
+   表示される情報は<A
+HREF="pcp-proc-info.html"
+>pcp_proc_info</A
+>と同じです。
+   すべてのデータ型は"text"です。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN12306"
+></A
+><H2
+>引数</H2
+><P
+>   <P
+></P
+></P><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>pcp_server</I
+></TT
+></DT
+><DD
+><P
+>       pcpサーバの外部サーバ名
+      </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>他の引数</TT
+></DT
+><DD
+><P
+>       <A
+HREF="pcp-common-options.html"
+>pcp_common_options</A
+>を参照ください。
+      </P
+></DD
+></DL
+></DIV
+><P>
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN12321"
+></A
+><H2
+>使用例</H2
+><P
+>   以下の例では、検索条件で"connected"列 = '1'を指定して、現在クライアントから接続のあるプロセス情報のみを表示しています。
+   このpsqlセッションでfrom pcp_proc_infoを呼び出していて、その情報は行1と2に表示されています。
+   select文はbackend_id = '0'（おそらくprimaryです)にのみ送信されているので、行1の"status"列は"Execute command"となっており、"statement"列には実行したselect文が表示されていますが、backend_id = '1'にはselect文が送信されていないので、行2のstatementは空白となっています。
+   </P
+><P
+>    別psqlセッションの情報は行2, 3に表示されています。
+    この例では"select 1"は"backend_id" = '1'（おそらくstandby)に送信されています。
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>test=# select * from pcp_proc_info(host =&#62; '', port =&#62; 11001, username =&#62; 't-ishii', password =&#62; 't-ishii') where connected = '1';
+-[ RECORD 1 ]-------------+----------------------------------------------------------------------------------------------------------------------------
+database                  | test
+username                  | t-ishii
+start_time                | 2025-02-22 20:56:08
+client_connection_count   | 0
+major                     | 3
+minor                     | 0
+backend_connection_time   | 2025-02-22 20:58:37
+client_connection_time    | 2025-02-22 20:58:37
+client_idle_duration      | 0
+client_disconnection_time | 
+pool_counter              | 1
+backend_pid               | 14750
+connected                 | 1
+pid                       | 14585
+backend_id                | 0
+status                    | Execute command
+load_balance_node         | 1
+client_host               | 127.0.0.1
+client_port               | 59120
+statement                 | select * from pcp_proc_info(host =&#62; '', port =&#62; 11001, username =&#62; 't-ishii', password =&#62; 't-ishii') where connected = '1';
+-[ RECORD 2 ]-------------+----------------------------------------------------------------------------------------------------------------------------
+database                  | test
+username                  | t-ishii
+start_time                | 2025-02-22 20:56:08
+client_connection_count   | 0
+major                     | 3
+minor                     | 0
+backend_connection_time   | 2025-02-22 20:58:37
+client_connection_time    | 2025-02-22 20:58:37
+client_idle_duration      | 0
+client_disconnection_time | 
+pool_counter              | 1
+backend_pid               | 14751
+connected                 | 1
+pid                       | 14585
+backend_id                | 1
+status                    | Execute command
+load_balance_node         | 0
+client_host               | 127.0.0.1
+client_port               | 59120
+statement                 | 
+-[ RECORD 3 ]-------------+----------------------------------------------------------------------------------------------------------------------------
+database                  | test
+username                  | t-ishii
+start_time                | 2025-02-22 20:56:08
+client_connection_count   | 0
+major                     | 3
+minor                     | 0
+backend_connection_time   | 2025-02-22 20:58:56
+client_connection_time    | 2025-02-22 20:58:56
+client_idle_duration      | 0
+client_disconnection_time | 
+pool_counter              | 1
+backend_pid               | 14767
+connected                 | 1
+pid                       | 14601
+backend_id                | 0
+status                    | Idle
+load_balance_node         | 0
+client_host               | 127.0.0.1
+client_port               | 54072
+statement                 | 
+-[ RECORD 4 ]-------------+----------------------------------------------------------------------------------------------------------------------------
+database                  | test
+username                  | t-ishii
+start_time                | 2025-02-22 20:56:08
+client_connection_count   | 0
+major                     | 3
+minor                     | 0
+backend_connection_time   | 2025-02-22 20:58:56
+client_connection_time    | 2025-02-22 20:58:56
+client_idle_duration      | 0
+client_disconnection_time | 
+pool_counter              | 1
+backend_pid               | 14768
+connected                 | 1
+pid                       | 14601
+backend_id                | 1
+status                    | Idle
+load_balance_node         | 1
+client_host               | 127.0.0.1
+client_port               | 54072
+statement                 | select 1;
+   </PRE
+><P>
+  </P
+><P
+>   次の例では、"pgpool_query_info"という関数を登録し、pgpool_adm_pcp_proc_info、pgpool_adm_pcp_node_info、pgpool_adm_pcp_pool_statusを結合してpgpoolの子プロセスが最後に実行したクエリを、次の情報と一緒に表示します。
+   usernae, database, client host, client port, pgpool host, pgpool
+   port, pgpool pid, backend host, backend port, backend pid, backend
+   role and SQL statement。
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>create function pgpool_query_info(pcp_host text, pcp_port int, pgpool_username text, password text)
+returns table (username text, database text, client_host text, client_port text,
+pgpool_host text, pgpool_port text, pgpool_pid text,
+backend_host text, backend_port text, backend_pid text, backend_role text, statement text) as $$
+select p.username, p.database, p.client_host,p.client_port,
+$1 as pgpool_host, s.value as pgpool_port, p.pid as pgpool_pid,
+b.host as backend_host, b.port as backend_port, p.backend_pid as backend_pid,
+b.role as backend_role,
+p.statement
+from pcp_proc_info(host=&#62; $1, port =&#62; $2, username =&#62; $3, password =&#62; $4) as p,
+pcp_node_info(node_id=&#62;p.backend_id::int, host =&#62; $1, port =&#62; $2,
+username =&#62; $3, password =&#62; $4) as b,
+pcp_pool_status(host=&#62; $1, port =&#62; $2, username =&#62; $3, password =&#62; $4) as s
+where p.connected = 1::text and p.statement != '' and
+p.statement !~ 'pcp_proc_info' and p.statement !~ 'pgpool_query_info' and
+s.item = 'port'
+$$
+language SQL;
+CREATE FUNCTION
+
+select * from pgpool_query_info('192.168.10.11', 11001, 't-ishii', 't-ishii');
+ username | database |  client_host  | client_port |  pgpool_host  | pgpool_port | pgpool_pid | backend_host | backend_port | backend_pid | backend_role | statement 
+----------+----------+---------------+-------------+---------------+-------------+------------+--------------+--------------+-------------+--------------+-----------
+ t-ishii  | test     | 192.168.10.11 | 60542       | 192.168.10.11 | 11000       | 1356156    | localhost    | 11002        | 1356240     | Primary      | select 2;
+ t-ishii  | test     | 192.168.10.11 | 43856       | 192.168.10.11 | 11000       | 1356167    | localhost    | 11003        | 1356255     | Standby      | select 1;
+(2 rows)
+   </PRE
+><P>
+  </P
+><P
+>   表示データの詳細に関しては<A
+HREF="pcp-proc-info.html"
+>pcp_proc_info</A
+>をご覧ください。
+  </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="pgpool-adm-pcp-detach-node.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="appendixes.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>pgpool_adm_pcp_detach_node</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="pgpool-adm.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>付録</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

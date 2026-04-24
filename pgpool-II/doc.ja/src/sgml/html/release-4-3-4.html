@@ -1,0 +1,469 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.3.4</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.3.5"
+HREF="release-4-3-5.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.3.3"
+HREF="release-4-3-3.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.3.5"
+HREF="release-4-3-5.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.3.3"
+HREF="release-4-3-3.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-3-4"
+>A.54. リリース 4.3.4</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2022-12-22</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN17115"
+>A.54.1. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     ログメッセージ"new IPC connection received"をDEBUG1にダウングレードしました。
+     (<A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=775"
+TARGET="_top"
+>bug 775</A
+>) (Bo Peng)
+    </P
+><P
+>     これは通常のメッセージで、LOGとして記録されるべきではありません。
+     パッチはpstefによって作成され、Bo Pengによってレビューされました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN17122"
+>A.54.2. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+>の問題を修正しました。(Muhammad Usama)
+    </P
+><P
+>     Watchdogクラスタ全体のヘルスチェックパラメータの最大値に基づいて、フェイルオーバコマンドのタイムアウトを動的に設定するように修正しました。
+    </P
+><P
+>     Tatsuo Ishiiによってレビューおよびテストされました。
+     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2022-November/004228.html"
+TARGET="_top"
+>[pgpool-hackers: 4227]</A
+>
+    </P
+></LI
+><LI
+><P
+>     アボートされたトランザクション内で<TT
+CLASS="COMMAND"
+>ROLLBACK TO</TT
+>コマンドが動作するように修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     コミット: <A
+HREF="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=commit;h=eea522ebfcf791a623e865deaa1aa6fb59e3c50b"
+TARGET="_top"
+>eea522ebfcf791a623e865deaa1aa6fb59e3c50b</A
+>
+     によってアボートされたトランザクション内の問題が修正され、COMMIT/ROLLBACK以外のSQLコマンドがバックエンドに転送されないようにしました。
+     しかし、ROLLBACK TOコマンドが漏れていました。
+     その結果、ROLLBACK TOコマンドが発行されても、コマンドはバックエンドに転送されず、
+     トランザクションはアボートされた状態のままになります。
+     このコミットが入った4.3までさかのぼってパッチを適用しました。
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general-jp/2022-November/001715.html"
+TARGET="_top"
+>[pgpool-general-jp: 1716]</A
+>
+    </P
+></LI
+><LI
+><P
+>     パーサ内でバックスラッシュを使った場合の警告を出力しないように修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     <TT
+CLASS="VARNAME"
+>standard_conforming_strings = off</TT
+>かつ<TT
+CLASS="VARNAME"
+>escape_string_warning = on</TT
+>の場合、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>は文字列リテラル内でバックスラッシュを使った場合に警告を出力します。
+     これは問題ありません。
+     しかし、以前は<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のパーサも同じメッセージを出力していました。
+     これは冗長です。
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="VARNAME"
+>idle_session_timeout</TT
+>に対応しました。(Tatsuo Ishii)
+    </P
+><P
+>     idle_session_timeout (PostgreSQL 14 で追加)が有効、かつ、タイムアウトが発生した場合、次のことが発生します:
+     <P
+></P
+></P><UL
+><LI
+><P
+>        <TT
+CLASS="VARNAME"
+>failover_on_backend_error</TT
+>がon (デフォルト)の場合、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はフェイルオーバを発生させます。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        PostgreSQL サーバが 1 台のみが idle_session_timeout を有効にしていると、Pgpool-II がハングする可能性があります。
+       </P
+></LI
+></UL
+><P>
+    </P
+><P
+>     idle_session_timeoutに対応するため、エラーコードを検出するdetect_idle_session_timeout_error()を追加しました。
+     エラーを検出すると、Pgpool-II は致命的なエラーとしてフロントエンドにエラーコードを返し、セッションを切断します。
+     これはidle_in_transaction_session_timeoutの実装と同じような修正です。
+     <A
+HREF="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=commit;h=3f5986eee360f12e6a0bb77aa46f95abf5f6bc10"
+TARGET="_top"
+>3f5986eee360f12e6a0bb77aa46f95abf5f6bc10</A
+>
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2022-October/004209.html"
+TARGET="_top"
+>[pgpool-hackers: 4208]</A
+>
+    </P
+></LI
+><LI
+><P
+>     SSLエラーSSL_ERROR_ZERO_RETURNに対応しました。(Tatsuo Ishii)
+    </P
+><P
+>     以前はこれによってフェイルオーバが発生しましたが、サーバは単に接続を閉じることを意味するため、実際には不要でした。
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2022-September/008425.html"
+TARGET="_top"
+>[pgpool-general: 8366]</A
+>
+     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2022-September/004194.html"
+TARGET="_top"
+>[pgpool-hackers: 4193]</A
+>
+    </P
+></LI
+><LI
+><P
+>     メモリキャッシュサイズを2GBより多く設定した場合に発生するセグメンテーション違反を修正しました。(Muhammad Usama)
+    </P
+><P
+>     問題は与えられたキャッシュブロックのメモリアドレスを返す block_address()関数にあり、
+     2GB上限まで有効な共有メモリ空間内のブロックのオフセットを計算するために32bit整数を使っていました。
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="COMMAND"
+>pcp_proc_info</TT
+>、<TT
+CLASS="COMMAND"
+>SHOW pool_pools</TT
+>および<TT
+CLASS="COMMAND"
+>SHOW pool_processes</TT
+>内のまれなセグメンテーション違反を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     セグメンテーション違反はget_pools()とget_processes()にありました。
+     それらは、最初に共有メモリ上の特定のプロセス情報スロットのpidを抽出し、次にキーとして pid を使ってスロットを再び検索していました。
+     これらのステップはロックによって保護されていなかったため、プロセス終了時に新しい子プロセスのフォークを担う親プロセスによって pid が上書きされた場合、
+     pid を使った検索が失敗し、NULLを返す可能性がありました。
+     その結果、それに続くNULLポインタの参照によってセグメンテーション違反が発生していました。
+    </P
+><P
+>     解決策は、最初にプロセス情報スロットへのポインタを取得し、次にポインタからpidメンバを抽出することです。
+     この方法でも、親プロセスによる共有メモリ情報の同時更新は可能ですが(出力におかしな結果をもたらす可能性があります)、少なくともセグメンテーション違反は回避できます。
+    </P
+></LI
+><LI
+><P
+>     無効な長さのUnixドメインソケットパスを使えないように修正しました。(Masaya Kawamoto)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN17179"
+>A.54.3. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     Doc: Aurora設定例内のタイポを修正しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     Doc: 制限事項のセクションを拡充しました。(Tatsuo Ishii)
+    </P
+><P
+>     pg_terminate_backendによって発生する不要なフェイルオーバを回避するため、
+     failover_on_backend_shutdownが使えることに言及しました。
+    </P
+></LI
+><LI
+><P
+>     Doc: memqcache_methodの説明を拡充しました。(Tatsuo Ishii)
+    </P
+><P
+>     どの方式を使うべきかの説明を追加しました。
+    </P
+></LI
+><LI
+><P
+>     Doc: ヘルスチェックプロセスでSSLが使えることに言及しました。(Tatsuo Ishii)
+    </P
+><P
+>     ストリーミングレプリケーションのチェックでもSSLが使えることに言及しました。
+     これは2010年以降に使えていたはずです。
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2022-August/004188.html"
+TARGET="_top"
+>[pgpool-hackers: 4187]</A
+>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN17195"
+>A.54.4. 回帰テスト修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     環境変数を使ってPGPOOLDIRを定義できるようにしました。
+     (<A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=766"
+TARGET="_top"
+>bug 766</A
+>) (Bo Peng)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-3-5.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-3-3.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.3.5</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.3.3</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

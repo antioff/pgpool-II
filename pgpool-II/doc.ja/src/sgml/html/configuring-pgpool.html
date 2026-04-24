@@ -1,0 +1,515 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Pgpool-IIの設定</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="サーバの準備と運用"
+HREF="runtime.html"><LINK
+REL="PREVIOUS"
+TITLE="pcp.confの設定"
+HREF="configuring-pcp-conf.html"><LINK
+REL="NEXT"
+TITLE="バックエンド情報の設定"
+HREF="configuring-backend-info.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="pcp.confの設定"
+HREF="configuring-pcp-conf.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="runtime.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>第 3章サーバの準備と運用</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="バックエンド情報の設定"
+HREF="configuring-backend-info.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="CONFIGURING-PGPOOL"
+>3.4. Pgpool-IIの設定</A
+></H1
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="CONFIGURING-PGPOOL-CONF"
+>3.4.1. pgpool.confの設定</A
+></H2
+><P
+>    
+    <TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>は<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のメインの設定ファイルです。
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の起動時には<TT
+CLASS="OPTION"
+>-f</TT
+>オプションでこのファイルのパスを指定する必要があります。
+    ソースコードからインストールした場合、デフォルトでは<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>は<TT
+CLASS="FILENAME"
+>$prefix/etc/pgpool.conf</TT
+>に配置されます。
+   </P
+><P
+>    各<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のクラスタリングモードについて設定のサンプルがあります。
+
+   </P
+><DIV
+CLASS="TABLE"
+><A
+NAME="BACKEND-CLUSTERING-MODE-TABLE"
+></A
+><P
+><B
+>表 3-1. pgpool.conf中の<A
+HREF="runtime-config-running-mode.html#GUC-BACKEND-CLUSTERING-MODE"
+>backend_clustering_mode</A
+>の値</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL><COL><THEAD
+><TR
+><TH
+>クラスタリングモード</TH
+><TH
+>値</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+>ストリーミングレプリケーションモード</TD
+><TD
+><TT
+CLASS="LITERAL"
+>streaming_replication</TT
+></TD
+></TR
+><TR
+><TD
+>ネイティブレプリケーションモード</TD
+><TD
+><TT
+CLASS="LITERAL"
+>native_replication</TT
+></TD
+></TR
+><TR
+><TD
+>ロジカルレプリケーションモード</TD
+><TD
+><TT
+CLASS="LITERAL"
+>logical_replication</TT
+> </TD
+></TR
+><TR
+><TD
+>スナップショットアイソレーションモード</TD
+><TD
+><TT
+CLASS="LITERAL"
+>snapshot_isolation</TT
+></TD
+></TR
+><TR
+><TD
+>Rawモード</TD
+><TD
+><TT
+CLASS="LITERAL"
+>raw</TT
+> </TD
+></TR
+></TBODY
+></TABLE
+></DIV
+><P
+>    
+    これらの設定ファイルはデフォルトのソースコードからのインストールでは/usr/local/etcに配置されています。
+    これらを<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>としてコピーして使うことが可能です。
+    （もしかするとそのためにはroot権限が必要かもしれません。）
+    </P><PRE
+CLASS="PROGRAMLISTING"
+># cd /usr/local/etc
+# cp pgpool.conf.sample pgpool.conf
+    </PRE
+><P>
+   </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RUNNING-MODE"
+>3.4.2. Pgpool-IIのクラスタリングモード</A
+></H2
+><P
+>    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>にはストリーミングレプリケーションモード、ロジカルレプリケーションモード、ネイティブレプリケーションモード、スナップショットアイソレーションモード、rawモードの6つの<A
+HREF="runtime-config-running-mode.html#GUC-BACKEND-CLUSTERING-MODE"
+>クラスタリングモード</A
+>があります。
+    いずれのモードにおいても、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はコネクションプーリング、自動フェイルオーバの機能を提供します。
+    ストリーミングレプリケーションモード、ネイティブレプリケーションモード、スナップショットアイソレーションモードでは、更新処理を受け付けながらデータベースノードの同期を取り直すオンラインリカバリが利用可能です。
+    オンラインリカバリの詳細については<A
+HREF="runtime-online-recovery.html"
+>項5.11</A
+>を参照してください。
+   </P
+><P
+>    これらのモードは互いに排他的であり、サーバ起動後は変更することができません。
+    システム設計の初期の段階でどのモードを使うか決めなければなりません。
+    どれを使えば良いかわからない場合は、ストリーミングレプリケーションモードかスナップショットアイソレーションモードを使うことを推奨します。
+   </P
+><P
+>    <I
+CLASS="FIRSTTERM"
+>ストリーミングレプリケーションモード</I
+>はストリーミングレプリケーションを使用する<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバ(AWSのAurora、RDSを含みます)と一緒に使うことができます。
+    このモードでは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>がデータベースを同期する責任を持ちます。
+    このモードは広く使われており、最も推奨される<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の使用法です。
+    このモードでは負荷分散が可能です。
+    ノードをまたがる可視性の一貫性は保証されません。
+   </P
+><P
+>    <I
+CLASS="FIRSTTERM"
+>スナップショットアイソレーションモード</I
+>では、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がデータベースを同期する責任を持ちます。
+    このモードの利点はデータベース同期が同期的に行われることです。
+    すなわち、データベースへの書き込みは全ての<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバが書き込み操作を完了するまで返ってきません。
+    また、スナップショットアイソレーションモードは、ノードをまたがる可視性の一貫性を保証します。
+    これは簡単に言うと、単一サーバ上のトランザクション可視性ルールがそのまま複数サーバからなるクラスタでも適用されるということで、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のスナップショットアイソレーションモードが持つ著しい特徴です。
+    実際、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>に改造を加えずにノードをまたがる可視性の一貫性を保証するシステムは、現時点では<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のスナップショットアイソレーションモードだけです。
+    これにより、アプリケーションは単一の<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>ではなく複数<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>からなるクラスタを使っていることを意識しないで済むメリットがあります。
+    ただし、このモードではトランザクション分離レベルを<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>REPEATABLE READにする必要があります</I
+></SPAN
+>。
+      具体的には、<TT
+CLASS="FILENAME"
+>postgresql.conf</TT
+>に以下のように記述します。
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>default_transaction_isolation = 'repeatable read'
+      </PRE
+><P>
+    また、トランザクションの一貫性を保つ仕組みのオーバヘッドにより、ストリーミングレプリケーションモードやネイティブレプリケーションモードに比べると性能が低下します。
+   </P
+><P
+>    <I
+CLASS="FIRSTTERM"
+>ネイティブレプリケーションモード</I
+>では、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がデータベースを同期する責任を持ちます。
+    このモードの利点は同期が同期的に行われることです。
+    すなわち、データベースへの書き込みは全ての<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバが書き込み操作を完了するまで返ってきません。
+    このモードではノードをまたがる可視性の一貫性は保証されないので、トランザクション分離レベルをREPEATABLE READに限定したくない場合を除き、スナップショットアイソレーションモードを使うことをお勧めします。
+    このモードでは負荷分散が可能です。
+   </P
+><P
+>    
+    <I
+CLASS="FIRSTTERM"
+>ロジカルレプリケーションモード</I
+>はロジカルレプリケーションを使用する<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバと一緒に使うことができます。
+    このモードでは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>がテーブルを同期する責任を持ちます。
+    このモードでは負荷分散が可能です。
+    ロジカルレプリケーションは必ずしもすべてのテーブルをレプリケーションしないので、負荷分散させるテーブルがレプリケーションされるようにするのはユーザの責任です。
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はすべてのテーブルをロードバランスします。
+    このことは、テーブルがレプリケーションされていない場合には、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がサブスクライバー側の更新されていない古いテーブルを見てしまうかもしれないことを意味します。
+   </P
+><P
+>    
+    <I
+CLASS="FIRSTTERM"
+>rawモード</I
+>では、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はデータベースの同期に関しては関与しません。
+    システム全体に意味の有る動作をさせるのはユーザの責任となります。
+    このモードでは負荷分散は<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>できません</I
+></SPAN
+>。
+   </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="PROCESS-MANAGEMENT-MODE"
+>3.4.3. プロセス管理モード</A
+></H2
+><P
+>    
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は、各子プロセスが常に1つのクライアント接続を処理できるマルチプロセスアーキテクチャを実装しています。
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が処理できるクライアントの最大同時接続数は、<A
+HREF="runtime-config-connection.html#GUC-NUM-INIT-CHILDREN"
+>num_init_children</A
+>設定パラメーターによって設定されます。
+    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は、2つの子プロセス管理モード<I
+CLASS="FIRSTTERM"
+>dynamic</I
+>および<I
+CLASS="FIRSTTERM"
+>static</I
+>をサポートしています。
+    静的（<TT
+CLASS="LITERAL"
+>static</TT
+>）プロセス管理モードでは、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は起動時に<TT
+CLASS="VARNAME"
+>num_init_children</TT
+>の設定値の数の子プロセスを事前にフォークし、各子プロセスは、クライアント接続をリッスンし続けます。
+    動的（<TT
+CLASS="LITERAL"
+>dynamic</TT
+>）プロセス管理モードでは、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はアイドル状態のプロセスを追跡し、プロセスの数を指定された範囲内に維持するために、プロセスをforkまたはkillします。
+   </P
+><P
+>    
+    <A
+HREF="runtime-config-process-management.html#GUC-PROCESS-MANAGEMENT-MODE"
+>process_management_mode</A
+>は、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>V4.4</I
+></SPAN
+>より以前のバージョンでは使用できません。
+   </P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="configuring-pcp-conf.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="configuring-backend-info.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>pcp.confの設定</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="runtime.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>バックエンド情報の設定</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

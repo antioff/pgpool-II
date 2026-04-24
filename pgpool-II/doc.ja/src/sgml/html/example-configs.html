@@ -1,0 +1,324 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>設定の例</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="例集"
+HREF="examples.html"><LINK
+REL="PREVIOUS"
+TITLE="例集"
+HREF="examples.html"><LINK
+REL="NEXT"
+TITLE="基本設定の例"
+HREF="example-basic.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="CHAPTER"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="例集"
+HREF="examples.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="examples.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="基本設定の例"
+HREF="example-basic.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="CHAPTER"
+><H1
+><A
+NAME="EXAMPLE-CONFIGS"
+></A
+>第 8章設定の例</H1
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>目次</B
+></DT
+><DT
+>8.1. <A
+HREF="example-basic.html"
+>基本設定の例</A
+></DT
+><DD
+><DL
+><DT
+>8.1.1. <A
+HREF="example-basic.html#EXAMPLE-CONFIGS-BEGIN"
+>さあ始めましょう</A
+></DT
+><DT
+>8.1.2. <A
+HREF="example-basic.html#EXAMPLE-CONFIGS-REPLICATION"
+>初めてのレプリケーション</A
+></DT
+></DL
+></DD
+><DT
+>8.2. <A
+HREF="example-cluster.html"
+><SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> + Watchdogの構築の例</A
+></DT
+><DD
+><DL
+><DT
+>8.2.1. <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-REQUIREMENT"
+>前提条件</A
+></DT
+><DT
+>8.2.2. <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-STRUCTURE"
+>全体構成</A
+></DT
+><DT
+>8.2.3. <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-INSTALLATION"
+>インストール</A
+></DT
+><DT
+>8.2.4. <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-PRE-SETUP"
+>事前設定</A
+></DT
+><DT
+>8.2.5. <A
+HREF="example-cluster.html#PCP-AUTHENTICATION"
+>PCP接続認証の設定</A
+></DT
+><DT
+>8.2.6. <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-PGPOOL-NODE-ID"
+>pgpool_node_idファイルの作成</A
+></DT
+><DT
+>8.2.7. <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-PGPOOL-CONFIG"
+><SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の設定</A
+></DT
+><DT
+>8.2.8. <A
+HREF="example-cluster.html#EXAMPLE-CLUSTER-VERIFY"
+>動作確認</A
+></DT
+></DL
+></DD
+><DT
+>8.3. <A
+HREF="example-replication-mode.html"
+>ネイティブレプリケーション/スナップショットアイソレーションモードの構築の例</A
+></DT
+><DD
+><DL
+><DT
+>8.3.1. <A
+HREF="example-replication-mode.html#EXAMPLE-REPLICATION-MODE-STRUCTURE"
+>全体構成</A
+></DT
+><DT
+>8.3.2. <A
+HREF="example-replication-mode.html#EXAMPLE-REPLICATION-MODE-INSTALLATION"
+>インストール</A
+></DT
+><DT
+>8.3.3. <A
+HREF="example-replication-mode.html#EXAMPLE-REPLICATION-MODE-PRE-SETUP"
+>事前設定</A
+></DT
+><DT
+>8.3.4. <A
+HREF="example-replication-mode.html#EXAMPLE-REPLICATION-MODE-POSTGRESQL-CONFIG"
+><SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>の設定</A
+></DT
+><DT
+>8.3.5. <A
+HREF="example-replication-mode.html#EXAMPLE-REPLICATION-MODE-PGPOOL-CONFIG"
+><SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の設定</A
+></DT
+><DT
+>8.3.6. <A
+HREF="example-replication-mode.html#EXAMPLE-REPLICATION-MODE-START-STOP"
+>システムの起動と停止</A
+></DT
+><DT
+>8.3.7. <A
+HREF="example-replication-mode.html#EXAMPLE-REPLICATION-MODE-TRY"
+>動作確認</A
+></DT
+></DL
+></DD
+><DT
+>8.4. <A
+HREF="example-aws.html"
+>AWS設定の例</A
+></DT
+><DD
+><DL
+><DT
+>8.4.1. <A
+HREF="example-aws.html#EXAMPLE-AWS-EIP"
+>Elastic IPアドレスの付け替え</A
+></DT
+><DT
+>8.4.2. <A
+HREF="example-aws.html#EXAMPLE-AWS-RTB"
+>ルートテーブルの書き換え</A
+></DT
+><DT
+><A
+HREF="example-aws.html#AEN8842"
+>AWSコマンドリファレンス</A
+></DT
+></DL
+></DD
+><DT
+>8.5. <A
+HREF="example-aurora.html"
+>Auroraの設定例</A
+></DT
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="examples.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="example-basic.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>例集</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="examples.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>基本設定の例</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

@@ -1,0 +1,108 @@
+'\" t
+.\"     Title: PGPOOL SET CACHE
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: Pgpool-II 4.7.1 文書
+.\"    Source: Pgpool-II 4.7.1
+.\"  Language: Japanese
+.\"
+.TH "PGPOOL SET CACHE" "1" "2023" "Pgpool-II 4.7.1" "Pgpool-II 4.7.1 文書"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "名前"
+PGPOOL_SET_CACHE \- クエリキャッシュを削除する
+.SH "概要"
+.sp
+.nf
+   PGPOOL SET CACHE DELETE \fI\*(Aqquery\*(Aq\fR
+  
+.fi
+.SH "説明"
+.PP
+\fBPGPOOL SET CACHE DELETE\fRコマンドは、以前のクエリで作成されたクエリキャッシュを削除します。 クエリ文字列は、末尾の\*(Aq;\*(Aqも含めて以前のクエリと完全に一致していなければなりません。 にもかかわらず、\*(Aq
+(単一引用符)がクエリに含まれている場合は、以下のように\*(Aqを前に追加する必要があります。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+PGPOOL SET CACHE DELETE \*(AqSELECT \*(Aq\*(AqFOO\*(Aq\*(Aq;\*(Aq;
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+このコマンドはとりわけ、クエリ中にテーブル参照を含んでいないために自動キャッシュ削除機能で削除されないクエリに有用です。
+.PP
+以前のクエリが思い出せない時は、\fBpcp_invalidate_query_cache\fR(1)を使って、削除したいクエリキャッシュも含み、すべてのクエリキャッシュを削除することができます。 ただし、これはPgpool\-IIの管理者権限が必要になります。
+.PP
+クエリキャッシュの削除に成功すると、以下のNOTICEメッセージを表示します。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+NOTICE:  query cache deleted\&. query: "query string"
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+クエリキャッシュが存在しないか、クエリキャッシュが無効の場合には、以下のNOTICEメッセージを表示します。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+NOTICE:  query cache does not exist for query: "query string"
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.SH "例"
+.PP
+間違って希望しないクエリキャッシュを作成してしまいました。 以下のコマンドで削除します。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+test=# /*FORCE QUERY CACHE*/SELECT current_timestamp;
+       current_timestamp       
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+ 2024\-10\-18 18:25:07\&.826423+09
+(1 row)
+
+test=# PGPOOL SET CACHE DELETE \*(Aq/*FORCE QUERY CACHE*/SELECT current_timestamp;\*(Aq;
+NOTICE:  query cache deleted\&. query: "/*FORCE QUERY CACHE*/SELECT current_timestamp;"
+SET
+    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.SH "関連項目"
+\fBpcp_invalidate_query_cache\fR(1)

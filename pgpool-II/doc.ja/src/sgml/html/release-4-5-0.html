@@ -1,0 +1,712 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.5.0</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.5.1"
+HREF="release-4-5-1.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.4.16"
+HREF="release-4-4-16.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.1"
+HREF="release-4-5-1.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.16"
+HREF="release-4-4-16.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-5-0"
+>A.21. リリース 4.5.0</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2023-12-12</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14251"
+>A.21.1. 概要</A
+></H2
+><P
+>   このリリースでは、マルチステートメントの適用範囲や、一部のセッション切断問題など、いくつかの長年の問題が解決されました。
+   また、構成と管理を容易にするために、多くの機能拡張も追加されています。
+  </P
+><P
+>   主な機能拡張は以下の通りです。
+  </P
+><P
+></P
+><UL
+><LI
+><P
+>     クエリ文字列内でより多くの場合にマルチステートメントを使用できるようになりました。
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="LITERAL"
+>PREPARE/EXECUTE/DEALLOCATE</TT
+>の負荷分散が可能になりました。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+>をミリ秒単位で設定できるようになりました。
+    </P
+></LI
+><LI
+><P
+>     フェイルオーバ、フェイルバック、およびバックエンドエラー発生時の一部のセッション切断問題を改善しました。
+    </P
+></LI
+><LI
+><P
+>     特定のユーザ接続からの参照クエリを特定のバックエンドノードに振り分けできるようになりました。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-config-connection.html#GUC-PCP-SOCKET-DIR"
+>pcp_socket_dir</A
+>で複数のディレクトリを指定できるようになりました。
+    </P
+></LI
+><LI
+><P
+>     PostgreSQL 16のSQLパーサを取り込みました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="MIGRATION-4-5-0"
+>A.21.2. バージョン4.5への移行</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     次の通常のERRORメッセージをDEBUGメッセージにダウングレードしました。(Bo Peng)
+    </P
+><P
+></P
+><UL
+><LI
+><P
+>       次の2つのメッセージは、クライアントがpgpoolへの接続を切断する前に終了メッセージを送信しなかった場合に発生します。
+       たとえば、クライアントプロセスが強制終了された場合に、このエラーが発生します。これらのメッセージは無害ですが、場合によってはユーザを混乱させる可能性があります。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>ERROR:unable to flush data to frontend
+      </PRE
+><PRE
+CLASS="PROGRAMLISTING"
+>ERROR:  unable to read data from frontend
+DETAIL:  EOF encountered with frontend
+      </PRE
+></LI
+><LI
+><P
+>       <A
+HREF="runtime-config-connection-pooling.html#GUC-CLIENT-IDLE-LIMIT"
+>client_idle_limit</A
+>がゼロ以外の値に設定されている場合、クライアントが前回のクエリからアイドル状態のままでいるときに、コネクションは切断されます。
+       このコネクションの切断はPgpool-IIの設定によるものなので、ERRORではなくDEBUGとして処理すべきです。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>ERROR:  unable to read data
+DETAIL:  child connection forced to terminate due to client_idle_limit:30 is reached
+      </PRE
+></LI
+></UL
+></LI
+><LI
+><P
+>     PCPコマンドで-w/--no-passwordオプションを指定しなくても、パスワードファイル (~/.pcppass) に格納されたパスワードを使用するように動作を変更しました。(Chen Ningwei)
+    </P
+><P
+>     以前はパスワードファイル (~/.pcppass) に格納されたパスワードを使用するために、<TT
+CLASS="OPTION"
+>-w/--no-password</TT
+>オプションを指定する必要があり、PostgreSQLの動作と一致していませんでした。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14291"
+>A.21.3. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     パラメータ<A
+HREF="runtime-watchdog-config.html#GUC-WD-ESCALATION-COMMAND"
+>wd_escalation_command</A
+>用のサンプルスクリプトescalation.sh.sampleでSSH接続時のタイムアウト時間を指定するようにしました。(Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+>をミリ秒単位で設定できるようにしました。(Tatsuo Ishii)
+    </P
+><P
+>     以前は秒単位での設定のみが許可されていました。リファクタリングも行いました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-August/004372.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-August/004372.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     PostgreSQL 16の新しいパーサーを取り込みました。(Chen Ningwei)
+    </P
+><P
+>     PostgreSQL 16パーサーの主な変更点は次のとおりです。
+    </P
+><P
+></P
+><UL
+><LI
+><P
+>       COPY FROMに新しいオプションDEFAULTが追加されました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>COPY ... FROM stdin WITH (default 'xx');
+      </PRE
+></LI
+><LI
+><P
+>       CREATE TABLEでSTORAGEタイプを指定できるようになりました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>CREATE TABLE t1 (
+   c1 VARCHAR(10) STORAGE PLAIN,
+   c2 TEXT STORAGE EXTENDED
+);
+      </PRE
+></LI
+><LI
+><P
+>       パラメータ化されたクエリの汎用プランを表示するために、EXPLAINオプションGENERIC_PLANが追加されました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>EXPLAIN (GENERIC_PLAN) SELECT ...;
+      </PRE
+></LI
+><LI
+><P
+>       FROM句のサブクエリでエイリアスを省略できるようになりました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>SELECT COUNT(*) FROM (SELECT ... FROM ...);
+      </PRE
+></LI
+><LI
+><P
+>       SQL/JSONコンストラクターが追加されました。
+      </P
+></LI
+><LI
+><P
+>       VACUUMオプションが追加されました。
+       凍結されたすべての統計情報をスキップまたは更新するVACUUMオプションSKIP_DATABASE_STATS、ONLY_DATABASE_STATSが追加されました。
+       TOASTテーブルのみを処理するVACUUMオプションPROCESS_MAINが追加されました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>VACUUM (SKIP_DATABASE_STATS);
+VACUUM (PROCESS_MAIN FALSE) t1 ;
+      </PRE
+></LI
+></UL
+></LI
+><LI
+><P
+>     新しいフィールド<TT
+CLASS="LITERAL"
+>load_balance_node</TT
+>を<A
+HREF="sql-show-pool-pools.html"
+>SHOW POOL_POOLS</A
+>と<A
+HREF="pcp-proc-info.html"
+>pcp_proc_info</A
+>に追加しました。(Tatsuo Ishii)
+    </P
+><P
+>     クライアントセッションがロードバランスノードとして使用されている場合は、<TT
+CLASS="LITERAL"
+>load_balance_node</TT
+>フィールドが「1」になります。
+     これらのコマンドを実行することで、バックエンドをロードバランスノードとして使用するセッションであるかどうかを確認できます。
+     その場合は、バックエンドをシャットダウンするとセッションが切断される可能性があります。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-July/004353.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-July/004353.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     フェイルオーバ、フェイルバック、およびバックエンドエラー発生時の一部のセッション切断の問題を軽減しました。(Tatsuo Ishii)
+    </P
+><P
+>     以前は、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はさまざまな場合にクライアントセッションを切断していました。
+     このリリースでは、フェイルオーバ、フェイルバック、およびバックエンドエラーの発生時に、ダウンしたバックエンドがプライマリまたはメインノードではなく、ロードバランスノードでもない一部の場合に、セッションを切断しないようになりました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-July/004352.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-July/004352.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     特定のユーザからの参照クエリを特定のバックエンドノードに振り分けできるように、<A
+HREF="runtime-config-load-balancing.html#GUC-USER-REDIRECT-PREFERENCE-LIST"
+>user_redirect_preference_list</A
+>設定パラメータを追加しました。(Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-config-connection.html#GUC-PCP-SOCKET-DIR"
+>pcp_socket_dir</A
+>で複数のディレクトリ指定できるようになりました。(Chen Ningwei)
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="LITERAL"
+>PREPARE/EXECUTE/DEALLOCATE</TT
+>の負荷分散が可能になりました。(Tatsuo Ishii)
+    </P
+><P
+>     以前は、PREPARE/EXECUTE/DEALLOCATEは負荷分散されませんでした。
+     ストリーミングレプリケーション/論理レプリケーションモードでは、常にプライマリノードに送信されていました。
+     ネイティブレプリケーション/スナップショットアイソレーションモードでは、常にすべてのノードに送信されていました。
+    </P
+><P
+>     このリリースでは、PREPAREおよびEXECUTEコマンドによるプリペアドステートメントで読み取りのみの場合に負荷分散できるようになりました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-May/004334.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-May/004334.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     PCPプロセスの正常な起動および停止ログの出力を無効にする<A
+HREF="runtime-config-logging.html#GUC-LOG-PCP-PROCESSES"
+>log_pcp_processes</A
+>設定パラメータを追加しました。(Tatsuo Ishii)
+    </P
+><P
+>     以前はpcpコマンドを実行するたびに、エラーがなくても、fork/exitログが記録されていました。
+    </P
+><P
+>     パラメータが無効になっている場合でも、異常なfork/exitイベントはログに記録されます。
+    </P
+><P
+>     パッチはMaximilien Cuonyによって作成され、Tatsuo Ishiiによってレビューされました。
+    </P
+></LI
+><LI
+><P
+>     マルチステートメントを幅広く使用できるようにしました。(Tatsuo Ishii)
+    </P
+><P
+>     このリリースでは、複数のステートメント（マルチステートメント）に関するPgpool-IIの長年の制限を排除しました。
+     たとえば、以下のようなクエリは以前はエラーになっていました。
+     </P><PRE
+CLASS="PROGRAMLISTING"
+>BEGIN;SELECT;
+SAVEPOINT foo;
+     </PRE
+><P>
+    </P
+><P
+>     なお、依然として、マルチステートメントの各クエリは負荷分散されないことに留意してください。
+    </P
+><P
+>     この機能は新機能ですが、バグ修正の意味合いもあるので、4.4～4.1にバックポートしています。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004287.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004287.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     マルチステートメントのクエリを判定するために、<TT
+CLASS="LITERAL"
+>psqlscan</TT
+>のソースコードを<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>にインポートしました。(Tatsuo Ishii)
+    </P
+><P
+>     <TT
+CLASS="LITERAL"
+>psqlscan</TT
+>は、PostgreSQLソースツリー内のモジュールです。 
+     これは本質的に<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>SQLスキャナのサブセットですが、各SQLステートメントの終わりの検出に特化しています。
+     したがって、これを使用してクエリ文字列内のSQLステートメントの数をカウントできます。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004291.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004291.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     新しい設定パラメータ<A
+HREF="runtime-config-logging.html#GUC-NOTICE-PER-NODE-STATEMENT"
+>notice_per_node_statement</A
+>を追加しました。(Tatsuo Ishii)
+    </P
+><P
+>     この新しいパラメータを有効にすると、バックエンドごとにクエリのNOTICEメッセージを発行できます。
+     これは<A
+HREF="runtime-config-logging.html#GUC-LOG-PER-NODE-STATEMENT"
+>log_per_node_statement</A
+>に似ていますが、ログレベルがNOTICEであるため、ログはクライアントの端末に出力されるため、ユーザはpgpoolログファイルを調べなくてもクエリの宛先を知ることができます。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004276.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004276.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     ステータスファイルの読み込みに関するログを強化しました。(Tatsuo Ishii)
+    </P
+><P
+>     以前は<TT
+CLASS="FILENAME"
+>pgpool_status</TT
+>が存在し、ステータスがダウンの場合にのみ、ログメッセージが出力されていました。
+     しかし、ステータス（稼働中または未使用）に関係なく、<TT
+CLASS="FILENAME"
+>pgpool_status</TT
+>が存在し、pgpoolの起動時に読み取られたことが有用な情報です。
+    </P
+></LI
+><LI
+><P
+>     gitリポジトリから<TT
+CLASS="FILENAME"
+>pool_config.c</TT
+>と<TT
+CLASS="FILENAME"
+>scan.c</TT
+>を削除しました。(Tatsuo Ishii)
+    </P
+><P
+>     これらは自動的に生成されるファイルなので、gitリポジトリに保存すべきではありません。
+    </P
+></LI
+><LI
+><P
+>     autoconfで生成される<TT
+CLASS="FILENAME"
+>Makefile.in</TT
+>などを削除しました。(Tatsuo Ishii)
+    </P
+><P
+>     また、いくつかの .gitignoreファイルを更新し、いくつかの新しい.gitignoreファイルを追加しました。
+     生成されたファイルはgitによって提供されなくなったため、開発者はコンパイル前にautoconf/autoreconfを実行する必要があります。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14396"
+>A.21.4. バグ修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>メインプロセスとpcp子プロセスの競合状態を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     pcp子プロセスがフォークされると、pgpoolメインプロセスはすべてのシグナルのブロックを解除します。
+     これにより、シグナルハンドラーが設定される前にシグナルがpcpプロセスに送信されると、競合状態が発生する可能性がありました。
+     シグナルハンドラーがセットアップされるまでシグナルのブロックを解除しないように修正しました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-September/004398.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-September/004398.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     このリリースでは、4.3.xと同じバグ修正がすでに適用されています。これらの修正の詳細については、<A
+HREF="release.html"
+>付録A</A
+>を参照してください。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14408"
+>A.21.5. ドキュメントの変更</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     設定例「8.2. Pgpool-II + Watchdog Setup Example」をPgpool-II 4.5とPostgreSQL 16に更新しました。(Bo Peng)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14413"
+>A.21.6. 回帰テスト修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     001.load_balanceテストのタイムアウトを修正しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     001.load_balanceを強化しました。(Tatsuo Ishii)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-5-1.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-4-16.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.5.1</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.4.16</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

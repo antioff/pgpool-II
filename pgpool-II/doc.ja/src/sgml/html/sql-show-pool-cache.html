@@ -1,0 +1,382 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>SHOW POOL_CACHE</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL 型コマンド"
+HREF="sql-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="SHOW POOL_VERSION"
+HREF="sql-show-pool-version.html"><LINK
+REL="NEXT"
+TITLE="SHOW POOL_HEALTH_CHECK_STATS"
+HREF="sql-show-pool-health-check-stats.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="SHOW POOL_VERSION"
+HREF="sql-show-pool-version.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="SHOW POOL_HEALTH_CHECK_STATS"
+HREF="sql-show-pool-health-check-stats.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="SQL-SHOW-POOL-CACHE"
+></A
+>SHOW POOL_CACHE</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN11457"
+></A
+><H2
+>名前</H2
+>SHOW POOL_CACHE&nbsp;--&nbsp;   
+   クエリキャッシュのヒット率や、キャッシュストレージの状況を表示する
+  </DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN11460"
+></A
+><H2
+>概要</H2
+><PRE
+CLASS="SYNOPSIS"
+>   SHOW POOL_CACHE
+  </PRE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN11462"
+></A
+><H2
+>説明</H2
+><P
+>   <TT
+CLASS="COMMAND"
+>SHOW POOL_CACHE</TT
+>
+   
+   は <A
+HREF="runtime-in-memory-query-cache.html"
+> インメモリクエリキャッシュ</A
+> が有効である場合に、
+   クエリキャッシュのヒット率や、キャッシュストレージの状況を表示します。 例を示します。
+   各項目の説明は<A
+HREF="sql-show-pool-cache.html#SHOW-POOL-CACHE-TABLE"
+>表1</A
+>をご覧ください。
+   </P><PRE
+CLASS="PROGRAMLISTING"
+>    test=# \x
+    \x
+    Expanded display is on.
+    test=# show pool_cache;
+    show pool_cache;
+    -[ RECORD 1 ]---------------+---------
+    num_cache_hits              | 891703
+    num_selects                 | 99995
+    cache_hit_ratio             | 0.90
+    num_hash_entries            | 131072
+    used_hash_entries           | 99992
+    num_cache_entries           | 99992
+    used_cache_entries_size     | 12482600
+    free_cache_entries_size     | 54626264
+    fragment_cache_entries_size | 0
+   </PRE
+><P>
+
+  </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>注意: </B
+>    キャッシュストレージが<TT
+CLASS="LITERAL"
+>memcached</TT
+>のときは、num_cache_hits, num_selects, cache_hit_ratio以外の列の値は0になります。
+   </P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="TABLE"
+><A
+NAME="SHOW-POOL-CACHE-TABLE"
+></A
+><P
+><B
+>表 1. show pool_cacheの表示項目</B
+></P
+><TABLE
+BORDER="1"
+CLASS="CALSTABLE"
+><COL><COL><THEAD
+><TR
+><TH
+>名称</TH
+><TH
+>説明</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>num_cache_hits</TT
+></TD
+><TD
+>クエリキャッシュにヒットした回数です。</TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>num_selects</TT
+></TD
+><TD
+>キャッシュにヒットしなかったSELECTクエリの回数です。</TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>cache_hit_ratio</TT
+></TD
+><TD
+>キャッシュのヒット率です。
+     num_cache_hits/(num_cache_hits+num_selects)で計算されます。</TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>num_hash_entries</TT
+></TD
+><TD
+>キャッシュを管理するハッシュテーブルのエントリ数です。
+     大量のキャッシュを効率よく管理するため、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はハッシュテーブルを使っています。
+     ハッシュテーブルのエントリ数は、<A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-MAX-NUM-CACHE"
+>memqcache_max_num_cache</A
+>以上で、かつその数に最も近い2のべき乗になる数が自動的に設定されます。
+     たとえば、<A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-MAX-NUM-CACHE"
+>memqcache_max_num_cache</A
+>のデフォルトである100,000では、131,072 (2の17乗)が設定されます。
+    </TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>used_hash_entries</TT
+></TD
+><TD
+>     使用済みのハッシュエントリ数です。
+     これが<TT
+CLASS="LITERAL"
+>num_hash_entries</TT
+>に近くなる場合は、<TT
+CLASS="LITERAL"
+>num_hash_entries</TT
+>を増やすことをお勧めします。
+     ハッシュテーブルを使い切ってもエラーにはなりませんが、登録済みのハッシュテーブルエントリとキャッシュを削除して新しいキャッシュを登録するため、性能が低下します。
+    </TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>num_cache_entries</TT
+></TD
+><TD
+>     使用済みのキャッシュエントリ数です。
+     現在の実装では<TT
+CLASS="LITERAL"
+>used_hash_entries</TT
+>と同じ値になります。
+    </TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>free_cache_entries_size</TT
+></TD
+><TD
+>     未使用のキャッシュのバイト単位のサイズです。
+     この値が0に近づくと、登録済みのキャッシュを削除して新しいキャッシュを登録するため、エラーにはなりませんが性能が低下します。
+     <A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-TOTAL-SIZE"
+>memqcache_total_size</A
+>を増やすことを検討してください。
+    </TD
+></TR
+><TR
+><TD
+><TT
+CLASS="LITERAL"
+>fragment_cache_entries_size</TT
+></TD
+><TD
+>     断片化しているキャッシュのバイト単位のサイズです。
+     <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は<A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-CACHE-BLOCK-SIZE"
+>memqcache_cache_block_size</A
+>で指定される固定長のブロックにキャッシュを書き込みます。
+     登録されたキャッシュが削除されると、次にそのブロックを再利用するまではその領域は断片化します。
+      <TT
+CLASS="LITERAL"
+>fragment_cache_entries_size</TT
+>はそうした断片化した領域の合計サイズを表示します。
+    </TD
+></TR
+></TBODY
+></TABLE
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-show-pool-version.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-show-pool-health-check-stats.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>SHOW POOL_VERSION</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>SHOW POOL_HEALTH_CHECK_STATS</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

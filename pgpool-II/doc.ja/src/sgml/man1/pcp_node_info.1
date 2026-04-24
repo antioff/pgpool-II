@@ -1,0 +1,267 @@
+'\" t
+.\"     Title: pcp_node_info
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: Pgpool-II 4.7.1 文書
+.\"    Source: Pgpool-II 4.7.1
+.\"  Language: Japanese
+.\"
+.TH "PCP_NODE_INFO" "1" "2023" "Pgpool-II 4.7.1" "Pgpool-II 4.7.1 文書"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "名前"
+pcp_node_info \- 指定されたノードの情報を表示する
+.SH "概要"
+.HP \w'\fBpcp_node_info\fR\ 'u
+\fBpcp_node_info\fR [\fIoption\fR...] [\fInode_id\fR]
+.SH "説明"
+.PP
+\fBpcp_node_info\fR
+指定されたノードの情報を表示します。
+.SH "オプション"
+.PP
+.PP
+\fB\-n \fR\fB\fInode_id\fR\fR
+.br
+\fB\-\-node\-id=\fR\fB\fInode_id\fR\fR
+.RS 4
+情報を表示するバックエンドノードのインデックスを指定します。
+.RE
+.PP
+\fB\-a\fR
+.br
+\fB\-\-all\fR
+.RS 4
+すべてのバックエンドノードの情報を表示します。
+.RE
+.PP
+\fBその他 \fR
+.RS 4
+\fBpcp_common_options\fR(1)
+を参照してください。
+.RE
+.SH "例"
+.PP
+ここでは例を示します。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_node_info \-w \-p 11001 \-n 1
+/tmp 11003 1 0\&.500000 waiting up standby standby 0 streaming async 2021\-02\-27 14:51:30
+   
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+結果は以下の順のとおりです。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    
+1\&. ノードのホスト名
+2\&. ノードのポート番号
+3\&. ステータス
+4\&. ロードバランスウェイト
+5\&. バックエンドステータス名
+6\&. 実際のバックエンドの状態 (Pgpool\-II 4\&.3以降。PQpingParamsで取得)
+7\&. バックエンドの役割
+8\&. 実際のバックエンドの役割(Pgpool\-II 4\&.3以降。pg_is_in_recoveryで取得)
+9\&. レプリケーションの遅延
+10\&. レプリケーション状態 (Pgpool\-II 4\&.1以降。pg_stat_replicationから取得)
+11\&. 同期レプリケーション状態 (Pgpool\-II 4\&.1以降。pg_stat_replicationから取得)
+12\&. 最終ステータス変更時刻
+   
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fI3（ステータス）\fRは [0\&.\&.3] までの数字で表わされます。各数字の意味は以下のとおりです。
+.PP
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+0 \- 初期化時のみに表われる。PCP コマンドで表示されることはない。
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+1 \- ノード稼働中。接続無し
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+2 \- ノード稼働中。接続有り
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+3 \- ノードダウン
+.RE
+.PP
+\fI4（ロードバランスウェイト）\fRは0から1に正規化されたフォーマットで出力されます。
+.PP
+\fI5（バックエンドステータス名）\fRはPgpool\-IIから見たPostgreSQLノードのステータス名を示します。 これは、上記「\fI3（ステータス）\fR」の数値に対応する状態名（文字列）であり、Pgpool\-IIが内部的に保持しているノードの状態を、可読性の高い形式で表現したものです。
+.PP
+\fI6（実際のバックエンドの状態）\fRは実際のバックエンドの状態をリアルタイムで取得して表示します。 情報の取得は、このコマンドが実行された時に\fBPQpingParams\fRを呼び出すことによって行われます。
+\fBPQpingParams\fRはPostgreSQL
+9\&.1以降でのみサポートされています。
+Pgpool\-IIがPostgreSQL
+9\&.0以前とともに構築されると、この列は"unknown"と表示されます。 また、ヘルスチェックが無効になっている場合も"unknown"と表示されます。
+\fBpcp_detach_node\fR(1)でバックエンドノードを切り離すと、Pgpool\-IIが管理する状態は"down"になりますが、バックエンドの実際の状態は"up"なので、5と6が一致しないことはあり得ます。 逆に、5が"up"なのに、6が"down"というのは起こらないはずです。
+.PP
+\fI7（バックエンドの役割）\fRはPgpool\-IIから見たPostgreSQLノードの役割（primaryまたはstandby）を示します。Pgpool\-IIが内部的に保持している情報に基づいて表示されます。
+.PP
+\fI8（実際のバックエンドの役割）\fRは実際のバックエンドの役割（primaryまたはstandby）をリアルタイムで取得して表示します。 その結果はストリーミングレプリケーションモードでは、"primary"か"standby"ですが、情報が取得できなければ"unknown"と表示します。
+Pgpool\-IIはノードID順にバックエンドノードを調べ、最後に見つけたスタンバイ以外のノードをプライマリとするので、誤ってスタンバイ以外のノードが複数できたときなどには、7と8が一致しないことはありえます。 （このコマンドはそのような状態を見つけるのに役立ちます。) それ以外のモードでは、"main"あるいは"replica"と表示されます。 ストリーミングレプリケーションモードと違って、\fBpg_is_in_recovery\fRは呼び出されず、7と8が異なる値になることはありません。
+.PP
+\fI9, 10, 11\fRを正しく表示させるに、sr_check_periodが0以外に設定されている必要があります。 さらに10, 11を正しく表示させるには、以下の追加設定が必要です。
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+backend_application_nameパラメータを設定する必要があります。
+.sp
+各\fIbackend_application_nameX\fRに設定された値が、該当ノードの\fIprimary_conninfo\fRの\fIapplication_name\fRに指定された値と一致している必要があります。
+.sp
+特に、Pgpool\-IIの\fBpcp_recovery_node\fR(1)コマンドを用いてスタンバイノードを構築し、コミュニティ提供のサンプルスクリプトを使用している場合は、\fIbackend_application_nameX\fRの値を\fIbackend_hostnameX\fRと一致させてください。 具体的な設定例については「バックエンドの設定」をご参照ください。
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+sr_check_userがPostgreSQLのスーパーユーザーであるか、もしくはpg_monitorロールの権限が付与されている必要があります。
+.RE
+.sp
+.if n \{\
+.sp
+.\}
+.RS 4
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fB注記\fR
+.ps -1
+.br
+.PP
+sr_check_userにpg_monitorロールの権限を付与するには、以下のSQLコマンドをPostgreSQLスーパーユーザーで実行してください（"sr_check_user"をsr_check_userの設定値で置き換えてください）
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+GRANT pg_monitor TO sr_check_user;
+	 
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+
+PostgreSQL
+9\&.6にはpg_monitorグループがないので、sr_check_userはPostgreSQLのスーパーユーザーでなければなりません。
+.sp .5v
+.RE
+.PP
+Pgpool\-II
+4\&.4から、9 (レプリケーション遅延)はバイトもしくは秒単位で表示されます。 詳細はdelay_threshold_by_timeを参照ください。
+.PP
+\fB\-a\fRまたは
+\fB\-\-all\fRオプションはすべてのバックエンドノードの情報を表示します。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_node_info \-w \-p 11001 \-a
+/tmp 11002 1 0\&.500000 waiting up primary primary 0 none none 2021\-02\-27 14:51:30
+/tmp 11003 1 0\&.500000 waiting up standby standby 0 streaming async 2021\-02\-27 14:51:30
+  
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fB\-\-verbose\fR
+オプションは出力内容を理解するのに役に立ちます。例を示します：
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_node_info \-w \-p 11001 \-\-verbose 1
+Hostname               : /tmp
+Port                   : 11003
+Status                 : 1
+Weight                 : 0\&.500000
+Status Name            : waiting
+Backend Status Name    : up
+Role                   : standby
+Backend Role           : standby
+Replication Delay      : 0
+Replication State      : streaming
+Replication Sync State : async
+Last Status Change     : 2021\-02\-27 14:51:30
+  
+.fi
+.if n \{\
+.RE
+.\}

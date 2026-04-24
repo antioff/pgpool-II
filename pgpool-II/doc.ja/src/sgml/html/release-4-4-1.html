@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.4.1</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.4.2"
+HREF="release-4-4-2.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.4.0"
+HREF="release-4-4-0.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.2"
+HREF="release-4-4-2.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.0"
+HREF="release-4-4-0.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-4-1"
+>A.37. リリース 4.4.1</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2022-12-22</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15696"
+>A.37.1. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     ストリーミングレプリケーションLOGメッセージ"standby_delay: 54"をDEBUG1にダウングレードしました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     LOGメッセージ"we have hit the ceiling"をDEBUG5にダウングレードしました。(Tatsuo Ishii)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15703"
+>A.37.2. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     タイムスタンプのリライト処理の不具合を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.4のoutfuncsモジュールでは、boolean定数が無視され、空の文字列になり、構文エラーが発生しました。
+    </P
+><P
+>     この問題はMichiel van Leeningによって報告されました。
+     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2022-December/008581.html"
+TARGET="_top"
+>[pgpool-general: 8521]</A
+>
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-FAILOVER-REQUIRE-CONSENSUS"
+>failover_require_consensus</A
+>の問題を修正しました。(Muhammad Usama)
+    </P
+><P
+>     Watchdogクラスタ全体のヘルスチェックパラメータの最大値に基づいて、フェイルオーバコマンドのタイムアウトを動的に設定するように修正しました。
+    </P
+><P
+>     Tatsuo Ishiiによってレビューおよびテストされました。
+     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2022-November/004228.html"
+TARGET="_top"
+>[pgpool-hackers: 4227]</A
+>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15718"
+>A.37.3. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     Doc: パフォーマンスセクションを強化しました。(Tatsuo Ishii)
+    </P
+><P
+>     動的なプロセス管理について言及しました。
+    </P
+></LI
+><LI
+><P
+>     Doc: Aurora設定例内のタイポを修正しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     Doc: 動的なプロセス管理ドキュメントを強化しました。(Tatsuo Ishii)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15728"
+>A.37.4. 回帰テスト修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     環境変数を使ってPGPOOLDIRを定義できるようにしました。
+     (<A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=766"
+TARGET="_top"
+>bug 766</A
+>) (Bo Peng)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-4-2.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-4-0.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.4.2</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.4.0</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

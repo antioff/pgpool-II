@@ -1,0 +1,432 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.5.2</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.5.3"
+HREF="release-4-5-3.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.5.1"
+HREF="release-4-5-1.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.3"
+HREF="release-4-5-3.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.1"
+HREF="release-4-5-1.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-5-2"
+>A.19. リリース 4.5.2</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2024-05-16</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14107"
+>A.19.1. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <TT
+CLASS="LITERAL"
+>-Werror=implicit-function-declaration</TT
+>オプションで発生するコンパイルエラーを修正しました。(Bo Peng)
+    </P
+><P
+>     非推奨のldap関数のプロトタイプを含めるために<TT
+CLASS="LITERAL"
+>LDAP_DEPRECATED</TT
+>を追加しました。
+     また、autoconfチェックで不足していたヘッダーファイルを追加しました。
+    </P
+><P
+>     パッチはVladimir Petkoによって作成されました。
+    </P
+></LI
+><LI
+><P
+>     セグメンテーション違反のさまざまな原因を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     フェイルオーバーが関与している特定のケースでは、Pgpool-IIとその子プロセスのセグメント違反が発生していました。
+    </P
+><P
+>     この問題は、Emond Papegaaijによって報告・分析されました。
+     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2024-April/009131.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-general/2024-April/009131.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     初期化されていないメモリエラーを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     read_startup_packetの初期化されていないメモリエラーを含むいくつかのエラーが<TT
+CLASS="LITERAL"
+>valgrind</TT
+>によって報告されました。 
+     <TT
+CLASS="LITERAL"
+>valgrind</TT
+>は、キャンセルまたはSSL要求の場合にpallocを使用してスタートアップパケット内のユーザー名にメモリを割り当て、その後、そのメモリがpstrdupによって使用されます。 
+     pallocによって割り当てられたメモリは未定義であったため、これをpalloc0に修正しました。
+    </P
+><P
+>     この問題は、Emond Papegaaijによって報告・分析されました。
+     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2024-April/009126.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-general/2024-April/009126.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="VARNAME"
+>load_balance_mode</TT
+>がオフの場合に発生するエラー/ハングアップを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     load_balance_modeがオフで、プライマリノードIDが0でない場合には、BEGINなどクエリでエラー/ハングアップが発生していました。
+     コミット <A
+HREF="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=commit;h=3f3c1656"
+TARGET="_top"
+>3f3c1656</A
+>の修正によって導入された問題です。
+    </P
+><P
+>     バグはEmond Papegaaijによって発見・分析されました。
+     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2024-March/009113.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-general/2024-March/009113.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     特定のCFLAGSによるコンパイルエラーを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     <A
+HREF="https://github.com/pgpool/pgpool2/issues/42"
+TARGET="_top"
+>https://github.com/pgpool/pgpool2/issues/42</A
+>によって報告されました。
+    </P
+><P
+>     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2024-March/004443.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2024-March/004443.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     サンプルpgpool.conf内のコメントを修正しました。(Bo Peng)
+    </P
+><P
+>     <TT
+CLASS="VARNAME"
+>sr_check_period</TT
+>のデフォルト値は10秒であるため、修正しました。コメント内のいくつかのタイポも修正しました。
+    </P
+><P
+>     パッチはhiroinによって作成され、Bo Pengによって修正されました。
+    </P
+></LI
+><LI
+><P
+>     configディレクトリ配下のファイルを削除しました。(Takuma Hoshiai)
+    </P
+><P
+>     <TT
+CLASS="COMMAND"
+>autoconf</TT
+>によって生成される<TT
+CLASS="FILENAME"
+>Makefile.in</TT
+>などを削除しました。 
+     src/config配下に<TT
+CLASS="FILENAME"
+>.gitignore</TT
+>を作成し、bisonとflexによって生成されるファイルを追加しました。
+    </P
+></LI
+><LI
+><P
+>     拡張クエリが終了していない場合でもリセットクエリを実行できるようにしました。(Tatsuo Ishii)
+    </P
+><P
+>     コミット<A
+HREF="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=commit;h=240c668d"
+TARGET="_top"
+>240c668d</A
+>が原因で、拡張クエリメッセージが終了していない場合、リセットクエリが失敗していました。
+     このコミットでは、SimpleQuery()でリセットクエリを実行しているかどうかをチェックすることで、この問題を修正しました。
+     また、テストケースも追加しました。
+    </P
+></LI
+><LI
+><P
+>     Coverityによって指摘されたメモリリークを修正しました。(Takuma Hoshiai)
+    </P
+></LI
+><LI
+><P
+>     不適切なプロトコルデータから保護するように修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     拡張クエリメッセージのシーケンスが終了する前にシンプルクエリメッセージが到着すると、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がハングする可能性がありました。
+     これは、シンプルクエリのセッションコンテキスト内のクエリコンテキストが、拡張クエリメッセージのクエリコンテキストによって上書きされたためです。
+    </P
+><P
+>     このコミットでは、拡張クエリプロトコルメッセージが終了したかどうかをチェックするように実装しました。
+     終了していない場合は、FATALエラーを発生させます。このチェックによって検出された既知の例は、JDBCドライバーの「autosave=always」オプションです。
+     つまり、このコミットの後、問題（拡張クエリメッセージプロトコルが終了する前にシンプルプロトコルメッセージを送信する）がJDBCドライバー側で修正されるまで、
+     <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はこのオプションを受け入れません。
+    </P
+><P
+>     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2024-February/004428.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2024-February/004428.html</A
+>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14166"
+>A.19.2. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     「上位サーバへの接続」ドキュメントを改善します。(Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     日本語ドキュメントの言語クリーンアップしました。(Masaya Kawamoto)
+    </P
+></LI
+><LI
+><P
+>     PostgreSQLノードが2台の場合にpcp_promote_nodeを使用する際の注意点を追加しました。(Masaya Kawamoto)
+    </P
+><P
+>     PostgreSQLノードが2台であっても、<TT
+CLASS="VARNAME"
+>follow_primary_command</TT
+>を設定する必要があるケースがあります。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14177"
+>A.19.3. 回帰テスト修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     037.failover_sessionを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     テストスクリプトは終了前にshutdownallを実行するのを忘れていました。
+    </P
+></LI
+><LI
+><P
+>     Java 21での非推奨警告を回避するために回帰テスト005.jdbcを修正しました。(Bo Peng)
+    </P
+><P
+>     Java 21での非推奨警告を回避するには、Runtime.exec(String)をRuntime.exec(String[])に置き換えました。
+    </P
+><P
+>     パッチはVladimir Petkoによって作成され、Bo Pengによって修正されました。
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-5-3.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-5-1.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.5.3</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.5.1</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

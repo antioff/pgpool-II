@@ -1,0 +1,215 @@
+'\" t
+.\"     Title: pcp_proc_info
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: Pgpool-II 4.7.1 文書
+.\"    Source: Pgpool-II 4.7.1
+.\"  Language: Japanese
+.\"
+.TH "PCP_PROC_INFO" "1" "2023" "Pgpool-II 4.7.1" "Pgpool-II 4.7.1 文書"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "名前"
+pcp_proc_info \- Pgpool\-II の子プロセス情報を表示する
+.SH "概要"
+.HP \w'\fBpcp_proc_info\fR\ 'u
+\fBpcp_proc_info\fR [\fIoptions\fR...] [\fIprocessid\fR]
+.SH "説明"
+.PP
+\fBpcp_proc_info\fR
+は
+Pgpool\-II
+の子プロセス情報を表示します。
+.SH "オプション"
+.PP
+.PP
+\fB\-a\fR
+.br
+\fB\-\-all\fR
+.RS 4
+すべての子プロセスと、それに関するコネクションスロットを表示します。
+.RE
+.PP
+\fB\-P \fR\fB\fIPID\fR\fR
+.br
+\fB\-\-process\-id=\fR\fB\fIPID\fR\fR
+.RS 4
+Pgpool\-II 子プロセスの PID を指定します。
+.RE
+.PP
+\fBその他\fR
+.RS 4
+\fBpcp_common_options\fR(1)
+を参照してください。
+.RE
+もし\-aオプションも\-Pオプションも指定されない場合は、すべての接続されたPgpool\-II子プロセスが表示されます。 この場合、接続された子プロセスが存在しない場合は、"No process information available"メッセージだけが表示されます。
+.SH "例"
+.PP
+例を示します。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_proc_info \-p 11001
+test t\-ishii 2025\-06\-24 10:53:35 0 3 0 2025\-06\-24 10:55:58 2025\-06\-24 10:55:59 0  1 1336703 1 1336537 0 Idle 0 192\&.168\&.10\&.11 39216
+test t\-ishii 2025\-06\-24 10:53:35 0 3 0 2025\-06\-24 10:55:58 2025\-06\-24 10:55:59 0  1 1336704 1 1336537 1 Idle 1 192\&.168\&.10\&.11 39216
+test t\-ishii 2025\-06\-24 10:53:35 (4:03 before process restarting) 1 3 0 2025\-06\-24 10:53:42 2025\-06\-24 10:53:42 0 2025\-06\-24 10:55:37 1 1336573 0 1336544 0 Wait for connection 0 192\&.168\&.10\&.11 39162
+test t\-ishii 2025\-06\-24 10:53:35 (4:03 before process restarting) 1 3 0 2025\-06\-24 10:53:42 2025\-06\-24 10:53:42 0 2025\-06\-24 10:55:37 1 1336574 0 1336544 1 Wait for connection 0 192\&.168\&.10\&.11 39162
+   
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+結果は以下の順のとおりです。
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    
+    1\&. 接続先のデータベース名
+    2\&. 接続先のユーザ名
+    3\&. Pgpool\-IIプロセスの起動時刻 (child_life_timeが0でない場合、プロセスが再起動されるまでの時間を表示します)
+    4\&. プロセスの利用カウンタ(child_max_connectionsを参照)
+    5\&. プロトコルのメジャーバージョン
+    6\&. プロトコルのマイナーバージョン
+    7\&. バックエンドへの接続時刻
+    8\&. クライアントが最後に接続開始した時刻
+    9\&. 接続がidleとなっている時間(秒)(client_idle_limitが0でない場合、クライアントが切断されるまでの時間を表示します)
+    10\&. クライアントが最後に接続終了した時刻
+    11\&. 接続の再利用カウンタ値
+    12\&. PostgreSQLバックエンドプロセスのプロセスID
+    13\&. フロントエンドが接続中なら1、そうでなければ0
+    14\&. pgpool子プロセスID
+    15\&. PostgreSQLバックエンドID
+    16\&. プロセスの状態
+　　17\&. フロントエンドが接続中でバックエンドが負荷分散ノードならば1, そうでなければ0
+    18\&. クライアントのホスト名
+    19\&. クライアントのポート番号 (Unixドメインソケット、localhostでは表示されません)
+    20\&. 最後に実行したSQL文
+   
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\-a
+もしくは
+\-\-allオプションが指定されておらずコネクションがバックエンドに対して張られていない場合、データは表示されません。 コネクション情報が複数ある場合、複数行に 1 行 1 コネクション情報で表示されます。
+.PP
+\fB\-\-verbose\fR
+オプションは出力内容を理解するのに役に立ちます。例：
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_proc_info \-p 11001 \-\-verbose
+Database                  : test
+Username                  : t\-ishii
+Start time                : 2025\-06\-24 10:53:35
+Client connection count   : 0
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2025\-06\-24 10:55:58
+Client connection time    : 2025\-06\-24 10:55:59
+Client idle duration      : 0
+Client disconnection time : 
+Pool Counter              : 1
+Backend PID               : 1336703
+Connected                 : 1
+PID                       : 1336537
+Backend ID                : 0
+Status                    : Idle
+Load balance node         : 0
+client_host               : 192\&.168\&.10\&.11
+client_port               : 39216
+statement                 : 
+
+Database                  : test
+Username                  : t\-ishii
+Start time                : 2025\-06\-24 10:53:35
+Client connection count   : 0
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2025\-06\-24 10:55:58
+Client connection time    : 2025\-06\-24 10:55:59
+Client idle duration      : 0
+Client disconnection time : 
+Pool Counter              : 1
+Backend PID               : 1336704
+Connected                 : 1
+PID                       : 1336537
+Backend ID                : 1
+Status                    : Idle
+Load balance node         : 1
+client_host               : 192\&.168\&.10\&.11
+client_port               : 39216
+statement                 : select 1;
+
+Database                  : test
+Username                  : t\-ishii
+Start time                : 2025\-06\-24 10:53:35 (4:33 before process restarting)
+Client connection count   : 1
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2025\-06\-24 10:53:42
+Client connection time    : 2025\-06\-24 10:53:42
+Client idle duration      : 0
+Client disconnection time : 2025\-06\-24 10:55:37
+Pool Counter              : 1
+Backend PID               : 1336573
+Connected                 : 0
+PID                       : 1336544
+Backend ID                : 0
+Status                    : Wait for connection
+Load balance node         : 0
+client_host               : 192\&.168\&.10\&.11
+client_port               : 39162
+statement                 : DISCARD ALL
+
+Database                  : test
+Username                  : t\-ishii
+Start time                : 2025\-06\-24 10:53:35 (4:33 before process restarting)
+Client connection count   : 1
+Major                     : 3
+Minor                     : 0
+Backend connection time   : 2025\-06\-24 10:53:42
+Client connection time    : 2025\-06\-24 10:53:42
+Client idle duration      : 0
+Client disconnection time : 2025\-06\-24 10:55:37
+Pool Counter              : 1
+Backend PID               : 1336574
+Connected                 : 0
+PID                       : 1336544
+Backend ID                : 1
+Status                    : Wait for connection
+Load balance node         : 0
+client_host               : 192\&.168\&.10\&.11
+client_port               : 39162
+statement                 : 
+  
+.fi
+.if n \{\
+.RE
+.\}

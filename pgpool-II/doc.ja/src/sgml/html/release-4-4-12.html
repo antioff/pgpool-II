@@ -1,0 +1,563 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.4.12</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.4.13"
+HREF="release-4-4-13.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.4.11"
+HREF="release-4-4-11.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.13"
+HREF="release-4-4-13.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.11"
+HREF="release-4-4-11.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-4-12"
+>A.26. リリース 4.4.12</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2025-05-15</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14710"
+>A.26.1. 概要</A
+></H2
+><P
+>   このリリースには、セキュリティ修正が含まれています。
+  </P
+><P
+>   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のクライアント認証メカニズムには認証バイパスの脆弱性があります。
+   本来であれば認証が必要な場合でも、認証処理がスキップされてしまう可能性があります。
+   この脆弱性を悪用することで、攻撃者が任意のユーザとしてログインし、データベース内の情報を参照・改ざんしたり、データベースを停止させたりすることができる可能性があります。(CVE-2025-46801)
+  </P
+><P
+>   なお、本脆弱性の影響を受けるのは、下記のパターン1から3いずれかの条件を満たす場合に限られます。
+  </P
+><P
+></P
+><UL
+><LI
+><P
+>     パターン 1：次の条件をすべて満たす場合、本脆弱性の影響を受ける可能性があります。
+    </P
+><P
+></P
+><UL
+><LI
+><P
+>       <TT
+CLASS="FILENAME"
+>pool_hba.conf</TT
+>で<TT
+CLASS="LITERAL"
+>password</TT
+>認証方式を使用している
+      </P
+></LI
+><LI
+><P
+>       allow_clear_text_frontend_auth = off
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>に対象ユーザのパスワードが設定されていない
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="FILENAME"
+>pg_hba.conf</TT
+>で<TT
+CLASS="LITERAL"
+>scram-sha-256</TT
+>または<TT
+CLASS="LITERAL"
+>md5</TT
+>認証方式を使用している
+      </P
+></LI
+></UL
+></LI
+><LI
+><P
+>     パターン 2：次の条件をすべて満たす場合、本脆弱性の影響を受ける可能性があります。
+    </P
+><P
+></P
+><UL
+><LI
+><P
+>       enable_pool_hba = off
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="FILENAME"
+>pg_hba.conf</TT
+>で<TT
+CLASS="LITERAL"
+>password</TT
+>、<TT
+CLASS="LITERAL"
+>pam</TT
+>、<TT
+CLASS="LITERAL"
+>ldap</TT
+>のいずれかの認証方式を使用している
+      </P
+></LI
+></UL
+></LI
+><LI
+><P
+>     パターン 3：次の条件をすべて満たす場合、本脆弱性の影響を受ける可能性があります。
+    </P
+><P
+></P
+><UL
+><LI
+><P
+>       rawモードを使用している (backend_clustering_mode = 'raw')
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="FILENAME"
+>pool_hba.conf</TT
+>で<TT
+CLASS="LITERAL"
+>md5</TT
+>認証方式を使用している
+      </P
+></LI
+><LI
+><P
+>       allow_clear_text_frontend_auth = off
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>に対象ユーザのパスワードがテキストまたはAES形式で登録されている
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="FILENAME"
+>pg_hba.conf</TT
+>で<TT
+CLASS="LITERAL"
+>password</TT
+>、<TT
+CLASS="LITERAL"
+>pam</TT
+>、<TT
+CLASS="LITERAL"
+>ldap</TT
+>のいずれかの認証方式を使用している
+      </P
+></LI
+></UL
+></LI
+></UL
+><P
+>   この脆弱性の影響を受けるのは、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.0系および4.1系のすべてのバージョン、4.2.0-4.2.21、4.3.0-4.3.14、4.4.0-4.4.11、4.5.0-4.5.6、4.6.0です。
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.6.1、4.5.7、4.4.12、4.3.15、4.2.22以降へのアップグレードを強くお勧めします。
+   それができない場合は、発生条件パターンに当てはまらない設定の組み合わせに変更してください。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14768"
+>A.26.2. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     設定ファイルにメジャーバージョンを追加しました。 (Bo Peng)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14773"
+>A.26.3. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     クライアント認証が正しく実行されない場合があるのを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     enable_pool_hbaがonで、auth methodが"password"、pool_passwdにパスワードが登録されておらず、pg_hba.confの認証方式が"scram-sha-256"か"md5"の場合、クライアントが最初にpgpoolに接続したときには認証が期待通りに実行されます。
+     しかし、クライアントがキャッシュされたコネクションに接続すると、任意のパスワードが通ってしまいます。
+    </P
+><P
+>     また、enable_pool_hba = offのいくつかのケースでは、本来パスワードが聞かれるはずが、最初からパスワードが聞かれない、あるいはキャッシュされたコネクションに接続した時にはパスワードが聞かれないことがありました。
+    </P
+><P
+>     上記を修正するのに加え、以下の変更を行いました。
+    </P
+><P
+></P
+><UL
+><LI
+><P
+>       認証コードを単純化するために、PostgreSQLが1台の時のコードパスを削除しました。
+      </P
+></LI
+><LI
+><P
+>       crypt認証のサポートをフロントエンドとバックエンドから削除しました。
+       この機能はドキュメントに書かれておらず、テストもされていませんでした。
+       また、crypt認証はPostgreSQLではだいぶ以前(8.4, 2009)に削除されています。
+      </P
+></LI
+><LI
+><P
+>       新しい回帰テストの"040.client_auth"を追加しました。
+       このテストは、CSV形式のテスト設定ファイルを使って、包括的なクライアント認証のテストを実施します。
+      </P
+></LI
+></UL
+></LI
+><LI
+><P
+>     クエリキャッシュにおける、古くからあるバインド時のバグを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     名前付きステートメントを準備すると、バインド後にパースメッセージなしで実行することが可能です。
+     問題は、実行時またはCOMMIT時にクエリキャッシュを無効化するために必要なテーブルOIDが、パースメッセージ処理（Parse()）でのみ収集されていたことです。
+     そのため、前回の実行後にパースなしでバインドを実行すると、テーブルOIDが収集されず、pgpoolはクエリキャッシュの無効化に失敗していました。
+     バインド時にもテーブルOIDを収集するよう修正しました。
+     006.memqcacheに回帰テストを追加しました。
+    </P
+><P
+>     この問題はEmond Achilleas Mantzios によって報告され、テストプログラムが提供されました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2025-April/009430.html"
+TARGET="_top"
+>[pgpool-general: 9427] Clarification on query results cache visibility</A
+>
+    </P
+></LI
+><LI
+><P
+>     クエリキャッシュの無効化に失敗する問題を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     実行メッセージを受信すると、pgpoolは最大行数パラメータをチェックします。この値が0でない場合、pgpoolはpool_handle_query_cache()にクエリキャッシュを作成しないよう指示するために、"partial_fetch"フラグを設定します。
+     問題は、コミット2a99aa5d1が、INSERT/UPDATE/DELETEであっても実行メッセージパラメータが0以外（ほとんどの場合1）に設定され、pgpoolがSELECT以外の場合でもこのフラグを設定することを見落としていることです。
+     この結果、このフラグが true の場合、pool_handle_query_cache() 内の後続のコードでキャッシュの無効化がスキップされるため、クエリキャッシュの無効化に失敗していました。
+     フラグを設定する前にクエリが読み取り専用の SELECT であるかどうかを確認するように Execute() を修正しました。
+    </P
+><P
+>     この問題はEmond Achilleas Mantziosによって報告され、テストプログラムが提供されました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2025-April/009430.html"
+TARGET="_top"
+>[pgpool-general: 9427] Clarification on query results cache visibility</A
+>
+    </P
+></LI
+><LI
+><P
+>     OpenBSDへ移植する際の問題を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2025-May/004583.html"
+TARGET="_top"
+>[pgpool-hackers: 4582] Make pgpool build on OpenBSD</A
+>
+    </P
+><P
+>     このパッチはMartijn van Durenによって作成されました。
+    </P
+></LI
+><LI
+><P
+>     json_writerが特殊文字を正確にエンコードできない問題を修正しました。(Bo Peng)
+    </P
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-AUTHKEY"
+>wd_authkey</A
+>が特殊文字を含んでいる状態でwatchdogを起動すると<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がクラッシュしていました。
+    </P
+><P
+>    このパッチはMartijn van Durenによって作成され、Bo Pengによって微修正されました。
+    </P
+></LI
+><LI
+><P
+>     リロード時に<A
+HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
+>pool_passwd</A
+>を開くようにストリーミングレプリケーションチェックとヘルスチェックプロセスを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     ストリーミングレプリケーションチェックとヘルスチェックはリロード前に<A
+HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
+>pool_passwd</A
+>を開いていませんでした。
+     もし<A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-PASSWORD"
+>sr_check_password</A
+>か<A
+HREF="runtime-config-health-check.html#GUC-HEALTH-CHECK-PASSWORD"
+>health_check_password</A
+>が空文字列の時は、<A
+HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
+>pool_passwd</A
+>からパスワードを得ます。
+     そのためこれらのプロセスはリロード時に<A
+HREF="runtime-config-connection.html#GUC-POOL-PASSWD"
+>pool_passwd</A
+>の古いコンテンツを読み取ります。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14820"
+>A.26.4. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <A
+HREF="runtime-config-connection-pooling.html#GUC-CONNECTION-LIFE-TIME"
+>connection_life_time</A
+>の説明を改善しました。(Tatsuo Ishii)
+    </P
+><P
+>     <A
+HREF="runtime-config-connection-pooling.html#GUC-CONNECTION-LIFE-TIME"
+>connection_life_time</A
+>が計算されるタイミングは、接続キャッシュを保持しているプロセスからクライアントが切断されたときであることを追記しました。
+    </P
+><P
+>      ディスカッション: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2025-April/004578.html"
+TARGET="_top"
+>[pgpool-hackers: 4577] Doc: enhance the description on connection_life_time</A
+>
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-streaming-replication-check.html#GUC-SR-CHECK-USER"
+>sr_check_user</A
+>についての説明を改善しました。 (Tatsuo Ishii)
+    </P
+><P
+>     スーパーユーザーか<TT
+CLASS="LITERAL"
+>pg_monitor</TT
+>グループであるべきです。
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-4-13.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-4-11.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.4.13</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.4.11</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

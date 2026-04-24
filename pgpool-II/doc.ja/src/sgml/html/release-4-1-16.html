@@ -1,0 +1,562 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.1.16</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.1.17"
+HREF="release-4-1-17.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.1.15"
+HREF="release-4-1-15.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.1.17"
+HREF="release-4-1-17.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.1.15"
+HREF="release-4-1-15.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-1-16"
+>A.91. リリース 4.1.16</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2023-05-18</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20324"
+>A.91.1. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     マルチステートメントのクエリを判定するために、<TT
+CLASS="LITERAL"
+>psqlscan</TT
+>のソースコードを<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>にインポートしました。(Tatsuo Ishii)
+    </P
+><P
+>     <TT
+CLASS="LITERAL"
+>psqlscan</TT
+>は、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>ソースツリー内のモジュールです。
+     これは本質的にPostgreSQL SQLスキャナのサブセットですが、各SQLステートメントの終わりの検出に特化しています。 
+     したがって、これを使用してクエリ文字列内のSQLステートメントの数をカウントできます。
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004291.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/04291.html</A
+>
+     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-April/004320.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-April/004320.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     複数のステートメントを幅広く使用できるようにしました。 (Tatsuo Ishii)
+    </P
+><P
+>     このコミットは、複数のステートメント (マルチステートメント) に関する<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の長年の制限を排除しました。
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004287.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004287.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     内部クエリでスキーマ修飾を使用するように変更しました。(Tatsuo Ishii)
+    </P
+><P
+>     関数やキャストなどの一部のオブジェクトは、「pg_catalog.」スキーマ修飾を使用していませんでした。 
+     これによって直ちにセキュリティ上の懸念が生じるわけではありませんが、スキーマ修飾を使用することは常に良い習慣ですので、変更しました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20346"
+>A.91.2. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     共有リレーションキャッシュで発生しうるデッドロックを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     ユーザー定義関数がテーブルロックを取得する場合、拡張クエリプロトコルを使用して関数を呼び出すとデッドロックが発生する可能性がありました。
+     以下にシナリオを示します。
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (1) セッション中クライアントはparse、bind、executeリクエストをpgpoolに送信します。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (2) セッションAのPgpool-IIはリクエストをPostgreSQLに転送します。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (3) セッションAのPostgreSQLがexecuteを実行し、テーブルロックが発生します。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (4) セッションBで、クライアントは関数のparse、bind、executeリクエストをpgpoolに送信します。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (5) セッションBのPgpoolはリクエストをPostgreSQLに転送します。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (6) セッションBのPostgreSQLはbindを実行しますが、テーブルはセッションAのPostgreSQLによってすでにロックされており、ロックの解放を待ちます。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (7) セッションBのpgpoolはexecuteをPostgreSQLに転送した後、関数の揮発性をチェックするために共有リレーションキャッシュを検索するためのセマフォを取得します。
+        次に、do_queryを呼び出し、フラッシュメッセージをPostgreSQLに送信して、この時点までのPostgreSQLからの応答を取得します。
+        ただし、#6ではPostgreSQLがテーブルロックを待機しているため、pgpoolはバインド完了後のメッセージを待つ必要があります。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (8) セッションAのpgpoolがPostgreSQLにexecuteを転送した後、関数の揮発性をチェックするために共有リレーションキャッシュを検索しセマフォを取得しようとしましたが、セマフォはセッションBのpgpoolによってすでに取得されているため、セマフォの解放を待ちます。
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        (9) セッションAとセッションBがお互いを待機するため、デッドロックが発生します。
+       </P
+></LI
+></UL
+><P>
+    </P
+><P
+>     これを修正するには、do_query()を呼び出す前にセマフォを解放するようにpool_search_relcache()を変更しました(ただし、セマフォはdo_query()の後に取得します)。
+     これにより、上記#8のセッションAはセマフォを取得し、先に進むことができます。
+     クライアントからsyncメッセージを受信し、PostgreSQLに転送します。
+     syncを受信すると、ユーザ定義関数は実行を終了し、テーブルロックを解放します。
+     これにより、セッションBのPostgreSQLがテーブルロックを取得できるようになります。
+    </P
+></LI
+><LI
+><P
+>     musl libcを使用するシステムでのコンパイルエラーを修正しました。(<A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=790"
+TARGET="_top"
+>bug 790</A
+>) (Tatsuo Ishii)
+    </P
+><P
+>     パッチはleimaohuiによって提供されました。
+    </P
+></LI
+><LI
+><P
+>     複数のクエリキャッシュの不具合を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-January/004259.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-January/004259.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     特殊なケースでsrワーカーが間違ったクエリをスタンバイサーバに送信する不具合を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     ALWAYS_PRIMARYフラグが設定されている場合、PRIMARY_NODE_IDマクロは、プライマリがダウンしている場合でも、-1ではなくノードIDを返していました。 
+     この場合、ストリーミングレプリケーション遅延をチェックするワーカープロセスは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のバージョンに応じて<TT
+CLASS="LITERAL"
+>SELECT pg_current_wal_lsn()</TT
+>または<TT
+CLASS="LITERAL"
+>SELECT pg_current_xlog_location()</TT
+>をスタンバイに送信し、当然エラーが発生していました。
+    </P
+><P
+>     議論: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004279.html"
+TARGET="_top"
+>https://www.pgpool.net/pipermail/pgpool-hackers/2023-February/004279.html</A
+>
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="LITERAL"
+>DEALLOCATE</TT
+>による種類不一致エラーを修正しました。
+     (<A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=780"
+TARGET="_top"
+>bug 780</A
+>) (Tatsuo Ishii)
+    </P
+><P
+>     以下の条件がすべて満たされた場合、種類不一致エラーが発生していました。
+     <P
+></P
+></P><UL
+><LI
+><P
+>        ストリーミングレプリケーションモード
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        ロードバランスノードがプライマリ以外のノード
+       </P
+></LI
+></UL
+><P>
+     <P
+></P
+></P><UL
+><LI
+><P
+>        <TT
+CLASS="LITERAL"
+>PREPARE</TT
+>がマルチステートメントクエリで使用されている
+       </P
+></LI
+></UL
+><P>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20411"
+>A.91.3. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-PRIORITY"
+>wd_priority</A
+>の説明を追加しました。(Chen Ningwei)
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="LITERAL"
+>PREPARE/EXECUTE/DEALLOCATE</TT
+>に関する制限を追加しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     Pgpool-IIで<TT
+CLASS="LITERAL"
+>-D</TT
+>オプションを使用する場合の注意点を追加しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     「RPMからのインストール」セクションを強化しました。(Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     「Pgpool-II + Watchdogの構築の例」から「-D」起動オプションの設定を削除しました。(Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     AES256をサポートするには<TT
+CLASS="OPTION"
+>--with-openssl</TT
+>オプションが必要であることを記載しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     .pcppassを使用するには、pcpコマンドの-wオプションが必要であることを記載しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="sql-show-pool-cache.html"
+>SHOW POOL_CACHE</A
+>を強化しました。(Tatsuo Ishii)
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20435"
+>A.91.4. 回帰テスト修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     071.execute_and_deallocate/test.shをリファクタリングしました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     いくつかの回帰テストを強化しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     時折発生する005.jdbcテストの失敗を修正しました。(Tatsuo Ishii)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-1-17.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-1-15.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.1.17</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.1.15</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

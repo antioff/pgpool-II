@@ -1,0 +1,964 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>AWS設定の例</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="設定の例"
+HREF="example-configs.html"><LINK
+REL="PREVIOUS"
+TITLE="ネイティブレプリケーション/スナップショットアイソレーションモードの構築の例"
+HREF="example-replication-mode.html"><LINK
+REL="NEXT"
+TITLE="Auroraの設定例"
+HREF="example-aurora.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="ネイティブレプリケーション/スナップショットアイソレーションモードの構築の例"
+HREF="example-replication-mode.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="example-configs.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>第 8章設定の例</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="Auroraの設定例"
+HREF="example-aurora.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="EXAMPLE-AWS"
+>8.4. AWS設定の例</A
+></H1
+><P
+>  このチュートリアルでは、<A
+HREF="https://aws.amazon.com/"
+TARGET="_top"
+>AWS</A
+>上でwatchdogを使う際の仮想IPの設定例を示します。
+ </P
+><P
+>  AWSで仮想IPを設定するにはいくつかの方法があります。この設定例では、以下の2つの方法について説明します。
+ </P
+><P
+></P
+><UL
+><LI
+><P
+>    <A
+HREF="example-aws.html#EXAMPLE-AWS-EIP"
+>項8.4.1</A
+> Elastic IPアドレスの付け替え
+   </P
+></LI
+><LI
+><P
+>    <A
+HREF="example-aws.html#EXAMPLE-AWS-RTB"
+>項8.4.2</A
+> ルートテーブルの書き換え
+   </P
+></LI
+></UL
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="EXAMPLE-AWS-EIP"
+>8.4.1. Elastic IPアドレスの付け替え</A
+></H2
+><P
+>   この節では、<A
+HREF="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html"
+TARGET="_top"
+>Elastic IPアドレス</A
+>を仮想IPとして使い、複数のEC2インスタンス間で付け替える方法を説明します。
+  </P
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-EIP-SETUP"
+>8.4.1.1. AWSのセットアップ</A
+></H3
+><P
+>    この方法を利用する場合は、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> EC2インスタンスをパブリックサブネットに配置し、クライアントはインターネット経由で<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>に接続することを想定しています。
+    <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>この方法はMulti-AZ構成に対応しています。</I
+></SPAN
+>
+   </P
+><P
+>    この設定例では、3ノードの<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>（watchdog）クラスタを使います。
+    そこで、3つのEC2インスタンスと、1つのElastic IPアドレスを作成します。
+   </P
+><P
+>    以下のステップを実施してください。
+   </P
+><P
+></P
+><UL
+><LI
+><P
+>      EC2インスタンスを3つ起動します。
+     </P
+></LI
+><LI
+><P
+>      これらのインスタンスのセキュリティグループを設定します。
+      Pgpool-IIを動かすために必要な最低限の設定は、以下のように設定してください。
+     </P
+><P
+></P
+><UL
+><LI
+><P
+>         <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>とwatchdogが使用するポートへのインバウンドトラフィックを許可します。
+        </P
+></LI
+><LI
+><P
+>         <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>（watchdog）が仮想IPに対して<TT
+CLASS="COMMAND"
+>ping</TT
+>を実行し疎通確認を行うため、Elastic IP（送信元）からのICMPトラフィックを許可します。
+        </P
+></LI
+></UL
+></LI
+><LI
+><P
+>      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>をすべてのインスタンスにインストールします。
+     </P
+></LI
+><LI
+><P
+>      AWSのEC2インスタンス上でAWSサービスを操作・管理するために、<A
+HREF="https://docs.aws.amazon.com/ja_jp/cli/index.html"
+TARGET="_top"
+>AWS CLI</A
+>を使用します。
+      すべての<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のインスタンスに<A
+HREF="https://docs.aws.amazon.com/ja_jp/cli/latest/userguide/cli-configure-quickstart.html"
+TARGET="_top"
+>AWS CLI</A
+>をインストールします。
+     </P
+><P
+>      また、Pgpool-IIの起動ユーザでAWS CLIを実行できるように、<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Pgpool-IIの起動ユーザでaws configureを実行し</I
+></SPAN
+>、<A
+HREF="https://docs.aws.amazon.com/ja_jp/cli/latest/userguide/cli-configure-quickstart.html"
+TARGET="_top"
+>認証情報設定</A
+>を行います。
+      RPMからインストールした場合、デフォルトで<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は<TT
+CLASS="LITERAL"
+>postgres</TT
+>ユーザで起動します。
+     </P
+></LI
+><LI
+><P
+>      Elastic IPアドレスを確保します。
+      この設定例では、Elastic IPアドレスは"35.163.178.3"となります。
+     </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-EIP-PGPOOL-CONFIG"
+>8.4.1.2. <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の設定</A
+></H3
+><P
+>    Pgpool-IIの設定を説明します。
+    この設定例は<A
+HREF="example-cluster.html"
+>項8.2</A
+>とほとんど同じになりますが、<A
+HREF="runtime-watchdog-config.html#GUC-IF-UP-CMD"
+>if_up_cmd</A
+>と<A
+HREF="runtime-watchdog-config.html#GUC-IF-DOWN-CMD"
+>if_down_cmd</A
+>を使ってElastic IPアドレスを付与・解除するのが異なります。
+   </P
+><P
+>    <A
+HREF="runtime-watchdog-config.html#GUC-DELEGATE-IP"
+>delegate_ip</A
+>に仮想IPとして使用するElastic IPアドレスを指定します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>use_watchdog = on
+delegate_ip = '35.163.178.3'
+   </PRE
+><P
+>    <A
+HREF="runtime-watchdog-config.html#GUC-IF-UP-CMD"
+>if_up_cmd</A
+>と<A
+HREF="runtime-watchdog-config.html#GUC-IF-DOWN-CMD"
+>if_down_cmd</A
+>にElastic IPアドレスを付与・解除するスクリプトを以下のように指定します。
+    <A
+HREF="runtime-watchdog-config.html#GUC-IF-UP-CMD"
+>if_up_cmd</A
+>は、watchdogがリーダーノードになったときに、Elastic IPアドレスを付与するためにwatchdogが実行します。
+    <A
+HREF="runtime-watchdog-config.html#GUC-IF-DOWN-CMD"
+>if_down_cmd</A
+>は、watchdogがリーダーノードを退任するときに、Elastic IPアドレスを解除するためにwatchdogが実行します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>if_up_cmd = '&lt;path to script&gt; up $_IP_$ &lt;path to awscli&gt;'
+if_down_cmd = '&lt;path to script&gt; down $_IP_$ &lt;path to awscli&gt;'
+   </PRE
+><P
+></P
+><UL
+><LI
+><P
+>      &lt;path to script&gt;: 仮想IPの付与・解除を行うスクリプトのパスを指定します。
+     </P
+></LI
+><LI
+><P
+>      &lt;path to awscli&gt;: AWS CLIのパスを指定します。
+     </P
+></LI
+></UL
+><P
+>    この設定例では、以下のように指定します。環境に合わせて、設定してください。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>if_up_cmd = '/etc/pgpool-II/aws_eip_if_cmd.sh up $_IP_$ /usr/local/bin/aws'
+if_down_cmd = '/etc/pgpool-II/aws_eip_if_cmd.sh down $_IP_$ /usr/local/bin/aws'
+   </PRE
+><P
+>    arpingコマンドは実行不要なので、常に成功させるようにtrueに設定します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>arping_cmd = 'true'
+   </PRE
+></DIV
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-EIP-SCRIPT"
+>8.4.1.3. Elastic IPアドレス付与・解除用のスクリプト</A
+></H3
+><P
+>    <TT
+CLASS="VARNAME"
+>if_up_cmd/if_down_cmd</TT
+>で実行するスクリプトをすべての<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>インスタンス上に作成します。
+   </P
+><P
+>    この設定例では、サンプルスクリプト<A
+HREF="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=blob_plain;f=src/sample/scripts/aws_eip_if_cmd.sh.sample;hb=refs/heads/V4_4_STABLE"
+TARGET="_top"
+>aws_eip_if_cmd.sh</A
+>を使用します。必要に応じて、編集してください。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>(すべてのPgpool-IIインスタンスで実行)
+# cp -p /etc/pgpool-II/sample_scripts/aws_eip_if_cmd.sh.sample /etc/pgpool-II/aws_eip_if_cmd.sh
+   </PRE
+><P
+>    以上で、設定は完了です。
+   </P
+></DIV
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-EIP-TRY"
+>8.4.1.4. 実行してみる</A
+></H3
+><P
+>    <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を起動し、ローカル環境からElastic IPアドレスを使って<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>に接続してみます。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[user@someserver]$ psql -h 35.163.178.3 -p 9999 -U postgres -c "show pool_nodes"
+   </PRE
+><P
+>    リーダー<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を停止し、Elastic IPアドレスが新しいリーダーに付与され、Elastic IPアドレスを使って<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>に接続できることを確認します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[user@someserver]$ psql -h 35.163.178.3 -p 9999 -U postgres -c "show pool_nodes"
+   </PRE
+></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="EXAMPLE-AWS-RTB"
+>8.4.2. ルートテーブルの書き換え</A
+></H2
+><P
+>   この節では、ルートテーブルの書き換えにより、リーダー<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>（watchdog）へのルーティングを制御する方法を説明します。
+  </P
+><P
+>   この方法では、プライベートIPアドレスを仮想IPとして使い、リーダー<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>インスタンスに付与します。
+   フェイルオーバー時に、仮想IPの付け替えを行い、ルートテーブルを書き換えることで、仮想IPへのトラフィックを新しいリーダー<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>インスタンスへルーティングすることが可能です。
+  </P
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-RTB-SETUP"
+>8.4.2.1. AWSのセットアップ</A
+></H3
+><P
+>    この方法を利用する場合は、Pgpool-II EC2インスタンスがプライベートサブネットに配置されており、クライアントアプリケーションも同一VPC内に存在することを想定しています。
+    <SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>この方法はMulti-AZ構成に対応しています。</I
+></SPAN
+>
+   </P
+><P
+>    この例では、複数のアベイラビリティゾーンを跨いだ3ノードの<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> (watchdog)クラスタを使います。
+   </P
+><P
+>    以下のステップを実施してください。
+   </P
+><P
+></P
+><UL
+><LI
+><P
+>      1つのパブリックサブネットと3つのプライベートサブネットを持つVPCを作成し、各プライベートサブネットは異なるアベイラビリティーゾーンに属しています。
+      詳細については、<A
+HREF="https://docs.aws.amazon.com/ja_jp/vpc/latest/userguide/VPC_Scenario2.html"
+TARGET="_top"
+>こちら</A
+>のドキュメントを参照してください。
+     </P
+></LI
+><LI
+><P
+>      パブリックサブネットに関連付けるルートテーブルとプライベートサブネットに関連付けるルートテーブルをそれぞれ作成します。
+      エントリの設定については、<A
+HREF="https://docs.aws.amazon.com/ja_jp/vpc/latest/userguide/VPC_Scenario2.html#VPC_Scenario2_Routing"
+TARGET="_top"
+>こちら</A
+>のドキュメントを参照してください。
+     </P
+></LI
+><LI
+><P
+>      1つのアプリケーションEC2インスタンスと3つのPgpool-II EC2インスタンスを起動します。
+      アプリケーションインスタンスをパブリックサブネットに配置し、それぞれのPgpool-IIインスタンスを異なるプライベートサブネットに配置します。
+     </P
+></LI
+><LI
+><P
+>      Pgpool-II EC2インスタンスのセキュリティグループを設定し、VPCのCIDR範囲内にあるIPアドレスからPgpool-IIとwatchdogが使用するポートへのトラフィックを許可します。
+     </P
+></LI
+><LI
+><P
+>      すべてのPgpool-IIインスタンスに<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>をインストールします。
+     </P
+></LI
+><LI
+><P
+>      AWSインスタンス上でAWSサービスを操作・管理するために、<A
+HREF="https://docs.aws.amazon.com/ja_jp/cli/index.html"
+TARGET="_top"
+>AWS CLI</A
+>を使用します。
+      すべてのインスタンスに<A
+HREF="https://docs.aws.amazon.com/ja_jp/cli/latest/userguide/cli-configure-quickstart.html"
+TARGET="_top"
+>AWS CLI</A
+>をインストールします。
+     </P
+><P
+>      また、Pgpool-IIの起動ユーザでAWS CLIを実行できるように、<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Pgpool-IIの起動ユーザで<TT
+CLASS="COMMAND"
+>aws configure</TT
+>を実行し</I
+></SPAN
+>、<A
+HREF="https://docs.aws.amazon.com/ja_jp/cli/latest/userguide/cli-configure-quickstart.html"
+TARGET="_top"
+>認証情報設定</A
+>を行います。
+      RPMからインストールした場合、デフォルトで<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は<TT
+CLASS="LITERAL"
+>postgres</TT
+>ユーザで起動します。
+     </P
+></LI
+><LI
+><P
+>      仮想IPの付与や解除にはroot権限が必要です。
+      一般ユーザで<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を起動する場合、起動ユーザがパスワードなしでsudoできるようにsudoersファイルを設定する必要があります。
+      RPMからインストールした場合、<TT
+CLASS="LITERAL"
+>postgres</TT
+>ユーザの権限が自動的に設定されます。
+     </P
+></LI
+><LI
+><P
+>      あらかじめ仮想IPとして使うプライベートIPアドレスを決めておきます。
+      セカンダリIPアドレスはアベイラビリティーゾーンを跨ぐことができないため、VPCのCIDR範囲外のプライベートIPアドレスを仮想IPとして使用します。この設定例では、"20.0.0.50"を使用します。
+     </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-RTB-PGPOOL-CONFIG"
+>8.4.2.2. <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の設定</A
+></H3
+><P
+>    この節では、Pgpool-IIの設定を説明します。
+   </P
+><P
+>    この設定例は<A
+HREF="example-cluster.html"
+>項8.2</A
+>とほとんど同じになりますが、<A
+HREF="runtime-watchdog-config.html#GUC-IF-UP-CMD"
+>if_up_cmd</A
+>と<A
+HREF="runtime-watchdog-config.html#GUC-IF-DOWN-CMD"
+>if_down_cmd</A
+>を使ってリーダーPgpool-IIインスタンスへのルーティングを切り替えるのが異なります。
+   </P
+><P
+>    <A
+HREF="runtime-watchdog-config.html#GUC-DELEGATE-IP"
+>delegate_ip</A
+>に仮想IPとして使用するプライベートIPを指定します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>use_watchdog = on
+delegate_ip = '20.0.0.50'
+   </PRE
+><P
+>    <A
+HREF="runtime-watchdog-config.html#GUC-IF-UP-CMD"
+>if_up_cmd</A
+>と<A
+HREF="runtime-watchdog-config.html#GUC-IF-DOWN-CMD"
+>if_down_cmd</A
+>にルートテーブルの書き換えを行うスクリプトを以下のように指定します。
+    <A
+HREF="runtime-watchdog-config.html#GUC-IF-UP-CMD"
+>if_up_cmd</A
+>は、watchdogがリーダーノードになったときに、ルートテーブルの書き換えおよび仮想IPの割り当てを行うためにwatchdogが実行します。
+    <A
+HREF="runtime-watchdog-config.html#GUC-IF-DOWN-CMD"
+>if_down_cmd</A
+>は、watchdogがリーダーノードを退任するときに、ルートテーブルの書き換えおよび仮想IPの解除を行うためにwatchdogが実行します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>if_up_cmd = '&lt;path to script&gt; up $_IP_$ &lt;interface&gt; &lt;route table ID&gt; &lt;path to awscli&gt;'
+if_down_cmd = '&lt;path to script&gt; down $_IP_$ &lt;interface&gt; &lt;route table ID&gt; &lt;path to awscli&gt;'
+   </PRE
+><P
+></P
+><UL
+><LI
+><P
+>      &lt;path to script&gt;: ルートテーブルの書き換えを行うスクリプトのパスを指定します。
+     </P
+></LI
+><LI
+><P
+>      &lt;interface&gt;: 仮想IPを割り当てるネットワークインターフェイスを指定します。
+     </P
+></LI
+><LI
+><P
+>      &lt;route table ID&gt;: 書き換え対象（接続元のアプリケーションやPgpool-IIインスタンス）となるルートテーブルIDを指定します。カンマ区切りで複数のルートテーブルIDを指定できます。
+     </P
+></LI
+><LI
+><P
+>      &lt;path to awscli&gt;: AWS CLIのパスを指定します。
+     </P
+></LI
+></UL
+><P
+>    この設定例では、以下のように指定します。環境に合わせて、設定してください。ルートテーブルIDにパブリックサブネットおよびプライベートサブネットのルートテーブルIDを指定します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>if_up_cmd = '/etc/pgpool-II/aws_rtb_if_cmd.sh up $_IP_$ eth0 rtb-012345abcd,rtb-67890abcd /usr/local/bin/aws'
+if_down_cmd = '/etc/pgpool-II/aws_rtb_if_cmd.sh down $_IP_$ eth0 rtb-012345abcd,rtb-67890abcd /usr/local/bin/aws'
+   </PRE
+><P
+>    arpingコマンドは実行不要なので、常に成功させるようにtrueに設定します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>arping_cmd = 'true'
+   </PRE
+></DIV
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-RTB-SCRIPT"
+>8.4.2.3. ルートテーブル書き換え用のスクリプト</A
+></H3
+><P
+>    if_up_cmd/if_down_cmdで実行するスクリプトをすべてのPgpool-IIインスタンス上に作成します。
+   </P
+><P
+>    この設定例では、サンプルスクリプト<A
+HREF="https://git.postgresql.org/gitweb/?p=pgpool2.git;a=blob_plain;f=src/sample/scripts/aws_rtb_if_cmd.sh.sample;hb=refs/heads/V4_4_STABLE"
+TARGET="_top"
+>aws_rtb_if_cmd.sh</A
+>を使用します。必要に応じて、編集してください。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>(すべてのPgpool-IIインスタンスで実行)
+# cp -p /etc/pgpool-II/sample_scripts/aws_rtb_if_cmd.sh.sample /etc/pgpool-II/aws_rtb_if_cmd.sh
+   </PRE
+></DIV
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-RTB-ENI"
+>8.4.2.4. 「送信元/送信先チェック」の無効化</A
+></H3
+><P
+>    AWSのネットワークインターフェイスのデフォルト設定では、トラフィックの送信元または送信先をチェックします。
+    ルーティングの設定を行うインスタンスでは、この設定を無効にする必要があります。
+   </P
+><P
+>    すべての<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>インスタンスのネットワークインターフェイスの設定で「送信元/送信先チェック」を無効にします。
+    AWSコンソールまたは AWS CLIを使用して設定可能です。
+    AWS CLIを使って設定を行う場合、以下のコマンドを実行します。
+    <TT
+CLASS="VARNAME"
+>LOCAL_INTERFACE</TT
+>に仮想IPを割り当てるネットワークインターフェイスを指定します。
+    この設定例では、eth0を指定します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>$ sudo su - postgres
+$ TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+$ LOCAL_INTERFACE=<B
+CLASS="EMPHASIS"
+>eth0</B
+>
+$ MAC_ADDR=$(ip -br link show dev ${LOCAL_INTERFACE} | tr -s ' ' | cut -d ' ' -f3)
+$ EC2_NETWORK_INTERFACE_ID=$(curl -H "X-aws-ec2-metadata-token: ${TOKEN}" -s http://169.254.169.254/latest/meta-data/network/interfaces/macs/${MAC_ADDR}/interface-id)
+$ aws ec2 modify-network-interface-attribute --network-interface-id ${EC2_NETWORK_INTERFACE_ID} --no-source-dest-check
+   </PRE
+><P
+>    以上で、設定は完了です。
+   </P
+></DIV
+><DIV
+CLASS="SECT3"
+><H3
+CLASS="SECT3"
+><A
+NAME="EXAMPLE-AWS-RBT-TRY"
+>8.4.2.5. 実行してみる</A
+></H3
+><P
+>    Pgpool-IIを起動し、アプリケーションインスタンスから仮想IPアドレスを使って<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>に接続してみます。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[user@someserver]$ psql -h 20.0.0.50 -p 9999 -U postgres -c "show pool_nodes"
+   </PRE
+><P
+>    リーダーPgpool-IIを停止し、仮想IPが新しいリーダーに付与され、仮想IPを使って<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>に接続できることを確認します。
+   </P
+><PRE
+CLASS="PROGRAMLISTING"
+>[user@someserver]$ psql -h 20.0.0.50 -p 9999 -U postgres -c "show pool_nodes"
+   </PRE
+></DIV
+></DIV
+><H3
+><A
+NAME="AEN8842"
+>AWSコマンドリファレンス</A
+></H3
+><DIV
+CLASS="BIBLIOENTRY"
+><A
+NAME="AEN8844"
+></A
+><P
+>"<A
+HREF="http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html"
+TARGET="_top"
+>Configure AWS CLI</A
+>", <I
+>AWS Documentation: Configuring the AWS Command Line Interface</I
+>.</P
+><DIV
+CLASS="BIBLIOENTRYBLOCK"
+STYLE="margin-left: 0.5in"
+></DIV
+></DIV
+><DIV
+CLASS="BIBLIOENTRY"
+><A
+NAME="AEN8850"
+></A
+><P
+>"<A
+HREF="http://docs.aws.amazon.com/cli/latest/reference/ec2/associate-address.html"
+TARGET="_top"
+>associate-address</A
+>", <I
+>AWS Documentation: associate-address reference</I
+>.</P
+><DIV
+CLASS="BIBLIOENTRYBLOCK"
+STYLE="margin-left: 0.5in"
+></DIV
+></DIV
+><DIV
+CLASS="BIBLIOENTRY"
+><A
+NAME="AEN8856"
+></A
+><P
+>"<A
+HREF="http://docs.aws.amazon.com/cli/latest/reference/ec2/disassociate-address.html"
+TARGET="_top"
+>disassociate-address</A
+>", <I
+>AWS Documentation: disassociate-address reference</I
+>.</P
+><DIV
+CLASS="BIBLIOENTRYBLOCK"
+STYLE="margin-left: 0.5in"
+></DIV
+></DIV
+><DIV
+CLASS="BIBLIOENTRY"
+><A
+NAME="AEN8862"
+></A
+><P
+>"<A
+HREF="https://docs.aws.amazon.com/cli/latest/reference/ec2/create-route.html"
+TARGET="_top"
+>create-route</A
+>", <I
+>AWS Documentation: create-route reference</I
+>.</P
+><DIV
+CLASS="BIBLIOENTRYBLOCK"
+STYLE="margin-left: 0.5in"
+></DIV
+></DIV
+><DIV
+CLASS="BIBLIOENTRY"
+><A
+NAME="AEN8868"
+></A
+><P
+>"<A
+HREF="https://docs.aws.amazon.com/cli/latest/reference/ec2/replace-route.html"
+TARGET="_top"
+>replace-route</A
+>", <I
+>AWS Documentation: replace-route reference</I
+>.</P
+><DIV
+CLASS="BIBLIOENTRYBLOCK"
+STYLE="margin-left: 0.5in"
+></DIV
+></DIV
+><DIV
+CLASS="BIBLIOENTRY"
+><A
+NAME="AEN8874"
+></A
+><P
+>"<A
+HREF="https://docs.aws.amazon.com/cli/latest/reference/ec2/delete-route.html"
+TARGET="_top"
+>delete-route</A
+>", <I
+>AWS Documentation: delete-route reference</I
+>.</P
+><DIV
+CLASS="BIBLIOENTRYBLOCK"
+STYLE="margin-left: 0.5in"
+></DIV
+></DIV
+><DIV
+CLASS="BIBLIOENTRY"
+><A
+NAME="AEN8880"
+></A
+><P
+>"<A
+HREF="https://docs.aws.amazon.com/cli/latest/reference/ec2/modify-network-interface-attribute.html"
+TARGET="_top"
+>modify-network-interface-attribute</A
+>", <I
+>AWS Documentation: modify-network-interface-attribute</I
+>.</P
+><DIV
+CLASS="BIBLIOENTRYBLOCK"
+STYLE="margin-left: 0.5in"
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="example-replication-mode.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="example-aurora.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>ネイティブレプリケーション/スナップショットアイソレーションモードの構築の例</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="example-configs.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Auroraの設定例</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

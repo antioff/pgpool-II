@@ -1,0 +1,382 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.3.19</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.4.0"
+HREF="release-4-4-0.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.3.18"
+HREF="release-4-3-18.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.0"
+HREF="release-4-4-0.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.3.18"
+HREF="release-4-3-18.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-3-19"
+>A.39. リリース 4.3.19</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2026-02-26</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15902"
+>A.39.1. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     並列で<TT
+CLASS="COMMAND"
+>make</TT
+>を実行できるようになりました。(Tatsuo Ishii)
+    </P
+><P
+>     以前、<TT
+CLASS="COMMAND"
+>make</TT
+>の並列実行は以下のように失敗していました。
+     </P><PRE
+CLASS="PROGRAMLISTING"
+>In file included from parser.c:27:
+../../src/include/parser/gramparse.h:33:10: fatal error: gram.h: No such file or directory
+33 | #include "gram.h"
+     </PRE
+><P>
+    </P
+><P
+>     anthonyrousselによってパッチが作成され、Tatsuo Ishiiによってレビューされました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://github.com/pgpool/pgpool2/pull/146"
+TARGET="_top"
+>Fix parallel build</A
+>
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-config-backend-settings.html#GUC-BACKEND-HOSTNAME"
+>backend_hostname</A
+>と<TT
+CLASS="VARNAME"
+>primary_conninfo</TT
+>のホストが不一致であることを詳細にログに出力するようになりました。(Taiki Koshino)
+    </P
+><P
+>     <TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>に設定されている<A
+HREF="runtime-config-backend-settings.html#GUC-BACKEND-HOSTNAME"
+>backend_hostname</A
+>と<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>の<TT
+CLASS="VARNAME"
+>primary_conninfo</TT
+>のホスト設定が一致しない場合以下のようなログが出力されます。
+     </P><PRE
+CLASS="PROGRAMLISTING"
+>sr_check_worker pid 25099: DETAIL: pgpool.conf backend_hostname: "pgpool0" does not match PostgreSQL primary_conninfo host: "pgpool_logtest"
+     </PRE
+><P>
+    </P
+></LI
+><LI
+><P
+>     サポートされている最小のOpenSSLバージョンを明記しました。(Tatsuo Ishii)
+    </P
+><P
+>     こちらは以下を使用したconfigure.acによって実現しています。
+     </P><PRE
+CLASS="PROGRAMLISTING"
+>AC_DEFINE(OPENSSL_API_COMPAT, [0x10002000L],
+          [Define to the OpenSSL API version in use. This avoids deprecation warnings from newer OpenSSL versions.])
+     </PRE
+><P>
+
+     サポートされている最小バージョンは1.0.2で、これは現時点では<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>と同じです（実際にはAC_DEFINEは<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>から導入されています）。
+     また、インストールされているOpenSSLが3.0などの新しいバージョンである場合、OpenSSLの非推奨警告を回避できる可能性があります。
+     さらに、インストールドキュメントに、必要なOpenSSLの最小バージョンは1.0.2であることを記載しました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15930"
+>A.39.2. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <CODE
+CLASS="FUNCTION"
+>check_transaction_state_and_abort()</CODE
+>の考慮不足を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     この関数はフロントエンドがNULLアカウントであるケースを考慮していませんでした。
+    </P
+><P
+>     この問題はCoverityによって発見されました。
+    </P
+></LI
+><LI
+><P
+>     <CODE
+CLASS="FUNCTION"
+>walker()</CODE
+>が早めに結果を返すように修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     以前、<CODE
+CLASS="FUNCTION"
+>walker()</CODE
+>は対象オブジェクトを見つけたときにfalseを返していましたが、
+     trueを返すようにし処理をショートカットするようにしました。
+
+     また<CODE
+CLASS="FUNCTION"
+>waker()</CODE
+>の設計意図が分かりやすいように<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のコメントを移植しました。
+    </P
+><P
+>     この問題はliujinyang-highgoによって報告され、Tatsuo Ishiiによってレビューされました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://github.com/pgpool/pgpool2/issues/143"
+TARGET="_top"
+>Improper handling in the function view_walker().</A
+>
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="LITERAL"
+>scram-sha-256</TT
+>認証でのメモリリークを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     この問題はCoverityによって発見されました。
+    </P
+></LI
+><LI
+><P
+>     <CODE
+CLASS="FUNCTION"
+>malloc()</CODE
+>の返り値チェックを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     <CODE
+CLASS="FUNCTION"
+>create_inet_domain_sockets()</CODE
+>はソケットのファイルディスクリプタ用メモリを割り当てている間に<CODE
+CLASS="FUNCTION"
+>malloc()</CODE
+>が返す値のチェックをしていませんでした。
+    </P
+></LI
+><LI
+><P
+>     integer型のオーバーフローが起きる可能性がある問題を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     <CODE
+CLASS="FUNCTION"
+>pool_write_flush()</CODE
+>と<CODE
+CLASS="FUNCTION"
+>pool_flus_it()</CODE
+>では<CODE
+CLASS="FUNCTION"
+>write(2)</CODE
+>が使用されています。
+     <CODE
+CLASS="FUNCTION"
+>write(2)</CODE
+>はssize_tを返しますが、コード内には戻り値がint変数に代入されている箇所がいくつかありました。
+     その結果、戻り値が負の値として評価され、エラーが発生する可能性がありました。
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-4-0.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-3-18.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.4.0</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.3.18</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

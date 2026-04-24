@@ -1,0 +1,466 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.5.9</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.5.10"
+HREF="release-4-5-10.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.5.8"
+HREF="release-4-5-8.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.10"
+HREF="release-4-5-10.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.8"
+HREF="release-4-5-8.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-5-9"
+>A.12. リリース 4.5.9</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2025-11-25</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN13494"
+>A.12.1. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     不要な <TT
+CLASS="VARNAME"
+>application_name</TT
+> の処理を削除しました。（Tatsuo Ishii）
+    </P
+><P
+>     以前のコミットで、既存接続を再利用する際に <TT
+CLASS="VARNAME"
+>application_name</TT
+> を設定する処理が追加されました。
+     しかしこれは不要です。DISCARD ALLにより接続再利用時に自動的に <TT
+CLASS="VARNAME"
+>application_name</TT
+> がリセットされ、
+     <CODE
+CLASS="FUNCTION"
+>send_params()</CODE
+>によってフロントエンドに必要なパラメータステータス（<TT
+CLASS="VARNAME"
+>application_name</TT
+> を含む）が送信されます。
+     この冗長な処理を削除することで、特に地理的に離れたバックエンドノードでのパフォーマンスが向上します。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://github.com/pgpool/pgpool2/issues/130"
+TARGET="_top"
+>Severely degraded performance of pgPool in geo-distributed configurations</A
+>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN13507"
+>A.12.2. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <TT
+CLASS="COMMAND"
+>CopyOut</TT
+>でのセグメンテーションフォルトを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     拡張プロトコルで<TT
+CLASS="COMMAND"
+>COPY relname TO STDOUT</TT
+>が実行された場合、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がセグフォルトを起こしていました。
+    </P
+><P
+>     この問題は<A
+HREF="https://github.com/tetesh"
+TARGET="_top"
+>https://github.com/tetesh</A
+>によって報告されました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://github.com/pgpool/pgpool2/issues/133"
+TARGET="_top"
+>datanymizer and pg-pool segmentation fault</A
+>
+    </P
+></LI
+><LI
+><P
+>     Watchdogのスプリットブレイン回避するよう修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     Watchdogはビーコンメッセージとハートビートで通信します。
+     ハートビートが有効でない場合、ビーコンが30秒以上届かないとスプリットブレインが発生することがあります。
+     古いリーダーを無効化することで、同時に二人のリーダーが存在しないように修正しました。
+     ノードがリーダーからのビーコンを2回以上見逃すと、リーダーはLOST状態となり、
+     set_state(WD_JOINING) により新リーダー選出が開始されます。
+    </P
+></LI
+><LI
+><P
+>     存在しないプリペアドステートメント使用時のFATALエラー防止するよう修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     以前は<CODE
+CLASS="FUNCTION"
+>Bind()</CODE
+>が存在しないプリペアドステートメントでFATALエラーを出していました。
+     はステートメントの存在を確認し、存在しない場合はフロントエンドにERRORメッセージを送信するようになりました。ログは残りません。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="pg-enc.html"
+>pg_enc</A
+> -pと -P両方使用時に動作しない問題を修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     元の報告では、pg_enc -p -P実行時にパスワードと暗号キーを求められましたが、
+     キーが提供されない場合に失敗していました。
+     また、コメント /* prompt for postgres password */ が誤解を招くため、
+     /* prompt for password to be encrypted */ に修正されました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://www.postgresql.org/message-id/7f18c30b.237.1997555ca11.Coremail.liujy%40highgo.com"
+TARGET="_top"
+>pg_enc</A
+>
+    </P
+></LI
+><LI
+><P
+>     32ビット環境でのコンパイルの問題を修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     32ビットシステムでsrc/parser/snprintf.cをコンパイルすると<CODE
+CLASS="FUNCTION"
+>isnan()</CODE
+>や<CODE
+CLASS="FUNCTION"
+>isinf()</CODE
+>が未定義でエラーになりました。
+     math.hをインクルードし、ヘッダーファイルの順序も整理しました。
+     元々 PostgreSQLから取り込まれたファイルで、math.hは既に含まれていました。
+     修正は <A
+HREF="https://github.com/pgpool/pgpool2/pull/128"
+TARGET="_top"
+>fix compiling issues for 32-bit targets</A
+> のプルリクエストに記載してあります。
+    </P
+></LI
+><LI
+><P
+>     recovery_1st_stage.sampleでBashのディレクトリ削除を安全に行うよう修正しました。（Taiki Koshino）
+    </P
+><P
+>     rmコマンドの変数をクォートし、意図しない削除を防止しました：
+     <TT
+CLASS="COMMAND"
+>rm -rf "${DEST_NODE_PGDATA}"</TT
+>
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="OPTION"
+>--with-memcached</TT
+>指定なしでコンパイルする際のエラーを修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     <TT
+CLASS="OPTION"
+>--with-memcached</TT
+>指定なしでコンパイルするとエラーが発生していました。
+     対応として該当コードブロックを #ifdef USE_MEMCACHEDで囲みました。
+    </P
+><P
+>     この問題はBo Pengによって報告されました。
+    </P
+></LI
+><LI
+><P
+>     クエリキャッシュロックファイルの取り扱い修正を修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     クエリキャッシュモジュールは並列制御のため <TT
+CLASS="VARNAME"
+>logdir</TT
+> にロックファイルを作成しますが、
+     メインプロセスがゴミファイルを作成したり、シャットダウン時に削除されない問題がありました。
+    </P
+><P
+>     この問題はBo Pengによって報告・分析されました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN13554"
+>A.12.3. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     <A
+HREF="https://www.pgpool.net/docs/latest/ja/html/example-cluster.html"
+TARGET="_top"
+>8.2. Pgpool-II + Watchdog Setup Example</A
+> の "PostgreSQLスタンバイ設定" ドキュメントを更新しました。（Taiki Koshino）
+    </P
+><P
+>     オンラインリカバリなしでスタンバイを設定する場合、postgresql.auto.confに <TT
+CLASS="VARNAME"
+>primary_conninfo</TT
+> を書き込まないよう注意を追加しました。
+    </P
+><P
+>     ディスカッション: <A
+HREF="https://github.com/pgpool/pgpool2/issues/67"
+TARGET="_top"
+>Follow primary command not fixing postgresql.auto.conf </A
+>
+    </P
+></LI
+><LI
+><P
+>     watchdog_setupのマニュアルを修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     heartbeartがwatchdog_setupに設定されていないと誤記されていた箇所を修正しました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN13567"
+>A.12.4. 回帰テスト修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     023.ssl_connectionをPostgreSQL 18に対応するよう修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     PostgreSQL 18でpsqlの \conninfo出力形式が大幅に変更されたため、
+     このテストが失敗していました。
+     PostgreSQLバージョンに応じてテストスクリプトを修正しました。
+    </P
+></LI
+><LI
+><P
+>     010.rewrite_timestampのRubyスクリプトを修正しました。（Tatsuo Ishii）
+    </P
+><P
+>     RubyのFile.existsは新しいバージョンで非推奨のため、File.existに置き換えました。
+    </P
+></LI
+><LI
+><P
+>     034と075のタイムアウトを調整しました。（Tatsuo Ishii）
+    </P
+><P
+>     034.promote_nodeと075.detach_primary_left_down_nodeのスクリプト終了タイムアウトを60秒から120秒に変更し、
+     誤エラーが発生する可能性を減らしました。
+    </P
+></LI
+><LI
+><P
+>     023.ssl_connectionにssl_ecdh_curveのテストを追加しました。（Tatsuo Ishii）
+    </P
+><P
+>     023.ssl_connectionはssl_ecdh_curveのテストをカバーしていなかったため、
+     不正なssl_ecdh_curveパラメータでフロントエンドとpgpoolの接続が失敗するか確認しました。
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-5-10.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-5-8.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.5.10</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.5.8</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

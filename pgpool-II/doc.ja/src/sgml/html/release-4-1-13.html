@@ -1,0 +1,394 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.1.13</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.1.14"
+HREF="release-4-1-14.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.1.12"
+HREF="release-4-1-12.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.1.14"
+HREF="release-4-1-14.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.1.12"
+HREF="release-4-1-12.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-1-13"
+>A.94. リリース 4.1.13</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2022-08-18</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20611"
+>A.94.1. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     サンプルスクリプトで指定するrestore_commandにsshオプションを追加しました。(Bo Peng)
+    </P
+><P
+>     パッチはJon SCHEWEによって作成され、Bo Pengによって更新されました。
+    </P
+></LI
+><LI
+><P
+>     CloseCompleteを受け取った時、バッファリングなしでフロントエンドに転送するようになりました。(Tatsuo Ishii)
+    </P
+><P
+>     074.bug700_memqcache_segfaultで時折タイムアウトエラーが発生していました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20620"
+>A.94.2. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     クエリキャッシュの不具合を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     
+     Pgpool-IIは"Select '2022-02-18 07:00:00.006547'::timestamp"のような問合せをキャッシュしていませんでした。
+     TIMESTAMP、TIME、DATEを含むSELECT文はキャッシュされるようになりますが、TIMESTAMPZ、TIMEZを含むSELECT文は"SET TIME ZONE"コマンドなどで結果が変更されるためキャッシュされません。
+     また、TIMESTAMPZやTIMEZ型を返す関数を含むSELECT文も同様の理由でキャッシュされません。
+     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2022-July/008344.html"
+TARGET="_top"
+>[pgpool-general: 8285]</A
+>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20627"
+>A.94.3. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     Doc: 誤字を修正しました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     Doc: 特定のSELECT文がキャッシュされないことに言及しました。(Tatsuo Ishii)
+    </P
+><P
+>     特定のSELECT文は以下です。
+     <P
+></P
+></P><UL
+><LI
+><P
+>        TIMESTAMP WITH TIMEZONE、TIME WITH TIMEZONEを返す関数を使っているSELECT
+       </P
+></LI
+><LI
+><P
+>        TIMESTAMP WITH TIMEZONE、TIME WITH TIMEZONEへのキャストを含むSELECT
+       </P
+></LI
+><LI
+><P
+>        SQLValueFunction (CURRENT_TIME, CURRENT_USERなど)を含むSELECT
+       </P
+></LI
+></UL
+><P>
+    </P
+></LI
+><LI
+><P
+>     Doc: Unixドメインソケット接続するときのPCPパスワードファイルの使用についての説明を修正しました。(Masaya Kawamoto)
+    </P
+><P
+>     pcppassファイルのlocalhostエントリはデフォルトのPCPソケットディレクトリパスへの接続とのみマッチして、全てのUnixソケット接続には使用されません。
+     この振る舞いはpgpassファイルと同じです。
+    </P
+></LI
+><LI
+><P
+>     Doc: 必要メモリの説明を修正し、詳細にしました。(Tatsuo Ishii)
+    </P
+><P
+>     <P
+></P
+></P><UL
+><LI
+><P
+>        
+        pgpoolの子プロセスが動作する間のメモリ使用についての説明を追加しました。
+       </P
+></LI
+><LI
+><P
+>        
+        より正確な結果を計算できるように、必要共有メモリを計算する式を詳細にしました。
+       </P
+></LI
+><LI
+><P
+>        
+        インメモリクエリキャッシュ用の共有メモリ量を修正しました。64MBは誤った値でした。
+       </P
+></LI
+><LI
+><P
+>        
+        必要プロセスメモリを修正しました。以前の式はRSSを基にしていましたが、RSSはライブラリに使用されるメモリなどの共有メモリも含むため、PSSを使用するべきです。
+        これによって以前より要求メモリが大幅に減少します。
+       </P
+></LI
+></UL
+><P>
+    </P
+></LI
+><LI
+><P
+>     Doc: <A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHE-MAXCACHE"
+>memqcache_maxcache</A
+>と<A
+HREF="runtime-in-memory-query-cache.html#GUC-MEMQCACHEEXPIRE"
+>memqcache_expire</A
+>の誤った説明を修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     これらのパラメータは設定ファイルの再読み込みでは変更できず、Pgpool-IIの再起動が必要です。
+
+     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2022-June/008254.html"
+TARGET="_top"
+>[pgpool-general: 8195]</A
+>
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20663"
+>A.94.4. テストツール修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     PostgreSQL 15でpgpool_setupを実行できるようになりました。(Tatsuo Ishii)
+    </P
+><P
+>     <A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=757"
+TARGET="_top"
+>ticket 757</A
+>を参照ください。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN20670"
+>A.94.5. 回帰テスト修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     Test: 回帰テストで<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のバージョンを表示するようになりました。(Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     Test: 適切なinstall directoryでpgpool.confを探すように回帰テストスクリプトを修正しました。(Tatsuo Ishii)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-1-14.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-1-12.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.1.14</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.1.12</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

@@ -1,0 +1,457 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.5.3</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.5.4"
+HREF="release-4-5-4.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.5.2"
+HREF="release-4-5-2.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.4"
+HREF="release-4-5-4.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.5.2"
+HREF="release-4-5-2.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-5-3"
+>A.18. リリース 4.5.3</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2024-08-15</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14014"
+>A.18.1. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     サンプルスクリプトで<TT
+CLASS="COMMAND"
+>initdb -V</TT
+>の代わりに<TT
+CLASS="COMMAND"
+>psql -V</TT
+>を使用するように修正しました。 (Bo Peng)
+    </P
+><P
+>     postgresqlxx-serverがインストールされていない可能性があるため、サンプルスクリプトで<TT
+CLASS="COMMAND"
+>initdb -V</TT
+>の代わりに<TT
+CLASS="COMMAND"
+>psql -V</TT
+>を使用するように修正しました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14024"
+>A.18.2. 不具合修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     フラッシュメッセージを受信した後にハングする問題を修正しました。 (<A
+HREF="https://github.com/pgpool/pgpool2/issues/59"
+TARGET="_top"
+>#59</A
+>) (Tatsuo Ishii)
+    </P
+></LI
+><LI
+><P
+>     セグメンテーション違反を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     Pgpool-IIの子プロセスがpool_do_authでセグメント違反になることがありました。
+     原因はMAIN_CONNECTION()がNULLを返すことでした。
+     my_main_node_idが不正なノードID 0に設定されていたようですが、これは実際にはダウン状態でした。
+     そのため、cp-&#62;slots[0]には接続がありませんでした。
+    </P
+><P
+>     この問題はEmond Papegaaijによって報告されました。
+     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2024-July/001852.html"
+TARGET="_top"
+>[pgpool-general: 9175]</A
+>
+    </P
+></LI
+><LI
+><P
+>     動的プロセス管理を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     プロセス排除アルゴリズムで使用されるpooled_connectionの計算が正しくありませんでした。
+     数値は常にmax_poolになっていました。
+    </P
+><P
+>     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2024-July/004491.html"
+TARGET="_top"
+>[pgpool-hackers: 4490]</A
+>
+    </P
+></LI
+><LI
+><P
+>     設定ファイルの解析時に発生するセグメンテーション違反を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     設定値が一重引用符で囲まれていない場合に<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>を解析するときにセグメンテーション違反が発生していました。
+    </P
+><P
+>     このパッチはCarlos Chapiによって作成され、Tatsuo Ishiiによってレビューおよび修正されました。
+    </P
+></LI
+><LI
+><P
+>     MAIN_NODEマクロを使用しないようにセグメンテーション違反を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     一部の関数 (close_idle_connection()、new_connection()、pool_create_cp())では、MAIN*とVALID_BACKENDが不適切な場所で使用されていました。
+     MAIN*とVALID_BACKENDは、バックエンドへの現在の接続に対してのみ有効であり、プールされた接続には有効ではありません。
+     プールされた接続では、どのバックエンドがメインノードであるか、または稼働中であるかは、バックエンドへの現在の接続と必ず同じであるためです。
+     これらのマクロを誤って使用すると、セグメンテーション違反が発生することがありました。
+    </P
+><P
+>     この問題はEmond Papegaaij によって報告されました。
+     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2024-June/009176.html"
+TARGET="_top"
+>[pgpool-general: 9114]</A
+>
+    </P
+></LI
+><LI
+><P
+>     MAIN_NODEマクロ（実際は pool_virtual_main_db_node_id()）を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     セッションコンテキストがない場合、マクロは<TT
+CLASS="LITERAL"
+>REAL_MAIN_NODE_ID</TT
+>に使用されます。
+     フェイルオーバー/フェイルバックが発生すると、いつでも<TT
+CLASS="LITERAL"
+>REAL_MAIN_NODE_ID</TT
+>が変更される可能性があるため、これは誤りでした。
+    </P
+><P
+>     REAL_MAIN_NODE_ID == my_main_node_id == 1と仮定します。
+     その後、フェイルバックにより、<TT
+CLASS="LITERAL"
+>REAL_MAIN_NODE_ID</TT
+>は0に変更されます。
+     その後、MAIN_CONNECTION(cp)はNULLを返し、これへの参照はセグメンテーションエラーを引き起こします。
+     この問題を回避するには、代わりにmy_main_node_idを返すように修正しました。
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="COMMAND"
+>show pool_processes</TT
+>で行の説明が2回表示されないように修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     processes_reporting()が誤ってsend_row_description()とsend_row_description_and_data_rows()の両方を呼び出していました。
+    </P
+><P
+>     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2024-June/004472.html"
+TARGET="_top"
+>[pgpool-hackers: 4471]</A
+>
+    </P
+></LI
+><LI
+><P
+>     子プロセスでのセグメンテーション違反を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     Discussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-general/2024-May/001780.html"
+TARGET="_top"
+>[pgpool-general: 9104]</A
+>
+    </P
+></LI
+><LI
+><P
+>     ネットワークが短時間中断されると、Watchdogが停止し、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>が強制終了する問題を修正しました。 (<A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=823"
+TARGET="_top"
+>#823</A
+>) (Muhammad Usama)
+    </P
+><P
+>     ネットワーク監視を有効にすると、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>ノードはすべてのネットワークインターフェイスまたは割り当てられたIPアドレスを失った場合に直ちにシャットダウンし、通信できないノードをクラスタからすばやく削除することで追加の保護を提供します。
+    </P
+><P
+>     問題は、ネットワーク監視が無効になっている場合でも、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>がネットワークブラックアウトイベントに応答していたことです。
+     この修正により、ネットワーク監視が有効になっていない場合にネットワーク監視ソケットがオープンされなくなり、不要なシャットダウンが防止されます。
+    </P
+></LI
+><LI
+><P
+>     Watchdogが有効な場合に<TT
+CLASS="COMMAND"
+>pgpool reset</TT
+>コマンドが動作しない問題を修正しました。 (Tatsuo Ishii)
+    </P
+><P
+>     バグはkeiseoによって報告・問題分析されました。
+     Disscussion: <A
+HREF="https://www.pgpool.net/pipermail/pgpool-hackers/2024-June/004466.html"
+TARGET="_top"
+>[pgpool-hackers: 4465]</A
+>
+    </P
+></LI
+><LI
+><P
+>     <TT
+CLASS="LITERAL"
+>psql_scan</TT
+>のクラッシュを修正しました。 (<A
+HREF="https://github.com/pgpool/pgpool2/issues/54"
+TARGET="_top"
+>#54</A
+>) (Tatsuo Ishii)
+    </P
+><P
+>     長いクエリ内の文字列が<TT
+CLASS="LITERAL"
+>psql</TT
+>変数（つまり「:」で始まる）であるかどうかを判別しているときに、<TT
+CLASS="LITERAL"
+>psql_scan</TT
+>がクラッシュする問題がありました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN14087"
+>A.18.3. ドキュメント修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     ドキュメントとプログラムソースコードの大量なタイポミスを修正しました。(Tatsuo Ishii)
+    </P
+><P
+>     パッチはUmar Hayatによって作成されました。
+    </P
+></LI
+><LI
+><P
+>     強制終了するプロセスを選択するための基準を<A
+HREF="runtime-config-process-management.html#GUC-MAX-SPARE-CHILDREN"
+>max_spare_children</A
+>のドキュメントに追加しました。(Bo Peng)
+    </P
+></LI
+><LI
+><P
+>     フェイルオーバーのドキュメントを改良しました。(Tatsuo Ishii)
+    </P
+><P
+>     <A
+HREF="runtime-config-failover.html#GUC-FAILOVER-ON-BACKEND-SHUTDOWN"
+>failover_on_backend_shutdown</A
+>が有効な場合のフェイルオーバーの条件を明確にしました。
+    </P
+></LI
+><LI
+><P
+>     仮想IP関連パラメータのデフォルト値をドキュメントに追加しました。(Bo Peng)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-5-4.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-5-2.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.5.4</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.5.2</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

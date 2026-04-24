@@ -1,0 +1,713 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>制限事項</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="はじめに"
+HREF="preface.html"><LINK
+REL="PREVIOUS"
+TITLE="更なる情報"
+HREF="resources.html"><LINK
+REL="NEXT"
+TITLE="バグ報告の指針"
+HREF="bug-reporting.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="更なる情報"
+HREF="resources.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="preface.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>はじめに</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="バグ報告の指針"
+HREF="bug-reporting.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RESTRICTIONS"
+>制限事項</A
+></H1
+><P
+>  
+  この章では、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の現在の制限事項について説明します。
+
+  <P
+></P
+></P><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+>pg_terminate_backendの利用</DT
+><DD
+><P
+>      
+      <CODE
+CLASS="FUNCTION"
+>pg_terminate_backend()</CODE
+>を使ってバックエンドを停止すると、フェイルオーバが起こります。
+      これは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>が、postmasterの停止と全く同じメッセージをバックエンド停止時に送るためです。
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 3.6より前のバージョンには回避策はありません。
+      3.6以降では、この制限は緩和されています。
+      その関数の引数（プロセスIDです）が定数なら、その関数を使っても安全です。
+      しかし、拡張プロトコルでは、その関数は使えません。
+      4.3以降では、<A
+HREF="runtime-config-failover.html#GUC-FAILOVER-ON-BACKEND-SHUTDOWN"
+>failover_on_backend_shutdown</A
+>を<TT
+CLASS="LITERAL"
+>off</TT
+>にすることで、<CODE
+CLASS="FUNCTION"
+>pg_terminate_backend()</CODE
+>によるフェイルオーバを完全に回避できますが、その代わりpostmasterの停止によるフェイルオーバも起きなくなります。
+     </P
+></DD
+><DT
+>Load Balancing</DT
+><DD
+><P
+>      マルチステートメントSQL(1行の中に複数のSQLが含まれている)は、常にプライマリノード(ストリーミングレプリケーションモードの場合)かマスターノード(それ以外のモード)に送られます。
+      通常<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はクエリの種類を見て適切なノードにクエリを送りますが、マルチステートメントSQLではこれが適用されません。
+     </P
+></DD
+><DT
+>認証/アクセス制御</DT
+><DD
+><P
+>      
+      trust、reject、pam認証方式が利用できます。
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 3.0以降では、<TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>というファイルを使ってmd5認証も使えます。
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.0以降では、scram-sha-256、cert、clear text password認証も使えます。
+      <TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>はデフォルトの認証ファイル名です。
+      md5認証を有効にする手順を示します。
+     </P
+><P
+></P
+><OL
+TYPE="1"
+><LI
+><P
+>	
+	DBユーザのOSアカウントでログインし、以下を実行します。
+	</P><PRE
+CLASS="PROGRAMLISTING"
+>	 pg_md5 --md5auth --username=<TT
+CLASS="LITERAL"
+>your_username</TT
+> <TT
+CLASS="LITERAL"
+>your_passwd</TT
+>
+	</PRE
+><P>
+	
+	ユーザ名とmd5により暗号化されたパスワードが<TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>に登録されます。
+	<TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>がまだ存在しなければ、pg_md5コマンドは、自動的に<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>と同じディレクトリ内に<TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>を作成します。
+	<TT
+CLASS="FILENAME"
+>pool_passwd</TT
+>のフォーマットは、<TT
+CLASS="LITERAL"
+>username:encrypted_passwd</TT
+>です。
+       </P
+></LI
+><LI
+><P
+>	
+	また、pool_hba.confに適当なmd5のエントリを作成する必要があります。
+	詳細は<A
+HREF="auth-pool-hba-conf.html"
+>項6.1</A
+>を見てください。
+       </P
+></LI
+><LI
+><P
+>	
+	pool_passwdに登録するパスワードは、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>に登録したパスワードと完全に同じでなければなりません。
+       </P
+></LI
+><LI
+><P
+>	
+	md5パスワード（もちろんpool_passwdとPostgreSQLの両方）を変更したら、pgpool reload を実行してください。
+       </P
+></LI
+></OL
+><P
+>      scram-sha-256認証の設定については、<A
+HREF="auth-methods.html#SETTING-SCRAM-SHA-256-AUTHENTICATION"
+>項6.2.4.2</A
+>を参照してください。
+     </P
+></DD
+><DT
+>ラージオブジェクト</DT
+><DD
+><P
+>      
+      <A
+HREF="runtime-config-running-mode.html#RUNTIME-CONFIG-STREAMING-REPLICATION-MODE"
+>ストリーミングレプリケーションモード</A
+>では、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はラージオブジェクトをサポートしています。
+     </P
+><P
+>      
+      <A
+HREF="runtime-config-running-mode.html#GUC-SNAPSHOT-ISOLATION-MODE"
+>スナップショットアイソレーションモード</A
+>と<A
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
+>ネイティブレプリケーションモード</A
+>では、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 8.1以降ならばラージオブジェクトをサポートします。
+      その際には、<TT
+CLASS="FILENAME"
+>pgpool.conf</TT
+>のlobj_lock_tableを有効にしてください。
+      なお、バックエンド関数の<CODE
+CLASS="FUNCTION"
+>lo_import</CODE
+>を使ったラージオブジェクトのレプリケーションはサポートされていません。
+     </P
+><P
+>      
+      その他のモードではラージオブジェクトはサポートされていません。
+     </P
+></DD
+><DT
+>一時テーブル</DT
+><DD
+><P
+>      
+      一時テーブルの作成、挿入、更新、削除は、常にマスター（プライマリ）で実行されます。
+      テーブルに対するSELECTもマスター上で実行されます。
+      しかし、一時テーブル名が文字列としてSELECTで使われると、それを検知する方法がないため、SELECTは負荷分散されます。
+      これにより、「テーブルが見つからない」エラーになったり、同じ名前を持つ別のテーブルを検索することになります。
+      この問題を回避するには、SQLコメントを使ってください。
+     </P
+><P
+>      
+      ちなみに、psqlの\dコマンドのように、システムカタログを問い合わせる中で
+      文字列としてのテーブル名を使っている場合:
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       SELECT 't1'::regclass::oid;
+      </PRE
+><P>
+      pgpool-II 3.0以降ではマスタで検索が行なわれるので、問題になりません。
+      なぜなら、システムカタログへの検索は常にマスタで行なわれるからです。
+     </P
+><P
+>      
+      PostgreSQL 8.3以後を使っているのであれば、<TT
+CLASS="COMMAND"
+>CREATE TEMP TABLE</TT
+>によって作成されたテーブルは、reset_query_list中のDISCARD ALLを指定することによってセッションの最後で削除されます。
+     </P
+><P
+>      
+      8.2.x以前では、<TT
+CLASS="COMMAND"
+>CREATE TEMP TABLE</TT
+>によって作成されたテーブルは、セッションを終了した後に削除されません。
+      PostgreSQLバックエンドから見ると、コネクションプールによってセッションが維持されているからです。
+      これを回避するには、明示的に<TT
+CLASS="COMMAND"
+>DROP TABLE</TT
+>を発行するか、トランザクションブロックの内側で<TT
+CLASS="COMMAND"
+>CREATE TEMP TABLE ... ON COMMIT DROP</TT
+>を実施します。
+     </P
+></DD
+><DT
+><A
+HREF="runtime-config-running-mode.html#GUC-SNAPSHOT-ISOLATION-MODE"
+>スナップショットアイソレーションモード</A
+>と<A
+HREF="runtime-config-running-mode.html#GUC-REPLICATION-MODE"
+>ネイティブレプリケーションモード</A
+>における関数などの扱い</DT
+><DD
+><P
+>      
+      文脈依存の仕組み（たとえば乱数やトランザクションID、OID、SERIAL、シーケンスなど）を使って提供されるデータが複数のバックエンドに正しくレプリケーションされる保証はありません。
+      SERIALに対しては、insert_lockを使って対応できます。
+      SELECT setval()とSELECT nextval()に対してもinsert_lockで対応できます。
+     </P
+><P
+>      
+      <CODE
+CLASS="FUNCTION"
+>CURRENT_TIMESTAMP</CODE
+>、<CODE
+CLASS="FUNCTION"
+>CURRENT_DATE</CODE
+>、<CODE
+CLASS="FUNCTION"
+>now()</CODE
+>を含むINSERT/UPDATEは正しくレプリケーションされます。
+      <CODE
+CLASS="FUNCTION"
+>CURRENT_TIMESTAMP</CODE
+>、<CODE
+CLASS="FUNCTION"
+>CURRENT_DATE</CODE
+>、<CODE
+CLASS="FUNCTION"
+>now()</CODE
+>をデフォルト値として使うINSERT/UPDATEも正しくレプリケーションされます。
+      これは、関数を、クエリ実行時に<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>から取得した定数に置き換えることで達成されています。
+      しかし、いくつか制限事項があります。
+     </P
+><P
+>      
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 3.0以前では、テーブルのデフォルト値としての時制データが正しく計算されない場合があります。
+      例として以下のテーブル定義を示します。
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       CREATE TABLE rel1(
+       d1 date DEFAULT CURRENT_DATE + 1
+       )
+      </PRE
+><P>
+      
+      これは次と同じに扱われます。
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       CREATE TABLE rel1(
+       d1 date DEFAULT CURRENT_DATE
+       )
+      </PRE
+><P>
+      
+      <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 3.1以降はこのケースを正しく扱います。
+      ですのでd1列はtomorrowがデフォルト値になります。
+      しかし、この改善は拡張プロトコル（たとえばJDBC、PHP PDO）やPREPAREが使用されている場合には適用されません。
+     </P
+><P
+>      
+      列の型が時制ではない場合は書き換えは行われないことに注意してください。
+      そのような例を示します。
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       foo bigint default (date_part('epoch'::text,('now'::text)::timestamp(3) with time zone) * (1000)::double precision)
+      </PRE
+><P>
+      
+      以下のテーブルがあるとします。
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       CREATE TABLE rel1(
+       c1 int,
+       c2 timestamp default now()
+       )
+      </PRE
+><P>
+      
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       INSERT INTO rel1(c1) VALUES(1)
+      </PRE
+><P>
+      
+      これは以下に書き換えられるものの、
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       INSERT INTO rel1(c1, c2) VALUES(1, '2009-01-01 23:59:59.123456+09')
+      </PRE
+><P>
+      
+      </P><PRE
+CLASS="PROGRAMLISTING"
+>       INSERT INTO rel1(c1) SELECT 1
+      </PRE
+><P>
+      
+      は変換されません。
+      ですので現在の実装では正しくレプリケーションされません。
+      値は挿入されますが、全く変換が行われません。
+     </P
+></DD
+><DT
+>SQL型コマンド</DT
+><DD
+><P
+>      
+      <A
+HREF="sql-commands.html"
+>SQL型コマンド</A
+>は、拡張クエリモードでは使用できません。
+     </P
+></DD
+><DT
+>マルチバイト文字</DT
+><DD
+><P
+>      
+      現在の実装では、クライアントと<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>の間でマルチバイト文字の変換処理を行いません。
+      クライアントエンコーディング、バックエンドノードのサーバエンコーディングを一致させるようにしてください。
+     </P
+></DD
+><DT
+>libpq</DT
+><DD
+><P
+>      
+      <SPAN
+CLASS="PRODUCTNAME"
+>pgpool-II</SPAN
+> では libpq をリンクします。
+      libpq のバージョンが 2.0 の場合、configureに失敗します。
+      必ず libpq 3.0 以降(<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 7.4以降)をリンクするようにしてください。
+     </P
+></DD
+><DT
+>ParameterStatus</DT
+><DD
+><P
+>       クライアントが<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>に接続すると、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>は複数のパラメータ/値のペアをクライアントに返します。
+       このプロトコルは<A
+HREF="https://www.postgresql.org/docs/14/protocol-flow.html#id-1.10.5.7.3"
+TARGET="_top"
+><I
+CLASS="FIRSTTERM"
+>ParameterStatus</I
+></A
+>と呼ばれます。
+       このパラメータ/値ペアはある種のAPI、たとえばlibpqの<CODE
+CLASS="FUNCTION"
+>PQParameterStatus</CODE
+>で取得できます。
+       該当する実際のパラメータ名は<A
+HREF="https://www.postgresql.org/docs/14/protocol-flow.html#PROTOCOL-ASYNC"
+TARGET="_top"
+>ここ</A
+>にあります。
+       <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はParameterStatusの値を複数の<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバから収集するため、その値がサーバによって異なる可能性があります。典型的な例は、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 14で導入された<TT
+CLASS="LITERAL"
+>in_hot_standby</TT
+>です。
+       この値はプライマリサーバでは<TT
+CLASS="LITERAL"
+>off</TT
+>で、スタンバイサーバでは<TT
+CLASS="LITERAL"
+>on</TT
+>になります。
+       問題は、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はその値のひとつだけをクライアントに返さなければならないことです。
+       この場合は、プライマリサーバの値が選択されます。
+       ですから、<CODE
+CLASS="FUNCTION"
+>PQParameterStatus</CODE
+>は<TT
+CLASS="LITERAL"
+>off</TT
+>を返すでしょう。
+       一方で、クライアントが<TT
+CLASS="LITERAL"
+>show in_hot_standby</TT
+>を発行すると、その時のセッションのロードバランスノードによって、<TT
+CLASS="LITERAL"
+>on</TT
+>あるいは<TT
+CLASS="LITERAL"
+>off</TT
+>が返ります。
+     </P
+><P
+>       その値が<TT
+CLASS="LITERAL"
+>in_hot_standby</TT
+>以外で異なる時には、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はログメッセージを出力することに注意してください。
+       これは、<TT
+CLASS="LITERAL"
+>in_hot_standby</TT
+>の値は常に異なるからです。
+     </P
+></DD
+><DT
+>set_config</DT
+><DD
+><P
+>       <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>には<CODE
+CLASS="FUNCTION"
+>set_config</CODE
+>という関数があり、<TT
+CLASS="COMMAND"
+>SET</TT
+>コマンドで現在のセッションに対してパラメータの値を変更するのと同じ効果を与えることができます（実際にはSETにない機能もあります。詳細は<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>のマニュアルを見てください）。
+       <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>では、現在の<A
+HREF="runtime-config-running-mode.html#GUC-BACKEND-CLUSTERING-MODE"
+>クラスタリングモード</A
+>が<TT
+CLASS="LITERAL"
+>streaming_replication</TT
+>の場合、プライマリサーバにのみこの関数を送信します。
+       スタンバイサーバにはこの関数が送信されないので、それぞれのサーバでパラメータの値が異なることになります。
+       この問題を回避するには、<CODE
+CLASS="FUNCTION"
+>set_config</CODE
+>の代わりに<TT
+CLASS="COMMAND"
+>SET</TT
+>コマンドを使用してください。
+       <TT
+CLASS="COMMAND"
+>SET</TT
+>コマンドは、現在のセッションが使用しているすべてのサーバに送信されるので、この問題は起きません。
+       ただし<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>サーバを3台以上使っているときは、<A
+HREF="runtime-config-load-balancing.html#GUC-STATEMENT-LEVEL-LOAD-BALANCE"
+>statement_level_load_balance</A
+>をoffにした上で<TT
+CLASS="COMMAND"
+>SET</TT
+>コマンドを使用してください。
+       <A
+HREF="runtime-config-load-balancing.html#GUC-STATEMENT-LEVEL-LOAD-BALANCE"
+>statement_level_load_balance</A
+>がonの場合、現在のセッションが使用しているプライマリサーバ、ロードバランスノードになっているスタンバイサーバに加え、3台目のスタンバイサーバにもクエリを送信する可能性があるからです。
+     </P
+><P
+>       どうしても<CODE
+CLASS="FUNCTION"
+>set_config</CODE
+>を使わなければならないのであれば、そのセッションでの負荷分散機能をoffにしてください(<CODE
+CLASS="FUNCTION"
+>set_config</CODE
+>だけでなく、そのセッションで負荷分散機能を使わないようにする必要があります)。
+       性能は犠牲になりますが、問題は回避できます。
+     </P
+></DD
+></DL
+></DIV
+><P>
+ </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="resources.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="bug-reporting.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>更なる情報</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="preface.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>バグ報告の指針</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

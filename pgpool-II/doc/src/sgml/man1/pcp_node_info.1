@@ -1,0 +1,331 @@
+'\" t
+.\"     Title: pcp_node_info
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: pgpool-II 4.7.1 Documentation
+.\"    Source: pgpool-II 4.7.1
+.\"  Language: English
+.\"
+.TH "PCP_NODE_INFO" "1" "2023" "pgpool-II 4.7.1" "pgpool-II 4.7.1 Documentation"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+pcp_node_info \- displays the information on the given node ID
+.SH "SYNOPSIS"
+.HP \w'\fBpcp_node_info\fR\ 'u
+\fBpcp_node_info\fR [\fIoption\fR...] [\fInode_id\fR]
+.SH "DESCRIPTION"
+.PP
+\fBpcp_node_info\fR
+displays the information on the given node ID\&.
+.SH "OPTIONS"
+.PP
+.PP
+\fB\-n \fR\fB\fInode_id\fR\fR
+.br
+\fB\-\-node\-id=\fR\fB\fInode_id\fR\fR
+.RS 4
+The index of backend node to get information of\&.
+.RE
+.PP
+\fB\-a\fR
+.br
+\fB\-\-all\fR
+.RS 4
+Display all backend nodes information\&.
+.RE
+.PP
+\fBOther options \fR
+.RS 4
+See
+\fBpcp_common_options\fR(1)\&.
+.RE
+.SH "EXAMPLE"
+.PP
+Here is an example output:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_node_info \-w \-p 11001 \-n 1
+/tmp 11003 1 0\&.500000 waiting up standby standby 0 streaming async 2021\-02\-27 14:51:30
+   
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+The result is in the following order:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+1\&. hostname
+2\&. port number
+3\&. status
+4\&. load balance weight
+5\&. status name
+6\&. actual backend status (obtained using PQpingParams\&. Pgpool\-II 4\&.3 or later)
+7\&. backend role
+8\&. actual backend role (obtained using pg_is_in_recovery\&. Pgpool\-II 4\&.3 or later)
+9\&. replication delay
+10\&. replication state (taken from pg_stat_replication\&. Pgpool\-II 4\&.1 or later)
+11\&. sync replication state (taken from pg_stat_replication\&. Pgpool\-II 4\&.1 or later)
+12\&. last status change time
+   
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fI3 (status)\fR
+is represented by a digit from [0 to 3]\&.
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+0 \- This state is only used during the initialization\&. PCP will never display it\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+1 \- Node is up\&. No connections yet\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+2 \- Node is up\&. Connections are pooled\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+3 \- Node is down\&.
+.RE
+.PP
+\fI4 (load balance weight)\fR
+is displayed in normalized format (0 \- 1)\&.
+.PP
+\fI5 (status name)\fR
+indicates the status of a
+PostgreSQL
+node as recognized by
+Pgpool\-II\&. It corresponds to the numeric value shown in "\fI3 (status)\fR" and represents the node\*(Aqs internal state in a human\-readable format maintained by
+Pgpool\-II\&.
+.PP
+\fI6 (actual backend status)\fR
+shows the backend status in real time\&. The info is obtained by calling
+\fBPQpingParams\fR
+at the time when the command is invoked\&.
+\fBPQpingParams\fR
+is only available in
+PostgreSQL
+9\&.1 or later\&. If
+Pgpool\-II
+was built with
+PostgreSQL
+9\&.0 or earlier, the column shows "unknown"\&. Also if
+health check
+is disabled, it shows "unknown"\&. When a backend node is detached by
+\fBpcp_detach_node\fR(1), the status managed by
+Pgpool\-II
+will be "down", while the actual backend status is "up"\&. Thus it is possible that 5 does not match with 6\&. However it should not happen that 5 is "up" while 6 is "down"\&.
+.PP
+\fI7 (backend role)\fR
+indicates the role of a
+PostgreSQL
+node (primary or standby) from the perspective of
+Pgpool\-II, based on its internally maintained information\&.
+.PP
+\fI8 (actual backend role)\fR
+shows the backend status in real time\&. The result will be either "primary" or "standby", and possibly "unknown" if information retrieval failed\&. Since
+Pgpool\-II
+searches backend nodes in the node id order and assumes the last found node is primary, it is possible that 7 does not match 8 when there are multiple nodes that are not standby by erroneous operations (this command is useful to find such that situation)\&. In other than streaming replication mode, the status will be either "main" or "replica"\&. Unlike streaming replication mode
+\fBpg_is_in_recovery\fR
+is not called and value for 7 and 8 will be always the same\&.
+.PP
+To correctly display
+\fI9, 10 and 11\fR,
+sr_check_period
+must not be 0\&. Additionally, to correctly display
+\fI10 and 11\fR, the following settings are required\&.
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+backend_application_name
+must be configured\&.
+.sp
+The value set for each
+\fIbackend_application_nameX\fR
+must match the value specified in
+\fIapplication_name\fR
+of
+\fIprimary_conninfo\fR
+for the corresponding node\&.
+.sp
+In particular, when creating standby nodes using Pgpool\-II\*(Aqs
+\fBpcp_recovery_node\fR(1)
+command and community\-provided sample scripts, please ensure that the value of
+\fIbackend_application_nameX\fR
+matches that of
+\fIbackend_hostnameX\fR\&. For specific configuration examples, please refer to
+Section 8.2.7.6, \(lqBackend Settings\(rq, in the documentation\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+sr_check_user
+must either be a
+PostgreSQL
+superuser or have been granted the privileges of the
+pg_monitor
+role\&.
+.RE
+.sp
+.if n \{\
+.sp
+.\}
+.RS 4
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBNote\fR
+.ps -1
+.br
+.PP
+To grant the privileges of the
+pg_monitor
+role to
+sr_check_user, execute following SQL command by
+PostgreSQL
+super user (replace "sr_check_user" with the setting of
+sr_check_user):
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+GRANT pg_monitor TO sr_check_user;
+     
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+For
+PostgreSQL
+9\&.6, there\*(Aqs no pg_monitor group and
+sr_check_user
+must be
+PostgreSQL
+super user\&.
+.sp .5v
+.RE
+.PP
+From
+Pgpool\-II
+4\&.4, 9 (replication delay) is displayed in either bytes or seconds\&. See
+delay_threshold_by_time
+for more details\&.
+.PP
+The
+\fB\-a\fR
+or
+\fB\-\-all\fR
+option lists all backend nodes information\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_node_info \-w \-p 11001 \-a
+/tmp 11002 1 0\&.500000 waiting up primary primary 0 none none 2021\-02\-27 14:51:30
+/tmp 11003 1 0\&.500000 waiting up standby standby 0 streaming async 2021\-02\-27 14:51:30
+  
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+The
+\fB\-\-verbose\fR
+option can help understand the output\&. For example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ pcp_node_info \-w \-p 11001 \-\-verbose 1
+Hostname               : /tmp
+Port                   : 11003
+Status                 : 1
+Weight                 : 0\&.500000
+Status Name            : waiting
+Backend Status Name    : up
+Role                   : standby
+Backend Role           : standby
+Replication Delay      : 0
+Replication State      : streaming
+Replication Sync State : async
+Last Status Change     : 2021\-02\-27 14:51:30
+  
+.fi
+.if n \{\
+.RE
+.\}

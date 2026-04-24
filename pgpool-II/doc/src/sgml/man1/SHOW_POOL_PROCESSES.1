@@ -1,0 +1,228 @@
+'\" t
+.\"     Title: SHOW POOL_PROCESSES
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: pgpool-II 4.7.1 Documentation
+.\"    Source: pgpool-II 4.7.1
+.\"  Language: English
+.\"
+.TH "SHOW POOL_PROCESSES" "1" "2023" "pgpool-II 4.7.1" "pgpool-II 4.7.1 Documentation"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+SHOW_POOL_PROCESSES \- sends back a list of all Pgpool\-II processes waiting for connections and dealing with a connection
+.SH "SYNOPSIS"
+.sp
+.nf
+   SHOW POOL_PROCESSES
+  
+.fi
+.SH "DESCRIPTION"
+.PP
+\fBSHOW POOL_PROCESSES\fR
+sends back a list of all
+Pgpool\-II
+processes waiting for connections and dealing with a connection\&.
+.PP
+It has 8 columns:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+pool_pid
+is the PID of the displayed
+Pgpool\-II
+process\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+start_time
+is the timestamp of when this process was launched\&.
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+If
+child_life_time
+is set not 0, the time before process restarting is displayed\&.
+.RE
+.sp
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+client_connection_count
+counts the number of times this process has been used by clients\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+database
+is the database name of the currently active backend for this process\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+username
+is the user name used in the connection of the currently active backend for this process\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+backend_connection_time
+is the creation time and date of the connection\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+pool_counter
+counts the number of times this pool of connections (process) has been used by clients\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+status
+is current status of this process\&. Possible values are:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Execute command: Executing a command\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Idle: The process is waiting for a new client command\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Idle: The process is waiting for a new client command in a transaction\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Wait for connection: The process is waiting for a new client connection\&.
+.RE
+.sp
+.RE
+.PP
+Here is an example session:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+test=# show pool_processes;
+ pool_pid |                      start_time                      | client_connection_count | database | username | backend_connection_time | pool_counter |       status
+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+ 32641    | 2021\-09\-28 04:40:45                                  | 0                       |          |          |                         |              | Wait for connection
+ 32642    | 2021\-09\-28 04:40:45                                  | 0                       |          |          |                         |              | Wait for connection
+ 32643    | 2021\-09\-28 04:40:45                                  | 0                       | test     | kawamoto | 2021\-09\-28 04:40:48     | 1            | Idle
+ 32644    | 2021\-09\-28 04:40:45                                  | 0                       | test     | kawamoto | 2021\-09\-28 04:43:15     | 1            | Execute command
+ 32645    | 2021\-09\-28 04:40:45                                  | 0                       |          |          |                         |              | Wait for connection
+ 32646    | 2021\-09\-28 04:40:45                                  | 0                       |          |          |                         |              | Wait for connection
+ 32647    | 2021\-09\-28 04:40:45                                  | 0                       |          |          |                         |              | Wait for connection
+ 32648    | 2021\-09\-28 04:40:45 (3:15 before process restarting) | 2                       |          |          |                         |              | Wait for connection
+(8 rows)
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+

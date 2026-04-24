@@ -1,0 +1,691 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>リリース 4.4.0</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="Pgpool-II 4.7.1 文書"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="リリースノート"
+HREF="release.html"><LINK
+REL="PREVIOUS"
+TITLE="リリース 4.4.1"
+HREF="release-4-4-1.html"><LINK
+REL="NEXT"
+TITLE="リリース 4.3.19"
+HREF="release-4-3-19.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=utf-8"><META
+NAME="creation"
+CONTENT="2026-02-25T07:45:35"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>Pgpool-II 4.7.1 文書</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="リリース 4.4.1"
+HREF="release-4-4-1.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>付録 A. リリースノート</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="リリース 4.3.19"
+HREF="release-4-3-19.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RELEASE-4-4-0"
+>A.38. リリース 4.4.0</A
+></H1
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>リリース日: </B
+>2022-12-06</P
+></BLOCKQUOTE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15739"
+>A.38.1. 概要</A
+></H2
+><P
+>   このバージョンには、設定と管理を容易にするために多くの機能拡張が追加されています。
+   動的スペアプロセス管理機能を追加しました。
+   ストリーミングレプリケーションの遅延は、バイト単位だけでなく時間単位で制御できるようにしました。
+   <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>とPCPが複数のIPアドレスをリッスンできるようになりました。
+   Unixドメインソケットディレクトリの完全な設定が可能になりました。
+   <TT
+CLASS="VARNAME"
+>trusted_servers</TT
+>が上位接続を確認するために使用するコマンドを指定できるようになりました。
+   新しい<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 15の<TT
+CLASS="LITERAL"
+>SQL</TT
+>パーサが取り込まれました。
+   クエリキャッシュのパフォーマンスも向上しました。
+  </P
+><P
+>   以下は主な機能拡張です。
+  </P
+><P
+></P
+><UL
+><LI
+><P
+>     新たに動的スペアプロセス管理機能を追加しました。
+     この機能により、静的プロセス管理モードと動的プロセス管理モードを選択することができます。
+    </P
+></LI
+><LI
+><P
+>     ストリーミングレプリケーションモードで、レプリケーションの遅延を時間で指定できるようにしました。
+     この目的のために、新しいパラメータ<A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+>を追加しました。
+    </P
+></LI
+><LI
+><P
+>     Pgpool-IIはPostgreSQLと同じように<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES"
+>unix_socket_directories</A
+>、
+     <A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-GROUP"
+>unix_socket_group</A
+>および<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-PERMISSIONS"
+>unix_socket_permissions</A
+>
+     をサポートするようになり、UNIXドメインソケットをより柔軟かつ正確に制御できるようになりました。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-config-connection.html#GUC-LISTEN-ADDRESSES"
+>listen_addresses</A
+>および<A
+HREF="runtime-config-connection.html#GUC-PCP-LISTEN-ADDRESSES"
+>pcp_listen_addresses</A
+>で、カンマ区切りの複数のリッスンIPアドレスを設定できるようになりました。
+     これにより、接続を受け付けるネットワークインターフェイスを制御でき、安全でないネットワークインターフェイスで悪意のある接続要求が繰り返されるのを防ぐことができます。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-TRUSTED-SERVERS"
+>trusted_servers</A
+>が上位接続を確認するために使用するコマンドを指定できるようになりました。
+     この目的のために、新しいパラメータ<A
+HREF="runtime-watchdog-config.html#GUC-TRUSTED-SERVER-COMMAND"
+>trusted_server_command</A
+>を追加しました。
+    </P
+></LI
+><LI
+><P
+>     PostgreSQL 15 のSQLパーサを取り込みました。
+    </P
+></LI
+><LI
+><P
+>     ロックの競合を減らして、<A
+HREF="runtime-in-memory-query-cache.html"
+>クエリキャッシュ</A
+>を高速化しました。これにより、同時実行中のクライアントは、キャッシュの内容をより迅速に取得できるようになりました。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="MIGRATION-4-4-0"
+>A.38.2. バージョン 4.4 への移行</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     設定パラメータ<TT
+CLASS="VARNAME"
+>socket_dir</TT
+>を<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES"
+>unix_socket_directories</A
+>に名前変更しました。
+    </P
+></LI
+><LI
+><P
+>     設定パラメータ<TT
+CLASS="VARNAME"
+>delegate_IP</TT
+>を<A
+HREF="runtime-watchdog-config.html#GUC-DELEGATE-IP"
+>delegate_ip</A
+>に名前変更しました。
+     古いバージョンとの互換性のために、古いパラメータ<TT
+CLASS="VARNAME"
+>delegate_IP</TT
+>は引き続き使用できますが、
+     <TT
+CLASS="VARNAME"
+>delegate_ip</TT
+>に変換され、警告メッセージが出力されます。
+    </P
+></LI
+><LI
+><P
+>     バックエンドからのパラメータステータスメッセージがフロントエンドに転送されるようになりました。
+     これまでは、バックエンドからパラメータステータスメッセージが届くと、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はそれを記憶していましたが、フロントエンドには転送しませんでした。
+     この変更により、それらのメッセージはフロントエンドに転送されます。
+     <SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>を使用するアプリケーションでは、これらのメッセージを受け入れる準備をする必要があります。
+     しかし、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>はフロントエンドに既に送信しているため、<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>を使用しているアプリケーションはこの変更の影響を受けないはずです。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15790"
+>A.38.3. 変更点</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     新たに動的スペア（アイドル状態）プロセス管理機能を追加しました。(Jianshen Zhou、Muhammad Usama)
+    </P
+><P
+>     この機能により、静的プロセス管理モードと動的プロセス管理モードを選択することができます。
+     静的プロセス管理は、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>の既存の動作と同じで、起動時にすべての子プロセスを生成します。
+     新しい動的モードは、アイドル状態のプロセスを追跡し、この数を指定された範囲内に維持するためにプロセスをforkまたはkillします。
+    </P
+><P
+>     プロセス管理の動作を設定するために、<A
+HREF="runtime-config-process-management.html#GUC-PROCESS-MANAGEMENT-MODE"
+>process_management_mode</A
+>、<A
+HREF="runtime-config-process-management.html#GUC-PROCESS-MANAGEMENT-STRATEGY"
+>process_management_strategy</A
+>、<A
+HREF="runtime-config-process-management.html#GUC-MIN-SPARE-CHILDREN"
+>min_spare_children</A
+>、および<A
+HREF="runtime-config-process-management.html#GUC-MAX-SPARE-CHILDREN"
+>max_spare_children</A
+>という4つの新しい設定パラメータが追加され、<TT
+CLASS="VARNAME"
+>process_management_strategy</TT
+>では3つのスケーリングダウン戦略を選択できます。
+    </P
+></LI
+><LI
+><P
+>     レプリケーションの遅延を時間で指定できるようにしました。(Tatsuo Ishii)
+    </P
+><P
+>     <A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD"
+>delay_threshold</A
+>では、レプリケーション遅延の上限をバイト単位で指定します。
+     今回は<A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+>というパラメータを追加して、レプリケーション遅延の上限を時間（秒）で指定できるようにしました。
+     新しいパラメータが0より大きい場合に有効になります。
+     この場合は、<A
+HREF="sql-show-pool-nodes.html"
+>SHOW POOL_NODES</A
+>と<A
+HREF="pcp-node-info.html"
+>pcp_node_info</A
+>のレプリケーションの遅延は秒単位で表示します。
+     このパラメータが0に設定されている場合には、
+     <TT
+CLASS="VARNAME"
+>delay_threshold_by_time</TT
+>は無視され、delay_thresholdモードに戻ります。
+    </P
+><P
+>     この目的のために、共有メモリデータBackendinfoの新しいメンバstandby_delay_by_timeを追加し、レプリケーションの遅延がバイト単位（standby_delay_by_time = false）で測定するか、秒単位（standby_delay_by_time = true）で測定するかを区別します。
+     standby_delay_by_timeがtrueの場合は、standby_delayは秒 * 1000000で測定されるため、精度は小数点以下6桁です。
+    </P
+></LI
+><LI
+><P
+>     unix_socket_directoriesおよび関連パラメータをサポートするようになりました。(Masaya Kawamoto)
+    </P
+><P
+>     設定パラメータ<TT
+CLASS="VARNAME"
+>socket_dir</TT
+>を<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES"
+>unix_socket_directories</A
+>に名前変更し、新しいパラメータ<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-GROUP"
+>unix_socket_group</A
+>および<A
+HREF="runtime-config-connection.html#GUC-UNIX-SOCKET-PERMISSIONS"
+>unix_socket_permissions</A
+>を追加しました。
+    </P
+></LI
+><LI
+><P
+>     新しい設定値パラメータ<A
+HREF="runtime-watchdog-config.html#GUC-TRUSTED-SERVER-COMMAND"
+>trusted_server_command</A
+>を追加しました。(Takuma Hoshiai)
+    </P
+><P
+>     この機能により、<A
+HREF="runtime-watchdog-config.html#GUC-TRUSTED-SERVERS"
+>trusted_servers</A
+>が上位接続を確認するために使用するコマンドを指定できるようになりました。
+     これまでは、pingコマンドのみが使用され、ハードコーディングされていました。
+    </P
+><P
+>     デフォルトは'ping -q -c3 %h'で、以前と同じです。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-config-connection.html#GUC-LISTEN-ADDRESSES"
+>listen_addresses</A
+>および<A
+HREF="runtime-config-connection.html#GUC-PCP-LISTEN-ADDRESSES"
+>pcp_listen_addresses</A
+>でカンマ区切りの複数のリッスンIPアドレスを設定できるようにしました。(Tatsuo Ishii)
+    </P
+><P
+>     これまでは、<A
+HREF="runtime-config-connection.html#GUC-LISTEN-ADDRESSES"
+>listen_addresses</A
+>に単一のホスト名/IPアドレス、または'*'しか設定できませんでした。
+     今回は<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>と同じように、パラメータに複数のリッスンIPアドレスを設定できるようになりました。
+    </P
+><P
+>     また、<A
+HREF="runtime-config-connection.html#GUC-PCP-LISTEN-ADDRESSES"
+>pcp_listen_addresses</A
+>もカンマで区切られた複数のリッスンIPアドレスを受け付けるようになりました。
+    </P
+></LI
+><LI
+><P
+>     <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 15の新しい<TT
+CLASS="LITERAL"
+>SQL</TT
+>パーサを取り込みました。(Bo Peng, Tatsuo Ishii)
+    </P
+><P
+>     PostgreSQL 15パーサのおもな変更点は次のとおりです。
+    </P
+><P
+></P
+><UL
+><LI
+><P
+>       新しいSQL MERGE文が追加されました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>MERGE INTO ... USING ...
+      </PRE
+></LI
+><LI
+><P
+>       COPY FROMに新しいオプションHEADER MATCHが追加されました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>COPY ... FROM stdin WITH (HEADER MATCH);
+      </PRE
+></LI
+><LI
+><P
+>       外部キーON DELETE SETアクションを指定できるようになりました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>CREATE TABLE t1 (
+...
+FOREIGN KEY (c1, c2) REFERENCES t2 ON DELETE SET NULL (c2)
+);
+      </PRE
+></LI
+><LI
+><P
+>       ALTER TABLEでSET ACCESS METHODを指定できるようになりました。
+      </P
+><PRE
+CLASS="PROGRAMLISTING"
+>ALTER TABLE ... SET ACCESS METHOD ...;
+      </PRE
+></LI
+></UL
+></LI
+><LI
+><P
+>     クエリキャッシュにおける排他ロックを共有ロックに置き換えました。(Tatsuo Ishii)
+    </P
+><P
+>     これまでは、クエリキャッシュモジュールはセマフォを使用して、クエリキャッシュモジュールの重要な領域を保護していました。
+     ただし、セマフォを使用したロックは排他ロックであるため、これには重大な欠点があります。
+     これにより、多数の同時クライアントが存在する場合に、キャッシュの読み取りに不要な待機が発生し、パフォーマンスが低下します。
+    </P
+><P
+>     この問題を解決するには、ロックの実装を共有ロックを許可する<CODE
+CLASS="FUNCTION"
+>flock(2)</CODE
+>に置き換えました。
+     これにより、クライアントはキャッシュから読み取る際に、ロックを取得するために待たなくて済むため、同時実行性が向上します。
+    </P
+><P
+>     この目的のために、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>のメインプロセスはダミーファイルを<TT
+CLASS="FILENAME"
+>logdir/memq_lock_file</TT
+>として作成し、それを開きます。
+     ファイル記述子はすべての子プロセスに継承されるため、ファイルに対して<CODE
+CLASS="FUNCTION"
+>flock(2)</CODE
+>を発行できます。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-watchdog-config.html#GUC-WD-LIFECHECK-PASSWORD"
+>wd_lifecheck_password</A
+>および<A
+HREF="runtime-online-recovery.html#GUC-RECOVERY-PASSWORD"
+>recovery_password</A
+>のパスワード形式を検証する処理を追加しました。(Masaya Kawamoto)
+    </P
+></LI
+><LI
+><P
+>     パラメータのステータス処理を強化しました。(Tatsuo Ishii)
+    </P
+><P
+>     これまでは、バックエンドからパラメータステータスメッセージが届くと、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>はそれを記憶していましたが、フロントエンドには転送しませんでした。
+     この修正により、パラメータステータスメッセージはフロントエンドに転送されるようになります。
+    </P
+></LI
+><LI
+><P
+>     <A
+HREF="runtime-streaming-replication-check.html#GUC-DELAY-THRESHOLD-BY-TIME"
+>delay_threshold_by_time</A
+>を指定した場合のレプリケーション遅延の取得方法を変更しました。(Tatsuo Ishii)
+    </P
+><P
+>     pg_stat_replication.replay_lagを使用し、レプリケーション遅延を取得します。
+     この方法により、コードがはるかに単純になり、より正確なレプリケーション遅延を取得できます。
+     唯一の欠点は、pg_stat_replication.replay_lagはPostgreSQL 10以降でのみ使用できることです (以前の方法は9.5以降で使用できます)。
+    </P
+></LI
+><LI
+><P
+>     フラッシュ追跡機能を実装しました。(Tatsuo Ishii)
+    </P
+><P
+>     フラッシュメッセージがフロントエンドから到着すると、バックエンドからの保留中のメッセージはすべてフラッシュされ、フロントエンドに送信される必要があります。
+     そのために、「フラッシュ追跡」機能を実装しました。
+     つまり、フラッシュメッセージが到着すると、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+>は保留中の各メッセージに「保留中のフラッシュ」フラグを設定します。
+     バックエンドからの応答メッセージが、フラッシュ保留フラグが設定されている保留中のメッセージに対応する場合、
+     メッセージはバッファリングされるのではなく、すぐにフロントエンドにフラッシュされます。
+    </P
+></LI
+><LI
+><P
+>     pgprotoを強化しました。(Tatsuo Ishii)
+    </P
+><P
+>     ParameterStatusのパラメータ名と値を表示できるようにしました。
+    </P
+><P
+>    新しいコマンド'z'を追加しました。
+    これは'y'と似ていますが、'z'は 1 つのメッセージのみを読み取り、"ready for query" が到着するまで待機しません（または、1 秒以内にメッセージが到着しない場合はタイムアウトします）。
+    </P
+></LI
+><LI
+><P
+>     LOGメッセージ"new IPC connection received"をDEBUG1にダウングレードしました。
+     (<A
+HREF="https://www.pgpool.net/mantisbt/view.php?id=775"
+TARGET="_top"
+>bug 775</A
+>) (Bo Peng)
+    </P
+><P
+>     これは定期的に出力される正常なメッセージで、LOGとして記録すべきではありません。
+     パッチはpstefによって作成され、Bo Pengによってレビューされます。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15885"
+>A.38.4. バグ修正</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     このリリースでは、<SPAN
+CLASS="PRODUCTNAME"
+>Pgpool-II</SPAN
+> 4.3.4と同じバグ修正がすでに適用されています。
+     これらの修正の詳細については、<A
+HREF="release-4-3-4.html"
+>項A.54</A
+>を参照してください。
+    </P
+></LI
+></UL
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN15892"
+>A.38.5. ドキュメントの変更</A
+></H2
+><P
+></P
+><UL
+><LI
+><P
+>     Doc: AWS設定例のドキュメントを更新し、AWS向けのサンプルスクリプトを追加しました。(Bo Peng)
+    </P
+></LI
+></UL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="release-4-4-1.html"
+ACCESSKEY="P"
+>前のページ</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>ホーム</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="release-4-3-19.html"
+ACCESSKEY="N"
+>次のページ</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>リリース 4.4.1</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="release.html"
+ACCESSKEY="U"
+>上に戻る</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>リリース 4.3.19</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

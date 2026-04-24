@@ -1,0 +1,122 @@
+'\" t
+.\"     Title: PGPOOL SET CACHE
+.\"    Author: The Pgpool Global Development Group
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2023
+.\"    Manual: pgpool-II 4.7.1 Documentation
+.\"    Source: pgpool-II 4.7.1
+.\"  Language: English
+.\"
+.TH "PGPOOL SET CACHE" "1" "2023" "pgpool-II 4.7.1" "pgpool-II 4.7.1 Documentation"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+PGPOOL_SET_CACHE \- delete query cache
+.SH "SYNOPSIS"
+.sp
+.nf
+   PGPOOL SET CACHE DELETE \fI\*(Aqquery\*(Aq\fR
+  
+.fi
+.SH "DESCRIPTION"
+.PP
+The
+\fBPGPOOL SET CACHE DELETE\fR
+command deletes the
+query cache
+previously created by the query\&. The query string must be exactly identical to the previous query, including trailing
+\*(Aq;\*(Aq\&. Nevertheless if the query includes
+\*(Aq
+(single quore), it needs to be prefixed by
+\*(Aq
+like:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+PGPOOL SET CACHE DELETE \*(AqSELECT \*(Aq\*(AqFOO\*(Aq\*(Aq;\*(Aq;
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+This command is particularly useful for queries that are not invalidated by the
+auto cache invalidation feature
+because the query does not have any reference to tables\&.
+.PP
+If you do not remember the previous query, you can use
+\fBpcp_invalidate_query_cache\fR(1)
+to delete all the query cache including the cache you want to delete\&. However it requires the
+Pgpool\-II
+admin privilege\&.
+.PP
+Upon successful deletion of the query cache, this command emits a notice message:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+NOTICE:  query cache deleted\&. query: "query string"
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+If the cache does not exist or query cache is not enabled, it emits a notice message:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+NOTICE:  query cache does not exist for query: "query string"
+   
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.SH "EXAMPLES"
+.PP
+Accidentally created an unwanted query cache\&. Delete it by using the command\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+test=# /*FORCE QUERY CACHE*/SELECT current_timestamp;
+       current_timestamp       
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+ 2024\-10\-18 18:25:07\&.826423+09
+(1 row)
+
+test=# PGPOOL SET CACHE DELETE \*(Aq/*FORCE QUERY CACHE*/SELECT current_timestamp;\*(Aq;
+NOTICE:  query cache deleted\&. query: "/*FORCE QUERY CACHE*/SELECT current_timestamp;"
+SET
+    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.SH "SEE ALSO"
+\fBpcp_invalidate_query_cache\fR(1)
