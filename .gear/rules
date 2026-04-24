@@ -1,0 +1,8 @@
+specsubst: pgver
+copy?: *.conf
+copy?: *.init
+copy?: *.service
+copy?: *.sysconfig
+copy?: *.tmpfiles
+tar: v@version@:pgpool-II name=pgpool-II-@version@
+diff: v@version@:pgpool-II pgpool-II name=pgpool-II-@version@-@release@.patch
