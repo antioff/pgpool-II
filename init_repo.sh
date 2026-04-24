@@ -102,7 +102,7 @@ git merge upstream -m "Merge with upstream PGPOOL $PGPOOL_VER"
 git add -A
 git commit -m "Update version PGPOOL $PGPOOL_VER"
 
-gear-create-tag -f -n "postgrespro-1c-18-v$PGPOOL_VER" -s pgver=postgrespro-1c-18
+gear-create-tag -f -n "postgrespro-1c-18-$PGPOOL_VER" -s pgver=postgrespro-1c-18
 gear-create-tag -f -n "postgresql17-$PGPOOL_VER" -s pgver=postgresql17
 
 EOF
@@ -114,7 +114,7 @@ cat > "github_update.sh" << \EOF
 PGPOOL_VER=`grep Version pgpool-II.spec | grep -oE '[0-9.]+'`
 git add -A
 git commit -m "Update"
-gear-create-tag -f -n "postgrespro-1c-18-v$PGPOOL_VER" -s pgver=postgrespro-1c-18
+gear-create-tag -f -n "postgrespro-1c-18-$PGPOOL_VER" -s pgver=postgrespro-1c-18
 gear-create-tag -f -n "postgresql17-$PGPOOL_VER" -s pgver=postgresql17
 git push
 git push origin --force --tags

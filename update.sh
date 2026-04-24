@@ -21,6 +21,6 @@ git merge upstream -m "Merge with upstream PGPOOL $PGPOOL_VER"
 git add -A
 git commit -m "Update version PGPOOL $PGPOOL_VER"
 
-gear-create-tag -f -n "postgrespro-1c-18-v$PGPOOL_VER" -s pgver=postgrespro-1c-18
+gear-create-tag -f -n "postgrespro-1c-18-$PGPOOL_VER" -s pgver=postgrespro-1c-18
 gear-create-tag -f -n "postgresql17-$PGPOOL_VER" -s pgver=postgresql17
 
