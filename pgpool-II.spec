@@ -2,6 +2,7 @@
 %define prog_name pgpool-II
 %define sname pgpool
 %define enable_llvm %(if pg_server_config --configure | grep -q LLVM_CONFIG ; then echo 1; else echo 0; fi)
+
 %if %pg_ver > 17
 ExcludeArch: %ix86
 %else
@@ -26,15 +27,16 @@ Source4: pgpool.sysconfig
 Patch0: 0001-Update-path-for-socket-and-log.patch
 Patch1: 0002-pgpool-II-4.6.3-fix-build-doc.patch
 
+BuildRequires(pre): postgresql@pgver@-1C-server-devel
+
 BuildRequires: OpenSP
 BuildRequires: docbook-style-dsssl
 BuildRequires: docbook-style-dsssl-utils
 BuildRequires: docbook-style-xsl
 BuildRequires: perl-parent
 BuildRequires: xsltproc
-#BuildRequires: libfreetds-devel
+BuildRequires: bison
 BuildRequires: flex
-BuildRequires: postgresql%pg_ver-server-devel
 BuildRequires: libpam-devel
 BuildRequires: libmemcached-devel
 BuildRequires: libssl-devel
@@ -45,7 +47,26 @@ Requires: postgresql%pg_ver-server
 %add_findprov_skiplist %_libdir/libpgpoolpcp.so*
 %filter_from_requires /^libpgpoolpcp\.so.*/d
 
+
+%package -n postgresql%pg_ver-1C-%prog_name
+Summary: Pgpool is a connection pooling/replication server for PostgreSQL
+Group: Databases
+Requires: postgresql%pg_ver-1C-server
+	
+
 %description
+pgpool-II is a inherited project of pgpool (to classify from
+pgpool-II, it is sometimes called as pgpool-I). For those of
+you not familiar with pgpool-I, it is a multi-functional
+middle ware for PostgreSQL that features connection pooling,
+replication and load balancing functions. pgpool-I allows a
+user to connect at most two PostgreSQL servers for higher
+availability or for higher search performance compared to a
+single PostgreSQL server.
+
+Postgresql extensions libraries and sql files for pgpool-II.
+
+%description -n postgresql%pg_ver-1C-%prog_name
 pgpool-II is a inherited project of pgpool (to classify from
 pgpool-II, it is sometimes called as pgpool-I). For those of
 you not familiar with pgpool-I, it is a multi-functional
@@ -121,6 +142,20 @@ fi
 %preun
 %preun_service %sname
 
+%post -n postgresql%pg_ver-1C-%prog_name
+# Migrate configs from pgpool < 4.2.1
+if [ $1 -eq 2 ]; then
+    [ ! -f %_sysconfdir/pcp.conf ] || mv -f %_sysconfdir/pcp.conf %_sysconfdir/%sname/pcp.conf
+    [ ! -f %_sysconfdir/pgpool.conf ] || mv -f %_sysconfdir/pgpool.conf %_sysconfdir/%sname/pgpool.conf
+    [ ! -f %_sysconfdir/pool_hba.conf ] || mv -f %_sysconfdir/pool_hba.conf %_sysconfdir/%sname/pool_hba.conf
+    chown root:postgres %_sysconfdir/%sname/*
+    chmod 640 %_sysconfdir/%sname/*
+fi
+%post_service %sname
+
+%preun -n postgresql%pg_ver-1C-%prog_name
+%preun_service %sname
+
 %files
 %doc NEWS COPYING src/sample doc/src/sgml/html
 %dir %attr(750,root,postgres) %_sysconfdir/%sname
@@ -128,11 +163,13 @@ fi
 %config(noreplace) %_sysconfdir/sysconfig/%sname
 %_bindir/*
 %_initdir/*
-%_libdir/*.so.*
+%_libdir/*.so*
 %_libdir/pgsql/*.so
-%if %{enable_llvm}
+
+%if %enable_llvm
 %_libdir/pgsql/bitcode/*
 %endif
+
 %_datadir/%sname
 %_datadir/%prog_name
 %_datadir/pgsql/extension/*
@@ -141,6 +178,30 @@ fi
 %_man1dir/*
 %_man8dir/*
 %attr(1775,root,postgres) %dir %_logdir/%sname
+
+%files -n postgresql%pg_ver-1C-%prog_name
+%doc NEWS COPYING src/sample doc/src/sgml/html
+%dir %attr(750,root,postgres) %_sysconfdir/%sname
+%config(noreplace) %attr(640,root,postgres) %_sysconfdir/%sname/*
+%config(noreplace) %_sysconfdir/sysconfig/%sname
+%_bindir/*
+%_initdir/*
+%_libdir/*.so*
+%_libdir/pgsql/*.so
+
+%if %enable_llvm
+%_libdir/pgsql/bitcode/*
+%endif
+
+%_datadir/%sname
+%_datadir/%prog_name
+%_datadir/pgsql/extension/*
+%_unitdir/*
+%_tmpfilesdir/*
+%_man1dir/*
+%_man8dir/*
+%attr(1775,root,postgres) %dir %_logdir/%sname
+
 
 %changelog
 * Sun Jun 07 2026 Alexei Takaseev <taf@altlinux.org> 4.7.2-alt1
